@@ -434,6 +434,53 @@
       ]
     },
 
+    /* A second authored board, and the reason it exists is coverage
+       rather than content: every official course lays out two to four
+       boards, at least one of them rotated, and until now nothing
+       assembled more than one at rot 0. A seam is where a conveyor
+       runs off one board onto another and where two walls have to
+       agree across the join, and none of that had ever been built.
+
+       Clockwise express loop, gears and repair sites inside it,
+       pushers of both parities in the corners, 1/2/3-damage lasers on
+       three different edges. */
+    shuntYard: {
+      name: "Shunt Yard", w: 12, h: 12, origin: "authored",
+      notes: "Authored for PumaRally, to exercise multi-board assembly and rotation.",
+      pic: [
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|p> .. .. .. .. .. .. .. .. .. .. p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        " .. .. B> B> B> B> B> B> B> Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ .. .. .. .. .. .. Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ .. o. .. .. .. .. Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. ..|B^ .. .. r. W. .. .. Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ .. .. w. l. .. .. Bv|.. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ .. .. .. .. o. .. Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ .. .. .. .. .. .. Bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. B^ B< B< B< B< B< B< B< .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|P> .. .. .. .. .. .. .. .. .. .. P<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 0, r: 5, d: "E", n: 2 },
+        { c: 11, r: 6, d: "W", n: 1 },
+        { c: 6, r: 0, d: "S", n: 3 }
+      ]
+    },
+
     /* The start area. Robots enter the course from here, so it is
        laid out with position 1 nearest the middle and the numbers
        fanning outward, the way the printed bay does.
@@ -474,6 +521,42 @@
       boards: [{ id: "provingGround", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[9, 2], [1, 10], [8, 6]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    shuntRun: {
+      name: "Shunt Run",
+      blurb: "One express loop, and everything you own is on it.",
+      boards: [{ id: "shuntYard", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[5, 1], [10, 10], [3, 6]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Two boards side by side. The seam down the middle is the thing
+       under test: walls have to agree across it and a conveyor running
+       off one board has to meet whatever is on the other. */
+    crossTown: {
+      name: "Cross Town",
+      blurb: "Two factory floors and the gap between them.",
+      boards: [
+        { id: "provingGround", rot: 0, at: [0, 0] },
+        { id: "shuntYard", rot: 0, at: [12, 0] }
+      ],
+      dock: { id: "dockingBay", rot: 0, at: [6, 12] },
+      flags: [[9, 2], [17, 6], [1, 10]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* The same board a quarter-turn over, which is how the printed
+       courses use them and the only thing that exercises rotateGrid
+       against a real course rather than a unit test. */
+    sidelong: {
+      name: "Sidelong",
+      blurb: "The Shunt Yard, turned on its side.",
+      boards: [{ id: "shuntYard", rot: 1, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[10, 5], [1, 1], [6, 8]],
       minPlayers: 2, maxPlayers: 8
     }
   };
