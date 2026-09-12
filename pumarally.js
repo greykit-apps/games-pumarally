@@ -59,7 +59,7 @@
     good: "#4ade6a",          /* repair */
     violet: "#b47dff",        /* upgrade */
     steel: "#94a0c4",         /* gears, walls */
-    wall: "#c3cde8",
+    concrete: "#9aa1ae",      /* the poured edge of a wall, not its face */
     /* Hazard stripes: the yellow-and-black the printed board uses for
        anything that will hurt you -- wall faces, pit frames, rams. */
     hazard: "#f2c400",
@@ -343,12 +343,19 @@
       upgrade ? "pr-upgrade" : "pr-repair");
   }
 
-  /* A hole with a hazard frame round it, which is exactly how the
-     printed board marks one: the stripes are the warning, the black
-     is the drop. */
+  /* A hole, drawn as a shaft rather than a symbol: the mouth, the
+     four sides falling away from it, and the dark at the bottom.
+
+     It used to carry a hazard-striped frame, copying the printed
+     board. That was wrong HERE, because in this art language stripes
+     are what a wall's face is made of -- so a pit read as a square
+     with walls on all four sides, which is very nearly the opposite
+     of what it is. A borrowed convention that contradicts your own is
+     worse than no convention. */
   function pitSvg() {
-    return svg('<rect class="pr-hole" x="16" y="16" width="68" height="68" rx="3"/>' +
-               '<rect class="pr-hole-2" x="30" y="30" width="40" height="40" rx="2"/>', "pr-pit");
+    return svg('<rect class="pr-shaft" x="12" y="12" width="76" height="76" rx="2"/>' +
+               '<path class="pr-shaft-2" d="M12 12L88 12L66 34L34 34Z"/>' +
+               '<rect class="pr-void-floor" x="34" y="34" width="32" height="42" rx="1"/>', "pr-pit");
   }
 
   function dockSvg(n) {
@@ -2966,8 +2973,9 @@
     ".pr-dock .pr-plate{fill:var(--pr-panel-alt);stroke:var(--pr-border);stroke-width:3}",
     ".pr-dock .pr-num{fill:var(--pr-dim)}",
 
-    ".pr-pit .pr-hole{fill:#04060b}",
-    ".pr-pit .pr-hole-2{fill:#000}",
+    ".pr-pit .pr-shaft{fill:#161c2a}",
+    ".pr-pit .pr-shaft-2{fill:#20283a}",
+    ".pr-pit .pr-void-floor{fill:#000}",
     ".pr-flag .pr-pole{fill:var(--pr-steel)}",
     ".pr-flag .pr-pennant{fill:var(--pr-warn)}",
     ".pr-flag .pr-num{fill:var(--pr-bg)}",
@@ -2978,7 +2986,6 @@
        definition, so they cannot drift apart. */
     ".pr-root{--pr-stripe:repeating-linear-gradient(-45deg,var(--pr-hazard) 0 5px,",
     "var(--pr-hazard-dark) 5px 10px)}",
-    ".pr-t-pit{background:var(--pr-stripe)}",
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
@@ -2990,8 +2997,11 @@
        block. A wall you can see standing up is a wall you do not try
        to drive through, which is the whole reason for the depth. */
     ".pr-wall{position:absolute;background:var(--pr-stripe);z-index:3;pointer-events:none}",
-    ".pr-wall::after{content:\"\";position:absolute;inset:0;",
-    "border:1px solid rgba(0,0,0,.55)}",
+    /* The striped face is the warning; the concrete edge is the thing
+       the warning is painted on, and it is what gives the bar an
+       outside rather than just a colour. */
+    ".pr-wall::after{content:\"\";position:absolute;inset:0;box-sizing:border-box;",
+    "border:2px solid var(--pr-concrete)}",
     ".pr-wall.pr-n{left:0;right:0;top:0;height:15%;box-shadow:0 3px 5px rgba(0,0,0,.65)}",
     ".pr-wall.pr-s{left:0;right:0;bottom:0;height:15%;box-shadow:0 -3px 5px rgba(0,0,0,.65)}",
     ".pr-wall.pr-w{top:0;bottom:0;left:0;width:15%;box-shadow:3px 0 5px rgba(0,0,0,.65)}",
