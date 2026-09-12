@@ -120,375 +120,608 @@
      Robots are ONE sprite with eight palette maps. That is the
      difference between 40 lines of art and 320.
      ============================================================ */
+  /* @gen-sprites-begin */
   var SPRITES = {
     floor: {
-      palette: { q: TOKENS.plateDark, p: TOKENS.plate, d: TOKENS.rivet },
+      palette: { q: "#151c2e", p: "#1a2338", d: "#223052", h: "#2e4172" },
       rows: [
-        "qqqqqqqqqqqqqqqq",
-        "qdppppppppppppdq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qppppppppppppppq",
-        "qdppppppppppppdq",
-        "qqqqqqqqqqqqqqqq"
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqpphdpppppppppppppppppppphdppqq",
+        "qqppddppppppppppppppppppppddppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqpphdpppppppppppppppppppphdppqq",
+        "qqppddppppppppppppppppppppddppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqppppppppppppppppppppppppppppqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
       ]
     },
-
     pit: {
-      palette: { q: TOKENS.plateDark, m: "#0d1322", k: TOKENS.bg },
+      palette: { q: "#151c2e", m: "#0d1322", k: "#05070f", d: "#1d2740" },
       rows: [
-        "qqqqqqqqqqqqqqqq",
-        "qqmmmmmmmmmmmmqq",
-        "qmmkkkkkkkkkkmmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmkkkkkkkkkkkkmq",
-        "qmmkkkkkkkkkkmmq",
-        "qqmmmmmmmmmmmmqq",
-        "qqqqqqqqqqqqqqqq"
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqqqqqqqqqqqmmmmmmmmqqqqqqqqqqqq",
+        "qqqqqqqqqqmddddddddddmqqqqqqqqqq",
+        "qqqqqqqqmddkkkkkkkkkkddmqqqqqqqq",
+        "qqqqqqqmdkkkkkkkkkkkkkkdmqqqqqqq",
+        "qqqqqqddkkkkkkkkkkkkkkkkddqqqqqq",
+        "qqqqqmdkkkkkkkkkkkkkkkkkkdmqqqqq",
+        "qqqqmdkkkkkkkkkkkkkkkkkkkkdmqqqq",
+        "qqqqdkkkkkkkkkkkkkkkkkkkkkkdqqqq",
+        "qqqmdkkkkkkkkkkkkkkkkkkkkkkdmqqq",
+        "qqqdkkkkkkkkkkkkkkkkkkkkkkkkdqqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
+        "qqqdkkkkkkkkkkkkkkkkkkkkkkkkdqqq",
+        "qqqmdkkkkkkkkkkkkkkkkkkkkkkdmqqq",
+        "qqqqdkkkkkkkkkkkkkkkkkkkkkkdqqqq",
+        "qqqqmdkkkkkkkkkkkkkkkkkkkkdmqqqq",
+        "qqqqqmdkkkkkkkkkkkkkkkkkkdmqqqqq",
+        "qqqqqqddkkkkkkkkkkkkkkkkddqqqqqq",
+        "qqqqqqqmdkkkkkkkkkkkkkkdmqqqqqqq",
+        "qqqqqqqqmddkkkkkkkkkkddmqqqqqqqq",
+        "qqqqqqqqqqmddddddddddmqqqqqqqqqq",
+        "qqqqqqqqqqqqmmmmmmmmqqqqqqqqqqqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
       ]
     },
-
-    /* Conveyors are authored pointing NORTH and rotated to suit.
-       One chevron for a normal belt, two for an express -- the
-       speed has to be readable without reading the colour, because
-       the two belts are the commonest thing to misjudge. */
+    /* Conveyors are authored pointing NORTH and rotated to suit. One
+       chevron for a conveyor, two for an express -- the speed has to be
+       readable without reading the colour, because the two belts are the
+       commonest thing to misjudge. The slats sell the direction. */
     belt: {
-      palette: { v: "#6b4a2e", u: "#3a2a1e", a: TOKENS.rust },
-      transparent: "p",
-      rows: [
-        "ppvvvvvvvvvvvvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuaaaauuuvpp",
-        "ppvuuaaaaaauuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvvvvvvvvvvvvpp"
-      ]
-    },
-
-    express: {
-      palette: { v: "#1f4a6b", u: "#17324a", a: TOKENS.accent },
-      transparent: "p",
-      rows: [
-        "ppvvvvvvvvvvvvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuaaaauuuvpp",
-        "ppvuuaaaaaauuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuaauuuuvpp",
-        "ppvuuuaaaauuuvpp",
-        "ppvuuaaaaaauuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvuuuuuuuuuuvpp",
-        "ppvvvvvvvvvvvvpp"
-      ]
-    },
-
-    /* A curve authored as "fed from the west, exits north" -- a
-       LEFT turn. The right-turn curve is this mirrored, generated
-       at pre-render time, so the corner art is authored once. */
-    beltCurve: {
-      palette: { v: "#6b4a2e", u: "#3a2a1e", a: TOKENS.rust },
-      transparent: "p",
-      rows: [
-        "ppvvvvvvvvvvvvpp",
-        "ppvuuuuuuuuuuvpp",
-        "vvvuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuaauuuuvpp",
-        "vuuuuuaaaauuuvpp",
-        "vuuuuaaaaaauuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vvvvvvvvvvvvvvpp",
-        "pppppppppppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    expressCurve: {
-      palette: { v: "#1f4a6b", u: "#17324a", a: TOKENS.accent },
-      transparent: "p",
-      rows: [
-        "ppvvvvvvvvvvvvpp",
-        "ppvuuuuuuuuuuvpp",
-        "vvvuuuuuuuuuuvpp",
-        "vuuuuuuaauuuuvpp",
-        "vuuuuuaaaauuuvpp",
-        "vuuuuaaaaaauuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuaauuuuvpp",
-        "vuuuuuaaaauuuvpp",
-        "vuuuuaaaaaauuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vuuuuuuuuuuuuvpp",
-        "vvvvvvvvvvvvvvpp",
-        "pppppppppppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    gearCW: {
-      palette: { g: "#4a5578", h: "#6b7aa8", a: TOKENS.warn },
-      transparent: "p",
-      rows: [
-        "ppppppggggpppppp",
-        "ppppppggggpppppp",
-        "ppppggggggggpppp",
-        "pppggggggggggppp",
-        "ppggggggggggggpp",
-        "ppggggggggggggpp",
-        "gggggggaaagggggg",
-        "ggggggaaaagggggg",
-        "ggggggaaaagggggg",
-        "gggggggaaggggggg",
-        "ppggggggggggggpp",
-        "ppggggggggggggpp",
-        "pppggggggggggppp",
-        "ppppggggggggpppp",
-        "ppppppggggpppppp",
-        "ppppppggggpppppp"
-      ]
-    },
-
-    gearCCW: {
-      palette: { g: "#4a5578", h: "#6b7aa8", a: TOKENS.accent },
-      transparent: "p",
-      rows: [
-        "ppppppggggpppppp",
-        "ppppppggggpppppp",
-        "ppppggggggggpppp",
-        "pppggggggggggppp",
-        "ppggggggggggggpp",
-        "ppggggggggggggpp",
-        "ggggggaaaggggggg",
-        "ggggggaaaagggggg",
-        "ggggggaaaagggggg",
-        "gggggggaaggggggg",
-        "ppggggggggggggpp",
-        "ppggggggggggggpp",
-        "pppggggggggggppp",
-        "ppppggggggggpppp",
-        "ppppppggggpppppp",
-        "ppppppggggpppppp"
-      ]
-    },
-
-    /* Pushers are authored pushing NORTH: the piston housing sits
-       on the south edge, where its wall is, and the ram points the
-       way it shoves. Odd and even registers differ by colour, and
-       the renderer stamps the register numbers on top. */
-    pusherOdd: {
-      palette: { n: "#a86a28", m: "#7a4a1a", a: TOKENS.warn },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppppppaaaapppppp",
-        "pppppaaaaaappppp",
-        "ppppaaaaaaaapppp",
-        "ppppppaaaapppppp",
-        "ppppppaaaapppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppnnnnnnnnnnnnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnnnnnnnnnnnnpp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    pusherEven: {
-      palette: { n: "#2c6a7f", m: "#194a5c", a: TOKENS.accent },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppppppaaaapppppp",
-        "pppppaaaaaappppp",
-        "ppppaaaaaaaapppp",
-        "ppppppaaaapppppp",
-        "ppppppaaaapppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppnnnnnnnnnnnnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnmmmmmmmmmmnpp",
-        "ppnnnnnnnnnnnnpp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    repair: {
-      palette: { s: TOKENS.steel, h: "#c9d2f0", a: TOKENS.warn },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppppppsppspppppp",
-        "ppppppsppspppppp",
-        "ppppppsssspppppp",
-        "ppppppshhspppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "ppppppsssspppppp",
-        "ppppppsssspppppp",
-        "pppppppssppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    upgrade: {
-      palette: { s: TOKENS.warn, h: "#ffd98a", a: TOKENS.warn },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppaaaap",
-        "ppppppsppspaaaap",
-        "ppppppsppspaaaap",
-        "ppppppsssspaaaap",
-        "ppppppshhspppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "pppppppssppppppp",
-        "ppppppsssspppppp",
-        "ppppppsssspppppp",
-        "pppppppssppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    flag: {
-      palette: { s: TOKENS.steel, a: TOKENS.warn },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "ppppppsaaaaaappp",
-        "ppppppsaaaaaappp",
-        "ppppppsaaaaapppp",
-        "ppppppsaaapppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "ppppppsppppppppp",
-        "pppppssspppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    dock: {
-      palette: { h: TOKENS.accent },
-      transparent: "p",
-      rows: [
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pphhpppppppphhpp",
-        "phpppppppppppphp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "pppppppppppppppp",
-        "phpppppppppppphp",
-        "pphhpppppppphhpp",
-        "pppppppppppppppp",
-        "pppppppppppppppp"
-      ]
-    },
-
-    /* One robot, authored facing north. The nose is the facing
-       tell: at 16 pixels a rotated body alone is ambiguous, and
-       which way a robot points is the single most important fact
-       on the board. */
-    robot: {
-      palette: { a: "#ffb000", d: "#8a5c00", e: TOKENS.accent, h: "#ffffff" },
+      palette: { v: "#241a11", u: "#3d2c1c", s: "#70512f", a: "#c25a2b" },
       transparent: ".",
       rows: [
-        ".......dd.......",
-        "......daad......",
-        ".....ddaadd.....",
-        "...dddddddddd...",
-        "..ddaaaaaaaadd..",
-        "..ddeaaaaaaedd..",
-        "..ddaaaaaaaadd..",
-        "..ddaaaaaaaadd..",
-        "..ddaaaaaaaadd..",
-        "..dddddddddddd..",
-        ".dddddddddddddd.",
-        ".dhdhdhdhdhdhdd.",
-        ".dhdhdhdhdhdhdd.",
-        ".dddddddddddddd.",
-        "................",
-        "................"
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
+        "...vvsssssssssaaassssssssssvv...",
+        "...vvssssssssaaaaasssssssssvv...",
+        "...vvuuuuuuuaaaaaaauuuuuuuuvv...",
+        "...vvuuuuuuaaaaaaaaauuuuuuuvv...",
+        "...vvuuuuuaaaaaaaaaaauuuuuuvv...",
+        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
+        "...vvsssaaaaaaaaaaaaaaassssvv...",
+        "...vvssaaaaaaaaaaaaaaaaasssvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvsssssssssaaassssssssssvv...",
+        "...vvsssssssssaaassssssssssvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv..."
+      ]
+    },
+    express: {
+      palette: { v: "#0e2233", u: "#163449", s: "#2b6e93", a: "#54f2ff" },
+      transparent: ".",
+      rows: [
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuaaaaauuuuuuuuuvv...",
+        "...vvuuuuuuuaaaaaaauuuuuuuuvv...",
+        "...vvssssssaaaaaaaaasssssssvv...",
+        "...vvsssssaaaaaaaaaaassssssvv...",
+        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuaaaaauuuuuuuuuvv...",
+        "...vvsssssssaaaaaaassssssssvv...",
+        "...vvssssssaaaaaaaaasssssssvv...",
+        "...vvuuuuuaaaaaaaaaaauuuuuuvv...",
+        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "...vvsssssssssaaassssssssssvv...",
+        "...vvssssssssssssssssssssssvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv..."
+      ]
+    },
+    /* A curve authored as fed-from-the-west, exits-north -- a LEFT turn.
+       The right-turn curve is this mirrored at bake time, so the corner
+       art is authored once. */
+    beltCurve: {
+      palette: { v: "#241a11", u: "#3d2c1c", s: "#70512f", a: "#c25a2b" },
+      transparent: ".",
+      rows: [
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvssssssssssasssssssssssvv...",
+        "uuuvvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuaaaaauuuuuuuuuvv...",
+        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
+        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
+        "uuuvvsssssaaaaaaaaaaassssssvv...",
+        "uuuvvssssaaaaaaaaaaaaasssssvv...",
+        "uuuvvuuuaaaaaaaaaaaaaaauuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "................................",
+        "................................",
+        "................................"
+      ]
+    },
+    expressCurve: {
+      palette: { v: "#0e2233", u: "#163449", s: "#2b6e93", a: "#54f2ff" },
+      transparent: ".",
+      rows: [
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "uuuvvuuuuuuuuuuauuuuuuuuuuuvv...",
+        "uuuvvsssssssssaaassssssssssvv...",
+        "uuuvvssssssssaaaaasssssssssvv...",
+        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
+        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
+        "uuuvvuuuuuaaaaaaaaaaauuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvssssssssssasssssssssssvv...",
+        "uuuvvuuuuuuuuuaaauuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuaaaaauuuuuuuuuvv...",
+        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
+        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
+        "uuuvvsssssaaaaaaaaaaassssssvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvssssssssssssssssssssssvv...",
+        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
+        "................................",
+        "................................",
+        "................................"
+      ]
+    },
+    /* Eight teeth, a hub and an offset notch. Colour alone carried the
+       turn direction at 16 pixels; at 32 the notch does the work and the
+       colour is redundancy rather than the only cue. */
+    gearCW: {
+      palette: { g: "#4a5578", h: "#6b7aa8", a: "#ffb000" },
+      transparent: ".",
+      rows: [
+        ".............gggggg.............",
+        ".............gggggg.............",
+        ".............gggggg.............",
+        "...ggggg....hhhhhhhh....ggggg...",
+        "...gggggg.hhhhhhhhhhhh.gggggg...",
+        "...ggggghhhhhgggggaahhhhggggg...",
+        "...gggghhhgggggggaaaaghhhgggg...",
+        "...ggghhhggggggggaaaagghhhggg...",
+        "....ghhhgggggggggaaaaggghhhg....",
+        ".....hhgggggggggggaaggggghh.....",
+        "....hhgggggggghhhhgggggggghh....",
+        "....hhgggggghhhhhhhhgggggghh....",
+        "...hhhggggghhhaaaahhhggggghhh...",
+        "ggghhgggggghhaaaaaahhgggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhgggggghhaaaaaahhgggggghhggg",
+        "...hhhggggghhhaaaahhhggggghhh...",
+        "....hhgggggghhhhhhhhgggggghh....",
+        "....hhgggggggghhhhgggggggghh....",
+        ".....hhgggggggggggggggggghh.....",
+        "....ghhhgggggggggggggggghhhg....",
+        "...ggghhhgggggggggggggghhhggg...",
+        "...gggghhhgggggggggggghhhgggg...",
+        "...ggggghhhhhgggggghhhhhggggg...",
+        "...gggggg.hhhhhhhhhhhh.gggggg...",
+        "...ggggg....hhhhhhhh....ggggg...",
+        ".............gggggg.............",
+        ".............gggggg.............",
+        ".............gggggg............."
+      ]
+    },
+    gearCCW: {
+      palette: { g: "#4a5578", h: "#6b7aa8", a: "#54f2ff" },
+      transparent: ".",
+      rows: [
+        ".............gggggg.............",
+        ".............gggggg.............",
+        ".............gggggg.............",
+        "...ggggg....hhhhhhhh....ggggg...",
+        "...gggggg.hhhhhhhhhhhh.gggggg...",
+        "...ggggghhhhaaggggghhhhhggggg...",
+        "...gggghhhgaaaaggggggghhhgggg...",
+        "...ggghhhggaaaagggggggghhhggg...",
+        "....ghhhgggaaaaggggggggghhhg....",
+        ".....hhgggggaaggggggggggghh.....",
+        "....hhgggggggghhhhgggggggghh....",
+        "....hhgggggghhhhhhhhgggggghh....",
+        "...hhhggggghhhaaaahhhggggghhh...",
+        "ggghhgggggghhaaaaaahhgggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhggggghhaaaaaaaahhggggghhggg",
+        "ggghhgggggghhaaaaaahhgggggghhggg",
+        "...hhhggggghhhaaaahhhggggghhh...",
+        "....hhgggggghhhhhhhhgggggghh....",
+        "....hhgggggggghhhhgggggggghh....",
+        ".....hhgggggggggggggggggghh.....",
+        "....ghhhgggggggggggggggghhhg....",
+        "...ggghhhgggggggggggggghhhggg...",
+        "...gggghhhgggggggggggghhhgggg...",
+        "...ggggghhhhhgggggghhhhhggggg...",
+        "...gggggg.hhhhhhhhhhhh.gggggg...",
+        "...ggggg....hhhhhhhh....ggggg...",
+        ".............gggggg.............",
+        ".............gggggg.............",
+        ".............gggggg............."
+      ]
+    },
+    /* Pushers are authored pushing NORTH: the housing sits on the south
+       edge, where its wall is, and the ram points the way it shoves. The
+       renderer stamps the register numbers on top. */
+    pusherOdd: {
+      palette: { n: "#a86a28", m: "#7a4a1a", a: "#ffb000" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "................................",
+        "...............a................",
+        "..............aaa...............",
+        ".............aaaaa..............",
+        "............aaaaaaa.............",
+        "...........aaaaaaaaa............",
+        "..........aaaaaaaaaaa...........",
+        ".........aaaaaaaaaaaaa..........",
+        "........aaaaaaaaaaaaaaa.........",
+        "..............aaaa..............",
+        ".............naaaan.............",
+        ".............nnnnnn.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        "....nnnnnnnnnmmmmmmnnnnnnnnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
+        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn...."
+      ]
+    },
+    pusherEven: {
+      palette: { n: "#2c6a7f", m: "#194a5c", a: "#54f2ff" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "................................",
+        "...............a................",
+        "..............aaa...............",
+        ".............aaaaa..............",
+        "............aaaaaaa.............",
+        "...........aaaaaaaaa............",
+        "..........aaaaaaaaaaa...........",
+        ".........aaaaaaaaaaaaa..........",
+        "........aaaaaaaaaaaaaaa.........",
+        "..............aaaa..............",
+        ".............naaaan.............",
+        ".............nnnnnn.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        ".............mmmmmm.............",
+        "....nnnnnnnnnmmmmmmnnnnnnnnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
+        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
+        "....nnnnnnnnnnnnnnnnnnnnnnnn...."
+      ]
+    },
+    repair: {
+      palette: { s: "#8b93b5", h: "#c9d2f0" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............ssssssss...........",
+        ".............sshhhhss...........",
+        ".............sshhhhss...........",
+        ".............ssssssss...........",
+        "...............ssss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............ssss.............",
+        "..............ssssss............",
+        "..............ssssss............",
+        "..............ssssss............",
+        "..............ssssss............",
+        "................................",
+        "................................",
+        "................................"
+      ]
+    },
+    upgrade: {
+      palette: { s: "#ffb000", h: "#ffd98a", a: "#ffb000", k: "#4a3000" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............sss..sss...........",
+        ".............ssssssss...........",
+        ".............sshhhhss...........",
+        ".............sshhhhss...........",
+        ".............ssssssss...........",
+        "...............ssss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss.............",
+        "...............shss..aaa..aaa...",
+        "...............shss..aaaaaaaa...",
+        "...............shss..aaaaaaaa...",
+        "...............shss..aaaaaaaa...",
+        "...............shssaaaaakkaaaaa.",
+        "...............sssaaaaakkkkaaaaa",
+        "..............ssssaaaaakkkkaaaaa",
+        "..............sssssaaaaakkaaaaa.",
+        "..............ssssss.aaaaaaaa...",
+        "..............ssssss.aaaaaaaa...",
+        ".....................aaaaaaaa...",
+        ".....................aaa..aaa...",
+        "................................"
+      ]
+    },
+    flag: {
+      palette: { s: "#8b93b5", a: "#ffb000", h: "#ffd98a" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        ".........sss....................",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssahhhhhhhhhhhaaaa....",
+        ".........sssahhhhhhhhhhhaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sssaaaaaaaaaaaaaaaa....",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        ".........sss....................",
+        "......sssssssss.................",
+        "......sssssssss.................",
+        "......sssssssss.................",
+        "......sssssssss.................",
+        "................................"
+      ]
+    },
+    dock: {
+      palette: { h: "#54f2ff" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "..hhhhhhhhh..........hhhhhhhhh..",
+        "..hhhhhh................hhhhhh..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..h..........................h..",
+        "..h..........................h..",
+        "..h..........................h..",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "..h..........................h..",
+        "..h..........................h..",
+        "..h..........................h..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..hh........................hh..",
+        "..hhhhhh................hhhhhh..",
+        "..hhhhhhhhh..........hhhhhhhhh..",
+        "................................",
+        "................................"
+      ]
+    },
+    /* One robot, authored facing north, with eight palette maps. That is
+       the difference between 40 lines of art and 320. */
+    robot: {
+      palette: { a: "#ffb000", d: "#8a5c00", e: "#54f2ff", h: "#e8ecff", t: "#7d86a8", k: "#2a1c00" },
+      transparent: ".",
+      rows: [
+        "................................",
+        "................................",
+        "...............d................",
+        "..............ddd...............",
+        ".............ddeed..............",
+        "............dddeedd.............",
+        "...........ddddeeddd............",
+        "..........dddaaaaaadd...........",
+        ".............aaaaaa.............",
+        ".......ddddddaaaaaadddddd.......",
+        ".......dddddddddddddddddd.......",
+        "..dddddddhhhhhhhhhhhhhhddddddd..",
+        "..dddddddaaaaaaaaaaaaaaddddddd..",
+        "..dttttddakkkkkkkkkkkkaddttttd..",
+        "..dddddddakeeeeeeeeeekaddddddd..",
+        "..dddddddakeeeeeeeeeekaddddddd..",
+        "..dddddddakeeeeeeeeeekaddddddd..",
+        "..dttttddakkkkkkkkkkkkaddttttd..",
+        "..dddddddakkkkkkkkkkkkaddddddd..",
+        "..dddddddaaaaaaaaaaaaaaddddddd..",
+        "..dddddddaaaaaaaaaaaaaaddddddd..",
+        "..dttttddaaddddddddddaaddttttd..",
+        "..dddddddaaddddddddddaaddddddd..",
+        "..dddddddaaaaaaaaaaaaaaddddddd..",
+        "..dddddddaaaaaaaaaaaaaaddddddd..",
+        "..dttttddaaaaaaaaaaaaaaddttttd..",
+        "..dddddddddddddddddddddddddddd..",
+        "..dddddddddddddddddddddddddddd..",
+        "..dddddd................dddddd..",
+        "..dddddd................dddddd..",
+        "................................",
+        "................................"
       ]
     }
   };
+  /* @gen-sprites-end */
 
-  /* A 3x5 numeral font, same shape as Retro Surfer's. Flag numbers,
+  /* A 5x7 numeral font. Flag numbers,
      docking bay numbers and register pips all come from here, so
      the game never needs a web font to render a digit. */
   var FONT = {
-    "0": "111,101,101,101,111", "1": "010,110,010,010,111",
-    "2": "111,001,111,100,111", "3": "111,001,111,001,111",
-    "4": "101,101,111,001,001", "5": "111,100,111,001,111",
-    "6": "111,100,111,101,111", "7": "111,001,001,001,001",
-    "8": "111,101,111,101,111", "9": "111,101,111,001,111"
+    "0": "01110,10001,10011,10101,11001,10001,01110",
+    "1": "00100,01100,00100,00100,00100,00100,01110",
+    "2": "01110,10001,00001,00010,00100,01000,11111",
+    "3": "11111,00010,00100,00010,00001,10001,01110",
+    "4": "00010,00110,01010,10010,11111,00010,00010",
+    "5": "11111,10000,11110,00001,00001,10001,01110",
+    "6": "00110,01000,10000,11110,10001,10001,01110",
+    "7": "11111,00001,00010,00100,01000,01000,01000",
+    "8": "01110,10001,10001,01110,10001,10001,01110",
+    "9": "01110,10001,10001,01111,00001,00010,01100"
   };
 
   /* ============================================================
@@ -496,7 +729,7 @@
      Character grids become ImageData once, at load. Nothing in the
      draw path parses a string.
      ============================================================ */
-  var TILE = 16;
+  var TILE = 32;
   var baked = {};
 
   function bakeSprite(spec, paletteOverride) {
@@ -542,10 +775,17 @@
     // The right-turn curves are the authored left-turn art mirrored.
     baked.beltCurveR = mirrorCanvas(baked.beltCurve);
     baked.expressCurveR = mirrorCanvas(baked.expressCurve);
+    /* A livery overrides only the two body colours. The rest of the
+       palette is copied rather than listed, so adding a colour to the
+       robot cannot silently drop those pixels from all eight liveries --
+       which is exactly what an explicit list did when the treads gained
+       their own tone. */
     baked.robots = LIVERIES.map(function (L) {
-      return bakeSprite(SPRITES.robot, {
-        a: L.a, d: L.d, e: SPRITES.robot.palette.e, h: SPRITES.robot.palette.h
-      });
+      var pal = {}, key;
+      for (key in SPRITES.robot.palette) pal[key] = SPRITES.robot.palette[key];
+      pal.a = L.a;
+      pal.d = L.d;
+      return bakeSprite(SPRITES.robot, pal);
     });
   }
 
@@ -592,21 +832,25 @@
     ctx.restore();
   }
 
+  var GLYPH_W = 5, GLYPH_H = 7, GLYPH_ADV = 6;
+
   function drawDigits(ctx, text, x, y, color) {
     ctx.fillStyle = color;
     for (var i = 0; i < text.length; i++) {
       var g = FONT[text.charAt(i)];
       if (!g) continue;
       var lines = g.split(",");
-      for (var ry = 0; ry < 5; ry++) {
-        for (var rx = 0; rx < 3; rx++) {
-          if (lines[ry].charAt(rx) === "1") ctx.fillRect(x + i * 4 + rx, y + ry, 1, 1);
+      for (var ry = 0; ry < GLYPH_H; ry++) {
+        for (var rx = 0; rx < GLYPH_W; rx++) {
+          if (lines[ry].charAt(rx) === "1") ctx.fillRect(x + i * GLYPH_ADV + rx, y + ry, 1, 1);
         }
       }
     }
   }
 
-  var WALL_T = 2;
+  function digitsWidth(text) { return text.length * GLYPH_ADV - 1; }
+
+  var WALL_T = 4;
 
   function drawCourse(C) {
     var cv = makeCanvas(C.w * TILE, C.h * TILE);
@@ -645,8 +889,8 @@
            on its own dark backing so it reads over any art. */
         var lbl = el.push === "odd" ? "135" : "24";
         ctx.fillStyle = TOKENS.bg;
-        ctx.fillRect(x + 1, y + 1, lbl.length * 4 + 1, 7);
-        drawDigits(ctx, lbl, x + 2, y + 2, el.push === "odd" ? TOKENS.warn : TOKENS.accent);
+        ctx.fillRect(x + 2, y + 2, digitsWidth(lbl) + 4, GLYPH_H + 4);
+        drawDigits(ctx, lbl, x + 4, y + 4, el.push === "odd" ? TOKENS.warn : TOKENS.accent);
       } else if (el.option) {
         ctx.drawImage(baked.upgrade, x, y);
       } else if (el.repair) {
@@ -655,7 +899,8 @@
         ctx.drawImage(baked.pit, x, y);
       } else if (code.charAt(0) === "s") {
         ctx.drawImage(baked.dock, x, y);
-        drawDigits(ctx, code.charAt(1), x + 7, y + 6, TOKENS.accent);
+        var dn = code.charAt(1);
+        drawDigits(ctx, dn, x + (TILE - digitsWidth(dn)) / 2, y + (TILE - GLYPH_H) / 2, TOKENS.accent);
       }
     }
 
@@ -663,30 +908,31 @@
     for (var li = 0; li < C.lasers.length; li++) {
       var L = C.lasers[li], path = B.laserPath(C, L);
       var horiz = (L.d === E || L.d === W);
+      var bar = 3, gap = 6;
       ctx.fillStyle = "rgba(255,51,51,0.22)";
       for (var pi = 0; pi < path.length; pi++) {
         var px = path[pi].c * TILE, py = path[pi].r * TILE;
         for (var n = 0; n < L.n; n++) {
-          var off = TILE / 2 - (L.n - 1) * 2 + n * 4 - 1;
-          if (horiz) ctx.fillRect(px, py + off, TILE, 2);
-          else ctx.fillRect(px + off, py, 2, TILE);
+          var off = Math.round(TILE / 2 - ((L.n - 1) * gap + bar) / 2 + n * gap);
+          if (horiz) ctx.fillRect(px, py + off, TILE, bar);
+          else ctx.fillRect(px + off, py, bar, TILE);
         }
       }
       // the emitter itself
       var ex = L.c * TILE, ey = L.r * TILE;
       ctx.fillStyle = TOKENS.danger;
-      var m = B.opposite(L.d);
-      if (m === N) ctx.fillRect(ex + 4, ey, 8, 3);
-      else if (m === S) ctx.fillRect(ex + 4, ey + TILE - 3, 8, 3);
-      else if (m === W) ctx.fillRect(ex, ey + 4, 3, 8);
-      else ctx.fillRect(ex + TILE - 3, ey + 4, 3, 8);
+      var m = B.opposite(L.d), lw = Math.round(TILE * 0.4), lt = 5, lo = Math.round((TILE - lw) / 2);
+      if (m === N) ctx.fillRect(ex + lo, ey, lw, lt);
+      else if (m === S) ctx.fillRect(ex + lo, ey + TILE - lt, lw, lt);
+      else if (m === W) ctx.fillRect(ex, ey + lo, lt, lw);
+      else ctx.fillRect(ex + TILE - lt, ey + lo, lt, lw);
     }
 
     // ---- flags ----
     for (var fi = 0; fi < C.flags.length; fi++) {
       var F = C.flags[fi];
       ctx.drawImage(baked.flag, F.c * TILE, F.r * TILE);
-      drawDigits(ctx, String(F.n), F.c * TILE + 8, F.r * TILE + 4, TOKENS.bg);
+      drawDigits(ctx, String(F.n), F.c * TILE + 16, F.r * TILE + 7, TOKENS.bg);
     }
 
     // ---- walls last: they sit on top of everything they block ----
@@ -759,8 +1005,10 @@
     }
     for (k in FONT) {
       var lines = FONT[k].split(",");
-      if (lines.length !== 5) throw new Error("font glyph " + k + " has " + lines.length + " rows, expected 5");
-      for (var fy = 0; fy < 5; fy++) if (lines[fy].length !== 3) throw new Error("font glyph " + k + " row " + fy + " is not 3 wide");
+      if (lines.length !== GLYPH_H) throw new Error("font glyph " + k + " has " + lines.length + " rows, expected " + GLYPH_H);
+      for (var fy = 0; fy < GLYPH_H; fy++) {
+        if (lines[fy].length !== GLYPH_W) throw new Error("font glyph " + k + " row " + fy + " is " + lines[fy].length + " wide, expected " + GLYPH_W);
+      }
     }
   }
 
@@ -2145,7 +2393,7 @@
     sub.className = "pr-sub";
     sub.textContent = C.name + " — " + C.w + "x" + C.h + ", " + C.flags.length + " flags, " + C.docks.length + " docking bays";
 
-    var scale = opts.scale || 2;
+    var scale = opts.scale || 1;
     art.className = "pr-board";
     art.style.width = (C.w * TILE * scale) + "px";
     art.setAttribute("role", "img");

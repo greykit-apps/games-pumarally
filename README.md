@@ -136,8 +136,14 @@ node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
 node tools/check-rules.js 200     # 32 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
+node tools/gen-sprites.js         # redraw the 32x32 tile art
 node tools/make-icon.js           # regenerate icon.svg from the robot sprite
 ```
+
+`gen-sprites.js` and `make-icon.js` both take `--check`, which fails when the
+shipped output no longer matches the generator. Resolution is one constant in
+`gen-sprites.js` — though raising it does not by itself buy detail, since each
+sprite is drawn at real proportions rather than scaled up.
 
 All of these run in CI ahead of deploy. `check-rules.js` fails when no simulated
 game is ever *won* — a run reporting only "no crashes" cannot distinguish a
@@ -160,9 +166,10 @@ __PR.G                  // live state
   dependencies, no build step, no network at play time.
 - The rules engine touches no DOM, so the human, the bots and the simulations
   share one definition of legal — and Node loads the same file CI tests.
-- Sprites are hand-editable character grids with per-sprite palettes,
-  pre-rendered once to offscreen canvases. Rotations are canvas transforms, and
-  the eight robots are one sprite with eight palette maps.
+- Tiles are 32x32. Sprites ship as character grids with per-sprite palettes,
+  pre-rendered once to offscreen canvases, but at 1,024 characters each they
+  are *drawn* by `tools/gen-sprites.js` rather than typed. Rotations are canvas
+  transforms, and the eight robots are one sprite with eight palette maps.
 - All rule randomness goes through one seeded generator whose entire state is a
   single integer in the save, so a seed replays a game exactly. Bots consume
   none of it — their variety comes from hashing the position, and an invariant
