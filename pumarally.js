@@ -578,40 +578,10 @@
     return out.join("");
   }
 
-  /* The legend is RENDERED, not written. Each swatch is the same
-     tileInner the board calls, so a tile that changes shape changes
-     its own legend entry in the same edit.
-
-     It used to be a hand-typed string -- "amber hub = gear CW",
-     "wrench = repair" -- and the first time the art changed, every
-     word of it was wrong while reading perfectly plausibly. That is
-     the same failure the turn-order help is guarded against, and it
-     gets the same answer: generate it from the thing it describes.
-
-     Only the elements this course's edition actually has are listed,
-     because a legend entry for a square that cannot appear is worse
-     than no entry at all. */
-  function buildLegend(C) {
-    var edition = C.edition || "classic", out = [], k;
-    for (k in B.ELEMENT_DEFS) {
-      var d = B.ELEMENT_DEFS[k];
-      if (d.name === "floor" || d.name === "docking bay") continue;
-      if (d.editions && d.editions.indexOf(edition) < 0) continue;
-      out.push(legendSwatch(tileInner(probeTile(sampleCode(k, d)), 0, 0), d.name));
-    }
-    /* Flags and lasers are course tokens rather than printed board
-       elements, so they are not in ELEMENT_DEFS and are added here. */
-    out.push(legendSwatch(flagSvg(1), "flag, in order"));
-    if (C.lasers.length) out.push(legendSwatch(emitterSvg(S), "board laser"));
-    return out.join("");
-  }
-
-  function legendSwatch(art, name) {
-    /* The swatch is aria-hidden because the name beside it already
-       says what it is, and a pusher's stamped digits would otherwise
-       be read out twice. */
-    return '<span class="pr-leg"><span class="pr-leg-art" aria-hidden="true">' + art +
-           "</span>" + esc(name) + "</span>";
+  /* aria-hidden because the name in the next cell already says what it
+     is, and a pusher's stamped digits would otherwise be read twice. */
+  function legendSwatch(art) {
+    return '<span class="pr-leg-art" aria-hidden="true">' + art + "</span>";
   }
 
   /* WALLS SIT ON THE LATTICE, NOT IN A SQUARE.
@@ -3282,10 +3252,24 @@
     ".pr-hud-spacer{flex:1 1 auto}",
 
     /* ---- layout ---- */
-    ".pr-main{display:flex;gap:12px;align-items:stretch}",
-    ".pr-side{width:250px;flex:0 0 250px;display:flex;flex-direction:column;gap:8px;min-height:0}",
-    ".pr-side .pr-panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}",
-    "@media (max-width:900px){.pr-main{flex-direction:column;align-items:center}.pr-side{width:100%;flex:none}}",
+    /* overflow:hidden is load-bearing. Without it the side column
+       spills out of the clamped row, re-inflating the document below
+       it -- and "below the row" is exactly what the height budget
+       measures, so the budget ends up measuring its own overflow. */
+    ".pr-main{display:flex;gap:12px;align-items:flex-start;width:100%;justify-content:center;",
+    "overflow:hidden}",
+    /* Wide enough for five registers in a row and the hand under them:
+       five cards plus gaps is what sets this number, not taste. */
+    ".pr-side{width:470px;flex:0 0 470px;display:flex;flex-direction:column;gap:8px;min-height:0}",
+    ".pr-side{overflow-y:auto}",
+    ".pr-side .pr-panel:last-child{flex:1 1 0;display:flex;flex-direction:column;min-height:0}",
+    ".pr-side .pr-program{flex:0 0 auto}",
+    ".pr-side .pr-program{width:100%}",
+    /* Below this the two columns cannot both have their axis, so the
+       board goes back on top and the page scrolls -- which is worse,
+       and still better than a board squeezed to nothing. */
+    "@media (max-width:1180px){.pr-main{flex-direction:column;align-items:center}",
+    ".pr-side{width:100%;max-width:640px;flex:none}}",
 
     /* ---- the board ----
        Three layers, all DOM. The grid of cells IS the board now: it
@@ -3420,14 +3404,19 @@
     ".pr-pip{width:4px;height:10px;background:var(--pr-border)}",
     ".pr-pip.on{background:var(--pr-danger)}",
     ".pr-pip.life{background:var(--pr-accent)}",
-    ".pr-log{flex:1 1 auto;min-height:160px;overflow-y:auto;font-size:11px;line-height:1.45}",
+        /* No floor on the log. It is the one panel with no natural end, so
+       it is the one that should absorb whatever height is left over --
+       generous on a tall screen, a few lines on a short one. Give it a
+       minimum and it stops being the thing that gives, and the column
+       scrolls instead, which hides the cards. */
+    ".pr-log{flex:1 1 0;min-height:0;overflow-y:auto;font-size:11px;line-height:1.45}",
     ".pr-log div{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.04)}",
     ".pr-log .reg{color:var(--pr-accent)}",
 
     /* ---- program bar ---- */
     ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
     ".pr-regs,.pr-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}",
-    ".pr-hand{min-height:84px}",
+    ".pr-hand{min-height:76px}",
     ".pr-row{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}",
     ".pr-row h2{margin:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;",
     "color:var(--pr-dim);font-weight:normal}",
@@ -3437,7 +3426,7 @@
        card-panel language PumaTriage uses. It has two faces and turns
        over: what a register holds is secret once it is committed, and
        the board game says so by putting the card face down. */
-    ".pr-card{width:84px;height:78px;perspective:600px;background:none;border:0;padding:0;",
+    ".pr-card{width:80px;height:72px;perspective:600px;background:none;border:0;padding:0;",
     "position:relative;flex:0 0 auto}",
     ".pr-card .pr-faces{position:absolute;inset:0;transform-style:preserve-3d;",
     "transition:transform .42s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
@@ -3455,7 +3444,7 @@
     ".pr-card span.pr-pri{font-size:9px;color:var(--pr-dim);line-height:1}",
     /* The art carries the card's kind colour, the same way a tile's
        art carries its element's. */
-    ".pr-cart{width:38px;height:38px;display:block;margin-bottom:1px;color:var(--pr-kind,var(--pr-ink))}",
+    ".pr-cart{width:34px;height:34px;display:block;color:var(--pr-kind,var(--pr-ink))}",
     ".pr-cart .pr-cshaft{stroke:currentColor;stroke-width:8;stroke-linecap:round;fill:none}",
     ".pr-cart .pr-cmark{stroke:currentColor;stroke-width:8;stroke-linecap:round;",
     "stroke-linejoin:round;fill:none}",
@@ -3474,7 +3463,7 @@
     /* ---- registers ----
        A slot is a landing place: dashed while empty, solid once it
        holds something, and lit while a card is over it. */
-    ".pr-slot{width:84px;height:78px;border:1px dashed var(--pr-border-lit);display:flex;",
+    ".pr-slot{width:80px;height:72px;border:1px dashed var(--pr-border-lit);display:flex;",
     "align-items:center;justify-content:center;background:var(--pr-panel);position:relative;",
     "padding:0;flex:0 0 auto}",
     ".pr-slot.pr-filled{border-color:transparent;background:none}",
@@ -3502,9 +3491,8 @@
     ".pr-banner b{color:var(--pr-text);font-weight:normal}",
 
     ".pr-err{color:var(--pr-danger);white-space:pre-wrap;font-size:12px;max-width:640px}",
-    ".pr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;max-width:820px;font-size:10px}",
-    ".pr-leg{display:flex;align-items:center;gap:5px;color:var(--pr-ink);letter-spacing:.5px}",
-    ".pr-leg-art{position:relative;width:20px;height:20px;flex:0 0 20px;display:block;",
+    /* The legend's swatches, now in the help table's first column. */
+    ".pr-leg-art{position:relative;width:24px;height:24px;display:block;",
     "background:var(--pr-floor);box-shadow:inset 0 0 0 1px var(--pr-line)}",
     ".pr-leg-art .pr-pushreg{display:none}",
     ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}",
@@ -4682,15 +4670,35 @@
     return out.join("") + "</ol>";
   }
 
+  /* THE LEGEND LIVES HERE NOW.
+
+     It used to be a strip along the bottom of the screen, where it
+     cost the board a row of tiles on every screen in exchange for
+     something you read twice and then never again. In the help it
+     sits next to the sentence explaining what the tile does, which is
+     what you actually wanted when you went looking for it.
+
+     Still rendered rather than written: each swatch is the same
+     tileInner the board calls and each name comes from ELEMENT_DEFS,
+     so a tile that changes shape changes its own entry. */
   function buildBoardHelp() {
-    var out = ["<table><tr><th>Tile</th><th>What it does</th></tr>"];
-    var seen = {};
-    for (var ch in B.ELEMENT_DEFS) {
+    var C = UI.course, edition = (C && C.edition) || "classic";
+    var out = ["<table><tr><th></th><th>Tile</th><th>What it does</th></tr>"];
+    var seen = {}, ch;
+    for (ch in B.ELEMENT_DEFS) {
       var d = B.ELEMENT_DEFS[ch];
-      if (seen[d.name]) continue;
+      if (seen[d.name] || d.name === "floor") continue;
+      if (d.editions && d.editions.indexOf(edition) < 0) continue;
       seen[d.name] = true;
-      out.push("<tr><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
+      out.push("<tr><td>" + legendSwatch(tileInner(probeTile(sampleCode(ch, d)), 0, 0)) +
+        "</td><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
     }
+    /* Flags and lasers are course tokens rather than printed board
+       elements, so they are not in ELEMENT_DEFS and are added here. */
+    out.push("<tr><td>" + legendSwatch(flagSvg(1)) + "</td><td>flag</td><td>" +
+      "Touch them in order. Touching one out of order still moves your archive.</td></tr>");
+    out.push("<tr><td>" + legendSwatch(emitterSvg(S)) + "</td><td>board laser</td><td>" +
+      "Fires along its line every register, at whatever it reaches first.</td></tr>");
     return out.join("") + "</table>";
   }
 
@@ -5343,22 +5351,92 @@
      stops a 12-wide course from filling a wide desktop -- at which
      point you are reading a tile instead of the board.
      ============================================================ */
-  var TILE_MIN = 22, TILE_MAX = 64;
+  var TILE_MIN = 20, TILE_MAX = 64;
 
-  function fitTile(C, width, opts) {
+  /* THE BOARD IS SIZED BY HEIGHT AS WELL AS WIDTH.
+
+     Sizing on width alone is what made the board and the cards
+     unable to share a screen: a twelve-wide course in a wide column
+     picks a big tile, and the sixteen rows that tile implies then run
+     off the bottom. The limit that binds is nearly always the
+     vertical one, so it has to be in the sum. */
+  function fitTile(C, width, height, opts) {
     if (opts.scale) return opts.scale * TILE;
     var cap = opts.maxScale ? opts.maxScale * TILE : TILE_MAX;
-    return Math.max(TILE_MIN, Math.min(cap, Math.floor(width / C.w)));
+    var byW = Math.floor(width / C.w);
+    var byH = height > 0 ? Math.floor(height / C.h) : byW;
+    return Math.max(TILE_MIN, Math.min(cap, byW, byH));
+  }
+
+  /* EVERYTHING ON THE PAGE ABOVE AND BELOW THE GAME ROW.
+
+     Two earlier attempts at this were circular and both failed the
+     same way. Itemising the parts (hud, legend, side) missed the
+     shell's own banner and footer, which are not ours to know about.
+     Measuring the remainder -- document minus the row -- then fed the
+     row's own clamp back into the number that sets the clamp, and the
+     tile spiralled down to its minimum.
+
+     Above and below are independent of how tall the row is, so this
+     one settles in a single pass and cannot chase itself. */
+  function chromeHeight() {
+    if (typeof document === "undefined" || !UI.els || !UI.els.main) return 0;
+    var m = UI.els.main.getBoundingClientRect();
+    var sy = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var mainBottom = m.bottom + sy;
+
+    /* The bottom of the real CONTENT, found by asking the elements.
+       scrollHeight is no use here: a document is always at least as
+       tall as its window, so on a screen taller than the page it grows
+       with the window -- and since it is subtracted, the extra room a
+       taller window gives is cancelled exactly as fast as it appears.
+       That is why the board would not grow past a certain size however
+       tall the screen got. */
+    var bottom = mainBottom, kids = document.body.children, i, r;
+    for (i = 0; i < kids.length; i++) {
+      r = kids[i].getBoundingClientRect();
+      if (r.height) bottom = Math.max(bottom, r.bottom + sy);
+    }
+    return Math.max(0, m.top + sy) + Math.max(0, bottom - mainBottom);
   }
 
   function fitBoard(C, host, opts) {
     var avail = host.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
     var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
     if (cs) avail -= (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-    if (UI.els && UI.els.side && avail > 900) avail -= 262;    // the side panel's column
-    var tile = fitTile(C, avail, opts);
+    var sideW = 0, beside = false;
+    if (UI.els && UI.els.side) {
+      var sr = UI.els.side.getBoundingClientRect();
+      /* Only subtract the column when it really is a column. Below the
+         breakpoint it wraps under the board and costs height instead. */
+      beside = !!(sr.width && sr.width < avail - 100);
+      if (beside) sideW = sr.width + 12;
+    }
+    avail -= sideW;
+
+    /* Measure with any previous clamp lifted: a stale one changes where
+       the row ends, and where the row ends is half the measurement. */
+    UI.els.main.style.maxHeight = "";
+    UI.els.side.style.height = "";
+    var vh = (typeof window !== "undefined" ? window.innerHeight : 0);
+    var availH = vh ? Math.max(0, vh - chromeHeight() - 10) : 0;
+
+    var tile = fitTile(C, avail, availH, opts);
     var w = C.w * tile, h = C.h * tile;
     UI.tile = tile;
+    /* Bound the row and the column, so neither can push the page past
+       the window. What overflows inside the column scrolls: the log is
+       the thing with no natural end, so the log is what gives. */
+    if (availH) {
+      UI.els.main.style.maxHeight = availH + "px";
+      /* A definite HEIGHT, not a maximum, and only while the side is a
+         column. flex:1 1 0 on the log divides whatever is spare, and a
+         max-height leaves the column sized to its content -- so there
+         is never anything spare and the log collapses to its heading
+         however much room the window has. Stacked, it takes its
+         natural height like any other block. */
+      UI.els.side.style.height = beside ? availH + "px" : "";
+    }
     var st = UI.els.stage.style;
     st.width = w + "px"; st.height = h + "px";
     st.setProperty("--tile", tile + "px");
@@ -5470,6 +5548,20 @@
     program.appendChild(controls); program.appendChild(choice);
     program.appendChild(optsRow); program.appendChild(hint);
 
+    /* The program goes BESIDE the board, not under it.
+
+       A course is twelve squares wide and sixteen tall counting the
+       docking bay, so stacking the cards beneath it puts one or the
+       other off a laptop screen whatever size the tiles are -- and a
+       player who has to scroll to see the board while choosing cards
+       for it is playing two half-games. The board is tall and the card
+       rows are wide, so they go side by side and each gets the axis it
+       needs.
+
+       It goes in FIRST, above the robots and the log: it is the thing
+       you act on, and the two panels below it are reference. */
+    side.insertBefore(program, side.firstChild);
+
     var banner = el("div", "pr-banner");
     banner.hidden = true;
     var overlay = el("div", "pr-overlay");
@@ -5479,10 +5571,8 @@
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "assertive");
 
-    var legend = el("div", "pr-legend", buildLegend(C));
-
     host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
-    host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
+    host.appendChild(sr);
     host.appendChild(overlay); host.appendChild(curtain);
 
     UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, walls: walls,
@@ -5505,6 +5595,17 @@
     try { UI.muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) { UI.muted = false; }
 
     fitBoard(C, host, opts);
+    /* And again once the browser has laid the page out. The first call
+       runs while the shell's banner, our legend and the footer are all
+       still finding their heights, so "how much room is below the row"
+       is not yet a real number -- and that number is half the height
+       budget. Measured a frame later it is exact. */
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () { if (UI.mounted) fitBoard(C, host, opts); });
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("load", function () { if (UI.mounted) fitBoard(C, host, opts); });
+    }
     buildGridCells(C);
     setupInput(host);
 
