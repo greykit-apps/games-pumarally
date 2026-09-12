@@ -1580,6 +1580,14 @@
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
+      /* "A powered-down robot is completely shut down -- it can't fire
+         weapons, tag checkpoints, or update its archive location."
+         A belt can still carry it across a flag, and it must come away
+         with nothing: no score, and no new archive either. Scoring was
+         the louder of the two, but the archive is the one that decides
+         where a robot comes back, so a silent update moves a respawn
+         the player never earned. */
+      if (p.poweredDown) continue;
       var reach = fire(p, "onTouchCheckpoint", { reach: 0 }).reach;
       var spots = [{ c: p.c, r: p.r }];
       for (var d = 0; d < 4 && reach > 0; d++) {
@@ -1872,7 +1880,11 @@
           if ((el && el.repair) || onFlag) {
             if (p.damage > 0) { p.damage--; log(p.name + " repairs 1 damage"); }
           }
-          if (el && el.option) drawOption(p);
+          /* Same rule, same sentence: "nor can it acquire or use
+             option cards." Repair is already a no-op for a powered-down
+             robot because its damage was cleared at the start of the
+             turn, but the upgrade site would have handed it a card. */
+          if (el && el.option && !p.poweredDown) drawOption(p);
         }
         go("cleanup", "stayDown");
         return NEXT;
@@ -2667,6 +2679,37 @@
       assert(p.damage === 6, "announcing must not repair anything by itself");
       STEP.turn.powerStart();
       assert(p.damage === 0, "damage clears at the start of the powered-down turn");
+    } },
+
+    /* The powered-down shutdown rules. A belt can carry a shut-down
+       robot anywhere, so each of these is reachable in ordinary play
+       and none of them is visible when it goes wrong -- a flag scored
+       by a robot that was switched off looks exactly like a flag
+       scored by one that was not. */
+    { name: "a powered-down robot does not tag a checkpoint", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, poweredDown: true }], [{ c: 0, r: 0, n: 1 }]);
+      checkpointPass();
+      assert(G.players[0].flags === 0,
+        "manual p.29: a powered-down robot cannot tag checkpoints; it scored " + G.players[0].flags);
+    } },
+
+    { name: "a powered-down robot does not update its archive", run: function () {
+      benchGame(bench([["w."]]), [{ c: 0, r: 0, poweredDown: true,
+        archive: { c: 9, r: 9, face: 0 } }]);
+      checkpointPass();
+      assert(G.players[0].archive.c === 9,
+        "manual p.29: a powered-down robot cannot update its archive location; it moved to " +
+        G.players[0].archive.c + "," + G.players[0].archive.r);
+    } },
+
+    { name: "a powered-down robot does not acquire an option card", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, poweredDown: true }]);
+      G.optionDeck = ["brakes"];
+      G.phase = "cleanup"; G.step = "repair";
+      STEP.cleanup.repair();
+      assert(G.players[0].options.length === 0,
+        "manual p.29: a powered-down robot cannot acquire option cards; it took " +
+        G.players[0].options.length);
     } },
 
     { name: "a powered-down robot is dealt no cards", run: function () {

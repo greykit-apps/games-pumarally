@@ -128,7 +128,7 @@ physical cards, against a hook system that is already finished. The gap is a
 number in the source (`OPTION_ROSTER`) that the validator checks, not something
 anyone has to remember.
 
-Two deliberate simplifications, both marked here because no check can see them:
+Three deliberate simplifications, marked here because no check can see them:
 
 - **Losing a card when wrecked** is the player's choice at the table. Here it is
   a fixed preference, because destruction happens deep inside a move where no
@@ -139,6 +139,14 @@ Two deliberate simplifications, both marked here because no check can see them:
 - **Bots answer instantly** and consume no shared randomness, same contract as
   their programming: a seeded replay must not drift because a bot was offered a
   different number of choices.
+- **The upgrade site is wrong, and known to be.** The printed rule is that a
+  two-wrench site repairs *two* points of damage *or* hands over an option card
+  — the player picks one. Here it repairs one point *and* hands over the card.
+  That is more generous on both halves and it is not a judgement call, it is
+  unfinished work: the faithful version is a question put to the player, and the
+  choice queue that every "you may" option card already drains through is the
+  place to put it. Until then the divergence is written down rather than
+  quietly shipped.
 
 ## Two editions
 
