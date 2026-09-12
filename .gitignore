@@ -6,3 +6,5 @@
 # a public repo is the last place a photograph of someone else's board art
 # belongs. `git add -A` will otherwise happily stage the lot.
 maps/
+manual*/
+rules/
