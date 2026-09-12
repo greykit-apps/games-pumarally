@@ -190,21 +190,64 @@
   /* ------------------------------------------------------------
      CONVEYORS
 
-     Three passes over the same path: the rail, the bed laid over it
-     so only the rail's edges show, and the arrow painted on the bed.
-     Drawing it as one stroke three times is what makes a curve and a
-     straight run the same code, and what makes a merge look like a
-     merge -- the side feed's bed joins the main one instead of being
-     covered by it.
+     A run is a straight line across the tile or a quarter turn about
+     the corner its two edges share, and the bed, both rails and the
+     painted arrow are all generated from that one piece of geometry.
 
-     All the rails go down before any bed, and all the beds before
-     any arrow, so where two runs cross, one belt's rail never lies
-     across the other's bed.
+     The rails are REAL OFFSET PATHS, not a fatter stroke of the same
+     centreline with the bed laid over it. That trick is cheaper and
+     it works perfectly on a straight, but it dies on a turn: a belt
+     two thirds of a tile wide bending ninety degrees inside that tile
+     has an inner radius of about a sixth of a tile, so the bed's
+     inner edge swallows the inner rail completely. Every curve came
+     out with one rail where a straight had two, which is exactly what
+     made them look cramped -- not the tightness of the bend, the
+     missing edge.
+
+     Concentric arcs have no such problem. The inner rail of a tight
+     turn is a tight little arc, which is what it should be, and both
+     rails meet the neighbouring tile's at the same offsets -- so belt
+     runs join across squares instead of merely abutting.
      ------------------------------------------------------------ */
-  function runPath(inDir, exit) {
-    var a = EDGE[B.opposite(inDir)], b = EDGE[exit];
-    if (inDir === exit) return "M" + a[0] + " " + a[1] + "L" + b[0] + " " + b[1];
-    return "M" + a[0] + " " + a[1] + "Q50 50 " + b[0] + " " + b[1];
+  var BELT_HALF = 31;              // rail centre, either side of the run
+  var TURN_R = 50;                 // a quarter turn through the edge midpoints
+
+  /* Where a run enters and leaves, and -- for a turn -- the corner it
+     pivots about and which way round it goes. */
+  function runGeom(inDir, exit) {
+    var entry = B.opposite(inDir);
+    var a = EDGE[entry], b = EDGE[exit];
+    if (inDir === exit) return { straight: true, a: a, b: b, dir: exit, inDir: inDir, exit: exit };
+    var vert = (entry === E || entry === W) ? entry : exit;
+    var horiz = (entry === N || entry === S) ? entry : exit;
+    var cx = (vert === W) ? 0 : 100, cy = (horiz === N) ? 0 : 100;
+    var t1 = Math.atan2(a[1] - cy, a[0] - cx);
+    var t2 = Math.atan2(b[1] - cy, b[0] - cx);
+    var d = t2 - t1;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d <= -Math.PI) d += 2 * Math.PI;
+    return { straight: false, a: a, b: b, inDir: inDir, exit: exit,
+             cx: cx, cy: cy, t1: t1, t2: t2, sweep: d > 0 ? 1 : 0, turn: d > 0 ? 1 : -1 };
+  }
+
+  function arcOf(g, rad, f1, f2) {
+    var x1 = g.cx + Math.cos(f1) * rad, y1 = g.cy + Math.sin(f1) * rad;
+    var x2 = g.cx + Math.cos(f2) * rad, y2 = g.cy + Math.sin(f2) * rad;
+    return "M" + x1.toFixed(1) + " " + y1.toFixed(1) +
+           "A" + rad.toFixed(1) + " " + rad.toFixed(1) + " 0 0 " + g.sweep + " " +
+           x2.toFixed(1) + " " + y2.toFixed(1);
+  }
+
+  function lineOf(g, off) {
+    var px = -DR[g.dir] * off, py = DC[g.dir] * off;
+    return "M" + (g.a[0] + px) + " " + (g.a[1] + py) + "L" + (g.b[0] + px) + " " + (g.b[1] + py);
+  }
+
+  function bedPath(g) { return g.straight ? lineOf(g, 0) : arcOf(g, TURN_R, g.t1, g.t2); }
+
+  function railPaths(g) {
+    if (g.straight) return [lineOf(g, BELT_HALF), lineOf(g, -BELT_HALF)];
+    return [arcOf(g, TURN_R + BELT_HALF, g.t1, g.t2), arcOf(g, TURN_R - BELT_HALF, g.t1, g.t2)];
   }
 
   /* The painted arrow follows the RUN, not the exit axis.
@@ -212,20 +255,48 @@
      That distinction is the whole point: a conveyor curve rotates the
      robot on it and a straight one does not, so if both tiles carry a
      straight arrow the board is hiding a rule. It did, until someone
-     looked at the Proving Ground -- which was authored to contain one
-     of everything, five curves and a merge among them -- and could
-     not find a single turn on it.
+     looked at the Proving Ground -- authored to contain one of
+     everything, five curves and a merge among them -- and could not
+     find a single turn on it.
 
-     A curve gets a curved arrow, and a merge gets one shaft per feed
-     converging on a single head, which is exactly what the printed
-     board draws and exactly what the player needs: two ways in, one
-     way out, and the side feed visibly bending. */
-  function markPath(inDir, exit) {
-    var e = EDGE[B.opposite(inDir)], x = EDGE[exit];
-    var ax = e[0] + DC[inDir] * 15, ay = e[1] + DR[inDir] * 15;
-    var bx = x[0] - DC[exit] * 24, by = x[1] - DR[exit] * 24;
-    if (inDir === exit) return "M" + ax + " " + ay + "L" + bx + " " + by;
-    return "M" + ax + " " + ay + "Q50 50 " + bx + " " + by;
+     Trimmed at both ends so the arrow sits ON the belt rather than
+     running off it, and so several feeds converging on one head have
+     somewhere to converge. */
+  var HEAD_BACK = 24;              // how far short of the exit edge the head sits
+  var TAIL_IN = 12;                // how far past the entry edge the shaft starts
+
+  /* The bed and rails are arcs, because concentric arcs keep their
+     spacing round a bend. The ARROW is a quadratic, because what
+     matters about the arrow is its two tangents: it has to leave the
+     entry edge along the way you arrived and reach the head pointing
+     exactly the way you leave. An arc trimmed back far enough to make
+     room for the head arrives thirty degrees off the exit direction,
+     and the chevron -- which points along the exit -- meets it at a
+     visible kink. That kink is most of what made a turn look cramped.
+     The two curves differ by about two units at their furthest, which
+     is less than the width of the line drawing them.
+
+     The control point is where the entry and exit lines cross. For a
+     quarter turn between perpendicular edges that is one coordinate
+     from each end, which is why this is arithmetic and not algebra. */
+  function markPath(g) {
+    if (g.straight) {
+      var d = g.dir;
+      var ax = g.a[0] + DC[d] * TAIL_IN, ay = g.a[1] + DR[d] * TAIL_IN;
+      return "M" + ax + " " + ay + "L" + (g.b[0] - DC[d] * HEAD_BACK) + " " + (g.b[1] - DR[d] * HEAD_BACK);
+    }
+    var s = [g.a[0] + DC[g.inDir] * TAIL_IN, g.a[1] + DR[g.inDir] * TAIL_IN];
+    var h = headPoint(g.exit);
+    var horizIn = (g.inDir === E || g.inDir === W);
+    var cx = horizIn ? h[0] : s[0], cy = horizIn ? s[1] : h[1];
+    return "M" + s[0].toFixed(1) + " " + s[1].toFixed(1) +
+           "Q" + cx.toFixed(1) + " " + cy.toFixed(1) + " " + h[0].toFixed(1) + " " + h[1].toFixed(1);
+  }
+
+  /* Every feed converges on one head, so its position is a property
+     of the exit and nothing else. */
+  function headPoint(exit) {
+    return [EDGE[exit][0] - DC[exit] * HEAD_BACK, EDGE[exit][1] - DR[exit] * HEAD_BACK];
   }
 
   /* The arrowhead, as a stroked chevron rather than a filled triangle
@@ -261,19 +332,22 @@
 
   function beltSvg(art) {
     var runs = art.ins.length ? art.ins : [art.exit];
-    var rails = "", beds = "", marks = "", i;
+    var beds = "", rails = "", marks = "", i, j;
+    /* Every bed first, then every rail: at a junction the rails have
+       to be able to cross a neighbouring bed, which is what a
+       junction looks like. */
     for (i = 0; i < runs.length; i++) {
-      var d = runPath(runs[i], art.exit);
-      rails += '<path class="pr-rail" d="' + d + '"/>';
-      beds += '<path class="pr-bed" d="' + d + '"/>';
-      marks += '<path class="pr-mark" d="' + markPath(runs[i], art.exit) + '"/>';
+      var g = runGeom(runs[i], art.exit);
+      beds += '<path class="pr-bed" d="' + bedPath(g) + '"/>';
+      var rp = railPaths(g);
+      for (j = 0; j < rp.length; j++) rails += '<path class="pr-rail" d="' + rp[j] + '"/>';
+      marks += '<path class="pr-mark" d="' + markPath(g) + '"/>';
     }
     /* One head, however many feeds: the shafts converge on it. */
-    var x = EDGE[art.exit], dc = DC[art.exit], dr = DR[art.exit];
-    var tx = x[0] - dc * 24, ty = x[1] - dr * 24;
-    marks += chev(tx, ty, dc, dr, 15);
-    if (art.speed === 2) marks += chev(tx - dc * 17, ty - dr * 17, dc, dr, 15);
-    return svg(rails + beds + marks, art.speed === 2 ? "pr-express" : "pr-belt");
+    var dc = DC[art.exit], dr = DR[art.exit], h = headPoint(art.exit);
+    marks += chev(h[0], h[1], dc, dr, 14);
+    if (art.speed === 2) marks += chev(h[0] - dc * 18, h[1] - dr * 18, dc, dr, 14);
+    return svg(beds + rails + marks, art.speed === 2 ? "pr-express" : "pr-belt");
   }
 
   /* ------------------------------------------------------------
@@ -2776,17 +2850,28 @@
       function shafts(svgText) {
         return marks(svgText).filter(function (d) { return (d.match(/L/g) || []).length < 2; }).length;
       }
+      /* "Curved" means any curve command, not one particular primitive:
+         the bed is an arc and the arrow is a quadratic, and which is
+         which is a drawing decision the test has no business pinning. */
       function curves(svgText) {
-        return marks(svgText).filter(function (d) { return d.indexOf("Q") >= 0; }).length;
+        return marks(svgText).filter(function (d) { return /[QAC]/.test(d); }).length;
       }
+
+      function rails(svgText) { return (svgText.match(/class="pr-rail"/g) || []).length; }
 
       var straight = bench([["b>", "b>", "b>"]]);
       assert(shafts(art(straight, 1, 0)) === 1, "a straight belt draws one shaft");
       assert(curves(art(straight, 1, 0)) === 0, "and it must not be drawn curved");
+      assert(rails(art(straight, 1, 0)) === 2, "a belt has two rails");
 
       /* Arrives travelling east, leaves north: a left turn. */
       var corner = bench([["..", "b^", ".."], ["b>", "b^", ".."]]);
       assert(curves(art(corner, 1, 1)) === 1, "a curve must be drawn curved");
+      /* The rails used to be a fatter stroke of the centreline with the
+         bed laid over it, and on a turn the bed's inner edge swallowed
+         the inner rail whole -- so a curve had one rail where a
+         straight had two, which is what made turns look cramped. */
+      assert(rails(art(corner, 1, 1)) === 2, "and it keeps BOTH rails round the bend");
 
       /* Two feeds, one straight and one turning, one way out. */
       var merge = bench([["..", "bv", ".."], ["b>", "bv", ".."]]);
@@ -3052,8 +3137,8 @@
 
     /* Conveyors: rail, then bed over it so only the rail's edges
        show, then the arrow painted on the bed. */
-    ".pr-art .pr-rail{stroke-width:74;stroke-linecap:butt;stroke-linejoin:round}",
-    ".pr-art .pr-bed{stroke-width:62;stroke-linecap:butt;stroke-linejoin:round}",
+    ".pr-art .pr-bed{stroke-width:68;stroke-linecap:butt;stroke-linejoin:round}",
+    ".pr-art .pr-rail{stroke-width:7;stroke-linecap:butt}",
     ".pr-art .pr-mark{stroke-width:9;stroke-linecap:round;stroke-linejoin:round}",
     ".pr-belt .pr-rail{stroke:var(--pr-rust)}",
     ".pr-belt .pr-bed{stroke:var(--pr-belt-bed)}",
