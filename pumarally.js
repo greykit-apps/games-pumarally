@@ -503,10 +503,21 @@
                '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
   }
 
+  /* WHICH flag this is matters more than that it is a flag.
+
+     You are looking for number three, and there are up to eight of
+     them on a course; a player scanning the board is reading digits,
+     not bunting. So the banner is big enough to hold one at size and
+     the numeral is the loudest thing on the square: near-black on
+     amber, which is the strongest contrast this palette has.
+
+     The first version drew a small pennant with the number BELOW it,
+     dark on the dark floor -- invisible at any tile size, and worse
+     the smaller the board got. */
   function flagSvg(n) {
-    return svg('<rect class="pr-pole" x="27" y="16" width="7" height="68" rx="3"/>' +
-               '<path class="pr-pennant" d="M34 20L78 34L34 48Z"/>' +
-               '<text x="52" y="66" class="pr-num">' + esc(String(n)) + "</text>", "pr-flag");
+    return svg('<rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
+               '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/>' +
+               '<text x="56" y="41" class="pr-num">' + esc(String(n)) + "</text>", "pr-flag");
   }
 
   /* The emitter housing, on the wall the laser is mounted to. The
@@ -3330,8 +3341,10 @@
     ".pr-pit .pr-shaft-2{fill:#20283a}",
     ".pr-pit .pr-void-floor{fill:#000}",
     ".pr-flag .pr-pole{fill:var(--pr-steel)}",
-    ".pr-flag .pr-pennant{fill:var(--pr-warn)}",
-    ".pr-flag .pr-num{fill:var(--pr-bg)}",
+    ".pr-flag .pr-banner{fill:var(--pr-warn);stroke:var(--pr-bg);stroke-width:3}",
+    /* The numeral is the point of the tile, so it is sized off the
+       banner rather than off the other numbers on the board. */
+    ".pr-flag .pr-num{fill:#120c00;font-size:44px;font-weight:700}",
     ".pr-emitter .pr-mount{fill:var(--pr-danger)}",
 
     /* The hazard stripe, shared by everything that will hurt you: the
@@ -5707,7 +5720,7 @@
     cardsDealt: cardsDealt,
     validateTables: validateTables,
     buildCourse: function (id) { return B.buildCourse(id); },
-    tileInner: tileInner, tileClasses: tileClasses, cardArt: cardArt,
+    tileInner: tileInner, tileClasses: tileClasses, cardArt: cardArt, flagSvg: flagSvg,
     newGame: function (seed, opts) { UI.wallsChecked = false; return newGame(seed, opts); },
     advance: advance,
     runSim: runSim,
