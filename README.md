@@ -166,7 +166,12 @@ __PR.G                  // live state
   dependencies, no build step, no network at play time.
 - The rules engine touches no DOM, so the human, the bots and the simulations
   share one definition of legal — and Node loads the same file CI tests.
-- Tiles are 32x32. Sprites ship as character grids with per-sprite palettes,
+- Tiles are 32x32 and the board takes the largest **whole** multiple that fits
+  its column, up to 2x by default (`data-max-scale` on the mount point raises
+  it). Pixel art only survives integer scaling — at 1.5x some sprite pixels
+  land on two screen pixels and their neighbours on one, so a conveyor's slats
+  come out unevenly spaced. The board would rather scroll than smear.
+- Sprites ship as character grids with per-sprite palettes,
   pre-rendered once to offscreen canvases, but at 1,024 characters each they
   are *drawn* by `tools/gen-sprites.js` rather than typed. Rotations are canvas
   transforms, and the eight robots are one sprite with eight palette maps.
