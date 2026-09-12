@@ -77,6 +77,24 @@ board("laser unmounted",  s => { s.pic[0] = s.pic[0].slice(0, 10) + "  " + s.pic
 board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[1].slice(3);
                                  s.pic[3] = s.pic[3].slice(0, 1) + "s1" + s.pic[3].slice(3); }, "two docking bays numbered 1");
 
+// ---- editions ------------------------------------------------------------
+board("unknown edition",  s => { s.edition = "gritty reboot"; },        "which is not a thing");
+board("repair site on a modern board",
+      s => { s.edition = "modern"; },
+      "which the Modern edition does not print");
+
+// A modern board and a classic one cannot share a course.
+{
+  const keepB = clone(B.BOARD_SPECS.dockingBay);
+  let msg = null;
+  try {
+    B.BOARD_SPECS.dockingBay.edition = "modern";
+    B.validateCourse("provingRun", () => {});
+  } catch (e) { msg = e.message; }
+  finally { Object.assign(B.BOARD_SPECS.dockingBay, keepB); }
+  record("mixed-edition course", msg, "a course is one game or the other");
+}
+
 // ---- courses -------------------------------------------------------------
 course("unknown board",   c => { c.boards[0].id = "nope"; },             "which is not defined");
 course("no flags",        c => { c.flags = []; },                        "can never be won");

@@ -140,6 +140,29 @@ Two deliberate simplifications, both marked here because no check can see them:
   their programming: a seeded replay must not drift because a bot was offered a
   different number of choices.
 
+## Two editions
+
+RoboRally has been printed as two substantially different games, and this
+project carries both.
+
+| | Classic (1994–2005) | Modern (2016–) |
+|---|---|---|
+| Move order | Priority number on each card | Priority antenna — nearest robot first |
+| Damage | Tokens; each costs a dealt card and locks registers | SPAM cards shuffled into a personal deck |
+| Upgrades | Option cards, from upgrade sites | Energy cubes spent in a shop |
+| Repair sites | Repair 1 damage | Removed from the boards entirely |
+| Deck | One shared 84-card deck | A personal deck per player |
+
+The boards look similar and are **not** interchangeable. So a board declares
+which game it is printed for, a course may not mix them, and the validator
+refuses an element that edition never printed — a repair site on a 2016 board
+is a transcription error, not a variant. Without that, a modern board
+transcribed against the classic engine would validate, play, and quietly be
+the wrong game.
+
+**The classic ruleset is what is implemented today.** The modern one is
+scaffolded at the data layer and not yet built.
+
 ## Board provenance
 
 Faithfulness is a claim about data, so the data says where it came from.
