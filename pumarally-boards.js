@@ -115,7 +115,7 @@
        boards, so these two are classic-only and a modern board
        carrying one is a transcription error rather than a variant. */
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
-    "W": { name: "upgrade site", arg: "none", repair: 1, option: true, editions: ["classic"] },
+    "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
     "s": { name: "docking bay", arg: "digit", editions: BOTH }
   };
 
@@ -145,7 +145,7 @@
        l.  gear ccw       p<  pusher, registers 1/3/5, pushes west
        r.  gear cw        Pv  pusher, registers 2/4,   pushes south
        w.  repair (1 damage)
-       W.  upgrade (1 damage + an option card)
+       W.  upgrade (2 damage OR an option card -- the player chooses)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.

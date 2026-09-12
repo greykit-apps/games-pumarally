@@ -1260,7 +1260,21 @@
   /* Bots answer immediately and without consulting rnd(), same
      contract as botProgram: a seeded replay must not drift because a
      bot was offered a different number of choices. */
+  /* Keyed on the descriptor's TAG, never on a function stored in it:
+     G is pure JSON and pendingChoices goes into the save, so a closure
+     parked here would not survive a reload -- the same reason the
+     option-card queue stores ids and not callbacks. */
+  function botBoardPick(p, choice) {
+    if (choice.tag === "upgrade") return p.damage >= 2 ? 0 : 1;   // 0 repair 2, 1 take a card
+    return 0;
+  }
+
   function botPick(p, choice) {
+    /* A board question has no card to carry a preference, so the
+       preference lives with whatever asked. An upgrade site is the
+       only one so far: take the repair while it is worth taking, and
+       the card otherwise. */
+    if (!choice.optionId) return botBoardPick(p, choice);
     var def = OPTION_DEFS[choice.optionId];
     var prefer = def && def.botPrefers !== undefined ? def.botPrefers : 1;
     if (prefer >= choice.labels.length) prefer = choice.labels.length - 1;
@@ -1882,7 +1896,7 @@
         if (G.gameOver) return NEXT;
         G.register++;
         if (G.register < REGISTERS) { go("exec", "reveal"); return NEXT; }
-        go("cleanup", "repair");
+        go("cleanup", "askRepair");
         return NEXT;
       }
     },
@@ -1890,19 +1904,59 @@
     cleanup: {
       /* Repairs happen here and only here -- never at the touch step,
          where it is tempting to fold them in. */
+      /* Asking is its own step, for the same reason the deal has one:
+         a step that can park for a question has to be safe to re-run,
+         and repairing is not -- coming back through it a second time
+         would repair twice. So this step only ever ASKS, and never
+         touches a robot; cleanup.repair then runs exactly once with
+         every answer already in hand. */
+      askRepair: function () {
+        var C = UI.course, alive = live(), pending = false;
+        for (var i = 0; i < alive.length; i++) {
+          var p = alive[i];
+          if (p.poweredDown) continue;
+          if (!upgradeSite(C, p)) continue;
+          if (askBoard(p, "upgrade", "Upgrade site",
+                "Repair 2 points of damage, or take an option card?",
+                ["Repair 2", "Option card"]) === null) pending = true;
+        }
+        if (pending) return park("cleanup", "repair");
+        go("cleanup", "repair");
+        return NEXT;
+      },
+
       repair: function () {
         var C = UI.course, alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i], el = B.elemOf(B.codeAt(C, p.c, p.r)), onFlag = false;
           for (var f = 0; f < C.flags.length; f++) if (C.flags[f].c === p.c && C.flags[f].r === p.r) onFlag = true;
+
+          /* "Robots on a repair site or checkpoint may now repair 1
+             point of damage, and robots on a two-wrench repair site may
+             either repair 2 points of damage or receive an option
+             card." (p.14, and again on pp.28 and 36.) The either/or is
+             the part this used to get wrong in both halves: it repaired
+             one point rather than two, AND handed over the card as
+             well. */
+          if (upgradeSite(C, p) && !p.poweredDown) {
+            var pick = answerFor(p, "upgrade");
+            /* null means the answer has already been spent on an
+               earlier pass, so this robot is done. Falling through on
+               null treated "already handled" as "chose the repair" and
+               repaired a second time. */
+            if (pick === null) continue;
+            if (pick === 1) {
+              drawOption(p);
+            } else {
+              var n = Math.min(2, p.damage);
+              if (n > 0) { p.damage -= n; log(p.name + " repairs " + n + " damage"); }
+            }
+            continue;
+          }
+
           if ((el && el.repair) || onFlag) {
             if (p.damage > 0) { p.damage--; log(p.name + " repairs 1 damage"); }
           }
-          /* Same rule, same sentence: "nor can it acquire or use
-             option cards." Repair is already a no-op for a powered-down
-             robot because its damage was cleared at the start of the
-             turn, but the upgrade site would have handed it a card. */
-          if (el && el.option && !p.poweredDown) drawOption(p);
         }
         go("cleanup", "stayDown");
         return NEXT;
@@ -1999,6 +2053,48 @@
   /* Hand control to the choice queue and remember where to come back
      to. The parked step re-runs from the top once the queue drains,
      so it must be free of side effects up to the question. */
+  /* A QUESTION FROM THE BOARD, not from a card.
+     Until now only an option card could stop and ask something, through
+     ctx.pick inside fire(). But the printed rules have the factory floor
+     asking too -- an upgrade site offers a repair or a card, and it is
+     the player who chooses -- and several expansion elements ask as
+     well. So the queue that already carries card questions carries
+     board questions too, and there is one drain, one renderer and one
+     saved-game format rather than two.
+
+     Returns the answer index, or null when it has parked one. The key
+     is derived the same way a card's is, so a reload mid-question
+     lands on the same question. */
+  function askBoard(player, tag, title, prompt, labels) {
+    var key = choiceKey(player, "board", tag, "");
+    var have = G.optionAnswers[key];
+    if (have !== undefined && have !== "used") return have;
+    if (have === "used") return null;
+    for (var i = 0; i < G.pendingChoices.length; i++) if (G.pendingChoices[i].key === key) return null;
+    G.pendingChoices.push({ key: key, owner: player.id, optionId: null,
+      tag: tag, title: title, prompt: prompt, labels: labels });
+    return null;
+  }
+
+  /* The answer to a board question, once it has been given. Marked
+     used on the way out so a step that runs again cannot apply it
+     twice -- the same guard ctx.pick uses for card questions. */
+  function answerFor(player, tag) {
+    var key = choiceKey(player, "board", tag, "");
+    var have = G.optionAnswers[key];
+    if (have === undefined || have === "used") return null;
+    G.optionAnswers[key] = "used";
+    return have;
+  }
+
+  /* A two-wrench site: the one board element that offers a choice.
+     Asked in one place so the ask step and the apply step can never
+     disagree about which squares are upgrade sites. */
+  function upgradeSite(C, p) {
+    var el = B.elemOf(B.codeAt(C, p.c, p.r));
+    return !!(el && el.option);
+  }
+
   function park(phase, step) {
     G.exec.resumePhase = phase;
     G.exec.resume = step;
@@ -2728,6 +2824,61 @@
       assert(G.players[0].options.length === 0,
         "manual p.29: a powered-down robot cannot acquire option cards; it took " +
         G.players[0].options.length);
+    } },
+
+    /* The two-wrench site, manual pp.14, 28 and 36 -- three places say
+       the same thing, and the engine disagreed with all three. It
+       repaired one point instead of two AND dealt the card as well, so
+       it was wrong in both halves and generous in both. */
+    { name: "a two-wrench site repairs 2 when the repair is chosen", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 4 }]);
+      var p = G.players[0];
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      G.optionAnswers[G.pendingChoices[0].key] = 0;      // "Repair 2"
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(p.damage === 2, "two points, not one -- damage is " + p.damage);
+      assert(p.options.length === 0, "and NOT the card as well -- it took " + p.options.length);
+    } },
+
+    { name: "a two-wrench site gives a card instead of the repair", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 4 }]);
+      G.optionDeck = ["brakes"];
+      var p = G.players[0];
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      G.optionAnswers[G.pendingChoices[0].key] = 1;      // "Option card"
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(p.options.length === 1, "the card should have been dealt");
+      assert(p.damage === 4, "and the damage must be UNTOUCHED, it is " + p.damage);
+    } },
+
+    { name: "a one-wrench site still repairs exactly 1 and asks nothing", run: function () {
+      benchGame(bench([["w."]]), [{ c: 0, r: 0, damage: 4 }]);
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      assert(G.pendingChoices.length === 0, "a single wrench is not a choice");
+      STEP.cleanup.repair();
+      assert(G.players[0].damage === 3, "one point off, got " + (4 - G.players[0].damage));
+    } },
+
+    { name: "a parked upgrade question survives a save and does not repair twice", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 6 }]);
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      var key = G.pendingChoices[0].key;
+      /* pendingChoices rides in the save, so anything parked on it has
+         to be plain JSON -- a closure here would vanish on reload. */
+      G = JSON.parse(JSON.stringify(G));
+      assert(G.pendingChoices[0].key === key, "the same question must come back with the same key");
+      G.optionAnswers[key] = 0;
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(G.players[0].damage === 4, "repaired 2, got " + (6 - G.players[0].damage));
+      STEP.cleanup.repair();                              // a re-run must not apply it again
+      assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
     { name: "every turn is dealt from a reshuffled deck", run: function () {
@@ -4353,13 +4504,18 @@
       if (!host.hidden) { host.hidden = true; host.innerHTML = ""; }
       return;
     }
-    var def = OPTION_DEFS[ch.optionId], out = "<b>" + esc(def.name) + "</b> <span>" + esc(ch.prompt) + "</span>";
+    /* A board question has no option card behind it, so the heading
+       comes from the descriptor. Reading OPTION_DEFS[null].name here
+       threw and took the whole render with it. */
+    var def = ch.optionId ? OPTION_DEFS[ch.optionId] : null;
+    var title = def ? def.name : ch.title;
+    var out = "<b>" + esc(title) + "</b> <span>" + esc(ch.prompt) + "</span>";
     for (var i = 0; i < ch.labels.length; i++) {
       out += ' <button data-act="pick" data-i="' + i + '">' + esc(ch.labels[i]) + "</button>";
     }
     if (host.innerHTML !== out) {
       host.innerHTML = out;
-      announce(def.name + ". " + ch.prompt);
+      announce(title + ". " + ch.prompt);
     }
     host.hidden = false;
   }
@@ -4811,7 +4967,7 @@
     { phase: "exec", step: "touch", title: "Flags and repair sites",
       body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
     { phase: "cleanup", step: "repair", title: "Repairs",
-      body: "One damage off if you end the turn on a wrench or a flag. Upgrade sites also deal an option card." },
+      body: "One damage off if you end the turn on a wrench or a flag. A two-wrench upgrade site is a choice: two damage off, or an option card." },
     { phase: "cleanup", step: "discard", title: "Discard",
       body: "Everything except the cards held in locked registers." }
   ];
