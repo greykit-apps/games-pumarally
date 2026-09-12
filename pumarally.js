@@ -336,14 +336,43 @@
     return { speed: speed, exit: exit, ins: ins };
   }
 
-  function beltSvg(art) {
+  /* A run carries a head only when it is a plain straight, so where
+     two headless tiles meet -- curve into curve, or anything into a
+     merge -- there is no head anywhere near the join and the
+     direction across it goes unsaid. Those joins get a chevron, on
+     the BOUNDARY rather than inside either bend: that is the one
+     place a turning belt is momentarily straight, because a run
+     crosses every edge at right angles to it, so a chevron there lies
+     along the line instead of cutting across a curve.
+
+     This started life as a special case for a run made ENTIRELY of
+     turns -- a 2x2 loop is four turns and nothing else, so it has no
+     head anywhere and its direction is unreadable. Stating the rule
+     as "wherever two headless tiles meet" covers that loop (every
+     join in it qualifies) and needs no graph walk to find it: the
+     question is about a tile and its downstream neighbour, and
+     nothing further. A local rule that subsumes a global one is worth
+     taking. */
+  function headedRun(art) {
+    return !art.ins.length || (art.ins.length === 1 && art.ins[0] === art.exit);
+  }
+
+  function marksBoundary(C, c, r, art) {
+    if (headedRun(art)) return false;
+    var nb = B.step(c, r, art.exit);
+    if (!B.inGrid(C, nb.c, nb.r) || B.isVoid(C, nb.c, nb.r)) return false;
+    var na = beltArt(C, nb.c, nb.r);
+    return !!na && na.speed === art.speed && !headedRun(na);
+  }
+
+  function beltSvg(art, boundary) {
     var runs = art.ins.length ? art.ins : [art.exit];
     /* Only a plain straight run carries an arrowhead. On a turn or a
        merge the painted line curves or converges, which already says
        rotation and junction, and the direction is carried by the run
        it came from -- so the head would be decoration competing with
        the one thing the tile has to say. */
-    var headed = runs.length === 1 && runs[0] === art.exit;
+    var headed = headedRun(art);
     var beds = "", rails = "", marks = "", i, j;
     /* Every bed first, then every rail: at a junction the rails have
        to be able to cross a neighbouring bed, which is what a
@@ -355,10 +384,17 @@
       for (j = 0; j < rp.length; j++) rails += '<path class="pr-rail" d="' + rp[j] + '"/>';
       marks += '<path class="pr-mark" d="' + markPath(g, headed) + '"/>';
     }
+    var dc = DC[art.exit], dr = DR[art.exit];
     if (headed) {
-      var dc = DC[art.exit], dr = DR[art.exit], h = headPoint(art.exit);
+      var h = headPoint(art.exit);
       marks += chev(h[0], h[1], dc, dr, 14);
       if (art.speed === 2) marks += chev(h[0] - dc * 19, h[1] - dr * 19, dc, dr, 14);
+    } else if (boundary) {
+      /* One chevron, not the express pair: this is a direction marker
+         on a join that would otherwise carry none, and speed is
+         already said by the rails' colour. */
+      var e = EDGE[art.exit];
+      marks += chev(e[0] - dc * 5, e[1] - dr * 5, dc, dr, 12);
     }
     return svg(beds + rails + marks, art.speed === 2 ? "pr-express" : "pr-belt");
   }
@@ -522,7 +558,7 @@
     if (B.isVoid(C, c, r)) return "";
     var code = B.codeAt(C, c, r), def = B.elemOf(code), out = [];
     var art = beltArt(C, c, r);
-    if (art) out.push(beltSvg(art));
+    if (art) out.push(beltSvg(art, marksBoundary(C, c, r, art)));
     else if (def.gear) out.push(gearSvg(def.gear));
     else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
     else if (def.option) out.push(repairSvg(true));
@@ -2824,6 +2860,52 @@
       delete OPTION_DEFS.__bogus;
       OPTION_ROSTER.transcribed--;
       assert(threw && /unknown hook/.test(threw), "expected an unknown-hook error, got " + threw);
+    } },
+
+    { name: "where two headless belts meet, the join is marked", run: function () {
+      /* Heads live on plain straights. Where two headless tiles meet
+         there is no head near the join, so the direction across it
+         would go unsaid -- and in a run made entirely of turns there
+         is no head anywhere at all. */
+      function heads(t) {
+        return (t.match(/class="pr-mark" d="[^"]*L[^"]*L[^"]*"/g) || []).length;
+      }
+      function isTurn(g, c, r) {
+        var a = beltArt(g, c, r);
+        return a.ins.length === 1 && a.ins[0] !== a.exit;
+      }
+
+      /* A 2x2 loop: four turns, no straight, no head anywhere. */
+      var loop = bench([["b>", "bv"], ["b^", "b<"]]);
+      var c, r, marked = 0;
+      for (r = 0; r < 2; r++) for (c = 0; c < 2; c++) {
+        assert(isTurn(loop, c, r), "the fixture must be all turns; (" + c + "," + r + ") is not");
+        if (heads(tileInner(loop, c, r)) === 1) marked++;
+      }
+      assert(marked === 4, "every join in a headless loop is marked, got " + marked);
+
+      /* Two curves in a row inside an otherwise ordinary run: the
+         join between them is marked, and the turn that feeds a plain
+         straight is not -- that straight's own head is right there. */
+      var esses = bench([["..", "b>", "bv"], ["..", "..", "b<"], ["..", "..", ".."]]);
+      assert(isTurn(esses, 2, 0) && isTurn(esses, 2, 1), "fixture needs two curves in a row");
+      assert(heads(tileInner(esses, 2, 0)) === 1, "curve into curve marks the join");
+      assert(heads(tileInner(esses, 1, 0)) === 1, "a plain straight keeps its own head");
+
+      /* And a turn running into a headed straight adds nothing. */
+      var into = bench([["bv", "..", ".."], ["b>", "b>", ".."]]);
+      assert(isTurn(into, 0, 1), "fixture needs a turn feeding a straight");
+      assert(heads(tileInner(into, 0, 1)) === 0, "no second head beside a straight's own");
+
+      /* Asked directly, because beltSvg only consults marksBoundary on
+         tiles it has already found headless -- so the rule's own guard
+         against marking a HEADED tile's exit is invisible through the
+         rendered output, and an untestable guard is an untested one.
+         (1,0) is a plain straight running into a turn. */
+      assert(headedRun(beltArt(esses, 1, 0)), "fixture needs a headed straight feeding a turn");
+      assert(!headedRun(beltArt(esses, 2, 0)), "and the tile it feeds must be headless");
+      assert(!marksBoundary(esses, 1, 0, beltArt(esses, 1, 0)),
+        "a headed tile never marks its own exit; its head is already there");
     } },
 
     { name: "a wall is drawn once, on the line, however many squares own it", run: function () {
