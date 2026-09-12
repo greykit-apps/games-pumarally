@@ -135,9 +135,11 @@ Each has a test, because each is easy to implement plausibly and wrongly.
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
 node tools/check-rules.js 200     # 32 rule tests + 200 bot-vs-bot games
+node tools/check-assets.js        # every file index.html points at exists
+node tools/make-icon.js           # regenerate icon.svg from the robot sprite
 ```
 
-All three run in CI ahead of deploy. `check-rules.js` fails when no simulated
+All of these run in CI ahead of deploy. `check-rules.js` fails when no simulated
 game is ever *won* — a run reporting only "no crashes" cannot distinguish a
 working engine from one whose win condition is unreachable, and that
 distinction has already mattered here once.

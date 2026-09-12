@@ -21,6 +21,8 @@ validate:
     - node tools/check-boards.js
     - node tools/validator-selftest.js
     - node tools/check-rules.js 200
+    - node tools/check-assets.js
+    - node tools/make-icon.js --check
     - test -s index.html
     - grep -q 'data-pumarally' index.html
 

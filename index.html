@@ -13,8 +13,11 @@
 <meta property="og:title" content="PumaRally">
 <meta property="og:description" content="A faithful port of the RoboRally rules in original pixel art.">
 <meta property="og:url" content="https://greykit.com/games/pumarally/">
-<meta property="og:image" content="https://greykit.com/games/pumarally/og.png">
-<meta name="twitter:card" content="summary_large_image">
+<!-- og:image and the Twitter card land with og.png, once there is a finished
+     game to screenshot. Referencing an image that is not in the repo 404s
+     quietly in production while every pipeline stays green, so the reference
+     waits for the asset rather than the other way round.
+     tools/check-assets.js enforces that. -->
 <style>
   html { color-scheme: dark; }
   body {
