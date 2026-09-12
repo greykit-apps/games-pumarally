@@ -299,6 +299,45 @@
     return [EDGE[exit][0] - DC[exit] * HEAD_BACK, EDGE[exit][1] - DR[exit] * HEAD_BACK];
   }
 
+  function pickLead(runs, exit) {
+    for (var i = 0; i < runs.length; i++) if (runs[i] === exit) return runs[i];
+    return runs[0];
+  }
+
+  /* A point some distance back along a run's painted mark, with the
+     direction the belt is travelling there. Walked rather than solved:
+     the mark is a quadratic, arc length along one has no closed form
+     worth writing, and this runs once per tile when the board is
+     built. */
+  function backAlong(g, dist) {
+    if (g.straight) {
+      var d = g.dir, hp = headPoint(g.exit);
+      return { x: hp[0] - DC[d] * dist, y: hp[1] - DR[d] * dist, hx: DC[d], hy: DR[d] };
+    }
+    var sx = g.a[0] + DC[g.inDir] * TAIL_IN, sy = g.a[1] + DR[g.inDir] * TAIL_IN;
+    var hp2 = headPoint(g.exit);
+    var horizIn = (g.inDir === E || g.inDir === W);
+    var cx = horizIn ? hp2[0] : sx, cy = horizIn ? sy : hp2[1];
+    function at(t) {
+      var u = 1 - t;
+      return { x: u * u * sx + 2 * t * u * cx + t * t * hp2[0],
+               y: u * u * sy + 2 * t * u * cy + t * t * hp2[1] };
+    }
+    var prev = at(1), walked = 0, t;
+    for (t = 0.98; t >= 0; t -= 0.02) {
+      var pt = at(t);
+      walked += Math.sqrt((pt.x - prev.x) * (pt.x - prev.x) + (pt.y - prev.y) * (pt.y - prev.y));
+      prev = pt;
+      if (walked >= dist) break;
+    }
+    /* Tangent of a quadratic at t: 2[(1-t)(C-S) + t(H-C)]. */
+    var u2 = 1 - t;
+    var tx = 2 * (u2 * (cx - sx) + t * (hp2[0] - cx));
+    var ty = 2 * (u2 * (cy - sy) + t * (hp2[1] - cy));
+    var len = Math.sqrt(tx * tx + ty * ty) || 1;
+    return { x: prev.x, y: prev.y, hx: tx / len, hy: ty / len };
+  }
+
   /* The arrowhead, as a stroked chevron rather than a filled triangle
      so it keeps the weight of the shaft it terminates. */
   function chev(x, y, hx, hy, size) {
@@ -343,10 +382,20 @@
       for (j = 0; j < rp.length; j++) rails += '<path class="pr-rail" d="' + rp[j] + '"/>';
       marks += '<path class="pr-mark" d="' + markPath(g) + '"/>';
     }
-    /* One head, however many feeds: the shafts converge on it. */
+    /* One head, however many feeds: the shafts converge on it.
+       Express belts get a second chevron behind the first, and it has
+       to sit ON the belt -- placing it back along the exit AXIS put it
+       off the path by a third of a tile on a turn, floating on bare
+       bed. It rides the lead run instead: the straight feed where
+       there is one, since that is the through route, and otherwise
+       the only run there is. */
     var dc = DC[art.exit], dr = DR[art.exit], h = headPoint(art.exit);
     marks += chev(h[0], h[1], dc, dr, 14);
-    if (art.speed === 2) marks += chev(h[0] - dc * 18, h[1] - dr * 18, dc, dr, 14);
+    if (art.speed === 2) {
+      var lead = runGeom(pickLead(runs, art.exit), art.exit);
+      var p2 = backAlong(lead, 19);
+      marks += chev(p2.x, p2.y, p2.hx, p2.hy, 14);
+    }
     return svg(beds + rails + marks, art.speed === 2 ? "pr-express" : "pr-belt");
   }
 
@@ -397,17 +446,20 @@
      upright and in a fixed corner whichever way the ram points. */
   function pusherSvg(dir, odd) {
     var mount = B.opposite(dir), m = EDGE[mount];
-    var px = -DR[mount] * 34, py = DC[mount] * 34;
-    var qx = DC[dir] * 16, qy = DR[dir] * 16;
-    var reach = 30;
+    var px = -DR[mount] * 36, py = DC[mount] * 36;
+    var qx = DC[dir] * 18, qy = DR[dir] * 18;
+    var reach = 32;
+    /* Ram first, plate over it: the plate stays one unbroken bar and
+       the ram reads as coming OUT of it. Drawn the other way round the
+       ram cuts the plate into two squares floating either side of it. */
     return svg(
+      '<path class="pr-ram" d="M' + m[0] + " " + m[1] + "L" +
+        (m[0] + DC[dir] * reach) + " " + (m[1] + DR[dir] * reach) + '"/>' +
+      pushHead(m[0] + DC[dir] * (reach + 24), m[1] + DR[dir] * (reach + 24), DC[dir], DR[dir], 24) +
       '<path class="pr-ram-base" d="M' + (m[0] + px) + " " + (m[1] + py) +
         "L" + (m[0] - px) + " " + (m[1] - py) +
         "L" + (m[0] - px + qx) + " " + (m[1] - py + qy) +
-        "L" + (m[0] + px + qx) + " " + (m[1] + py + qy) + 'Z"/>' +
-      '<path class="pr-ram" d="M' + m[0] + " " + m[1] + "L" +
-        (m[0] + DC[dir] * reach) + " " + (m[1] + DR[dir] * reach) + '"/>' +
-      pushHead(m[0] + DC[dir] * (reach + 20), m[1] + DR[dir] * (reach + 20), DC[dir], DR[dir], 17),
+        "L" + (m[0] + px + qx) + " " + (m[1] + py + qy) + 'Z"/>',
       "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
   }
 
@@ -3154,9 +3206,12 @@
     "stroke-linecap:round;stroke-linejoin:round}",
 
     /* Pushers: a hazard-striped ram on the wall it is bolted to. */
-    ".pr-pusher .pr-ram-base{fill:var(--pr-hazard)}",
-    ".pr-pusher .pr-ram{stroke:var(--pr-steel);stroke-width:16;stroke-linecap:butt}",
-    ".pr-pusher .pr-ram-head{fill:var(--pr-steel)}",
+    /* The ram is the moving part and has to out-weigh the plate it
+       comes out of, or the tile reads as a wall with a scratch on it. */
+    ".pr-pusher .pr-ram-base{fill:var(--pr-hazard);stroke:var(--pr-hazard-dark);stroke-width:3}",
+    ".pr-pusher .pr-ram{stroke:var(--pr-steel);stroke-width:30;stroke-linecap:butt}",
+    ".pr-pusher .pr-ram-head{fill:var(--pr-steel);stroke:var(--pr-steel);stroke-width:6;",
+    "stroke-linejoin:round}",
 
     ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
     ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
