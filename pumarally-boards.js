@@ -982,6 +982,52 @@
        cell width, not one -- per the note above `maelstrom`, probing
        a beam at a single point reads JPEG noise as a gap and turns a
        1-damage laser into a 2. */
+    /* THE FIRST CRASH AND BURN BOARD, and the tamest of the four: it
+       carries none of the expansion's new elements at all. Six L-shaped
+       three-square pits, two concentric belt loops turned by six gears,
+       and a repair site at each of two corners.
+
+       The pits sit in exact 180-degree rotational symmetry, which is
+       what gave the reading its cross-check -- every pit triple maps
+       onto another under (c,r) -> (11-c,11-r). The tool squares do NOT:
+       the repair sites are at (11,0) and (0,9) and the upgrade is at
+       (6,5), so the symmetry is a property of the holes and not of the
+       board. Worth saying because a symmetric board is exactly the kind
+       of thing that tempts you to "correct" a square you read
+       correctly. */
+    boardE: {
+      name: "Board E", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board. (5,6) is a mottled floor plate with no marking; see maps/MANIFEST.md.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. o. r. b> b> b> b> b> b> r. o. ..|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. .. b^ l. b< b< b< b< l. bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv .. .. o. o. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^|bv b< b< W. o. b^ bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ bv o. .. b> b> b^|bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv o. o. .. .. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ l. b> b> b> b> l. bv .. .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        "|w. o. b< b< b< b< b< b< b< bv o. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: []
+    },
+
     pitMaze: {
       name: "Pit Maze", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1200,6 +1246,19 @@
        and Island: the course cards have not been photographed. All
        three sit on plain floor, which on this board is the scarce
        thing. */
+    /* Flags ours, not the printed course -- the course cards have not
+       been photographed. All three sit on plain floor, away from the
+       two belt loops, so reaching one is a matter of getting off the
+       conveyor rather than of being carried onto it. */
+    boardERun: {
+      name: "Board E Run",
+      blurb: "Two belt loops, six gears, and six holes shaped like elbows.",
+      boards: [{ id: "boardE", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[5, 1], [10, 5], [1, 7]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     pitMazeRun: {
       name: "Pit Maze Run",
       blurb: "Twenty-six holes and the belts that run between them.",
