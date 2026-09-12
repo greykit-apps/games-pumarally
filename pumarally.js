@@ -626,9 +626,8 @@
 
     if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
     if (def.crush || def.burn) {
-      var when = code.charAt(1);
-      out.push('<span class="pr-pushreg">' +
-        (when === "." ? "*" : when === "o" ? "135" : when === "e" ? "24" : esc(when)) + "</span>");
+      var t = B.timerAt(C, c, r);
+      out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
     }
 
     for (var fi = 0; fi < C.flags.length; fi++) {
@@ -1638,8 +1637,9 @@
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
-      if (!B.activeNow(B.codeAt(C, p.c, p.r), G.register)) continue;
-      if (!B.elemOf(B.codeAt(C, p.c, p.r)).crush) continue;
+      var pel = B.elemOf(B.codeAt(C, p.c, p.r));
+      if (!pel || !pel.crush) continue;
+      if (!B.activeNow(C, p.c, p.r, G.register)) continue;
       log(p.name + " is crushed by a press");
       destroy(p, "under a press");
     }
@@ -1650,7 +1650,7 @@
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
       var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
-      if (!el || !el.burn || !B.activeNow(code, G.register)) continue;
+      if (!el || !el.burn || !B.activeNow(C, p.c, p.r, G.register)) continue;
       log(p.name + " is scorched by a burner");
       damage(p, el.burn, "burner");
     }
@@ -2739,9 +2739,10 @@
     return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
   }
 
-  function bench(cells, walls, lasers) {
+  function bench(cells, walls, lasers, timers) {
     var w = cells[0].length, h = cells.length;
-    var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls), lasers: lasers || [] });
+    var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
+      lasers: lasers || [], timers: timers || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -3299,8 +3300,17 @@
     } },
 
     // ---- Crash and Burn: presses and burners -------------------------
+    { name: "a timer and its square cannot drift apart", run: function () {
+      var noSet = false, orphan = false;
+      try { bench([["F."]]); } catch (e) { noSet = /no registers/.test(e.message); }
+      assert(noSet, "a burner with no timer entry must be refused");
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
+      catch (e) { orphan = /not on a press or a burner/.test(e.message); }
+      assert(orphan, "a timer pointing at plain floor must be refused");
+    } },
+
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
-      benchGame(bench([["X3"]]), [{ c: 0, r: 0 }]);
+      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [3] }]), [{ c: 0, r: 0 }]);
       var p = G.players[0];
       G.register = 0;  pressPass();
       assert(p.alive, "register 1 is not register 3 -- it should still be standing");
@@ -3308,17 +3318,20 @@
       assert(!p.alive, "register 3 is printed on it, so this should have flattened it");
     } },
 
-    { name: "a press with no number is always active", run: function () {
-      benchGame(bench([["X."]]), [{ c: 0, r: 0 }]);
-      G.register = 1;  pressPass();
-      assert(!G.players[0].alive, "no number means every register");
+    { name: "a press fires on every register it lists, and no others", run: function () {
+      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 4] }]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 2;  pressPass();
+      assert(p.alive, "register 3 is not in {1,2,4}");
+      G.register = 3;  pressPass();
+      assert(!p.alive, "register 4 is -- the printed sets are arbitrary subsets, not odd/even");
     } },
 
     { name: "a burner scorches for one, in its registers only", run: function () {
-      benchGame(bench([["Fo"]]), [{ c: 0, r: 0 }]);
+      benchGame(bench([["F."]], [], [], [{ c: 0, r: 0, regs: [2, 3, 5] }]), [{ c: 0, r: 0 }]);
       var p = G.players[0];
-      G.register = 1;  burnerPass();
-      assert(p.damage === 0, "register 2 is not one of 1/3/5");
+      G.register = 0;  burnerPass();
+      assert(p.damage === 0, "register 1 is not one of {2,3,5}");
       G.register = 2;  burnerPass();
       assert(p.damage === 1, "register 3 is, so one point -- got " + p.damage);
     } },

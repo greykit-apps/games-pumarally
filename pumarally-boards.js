@@ -123,8 +123,8 @@
        portal is a transcription error that would otherwise render and
        play as a square that swallows robots. */
     "t": { name: "portal", arg: "pair", portal: true, editions: ["classic"] },
-    "X": { name: "press", arg: "when", crush: true, editions: ["classic"] },
-    "F": { name: "burner", arg: "when", burn: 1, editions: ["classic"] },
+    "X": { name: "press", arg: "none", crush: true, editions: ["classic"] },
+    "F": { name: "burner", arg: "none", burn: 1, editions: ["classic"] },
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
     "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
     "s": { name: "docking bay", arg: "digit", editions: BOTH }
@@ -139,14 +139,17 @@
   /* '.' always, '1'-'5' one printed register, 'o' the odd ones and 'e'
      the even ones -- the same 1/3/5 and 2/4 split the pushers use, and
      for the same reason: the board prints a set of numbers, not one. */
-  function activeNow(code, register) {
-    var e = elemOf(code);
-    if (!e || !(e.crush || e.burn)) return false;
-    var a = code.charAt(1);
-    if (a === ".") return true;
-    if (a === "o") return register % 2 === 0;          // 0-based: registers 1, 3, 5
-    if (a === "e") return register % 2 === 1;          // registers 2, 4
-    return parseInt(a, 10) === register + 1;
+  function timerAt(g, c, r) {
+    for (var i = 0; i < (g.timers || []).length; i++) {
+      if (g.timers[i].c === c && g.timers[i].r === r) return g.timers[i];
+    }
+    return null;
+  }
+
+  /* register is 0-based; the board prints 1-5. */
+  function activeNow(g, c, r, register) {
+    var t = timerAt(g, c, r);
+    return !!t && t.regs.indexOf(register + 1) >= 0;
   }
 
   /* ============================================================
@@ -172,8 +175,8 @@
        W.  upgrade (2 damage OR an option card -- the player chooses)
        L.  oil slick                        (Crash and Burn)
        t1  portal, colour 1 (exactly two)   (Crash and Burn)
-       X3  press, active in register 3      (Crash and Burn)
-       Fo  burner, active in registers 1/3/5 (Crash and Burn)
+       X.  press   -- registers listed in `timers` (Crash and Burn)
+       F.  burner  -- registers listed in `timers` (Crash and Burn)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.
@@ -198,6 +201,16 @@
       doorN: new Array(w * (h + 1)),
       doorW: new Array((w + 1) * h),
       lasers: [],
+      /* Registers a press or burner acts in. A SPARSE LIST beside the
+         picture, the way lasers already are, rather than a character in
+         the cell -- the printed sets are arbitrary subsets of 1-5 (2 3 5
+         and 1 3 5 and 2 4 all appear on board G), and a two-character
+         cell has exactly one character to spare. A bitmask would fit but
+         would make the picture unreadable, and the picture is readable
+         on purpose: the transcription workflow is comparing it to a
+         photograph. The validator pairs the two layers 1:1 so they
+         cannot drift. */
+      timers: [],
       docks: []
     };
   }
@@ -343,6 +356,33 @@
       }
     }
 
+    var timed = {}, ti;
+    for (ti = 0; ti < (spec.timers || []).length; ti++) {
+      var T = spec.timers[ti];
+      var tcode = (inGrid(g, T.c, T.r) && g.cell[T.r * w + T.c]) || "";
+      var tdef = ELEMENT_DEFS[tcode.charAt(0)];
+      if (!tdef || !(tdef.crush || tdef.burn)) {
+        E_("timer at (" + T.c + "," + T.r + ") is not on a press or a burner");
+      }
+      if (!T.regs || !T.regs.length) E_("timer at (" + T.c + "," + T.r + ") lists no registers");
+      for (var ri = 0; ri < T.regs.length; ri++) {
+        if (!(T.regs[ri] >= 1 && T.regs[ri] <= 5)) {
+          E_("timer at (" + T.c + "," + T.r + ") lists register " + T.regs[ri] + "; registers run 1-5");
+        }
+      }
+      if (timed[T.c + "," + T.r]) E_("two timers at (" + T.c + "," + T.r + ")");
+      timed[T.c + "," + T.r] = 1;
+      g.timers.push({ c: T.c, r: T.r, regs: T.regs.slice().sort() });
+    }
+    for (var tr = 0; tr < h; tr++) {
+      for (var tc = 0; tc < w; tc++) {
+        var cd2 = g.cell[tr * w + tc] || "", d2 = ELEMENT_DEFS[cd2.charAt(0)];
+        if (d2 && (d2.crush || d2.burn) && !timed[tc + "," + tr]) {
+          E_("(" + tc + "," + tr + ") is a " + d2.name + " with no registers; every one is printed with a set");
+        }
+      }
+    }
+
     for (var i = 0; i < (spec.lasers || []).length; i++) {
       var L = spec.lasers[i];
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
@@ -418,6 +458,19 @@
       }
       out.push("      ]");
     }
+    /* Emitted only when there are any, so every board without a press
+       or a burner formats exactly as it did before this existed and the
+       byte-for-byte round-trip keeps its meaning. */
+    if (g.timers && g.timers.length) {
+      out.push("      ,");
+      out.push("      timers: [");
+      for (var ti = 0; ti < g.timers.length; ti++) {
+        var T = g.timers[ti];
+        out.push("        { c: " + T.c + ", r: " + T.r + ", regs: [" + T.regs.join(", ") + "] }" +
+          (ti === g.timers.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
     out.push("    }");
     return out.join("\n");
   }
@@ -458,6 +511,10 @@
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
       n.lasers.push({ c: g.h - 1 - L.r, r: L.c, d: rot(L.d, 1), n: L.n });
+    }
+    for (var tq = 0; tq < g.timers.length; tq++) {
+      var T2 = g.timers[tq];
+      n.timers.push({ c: g.h - 1 - T2.r, r: T2.c, regs: T2.regs.slice() });
     }
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
@@ -1223,6 +1280,10 @@
       var L = g.lasers[i];
       C.lasers.push({ c: L.c + ox, r: L.r + oy, d: L.d, n: L.n });
     }
+    for (var tt = 0; tt < (g.timers || []).length; tt++) {
+      var T3 = g.timers[tt];
+      C.timers.push({ c: T3.c + ox, r: T3.r + oy, regs: T3.regs.slice() });
+    }
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
       C.docks.push({ c: D.c + ox, r: D.r + oy, n: D.n });
@@ -1329,7 +1390,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
