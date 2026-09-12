@@ -3155,6 +3155,76 @@
         "a hook nothing fires is dead code that reads as coverage; expected an error, got " + threw);
     } },
 
+    // ---- multi-board assembly and rotation ---------------------------
+    { name: "a quarter turn rotates conveyors, lasers and walls together", run: function () {
+      /* Every printed course uses rotated boards, so this is not an
+         abstract property -- get it wrong and a transcribed board is
+         correct while the course built from it is not. */
+      var g = B.parsePic("shuntYard", B.BOARD_SPECS.shuntYard);
+      var t = B.rotateGrid(g, 1);
+      assert(t.w === g.h && t.h === g.w, "dimensions should swap on an odd quarter turn");
+
+      // (2,2) is an east-running express; a turn clockwise sends it south.
+      assert(B.codeAt(g, 2, 2) === "B>", "test fixture moved: (2,2) should be an east express");
+      assert(B.codeAt(t, 9, 2) === "Bv", "rotated express should run south at (9,2), found " + B.codeAt(t, 9, 2));
+
+      // The west-facing laser on the east edge becomes a north-facing one on the south edge.
+      var L = null;
+      for (var i = 0; i < t.lasers.length; i++) if (t.lasers[i].c === 5 && t.lasers[i].r === 11) L = t.lasers[i];
+      assert(L, "the laser from (11,6) should land at (5,11) after a clockwise turn");
+      assert(L.d === N, "and should face north, faces " + L.d);
+      assert(B.wallAt(t, 5, 11, B.opposite(N)), "and must still have a wall behind it to mount on");
+    } },
+
+    { name: "two boards assemble side by side without disturbing each other", run: function () {
+      var C = B.buildCourse("crossTown");
+      var g = B.parsePic("shuntYard", B.BOARD_SPECS.shuntYard);
+      assert(C.w === 24, "two 12-wide boards make a 24-wide course, got " + C.w);
+      // The right-hand board's contents should appear offset by 12, unchanged.
+      for (var r = 0; r < 12; r++) {
+        for (var c = 0; c < 12; c++) {
+          assert(B.codeAt(C, c + 12, r) === B.codeAt(g, c, r),
+            "stamped tile (" + (c + 12) + "," + r + ") does not match the board it came from");
+        }
+      }
+      // And the left-hand board is still itself.
+      var p = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+      assert(B.codeAt(C, 1, 0) === B.codeAt(p, 1, 0), "the left board was disturbed by the stamp");
+    } },
+
+    { name: "walls agree across a seam between two boards", run: function () {
+      /* A wall is one lattice slot, so a wall on the east edge of the
+         left board and the west edge of the right board are the same
+         slot. Stamping must not end up with them disagreeing. */
+      var C = B.buildCourse("crossTown");
+      for (var r = 0; r < C.h; r++) {
+        if (B.isVoid(C, 11, r) || B.isVoid(C, 12, r)) continue;
+        assert(B.wallAt(C, 11, r, E) === B.wallAt(C, 12, r, W),
+          "the seam at row " + r + " disagrees with itself");
+      }
+    } },
+
+    { name: "every shipped course can actually be played", run: function () {
+      /* A course that cannot be finished is indistinguishable from one
+         nobody has tried, and adding boards is exactly when that
+         happens. */
+      var keepH = UI.headless, keepA = UI.autoHuman;
+      UI.headless = true; UI.autoHuman = true;
+      var bad = [];
+      for (var id in B.COURSES) {
+        var won = 0;
+        for (var seed = 1; seed <= 6; seed++) {
+          UI.wallsChecked = false;
+          newGame(seed, { course: id });
+          advance();
+          if (G.winner !== null && G.winner !== undefined) won++;
+        }
+        if (!won) bad.push(id);
+      }
+      UI.headless = keepH; UI.autoHuman = keepA;
+      assert(!bad.length, "no game was ever won on: " + bad.join(", "));
+    } },
+
     // ---- the editor's export -----------------------------------------
     { name: "a board survives a round trip through the editor's export", run: function () {
       /* The editor's entire value is that its output can be pasted back
@@ -3861,13 +3931,23 @@
 
   /* The course comes from the mount point; everything else comes from
      the house rules, so the setup screen and a fresh page load agree. */
-  function gameOpts(base) {
+  /* courseId is passed in rather than re-derived, because mount has
+     already built and rendered that course. Working it out twice is
+     how the board on screen ends up being a different one from the
+     board the rules are running on. */
+  function gameOpts(base, courseId) {
     var cfg = resolveConfig(houseRules);
     return {
-      course: (base && base.course) || undefined,
+      course: courseId,
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions
     };
+  }
+
+  function chosenCourse(base) {
+    if (base && base.course) return base.course;
+    if (houseRules && B.COURSES[houseRules.course]) return houseRules.course;
+    return "provingRun";
   }
 
   function onNewGame() {
@@ -3875,7 +3955,10 @@
     clearSave();
     UI.wallsChecked = false;
     UI.curtainCleared = null;
-    newGame((Math.random() * 1e9) | 0, gameOpts(UI.opts));
+    /* A course change means a different board, so the whole mount is
+       rebuilt rather than patched. */
+    if (UI.course && UI.course.id !== chosenCourse(UI.opts)) { mount(UI.els.host, UI.opts); return; }
+    newGame((Math.random() * 1e9) | 0, gameOpts(UI.opts, UI.course.id));
     UI.beams = null;
     hideBanner();
     updateAll();
@@ -3904,6 +3987,7 @@
       for (var k in pre) houseRules[k] = pre[k];
       saveRules(); showSetup(); return;
     }
+    if (a === "course") { houseRules.course = el.dataset.c; saveRules(); showSetup(); return; }
     if (a === "start") { saveRules(); closeModal(); onNewGame(); return; }
     if (a === "tut") { showTutorial(i); return; }
     if (a === "tutskip") { showTutorial(TUTORIAL.length); return; }
@@ -4027,6 +4111,7 @@
   function defaultRules() {
     var out = {};
     for (var k in SLIDER_DEFS) out[k] = SLIDER_DEFS[k].def;
+    out.course = "provingRun";          // a choice, not a range
     return out;
   }
 
@@ -4034,7 +4119,8 @@
     var out = defaultRules();
     try {
       var s = JSON.parse(localStorage.getItem(RULES_KEY) || "null");
-      for (var k in out) if (s && typeof s[k] === "number") out[k] = clampRule(k, s[k]);
+      for (var k in out) if (s && SLIDER_DEFS[k] && typeof s[k] === "number") out[k] = clampRule(k, s[k]);
+      if (s && s.course && B.COURSES[s.course]) out.course = s.course;
     } catch (e) {}
     return out;
   }
@@ -4053,6 +4139,7 @@
   function resolveConfig(h) {
     var players = clampRule("players", h.players);
     return {
+      course: B.COURSES[h.course] ? h.course : "provingRun",
       players: players,
       humans: Math.min(players, clampRule("humans", h.humans)),
       skill: clampRule("skill", h.skill),
@@ -4219,6 +4306,17 @@
     }
     out.push(cur ? "" : '<button class="on" disabled>Custom</button>');
     out.push("</div>");
+
+    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Course</b>' +
+      '<span class="pr-rule-val">' + esc(B.COURSES[houseRules.course].name) + "</span></div>" +
+      '<div class="pr-presets">');
+    for (var cid in B.COURSES) {
+      if (cid.charAt(0) === "_") continue;             // the editor's scratch course
+      out.push('<button data-act="course" data-c="' + esc(cid) + '"' +
+        (houseRules.course === cid ? ' class="on"' : "") + ">" + esc(B.COURSES[cid].name) + "</button>");
+    }
+    out.push("</div><div class='pr-rule-desc'>" +
+      esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
 
     for (var k in SLIDER_DEFS) {
       var d = SLIDER_DEFS[k], v = houseRules[k];
@@ -4942,11 +5040,13 @@
     host.innerHTML = "";
     UI.opts = opts;
 
+    houseRules = loadRules();
+    var courseId = chosenCourse(opts);
     var C;
     try {
       validateTables();
       B.validateAll();
-      C = B.buildCourse(opts.course || "provingRun");
+      C = B.buildCourse(courseId);
     } catch (e) {
       var pre = el("div", "pr-err");
       pre.textContent = "PumaRally failed to load:\n" + e.message;
@@ -5039,7 +5139,6 @@
     UI.mounted = true;
     try { UI.speed = Math.min(2, Math.max(0, parseInt(localStorage.getItem(SPEED_KEY), 10) || 1)); } catch (e) { UI.speed = 1; }
     try { UI.muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) { UI.muted = false; }
-    houseRules = loadRules();
 
     fitBoard(C, host, opts);
     buildGridCells(C);
@@ -5059,7 +5158,7 @@
       log("Resumed from a saved game.");
     } else {
       UI.wallsChecked = false;
-      newGame((Math.random() * 1e9) | 0, gameOpts(opts));
+      newGame((Math.random() * 1e9) | 0, gameOpts(opts, courseId));
     }
     updateAll();
     advance();

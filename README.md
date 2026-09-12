@@ -147,7 +147,14 @@ Faithfulness is a claim about data, so the data says where it came from.
 | Board | Origin | Notes |
 |---|---|---|
 | Proving Ground | **Authored** | Not from any box. Contains one of every element so the engine is exercised end to end. Also the tutorial course. |
+| Shunt Yard | **Authored** | Not from any box either. Exists so that multi-board assembly and rotation are exercised before an official board depends on them. |
 | Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. To be replaced with a transcription. |
+
+Four courses ship: *Proving Run* and *Shunt Run* (one board each), *Cross Town*
+(two boards side by side, so the seam between them is under test) and
+*Sidelong* (one board turned a quarter over, so `rotateGrid` is exercised by a
+real course and not only by a unit test). Every printed course uses both of
+those mechanics; none of them had been built until now.
 
 The twelve original boards are transcribed from reference images, one merge
 request each, against a frozen engine. None have landed yet. A board is never

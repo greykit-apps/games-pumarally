@@ -64,6 +64,25 @@ if (opt.unfinished > games * 0.1) {
   console.error(`  error:   ${opt.unfinished} option games hit the turn cap`); failed++;
 }
 
+// Every course, not just the default one. Adding a board is exactly when a
+// course stops being finishable, and a course nobody has simulated is
+// indistinguishable from one that cannot be won.
+for (const id of Object.keys(PR.B.COURSES)) {
+  if (id.startsWith("_")) continue;
+  const r = PR.runSim(Math.max(40, games / 4), { course: id }, 900);
+  const won = Object.values(r.wins).reduce((a, b) => a + b, 0);
+  console.log(`course ${id}: ${r.games} games, avg ${r.turns.avg} turns, ${won} decided, ` +
+    `${r.unfinished} unfinished, ${r.crashes.length} crashes`);
+  for (const c of r.crashes.slice(0, 3)) {
+    console.error(`  error:   [${id}] seed ${c.seed} crashed at ${c.at} -- ${c.error}`);
+    failed++;
+  }
+  if (!won) { console.error(`  error:   no game on course "${id}" was ever won`); failed++; }
+  if (r.unfinished > r.games * 0.25) {
+    console.error(`  error:   ${r.unfinished}/${r.games} games on "${id}" hit the turn cap`); failed++;
+  }
+}
+
 // The difficulty slider has to mean something. Nothing else would notice if the
 // tiers collapsed into each other -- every game would still finish, every test
 // would still pass, and the setting would quietly be decoration.
