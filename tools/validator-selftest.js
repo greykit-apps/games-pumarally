@@ -56,8 +56,8 @@ function record(label, msg, want) {
 board("row count",        s => s.pic.pop(),                              "picture rows, expected 25");
 board("row width",        s => { s.pic[1] = s.pic[1].slice(0, -1); },    "chars, expected 37");
 board("lattice corner",   s => { s.pic[0] = "x" + s.pic[0].slice(1); },  "lattice corner must be '+'");
-board("horizontal wall",  s => { s.pic[0] = s.pic[0].slice(0, 1) + "-x" + s.pic[0].slice(3); }, "must be '--' or two spaces");
-board("vertical wall",    s => { s.pic[1] = "x" + s.pic[1].slice(1); },  "must be '|' or a space");
+board("horizontal wall",  s => { s.pic[0] = s.pic[0].slice(0, 1) + "-x" + s.pic[0].slice(3); }, "horizontal wall must be");
+board("vertical wall",    s => { s.pic[1] = "x" + s.pic[1].slice(1); },  "vertical wall must be");
 
 // ---- legend --------------------------------------------------------------
 board("unknown element",  s => { s.pic[1] = s.pic[1].slice(0, 1) + "z." + s.pic[1].slice(3); }, "not in the legend");

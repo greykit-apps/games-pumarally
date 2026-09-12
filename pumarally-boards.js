@@ -190,6 +190,13 @@
       cell: new Array(w * h),
       wallN: new Uint8Array(w * (h + 1)),
       wallW: new Uint8Array((w + 1) * h),
+      /* Swing doors live on the lattice beside the walls rather than on
+         the squares, because that is where they are: a closed one IS a
+         wall. The value is the register in which the door stands OPEN,
+         so an absent door and a permanently shut one are the same thing
+         -- which is just a wall, and is spelled that way. */
+      doorN: new Array(w * (h + 1)),
+      doorW: new Array((w + 1) * h),
       lasers: [],
       docks: []
     };
@@ -204,6 +211,39 @@
     if (d === S) return !!g.wallN[(r + 1) * g.w + c];
     if (d === W) return !!g.wallW[r * (g.w + 1) + c];
     return !!g.wallW[r * (g.w + 1) + c + 1];           // E
+  }
+
+  function doorAt(g, c, r, d) {
+    if (d === N) return g.doorN[r * g.w + c] || "";
+    if (d === S) return g.doorN[(r + 1) * g.w + c] || "";
+    if (d === W) return g.doorW[r * (g.w + 1) + c] || "";
+    return g.doorW[r * (g.w + 1) + c + 1] || "";       // E
+  }
+
+  function setDoor(g, c, r, d, ch) {
+    if (d === N) g.doorN[r * g.w + c] = ch;
+    else if (d === S) g.doorN[(r + 1) * g.w + c] = ch;
+    else if (d === W) g.doorW[r * (g.w + 1) + c] = ch;
+    else g.doorW[r * (g.w + 1) + c + 1] = ch;
+  }
+
+  /* Open only in the registers printed on it. Same vocabulary the
+     presses and burners use, minus '.': a door that is always open is
+     not a door. */
+  function doorOpen(ch, register) {
+    if (!ch) return true;
+    if (ch === "o") return register % 2 === 0;
+    if (ch === "e") return register % 2 === 1;
+    return parseInt(ch, 10) === register + 1;
+  }
+
+  /* The question every mover and every laser actually wants to ask.
+     wallAt alone is not it any more: a shut door stops you just as
+     dead, and asking wallAt is how a robot walks through one. */
+  function blockedAt(g, c, r, d, register) {
+    if (wallAt(g, c, r, d)) return true;
+    var ch = doorAt(g, c, r, d);
+    return !!ch && !doorOpen(ch, register);
   }
 
   function setWall(g, c, r, d, on) {
@@ -253,13 +293,15 @@
         for (c = 0; c < w; c++) {
           var seg = row.substr(3 * c + 1, 2);
           if (seg === "--") g.wallN[r * w + c] = 1;
-          else if (seg !== "  ") E_("picture row " + y + " tile " + c + ": horizontal wall must be '--' or two spaces, got '" + seg + "'");
+          else if (/^([1-5oe])\1$/.test(seg)) g.doorN[r * w + c] = seg.charAt(0);
+          else if (seg !== "  ") E_("picture row " + y + " tile " + c + ": horizontal wall must be '--', a doubled door register (11-55, oo, ee) or two spaces, got '" + seg + "'");
         }
       } else {
         for (c = 0; c <= w; c++) {
           var vc = row.charAt(3 * c);
           if (vc === "|") g.wallW[r * (w + 1) + c] = 1;
-          else if (vc !== " ") E_("picture row " + y + " col " + (3 * c) + ": vertical wall must be '|' or a space, got '" + vc + "'");
+          else if (/[1-5oe]/.test(vc)) g.doorW[r * (w + 1) + c] = vc;
+          else if (vc !== " ") E_("picture row " + y + " col " + (3 * c) + ": vertical wall must be '|', a door register (1-5, o, e) or a space, got '" + vc + "'");
         }
         for (c = 0; c < w; c++) {
           var code = row.substr(3 * c + 1, 2);
@@ -331,13 +373,16 @@
       r = y >> 1;
       var out = "";
       if (y % 2 === 0) {
-        for (c = 0; c < g.w; c++) out += "+" + (g.wallN[r * g.w + c] ? "--" : "  ");
+        for (c = 0; c < g.w; c++) {
+          var dn = g.doorN[r * g.w + c];
+          out += "+" + (g.wallN[r * g.w + c] ? "--" : dn ? dn + dn : "  ");
+        }
         out += "+";
       } else {
         for (c = 0; c < g.w; c++) {
-          out += (g.wallW[r * (g.w + 1) + c] ? "|" : " ") + g.cell[r * g.w + c];
+          out += (g.wallW[r * (g.w + 1) + c] ? "|" : (g.doorW[r * (g.w + 1) + c] || " ")) + g.cell[r * g.w + c];
         }
-        out += g.wallW[r * (g.w + 1) + g.w] ? "|" : " ";
+        out += g.wallW[r * (g.w + 1) + g.w] ? "|" : (g.doorW[r * (g.w + 1) + g.w] || " ");
       }
       rows.push(out);
     }
@@ -403,7 +448,11 @@
         var def = ELEMENT_DEFS[code.charAt(0)];
         if (def.arg === "dir") code = code.charAt(0) + DIR_CHARS.charAt(rot(dirOf(code), 1));
         n.cell[idx(n, nc, nr)] = code;
-        for (var d = 0; d < 4; d++) if (wallAt(g, c, r, d)) setWall(n, nc, nr, rot(d, 1), true);
+        for (var d = 0; d < 4; d++) {
+          if (wallAt(g, c, r, d)) setWall(n, nc, nr, rot(d, 1), true);
+          var dch = doorAt(g, c, r, d);
+          if (dch) setDoor(n, nc, nr, rot(d, 1), dch);
+        }
       }
     }
     for (var i = 0; i < g.lasers.length; i++) {
@@ -1164,7 +1213,11 @@
     var ox = at[0], oy = at[1], c, r, d;
     for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) {
       C.cell[idx(C, ox + c, oy + r)] = g.cell[idx(g, c, r)];
-      for (d = 0; d < 4; d++) if (wallAt(g, c, r, d)) setWall(C, ox + c, oy + r, d, true);
+      for (d = 0; d < 4; d++) {
+        if (wallAt(g, c, r, d)) setWall(C, ox + c, oy + r, d, true);
+        var dch2 = doorAt(g, c, r, d);
+        if (dch2) setDoor(C, ox + c, oy + r, d, dch2);
+      }
     }
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
@@ -1281,7 +1334,8 @@
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
     gridToPic: gridToPic, formatBoard: formatBoard, blankGrid: blankGrid,
-    idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall,
+    idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall, doorAt: doorAt, setDoor: setDoor,
+    doorOpen: doorOpen, blockedAt: blockedAt,
     buildCourse: buildCourse, isVoid: isVoid,
     validateGrid: validateGrid, validateCourse: validateCourse, validateAll: validateAll
   };

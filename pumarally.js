@@ -673,12 +673,24 @@
     function bar(c, r, vertical) {
       return '<i class="pr-wall' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r + '"></i>';
     }
+    /* A door is drawn on the same lattice as a wall, in the same place,
+       and it has to say two things at once: that the way is barred and
+       that it will not always be. So it keeps the wall's bar and its
+       concrete stroke but goes hollow and amber, with the registers it
+       opens in stamped on it -- a player planning five cards ahead is
+       reading the number, not the colour. */
+    function doorBar(c, r, vertical, ch) {
+      return '<i class="pr-door' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r +
+        '" data-w="' + esc(ch === "o" ? "135" : ch === "e" ? "24" : ch) + '"></i>';
+    }
     function edgeOfCourse(c, r) { return !B.inGrid(C, c, r) || B.isVoid(C, c, r); }
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
         if (B.isVoid(C, c, r)) continue;
         if (B.wallAt(C, c, r, N)) out.push(bar(c, r, false));
+        else if (B.doorAt(C, c, r, N)) out.push(doorBar(c, r, false, B.doorAt(C, c, r, N)));
         if (B.wallAt(C, c, r, W)) out.push(bar(c, r, true));
+        else if (B.doorAt(C, c, r, W)) out.push(doorBar(c, r, true, B.doorAt(C, c, r, W)));
         if (edgeOfCourse(c, r + 1) && B.wallAt(C, c, r, S)) out.push(bar(c, r + 1, false));
         if (edgeOfCourse(c + 1, r) && B.wallAt(C, c, r, E)) out.push(bar(c + 1, r, true));
       }
@@ -1371,7 +1383,7 @@
   function stepRobot(p, dir, cause) {
     var C = UI.course, chain = [p], c = p.c, r = p.r, i;
     for (var guard = 0; guard < 10; guard++) {
-      if (B.wallAt(C, c, r, dir)) return false;
+      if (blocked(C, c, r, dir)) return false;
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) break;            // the head walks off the edge
       var occ = robotAt(nx.c, nx.r);
@@ -1461,6 +1473,18 @@
     log(p.name + " drops through a portal");
   }
 
+  /* What actually stops a robot or a beam right now. A closed swing door
+     is as solid as a wall and an open one is not there at all, so every
+     LIVE check asks this and not wallAt.
+
+     The bot's distance field and its lookahead deliberately keep asking
+     wallAt, which treats a door as passable. That is the right
+     approximation for planning: the field is computed once per course
+     and cached, so it cannot depend on a register, and a door the bot
+     could cross in some register is better modelled as open than as a
+     wall it will never try. */
+  function blocked(C, c, r, d) { return B.blockedAt(C, c, r, d, G.register); }
+
   function onOil(p) {
     var C = UI.course;
     return !B.isVoid(C, p.c, p.r) && B.isOil(B.codeAt(C, p.c, p.r));
@@ -1489,7 +1513,7 @@
     var C = UI.course;
     for (var guard = 0; guard < 32; guard++) {
       if (!p.alive || !onOil(p)) return;
-      if (B.wallAt(C, p.c, p.r, dir)) return;
+      if (blocked(C, p.c, p.r, dir)) return;
       var nx = B.step(p.c, p.r, dir);
       var occ = B.isVoid(C, nx.c, nx.r) ? null : robotAt(nx.c, nx.r);
       if (occ && !onOil(occ)) return;                 // a robot with grip stops the slide
@@ -1537,7 +1561,7 @@
       if (!sp) continue;
       if (speed === 2 && sp !== 2) continue;
       var d = B.dirOf(code);
-      if (B.wallAt(C, p.c, p.r, d)) continue;         // the validator rejects these; belt and braces
+      if (blocked(C, p.c, p.r, d)) continue;         // the validator rejects these; belt and braces
       movers[p.id] = { dir: d, to: B.step(p.c, p.r, d) };
       ids.push(p.id);
     }
@@ -1655,7 +1679,7 @@
     pierce = pierce || 0;
     if (!skipOrigin) { hit = robotAt(c, r); if (hit) return hit; }
     for (var guard = 0; guard < C.w + C.h + 2; guard++) {
-      if (B.wallAt(C, c, r, dir)) { if (pierce <= 0) return null; pierce--; }
+      if (blocked(C, c, r, dir)) { if (pierce <= 0) return null; pierce--; }
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) return null;
       c = nx.c; r = nx.r;
@@ -2259,7 +2283,7 @@
     for (i = 0; i < alive.length; i++) {
       var p = alive[i];
       if (p.poweredDown) continue;
-      if (B.wallAt(C, p.c, p.r, p.face)) continue;
+      if (blocked(C, p.c, p.r, p.face)) continue;
       var nx = B.step(p.c, p.r, p.face);
       if (B.isVoid(C, nx.c, nx.r)) continue;
       var v = firstRobotAlong(p.c, p.r, p.face, true);
@@ -2707,6 +2731,14 @@
     return rows;
   }
 
+  /* A 2x1 board whose only feature is a swing door between the two
+     squares, open in register 3. The picture is spelled out in full
+     because the door IS a picture character, so parsing it is half of
+     what the door tests are testing. */
+  function doorBench() {
+    return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
+  }
+
   function bench(cells, walls, lasers) {
     var w = cells[0].length, h = cells.length;
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls), lasers: lasers || [] });
@@ -3139,6 +3171,55 @@
         checkpointPass();
         assert(G.players[0].flags === 1, "standing on flag 1 scores it whatever the house rule (mode " + mode + ")");
       }
+    } },
+
+    // ---- Crash and Burn: swing doors ---------------------------------
+    { name: "a swing door blocks when shut and lets you through when open", run: function () {
+      var g = doorBench(); g.id = "bench"; g.name = "Bench"; g.flags = [];
+      assert(B.doorAt(g, 0, 0, E) === "3", "the door should parse onto the east edge of (0,0)");
+      benchGame(g, [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      G.register = 0;
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 0, "register 1: shut, so it behaves as a wall -- got c=" + p.c);
+      G.register = 2;
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 1, "register 3: open -- got c=" + p.c);
+    } },
+
+    { name: "a shut door stops a laser, an open one does not", run: function () {
+      var g = doorBench(); g.id = "bench"; g.name = "Bench"; g.flags = [];
+      benchGame(g, [{ c: 0, r: 0, face: E }, { c: 1, r: 0, face: E }]);
+      G.register = 0;
+      assert(firstRobotAlong(0, 0, E, true) === null, "a shut door should stop the beam");
+      G.register = 2;
+      assert(firstRobotAlong(0, 0, E, true) === G.players[1],
+        "an open door should let it through -- the rulebook says beams use them too");
+    } },
+
+    { name: "a door round-trips through the picture byte for byte", run: function () {
+      var g = doorBench();
+      var rows = B.gridToPic(g);
+      assert(rows[1] === " ..3.. ",
+        "written back out unchanged, got " + JSON.stringify(rows[1]));
+    } },
+
+    { name: "a door survives board rotation", run: function () {
+      var n = B.rotateGrid(doorBench(), 1), found = [];
+      for (var c = 0; c < n.w; c++) {
+        for (var r = 0; r < n.h; r++) {
+          for (var d = 0; d < 4; d++) if (B.doorAt(n, c, r, d) === "3") found.push(c + "," + r);
+        }
+      }
+      assert(found.length === 2,
+        "one door, reported from both sides, survives a quarter turn -- got " + found.join(" "));
+    } },
+
+    { name: "a door is not a wall, and a wall is not a door", run: function () {
+      var g = doorBench();
+      assert(!B.wallAt(g, 0, 0, E), "a door must not report as a wall -- pushers mount on walls");
+      assert(B.blockedAt(g, 0, 0, E, 0), "but it does block in register 1");
+      assert(!B.blockedAt(g, 0, 0, E, 2), "and not in register 3");
     } },
 
     // ---- Crash and Burn: portals -------------------------------------
@@ -4076,6 +4157,20 @@
     ".pr-wall.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
     "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile)}",
 
+    /* A swing door sits exactly where a wall would, so it inherits the
+       geometry and changes only what it says: hollow rather than solid,
+       amber rather than concrete, and stamped with the registers it
+       opens in. */
+    ".pr-door{position:absolute;pointer-events:none;box-sizing:border-box;",
+    "border:2px dashed var(--pr-warn);background:color-mix(in srgb, var(--pr-warn) 14%, transparent);",
+    "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 2);",
+    "width:var(--tile);height:var(--wt)}",
+    ".pr-door.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
+    "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile)}",
+    ".pr-door::after{content:attr(data-w);position:absolute;left:50%;top:50%;",
+    "transform:translate(-50%,-50%);font-size:8px;line-height:1;color:var(--pr-warn);",
+    "background:var(--pr-bg);padding:0 2px;border-radius:2px;letter-spacing:.5px}",
+
     /* Beams cross tiles, so they are their own layer. --off is a
        fraction of a tile, which is what lets several parallel beams
        share a square without arithmetic in the markup. */
@@ -4608,7 +4703,7 @@
       for (n = 0; n < 40; n++) {
         lit[c + "," + r] = 1;
         if (b.stopC === c && b.stopR === r) break;
-        if (B.wallAt(C, c, r, b.dir)) break;
+        if (blocked(C, c, r, b.dir)) break;
         var nx = B.step(c, r, b.dir);
         if (B.isVoid(C, nx.c, nx.r)) break;
         c = nx.c; r = nx.r;
