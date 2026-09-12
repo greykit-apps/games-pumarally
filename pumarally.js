@@ -4021,14 +4021,29 @@
     host.innerHTML = out.join("");
   }
 
+  /* Newest first. What just happened is the only part of this anyone
+     reads during a turn, so it belongs where the eye already is rather
+     than behind a scroll that has to keep chasing the bottom. Older
+     entries fall away downward, which is also the order of how much
+     they are worth.
+
+     The register markers come out reading as separators BELOW the
+     events they introduced rather than above them. That is inherent to
+     reversing, and it still groups the register correctly -- it just
+     divides from the bottom of the group instead of the top. */
   function updateLog() {
     var host = UI.els.log, out = [], start = Math.max(0, G.log.length - 60), i;
-    for (i = start; i < G.log.length; i++) {
+    /* Pin to the newest only if the reader is already up there. During
+       execution renders come fast, and yanking the view back to the top
+       every time would make older entries unreadable the moment anyone
+       scrolled down to read them. */
+    var pinned = host.scrollTop < 24;
+    for (i = G.log.length - 1; i >= start; i--) {
       var e = G.log[i];
       out.push('<div' + (/^--/.test(e.msg) ? ' class="reg"' : "") + ">" + esc(e.msg) + "</div>");
     }
     host.innerHTML = out.join("");
-    host.scrollTop = host.scrollHeight;
+    if (pinned) host.scrollTop = 0;
   }
 
   /* CARD ART, in the board's own vocabulary.
