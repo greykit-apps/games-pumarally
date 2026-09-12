@@ -3048,6 +3048,8 @@
          The moment any gap reaches its own ms, that register silently
          becomes a queue again -- same board, same cards, same log, and
          nothing to see except that priority stopped being legible. The
+         deal is the same shape: its gap is what makes the hand arrive
+         card after card instead of all at once. The
          settle beat at the end of the step is ms - gap, so a gap ABOVE
          ms would also make it negative and drop the tail of the last
          robot's motion. */
@@ -3057,7 +3059,8 @@
         if (!(m.gap < m.ms)) bad.push(k + " (gap " + m.gap + " >= ms " + m.ms + ")");
       }
       assert(bad.length === 0,
-        "these motions cannot overlap, so robots move one at a time: " + bad.join(", "));
+        "these cannot overlap, so whatever they animate -- robots, cards -- goes " +
+        "strictly one at a time: " + bad.join(", "));
     } },
 
     { name: "a card's art says what the card does", run: function () {
@@ -3560,8 +3563,15 @@
     ".pr-hand .pr-card{cursor:grab}",
     ".pr-hand .pr-card:hover .pr-face{border-color:var(--pr-accent)}",
     ".pr-card.pr-dragging{opacity:.35;cursor:grabbing}",
-    ".pr-card.pr-dealt{animation:pr-deal .32s var(--pr-ease,cubic-bezier(.25,1,.5,1)) both}",
-    "@keyframes pr-deal{0%{opacity:0;transform:translateY(14px) rotate(1.5deg)}",
+    /* Dealt cards arrive one after another rather than all at once:
+       the stagger is what says WHICH cards are new, because a hand
+       that fades in together says only that something changed. The
+       index is set per card, so the delay is positional -- card 0
+       lands first and the rest follow it across the row. */
+    ".pr-card.pr-dealt{animation:pr-deal var(--pr-deal-ms,340ms) var(--pr-ease) both;",
+    "animation-delay:calc(var(--pr-deal-i,0) * var(--pr-deal-gap,55ms))}",
+    "@keyframes pr-deal{0%{opacity:0;transform:translate(-38px,-18px) rotate(-9deg) scale(.88)}",
+    "60%{opacity:1}",
     "100%{opacity:1;transform:none}}",
     /* ---- registers ----
        A slot is a landing place: dashed while empty, solid once it
@@ -3761,7 +3771,12 @@
     drive: { ms: 620, gap: 260, ease: "var(--pr-ease)" },
     belt:  { ms: 700, gap: 260, ease: "linear" },
     shove: { ms: 260, gap: 160, ease: "cubic-bezier(.35,0,.2,1)" },
-    turn:  { ms: 480, gap: 220, ease: "var(--pr-ease)" }
+    turn:  { ms: 480, gap: 220, ease: "var(--pr-ease)" },
+    /* Not a robot: one card's flight, and the gap before the next card
+       sets off. Same shape and the same invariant -- a gap at or above
+       the duration deals the hand strictly one card at a time, which
+       reads as a queue rather than a deal. */
+    deal:  { ms: 340, gap: 55, ease: "var(--pr-ease)" }
   };
 
   function motionOf(kind) { return MOTION[kind || "drive"] || MOTION.drive; }
@@ -3775,6 +3790,15 @@
     UI.els.pieces.style.setProperty("--pr-move-ms", delayFor(m.ms) + "ms");
     UI.els.pieces.style.setProperty("--pr-move-ease", m.ease);
     UI.els.pieces.className = "pr-pieces pr-m-" + (kind || "drive");
+  }
+
+  /* Same treatment for the deal, and for the same reason: a slow game
+     should deal slowly rather than deal at speed and then wait. */
+  function setDealTiming() {
+    if (!UI.els || !UI.els.hand) return;
+    var m = motionOf("deal");
+    UI.els.hand.style.setProperty("--pr-deal-ms", delayFor(m.ms) + "ms");
+    UI.els.hand.style.setProperty("--pr-deal-gap", delayFor(m.gap) + "ms");
   }
 
   function stopQueue() {
@@ -4169,14 +4193,27 @@
        enough that the cards sit at the animation's first frame, which
        is opacity zero. An invisible hand, from an animation that was
        working perfectly. */
-    var out = [], fresh = {};
+    var out = [], fresh = {}, dealt = 0;
     if (programming) {
+      /* Held, not in-hand. A card you pull back out of a register was
+         never dealt to you again -- it was yours all along -- so it
+         must not fly in as though it were new. Tracking only the hand
+         made every un-programmed card re-deal itself, which is exactly
+         the signal this animation exists to give and exactly the wrong
+         card to give it about. */
       var seen = UI.lastHand || {};
+      for (i = 0; i < me.registers.length; i++) {
+        if (me.registers[i] !== null) fresh[me.registers[i]] = 1;
+      }
       for (i = 0; i < me.hand.length; i++) {
         var cd = card(me.hand[i]);
         var isNew = !seen[me.hand[i]];
         fresh[me.hand[i]] = 1;
-        out.push('<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '" draggable="true"' +
+        /* Positional, and counted over the new cards only: a single
+           card dealt into a hand of eight should land now, not wait
+           out the eight delays it would inherit from its index. */
+        var di = isNew ? ' style="--pr-deal-i:' + dealt++ + '"' : "";
+        out.push('<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '"' + di + ' draggable="true"' +
           ' data-act="card" data-i="' + i + '" data-hand="' + i + '" aria-label="' +
           esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri +
           '. Drag to a register, or press Enter to place it in the next one.">' +
@@ -4184,6 +4221,7 @@
       }
     }
     UI.els.hand.innerHTML = out.join("");
+    if (dealt) setDealTiming();
     UI.lastHand = programming ? fresh : null;
 
     var ready = programming && firstEmpty(me) === -1;
