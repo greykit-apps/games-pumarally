@@ -1757,7 +1757,13 @@
       },
 
       move: function () {
-        if (!G.exec.queue.length) { go("exec", "express"); return NEXT; }
+        if (!G.exec.queue.length) {
+          go("exec", "express");
+          /* Let the last robot finish. Everything before it waited only
+             a gap, so the tail of the slowest motion is still running. */
+          var m = motionOf("drive");
+          return animate([{ type: "wait", delay: m.ms - m.gap }]);
+        }
         /* Peek rather than shift: an option card can park this step
            for a question, and a shifted queue would lose the robot. */
         var p = G.players[G.exec.queue[0]];
@@ -1772,8 +1778,13 @@
         G.exec.queue.shift();
         log(p.name + " " + describePlan(cd, ctx));
         runPlan(p, ctx);
-        return animate([{ type: "motion", kind: "" }, { type: "sfx", name: "move" },
-                        { type: "render" }, { type: "wait", delay: 300 }]);
+        /* Wait only the GAP, not the whole motion: this robot is still
+           sliding when the next one sets off, which is what makes the
+           priority order visible as a stagger instead of a queue. The
+           last one still needs its full motion, so the step settles
+           below once the queue is empty. */
+        return animate([{ type: "motion", kind: "drive" }, { type: "sfx", name: "move" },
+                        { type: "render" }, { type: "wait", delay: motionOf("drive").gap }]);
       },
 
       /* Each board element gets its own beat, but only if it actually
@@ -3010,7 +3021,10 @@
          correctly. */
       var css = CSS;                 // already joined where it is declared
       var used = {}, defined = {}, m, k;
-      var useRe = /var\(\s*(--pr-[a-z0-9-]+)/g;
+      /* Only uses with NO fallback. var(--x, something) is fine however
+         undefined --x is; it is the bare var(--x) that takes the whole
+         declaration down with it, which is the thing worth catching. */
+      var useRe = /var\(\s*(--pr-[a-z0-9-]+)\s*\)/g;
       while ((m = useRe.exec(css))) used[m[1]] = true;
       var defRe = /(--pr-[a-z0-9-]+)\s*:/g;
       while ((m = defRe.exec(css))) defined[m[1]] = true;
@@ -3020,7 +3034,30 @@
       var missing = [];
       for (k in used) if (!defined[k]) missing.push(k);
       assert(missing.length === 0,
-        "used but never defined, so every rule mentioning them is dropped: " + missing.join(", "));
+        "used with no fallback and never defined, so every rule mentioning them is " +
+        "dropped: " + missing.join(", "));
+    } },
+
+    { name: "every motion leaves room for the next one to start", run: function () {
+      /* The stagger is not an animation: it is the arithmetic between
+         two numbers. exec.move waits only GAP before releasing the
+         next robot, so a robot is still sliding when its successor
+         sets off, and four robots in one register read as an ordered
+         cascade rather than a queue of separate little films.
+
+         The moment any gap reaches its own ms, that register silently
+         becomes a queue again -- same board, same cards, same log, and
+         nothing to see except that priority stopped being legible. The
+         settle beat at the end of the step is ms - gap, so a gap ABOVE
+         ms would also make it negative and drop the tail of the last
+         robot's motion. */
+      var k, m, bad = [];
+      for (k in MOTION) {
+        m = MOTION[k];
+        if (!(m.gap < m.ms)) bad.push(k + " (gap " + m.gap + " >= ms " + m.ms + ")");
+      }
+      assert(bad.length === 0,
+        "these motions cannot overlap, so robots move one at a time: " + bad.join(", "));
     } },
 
     { name: "a card's art says what the card does", run: function () {
@@ -3429,19 +3466,20 @@
 
     /* ---- robots ---- */
     ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
-    ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
-    "transition:left .22s var(--pr-ease),top .22s var(--pr-ease),opacity .3s,transform .3s}",
-    /* THE SAME SQUARE, TRAVELLED THREE DIFFERENT WAYS.
-       A card drives you: it eases out, because you chose it. A belt
-       carries you: constant speed, because the machinery does not
-       accelerate for your benefit. A pusher shoves you: fast and
+    /* THE SAME SQUARE, TRAVELLED SEVERAL DIFFERENT WAYS.
+       A card drives you and eases out, because you chose it. A belt
+       carries you at constant speed, because the machinery does not
+       accelerate for your benefit. A pusher shoves you, fast and
        abrupt. The distance is identical, so the timing is the only
-       thing that can say which of the three just happened. */
-    ".pr-pieces.pr-m-belt .pr-piece{transition-duration:.34s;transition-timing-function:linear}",
-    ".pr-pieces.pr-m-shove .pr-piece{transition-duration:.15s;",
-    "transition-timing-function:cubic-bezier(.35,0,.2,1)}",
+       thing that can say which of them just happened -- and the
+       duration is a property rather than a class so the speed setting
+       can scale it. */
+    ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
+    "transition:left var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
+    "top var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
+    "opacity .3s,transform .3s}",
     ".pr-piece svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;",
-    "transition:transform .22s var(--pr-ease)}",
+    "transition:transform var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease))}",
     ".pr-piece .pr-hull{fill:var(--livery-dark,var(--pr-bg));stroke:currentColor;stroke-width:6;",
     "stroke-linejoin:round}",
     ".pr-piece .pr-nose{fill:currentColor;stroke:none}",
@@ -3704,9 +3742,39 @@
     }
   }
 
+  /* HOW LONG EACH KIND OF MOTION TAKES, and how long before the next
+     robot starts its own.
+
+     A move takes the same time whatever its distance, so a Move 3
+     crosses three squares in the time a Move 1 crosses one -- it is
+     faster, not longer. That is what the card says: the same beat of
+     the turn, further.
+
+     `gap` is the interesting number. Robots resolve strictly in
+     priority order, so playing them end to end would be honest and
+     unreadable -- a queue of separate little films. Making the gap
+     SHORTER than the motion overlaps them: the highest priority starts
+     first and the lowest starts last, all of them are moving at once
+     in the middle, and the order is something you watch rather than
+     something you infer. */
+  var MOTION = {
+    drive: { ms: 620, gap: 260, ease: "var(--pr-ease)" },
+    belt:  { ms: 700, gap: 260, ease: "linear" },
+    shove: { ms: 260, gap: 160, ease: "cubic-bezier(.35,0,.2,1)" },
+    turn:  { ms: 480, gap: 220, ease: "var(--pr-ease)" }
+  };
+
+  function motionOf(kind) { return MOTION[kind || "drive"] || MOTION.drive; }
+
   function setMotion(kind) {
     if (!UI.els || !UI.els.pieces) return;
-    UI.els.pieces.className = "pr-pieces" + (kind ? " pr-m-" + kind : "");
+    var m = motionOf(kind);
+    /* Duration and easing come through custom properties rather than a
+       class per kind, so the speed setting scales them: a slow game
+       wants slow motion, not the same motion with longer gaps. */
+    UI.els.pieces.style.setProperty("--pr-move-ms", delayFor(m.ms) + "ms");
+    UI.els.pieces.style.setProperty("--pr-move-ease", m.ease);
+    UI.els.pieces.className = "pr-pieces pr-m-" + (kind || "drive");
   }
 
   function stopQueue() {
