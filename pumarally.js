@@ -498,6 +498,23 @@
                '<rect class="pr-void-floor" x="34" y="34" width="32" height="42" rx="1"/>', "pr-pit");
   }
 
+  /* A press is a ram seen from underneath: a heavy plate ringed by the
+     shaft it comes down in. A burner is the nozzle and its flame. Both
+     are stamped with the registers they act in, the way a pusher is,
+     because the timing is the whole of what makes them dangerous. */
+  function pressSvg() {
+    return svg('<circle class="pr-shaft" cx="50" cy="50" r="37"/>' +
+               '<circle class="pr-press-ram" cx="50" cy="50" r="26"/>' +
+               '<circle class="pr-press-bolt" cx="50" cy="50" r="9"/>', "pr-press");
+  }
+
+  function burnerSvg() {
+    return svg('<rect class="pr-plate" x="30" y="62" width="40" height="24" rx="3"/>' +
+               '<path class="pr-flame" d="M50 14C62 32 70 42 70 54C70 66 61 74 50 74C39 74 30 66 30 54C30 42 38 32 50 14Z"/>' +
+               '<path class="pr-flame-core" d="M50 34C57 45 60 50 60 56C60 63 55 68 50 68C45 68 40 63 40 56C40 50 43 45 50 34Z"/>',
+               "pr-burner");
+  }
+
   function dockSvg(n) {
     return svg('<rect class="pr-plate" x="16" y="16" width="68" height="68" rx="4"/>' +
                '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
@@ -575,10 +592,17 @@
     else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
+    else if (def.crush) out.push(pressSvg());
+    else if (def.burn) out.push(burnerSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
     if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
+    if (def.crush || def.burn) {
+      var when = code.charAt(1);
+      out.push('<span class="pr-pushreg">' +
+        (when === "." ? "*" : when === "o" ? "135" : when === "e" ? "24" : esc(when)) + "</span>");
+    }
 
     for (var fi = 0; fi < C.flags.length; fi++) {
       if (C.flags[fi].c === c && C.flags[fi].r === r) out.push(flagSvg(C.flags[fi].n));
@@ -1435,6 +1459,42 @@
     }
   }
 
+  /* CRASH AND BURN.
+
+     A press destroys whatever is standing on it in the registers
+     printed on it, and a burner damages it. Both read their timing off
+     the square rather than from a rule, because the boards print a
+     different set of numbers on nearly every one.
+
+     The burner's beat is the odd one. "Die Reihenfolge, in der
+     Fabrikelemente in Aktion treten, bleibt bestehen. Mit einer
+     Ausnahme: Brenner treten direkt nach den Lasern in Aktion." --
+     every other element keeps its place and the burner alone moves to
+     after the lasers. Put it with the rest and a robot shot down to its
+     last point of damage burns before the shot that should have killed
+     it, which is the wrong robot destroyed by the wrong thing. */
+  function pressPass() {
+    var C = UI.course, alive = live();
+    for (var i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      if (!B.activeNow(B.codeAt(C, p.c, p.r), G.register)) continue;
+      if (!B.elemOf(B.codeAt(C, p.c, p.r)).crush) continue;
+      log(p.name + " is crushed by a press");
+      destroy(p, "under a press");
+    }
+  }
+
+  function burnerPass() {
+    var C = UI.course, alive = live();
+    for (var i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
+      if (!el || !el.burn || !B.activeNow(code, G.register)) continue;
+      log(p.name + " is scorched by a burner");
+      damage(p, el.burn, "burner");
+    }
+  }
+
   function pusherPass() {
     var C = UI.course, alive = live();
     // G.register is 0-based, so index 0/2/4 are the printed registers 1/3/5.
@@ -1834,7 +1894,8 @@
       express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt", "belt"); },
       belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt", "belt"); },
       pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove", "shove"); },
-      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear", "turn"); },
+      gears: function () { return boardBeat(gearPass, null, "presses", 260, "gear", "turn"); },
+      presses: function () { return boardBeat(pressPass, null, "lasers", 300, "shove", "shove"); },
 
       lasers: function () {
         var before = boardSig();
@@ -1854,7 +1915,7 @@
         }
         if (pending) return park("exec", "lasers");
         applyLaserHits(hits);
-        go("exec", "touch");
+        go("exec", "burners");
         if (UI.headless || !UI.mounted) return NEXT;
         var hit = boardSig() !== before;
         if (!beams.length) return NEXT;
@@ -1867,6 +1928,10 @@
           { type: "wait", delay: hit ? 200 : 40 }
         ]);
       },
+
+      /* The one element that does not keep its place in the order:
+         the rules move it to directly after the lasers. */
+      burners: function () { return boardBeat(burnerPass, null, "touch", 300, "laser", "shove"); },
 
       touch: function () {
         var before = boardSig();
@@ -2881,6 +2946,55 @@
       assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
+    // ---- Crash and Burn: presses and burners -------------------------
+    { name: "a press flattens what stands on it, but only in its registers", run: function () {
+      benchGame(bench([["X3"]]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 0;  pressPass();
+      assert(p.alive, "register 1 is not register 3 -- it should still be standing");
+      G.register = 2;  pressPass();
+      assert(!p.alive, "register 3 is printed on it, so this should have flattened it");
+    } },
+
+    { name: "a press with no number is always active", run: function () {
+      benchGame(bench([["X."]]), [{ c: 0, r: 0 }]);
+      G.register = 1;  pressPass();
+      assert(!G.players[0].alive, "no number means every register");
+    } },
+
+    { name: "a burner scorches for one, in its registers only", run: function () {
+      benchGame(bench([["Fo"]]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 1;  burnerPass();
+      assert(p.damage === 0, "register 2 is not one of 1/3/5");
+      G.register = 2;  burnerPass();
+      assert(p.damage === 1, "register 3 is, so one point -- got " + p.damage);
+    } },
+
+    /* The ordering rule, and the reason it is worth a test: put the
+       burner back with the other elements and a robot on its last point
+       of damage burns to death before the laser that should have
+       killed it. Same robot destroyed, different cause, and the archive
+       and the shooter's credit both follow the cause. */
+    { name: "burners fire after the lasers, not with the other elements", run: function () {
+      var order = [], seen = {};
+      for (var k in STEP.exec) seen[k] = true;
+      assert(seen.presses && seen.burners, "both steps must exist in the phase machine");
+      /* Walk the machine from gears and record where each lands. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      G.phase = "exec"; G.step = "gears";
+      for (var guard = 0; guard < 8 && G.step && G.step !== "endReg"; guard++) {
+        order.push(G.step);
+        STEP.exec[G.step]();
+      }
+      var gi = order.indexOf("gears"), pi = order.indexOf("presses"),
+          li = order.indexOf("lasers"), bi = order.indexOf("burners"),
+          ti = order.indexOf("touch");
+      assert(gi < pi && pi < li, "presses keep their place among the elements: " + order.join(" -> "));
+      assert(li < bi, "the burner must come AFTER the lasers: " + order.join(" -> "));
+      assert(bi < ti, "and before the flags are touched: " + order.join(" -> "));
+    } },
+
     { name: "every turn is dealt from a reshuffled deck", run: function () {
       benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
       G.deck = PROGRAM_DECK.map(function (c) { return c.id; });
@@ -3660,7 +3774,12 @@
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
-    ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
+    ".pr-press .pr-shaft{fill:var(--pr-bg)}",
+    ".pr-press .pr-press-ram{fill:var(--pr-concrete);stroke:var(--pr-bg);stroke-width:3}",
+    ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
+    ".pr-burner .pr-flame{fill:var(--pr-danger)}",
+    ".pr-burner .pr-flame-core{fill:var(--pr-warn)}",
+        ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
     "color:var(--pr-hazard);background:var(--pr-bg);padding:1px 2px;pointer-events:none;z-index:2}",
 
     /* ---- walls ----
@@ -4962,8 +5081,12 @@
       body: "Only the ones whose registers are printed on them." },
     { phase: "exec", step: "gears", title: "Gears",
       body: "A quarter turn, the way the hub points." },
+    { phase: "exec", step: "presses", title: "Presses",
+      body: "A press flattens whatever is standing on it, in the registers printed on it. Crash and Burn boards only." },
     { phase: "exec", step: "lasers", title: "Lasers",
       body: "Board lasers and robot lasers fire at the same instant, so a robot destroyed this register still gets its shot off. Walls block. A powered-down robot does not fire." },
+    { phase: "exec", step: "burners", title: "Burners",
+      body: "A burner scorches anything standing on it, in the registers printed on it. It fires after the lasers, not with the other elements. Crash and Burn boards only." },
     { phase: "exec", step: "touch", title: "Flags and repair sites",
       body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
     { phase: "cleanup", step: "repair", title: "Repairs",

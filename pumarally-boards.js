@@ -114,6 +114,11 @@
     /* The 2016 edition removed repair and upgrade squares from the
        boards, so these two are classic-only and a modern board
        carrying one is a transcription error rather than a variant. */
+    /* CRASH AND BURN (1997). Both act on a register timer, which is
+       printed on the square as a number -- so the argument slot, which
+       these do not need for a direction, carries WHEN instead. */
+    "X": { name: "press", arg: "when", crush: true, editions: ["classic"] },
+    "F": { name: "burner", arg: "when", burn: 1, editions: ["classic"] },
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
     "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
     "s": { name: "docking bay", arg: "digit", editions: BOTH }
@@ -124,6 +129,18 @@
   function beltSpeed(code) { var e = elemOf(code); return e && e.belt || 0; }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
   function isPit(code) { return code.charAt(0) === "o"; }
+  /* '.' always, '1'-'5' one printed register, 'o' the odd ones and 'e'
+     the even ones -- the same 1/3/5 and 2/4 split the pushers use, and
+     for the same reason: the board prints a set of numbers, not one. */
+  function activeNow(code, register) {
+    var e = elemOf(code);
+    if (!e || !(e.crush || e.burn)) return false;
+    var a = code.charAt(1);
+    if (a === ".") return true;
+    if (a === "o") return register % 2 === 0;          // 0-based: registers 1, 3, 5
+    if (a === "e") return register % 2 === 1;          // registers 2, 4
+    return parseInt(a, 10) === register + 1;
+  }
 
   /* ============================================================
      THE PICTURE FORMAT
@@ -146,6 +163,8 @@
        r.  gear cw        Pv  pusher, registers 2/4,   pushes south
        w.  repair (1 damage)
        W.  upgrade (2 damage OR an option card -- the player chooses)
+       X3  press, active in register 3      (Crash and Burn)
+       Fo  burner, active in registers 1/3/5 (Crash and Burn)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.
@@ -241,6 +260,10 @@
           if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) E_("(" + c + "," + r + ") " + def.name + " needs a direction (^ > v <), got '" + a + "'");
           if (def.arg === "none" && a !== ".") E_("(" + c + "," + r + ") " + def.name + " takes no argument, got '" + a + "'");
           if (def.arg === "digit" && !/[1-8]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a position 1-8, got '" + a + "'");
+          if (def.arg === "when" && !/[.oe1-5]/.test(a)) {
+            E_("(" + c + "," + r + ") " + def.name + " needs a register: '.' always, " +
+               "1-5 for one, 'o' for 1/3/5 or 'e' for 2/4, got '" + a + "'");
+          }
           if (def.editions && def.editions.indexOf(edition) < 0) {
             E_("(" + c + "," + r + ") is a " + def.name + ", which the " +
                EDITIONS[edition].name + " edition does not print");
@@ -1225,7 +1248,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
