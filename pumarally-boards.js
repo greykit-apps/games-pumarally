@@ -48,6 +48,30 @@
   }
 
   /* ============================================================
+     EDITIONS
+
+     RoboRally has been printed as two substantially different games,
+     and this project now carries both. The boards look similar and
+     are not interchangeable: the 2016 edition replaced card priority
+     numbers with a priority antenna, damage tokens with SPAM cards
+     shuffled into a personal deck, and option cards with energy
+     spent in an upgrade shop -- and it dropped repair and upgrade
+     squares from the boards entirely.
+
+     So a board declares which game it is printed for, a course may
+     not mix them, and the validator refuses an element that does not
+     exist in that edition. Without that, a 2016 board transcribed
+     against the classic engine would validate and play and be quietly
+     the wrong game.
+     ============================================================ */
+  var EDITIONS = {
+    classic: { name: "Classic", years: "1994-2005" },
+    modern: { name: "Modern", years: "2016-" }
+  };
+
+  var BOTH = ["classic", "modern"];
+
+  /* ============================================================
      ELEMENT LEGEND
      A cell is exactly two characters: element, then argument. The
      argument is a direction for anything that points, a digit for
@@ -56,17 +80,20 @@
      character, which is the commonest transcription error.
      ============================================================ */
   var ELEMENT_DEFS = {
-    ".": { name: "floor", arg: "none" },
-    "o": { name: "pit", arg: "none" },
-    "b": { name: "conveyor", arg: "dir", belt: 1 },
-    "B": { name: "express conveyor", arg: "dir", belt: 2 },
-    "l": { name: "gear (counter-clockwise)", arg: "none", gear: -1 },
-    "r": { name: "gear (clockwise)", arg: "none", gear: 1 },
-    "p": { name: "pusher (registers 1, 3, 5)", arg: "dir", push: "odd" },
-    "P": { name: "pusher (registers 2, 4)", arg: "dir", push: "even" },
-    "w": { name: "repair site", arg: "none", repair: 1 },
-    "W": { name: "upgrade site", arg: "none", repair: 1, option: true },
-    "s": { name: "docking bay", arg: "digit" }
+    ".": { name: "floor", arg: "none", editions: BOTH },
+    "o": { name: "pit", arg: "none", editions: BOTH },
+    "b": { name: "conveyor", arg: "dir", belt: 1, editions: BOTH },
+    "B": { name: "express conveyor", arg: "dir", belt: 2, editions: BOTH },
+    "l": { name: "gear (counter-clockwise)", arg: "none", gear: -1, editions: BOTH },
+    "r": { name: "gear (clockwise)", arg: "none", gear: 1, editions: BOTH },
+    "p": { name: "pusher (registers 1, 3, 5)", arg: "dir", push: "odd", editions: BOTH },
+    "P": { name: "pusher (registers 2, 4)", arg: "dir", push: "even", editions: BOTH },
+    /* The 2016 edition removed repair and upgrade squares from the
+       boards, so these two are classic-only and a modern board
+       carrying one is a transcription error rather than a variant. */
+    "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
+    "W": { name: "upgrade site", arg: "none", repair: 1, option: true, editions: ["classic"] },
+    "s": { name: "docking bay", arg: "digit", editions: BOTH }
   };
 
   function elemOf(code) { return ELEMENT_DEFS[code.charAt(0)]; }
@@ -146,6 +173,12 @@
     var E_ = function (m) { throw new Error("board " + id + ": " + m); };
     var wantRows = 2 * h + 1, wantCols = 3 * w + 1;
 
+    /* Checked first: every per-element check below reads this, so a
+       bogus edition would surface as a crash inside the legend rather
+       than as the mistyped field it is. */
+    var edition = spec.edition || "classic";
+    if (!EDITIONS[edition]) E_('declares edition "' + edition + '", which is not a thing');
+
     if (!Array.isArray(pic)) E_("has no picture");
     if (pic.length !== wantRows) E_("has " + pic.length + " picture rows, expected " + wantRows + " for a " + w + "x" + h + " board");
 
@@ -178,6 +211,10 @@
           if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) E_("(" + c + "," + r + ") " + def.name + " needs a direction (^ > v <), got '" + a + "'");
           if (def.arg === "none" && a !== ".") E_("(" + c + "," + r + ") " + def.name + " takes no argument, got '" + a + "'");
           if (def.arg === "digit" && !/[1-8]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a position 1-8, got '" + a + "'");
+          if (def.editions && def.editions.indexOf(edition) < 0) {
+            E_("(" + c + "," + r + ") is a " + def.name + ", which the " +
+               EDITIONS[edition].name + " edition does not print");
+          }
           g.cell[r * w + c] = code;
           if (def.arg === "digit") g.docks.push({ c: c, r: r, n: parseInt(a, 10) });
         }
@@ -188,6 +225,7 @@
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
     }
     g.name = spec.name;
+    g.edition = edition;
     g.origin = spec.origin || "authored";
     g.notes = spec.notes || "";
     return g;
@@ -234,7 +272,9 @@
     var pic = gridToPic(g), i;
     var out = [];
     out.push("    " + id + ": {");
-    out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h + ', origin: "' + origin + '",');
+    var edition = meta.edition || g.edition || "classic";
+    out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h +
+             ', edition: "' + edition + '", origin: "' + origin + '",');
     if (notes) out.push('      notes: "' + notes + '",');
     out.push("      pic: [");
     for (i = 0; i < pic.length; i++) out.push('        "' + pic[i] + '"' + (i === pic.length - 1 ? "" : ","));
@@ -398,7 +438,7 @@
        construction in a way no transcribed board is on day one.
        It doubles as the tutorial course. */
     provingGround: {
-      name: "Proving Ground", w: 12, h: 12, origin: "authored",
+      name: "Proving Ground", w: 12, h: 12, edition: "classic", origin: "authored",
       notes: "Authored for PumaRally. Every element type appears at least once.",
       pic: [
         "+  +  +  +--+  +  +  +  +  +  +  +  +",
@@ -445,7 +485,7 @@
        pushers of both parities in the corners, 1/2/3-damage lasers on
        three different edges. */
     shuntYard: {
-      name: "Shunt Yard", w: 12, h: 12, origin: "authored",
+      name: "Shunt Yard", w: 12, h: 12, edition: "classic", origin: "authored",
       notes: "Authored for PumaRally, to exercise multi-board assembly and rotation.",
       pic: [
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
@@ -490,7 +530,7 @@
        when reference material is available; nothing in the engine
        depends on its contents beyond the eight numbered squares. */
     dockingBay: {
-      name: "Docking Bay", w: 12, h: 4, origin: "authored",
+      name: "Docking Bay", w: 12, h: 4, edition: "classic", origin: "authored",
       notes: "Authored placeholder. Eight start positions; no printed belts.",
       pic: [
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -607,6 +647,7 @@
       stamp(C, rotateGrid(parsePic(p.id, BOARD_SPECS[p.id]), p.rot), p.at);
     }
     if (spec.dock) stamp(C, rotateGrid(parsePic(spec.dock.id, BOARD_SPECS[spec.dock.id]), spec.dock.rot), spec.dock.at);
+    C.edition = BOARD_SPECS[spec.boards[0].id].edition || "classic";
     for (var f = 0; f < spec.flags.length; f++) {
       C.flags.push({ c: spec.flags[f][0], r: spec.flags[f][1], n: f + 1 });
     }
@@ -628,6 +669,22 @@
     if (spec.dock && !BOARD_SPECS[spec.dock.id]) E_('references docking bay "' + spec.dock.id + '", which is not defined');
 
     var C = buildCourse(id);
+
+    /* One course, one game. A classic board and a 2016 board laid out
+       together would validate tile by tile and be unplayable under
+       either rulebook. */
+    var edition = null;
+    var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
+    for (i = 0; i < parts.length; i++) {
+      var be = BOARD_SPECS[parts[i].id].edition || "classic";
+      if (edition === null) edition = be;
+      else if (be !== edition) {
+        E_('mixes the ' + EDITIONS[edition].name + " and " + EDITIONS[be].name +
+           " editions; a course is one game or the other");
+      }
+    }
+    C.edition = edition;
+
     if (!spec.flags.length) E_("has no flags, so it can never be won");
 
     var seen = {};
@@ -677,7 +734,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, EDITIONS: EDITIONS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
