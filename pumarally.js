@@ -1065,7 +1065,19 @@
     autoHuman: false,
     mounted: false,
     rngBefore: undefined,
-    rngAfter: undefined
+    rngAfter: undefined,
+    /* Presentation only. None of this belongs in G: a save carries the
+       game, not the animation that was mid-flight when it was written. */
+    els: null,
+    pieceEls: null,
+    prevRects: null,
+    queue: [],
+    playing: false,
+    timer: null,
+    beams: null,
+    speed: 1,
+    opts: null,
+    lastPhase: null
   };
 
   function go(phase, step) { G.phase = phase; G.step = step; }
@@ -1079,15 +1091,6 @@
   function log(msg) {
     G.log.push({ turn: G.turn, reg: G.register, msg: msg });
     if (G.log.length > 400) G.log.shift();
-  }
-
-  /* P1 has no presentation layer, so every step resolves at once.
-     The event queue arrives in P2; this already has the signature it
-     will need, and returning NEXT here is what lets the headless sim
-     run a whole game inside one advance(). */
-  function animate(events) {
-    for (var i = 0; i < events.length; i++) if (events[i].type === "log") log(events[i].msg);
-    return NEXT;
   }
 
   function newGame(seed, opts) {
@@ -1517,7 +1520,11 @@
         q.sort(function (a, b) { return b.pri - a.pri; });   // highest priority first
         G.exec.queue = q.map(function (x) { return x.id; });
         go("exec", "move");
-        return animate([{ type: "log", msg: "-- register " + (G.register + 1) + " --" }]);
+        return animate([
+          { type: "log", msg: "-- register " + (G.register + 1) + " --" },
+          { type: "render" },
+          { type: "wait", delay: 320 }
+        ]);
       },
 
       move: function () {
@@ -1525,16 +1532,44 @@
         var p = G.players[G.exec.queue.shift()];
         if (!p.alive) return NEXT;
         var cd = cardAt(p, G.register);
-        if (cd) playCard(p, cd);
-        return NEXT;
+        if (!cd) return NEXT;
+        playCard(p, cd);
+        return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
       },
 
-      express: function () { beltPass(2); go("exec", "belts"); return NEXT; },
-      belts: function () { beltPass(1); go("exec", "pushers"); return NEXT; },
-      pushers: function () { pusherPass(); go("exec", "gears"); return NEXT; },
-      gears: function () { gearPass(); go("exec", "lasers"); return NEXT; },
-      lasers: function () { laserPass(); go("exec", "touch"); return NEXT; },
-      touch: function () { checkpointPass(); go("exec", "endReg"); return NEXT; },
+      /* Each board element gets its own beat, but only if it actually
+         moved somebody. A pause for a pusher nobody was standing on is
+         five wasted seconds a turn, and the player learns to stop
+         watching -- which is the opposite of what the beat is for. */
+      express: function () { return boardBeat(beltPass, 2, "belts", 300); },
+      belts: function () { return boardBeat(beltPass, 1, "pushers", 300); },
+      pushers: function () { return boardBeat(pusherPass, null, "gears", 260); },
+      gears: function () { return boardBeat(gearPass, null, "lasers", 260); },
+
+      lasers: function () {
+        var before = boardSig();
+        var beams = (UI.headless || !UI.mounted) ? null : collectBeams();
+        laserPass();
+        go("exec", "touch");
+        if (UI.headless || !UI.mounted) return NEXT;
+        var hit = boardSig() !== before;
+        if (!beams.length) return NEXT;
+        return animate([
+          { type: "beams", beams: beams },
+          { type: "wait", delay: 240 },
+          { type: "render" },
+          { type: "beams", beams: [] },
+          { type: "wait", delay: hit ? 200 : 40 }
+        ]);
+      },
+
+      touch: function () {
+        var before = boardSig();
+        checkpointPass();
+        go("exec", "endReg");
+        if (boardSig() === before) return NEXT;
+        return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
+      },
 
       endReg: function () {
         if (G.gameOver) return NEXT;
@@ -1611,6 +1646,39 @@
     }
   };
 
+  /* Run one board element, and hand back a beat only if the board
+     actually did something. */
+  function boardBeat(fn, arg, nextStep, delay) {
+    var before = boardSig();
+    if (arg === null) fn(); else fn(arg);
+    go("exec", nextStep);
+    if (boardSig() === before) return NEXT;
+    return animate([{ type: "render" }, { type: "wait", delay: delay }]);
+  }
+
+  /* Where every beam starts and stops this register, for the overlay.
+     Board lasers illuminate their own square; a robot's starts one
+     square in front, because a robot never shoots itself. */
+  function collectBeams() {
+    var C = UI.course, out = [], i;
+    for (i = 0; i < C.lasers.length; i++) {
+      var L = C.lasers[i];
+      var t = firstRobotAlong(L.c, L.r, L.d, false);
+      out.push({ c: L.c, r: L.r, dir: L.d, stopC: t ? t.c : -1, stopR: t ? t.r : -1 });
+    }
+    var alive = live();
+    for (i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      if (p.poweredDown) continue;
+      if (B.wallAt(C, p.c, p.r, p.face)) continue;
+      var nx = B.step(p.c, p.r, p.face);
+      if (B.isVoid(C, nx.c, nx.r)) continue;
+      var v = firstRobotAlong(p.c, p.r, p.face, true);
+      out.push({ c: nx.c, r: nx.r, dir: p.face, stopC: v ? v.c : -1, stopR: v ? v.r : -1 });
+    }
+    return out;
+  }
+
   function programmed(p) {
     var open = openRegisters(p.damage);
     for (var i = 0; i < open; i++) if (p.registers[i] === null) return false;
@@ -1644,8 +1712,11 @@
   }
 
   function commit() {
-    if (UI.headless) { assertInvariants(); return; }
     assertInvariants();
+    if (UI.headless || !UI.mounted) return;
+    saveGame();
+    updateAll();
+    if (G.gameOver) { clearSave(); renderGameOver(); }
   }
 
   /* ============================================================
@@ -2328,26 +2399,92 @@
 
   /* ============================================================
      STYLE
-     Injected rather than shipped in index.html so the shell stays
-     a shell and the game is one drop-in script.
+     Injected rather than shipped in index.html so the shell stays a
+     shell and the game is one drop-in script.
      ============================================================ */
   var CSS = [
     ".pr-root{--pr-bg:" + TOKENS.bg + ";--pr-accent:" + TOKENS.accent + ";--pr-ink:" + TOKENS.ink + ";",
     "--pr-text:" + TOKENS.text + ";--pr-panel:" + TOKENS.panel + ";--pr-border:" + TOKENS.border + ";",
-    "--pr-warn:" + TOKENS.warn + ";--pr-danger:" + TOKENS.danger + ";",
+    "--pr-warn:" + TOKENS.warn + ";--pr-danger:" + TOKENS.danger + ";--pr-plate:" + TOKENS.plate + ";",
     "background:var(--pr-bg);color:var(--pr-ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;",
-    "display:flex;flex-direction:column;gap:12px;align-items:center;padding:16px;box-sizing:border-box;",
+    "display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;box-sizing:border-box;",
     "overflow-x:auto}",
     ".pr-root *{box-sizing:border-box}",
-    ".pr-board{image-rendering:pixelated;image-rendering:crisp-edges;display:block;",
-    "border:1px solid var(--pr-border);height:auto}",
-    ".pr-title{color:var(--pr-accent);letter-spacing:2px;font-size:16px;margin:0}",
-    ".pr-sub{margin:0;font-size:12px;opacity:.8}",
-    ".pr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;max-width:640px;font-size:11px}",
-    ".pr-legend b{color:var(--pr-text);font-weight:normal}",
+    ".pr-root button{font:inherit;color:inherit;background:var(--pr-panel);border:1px solid var(--pr-border);",
+    "padding:4px 10px;cursor:pointer}",
+    ".pr-root button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-text)}",
+    ".pr-root button:disabled{opacity:.35;cursor:default}",
+    ".pr-root button:focus-visible,.pr-cell:focus-visible{outline:2px solid var(--pr-accent);outline-offset:1px}",
+
+    /* ---- hud ---- */
+    ".pr-hud{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}",
+    ".pr-title{color:var(--pr-accent);letter-spacing:2px;font-size:15px;margin:0}",
+    ".pr-phase{color:var(--pr-warn)}",
+    ".pr-hud-spacer{flex:1 1 auto}",
+
+    /* ---- layout ---- */
+    ".pr-main{display:flex;gap:12px;align-items:stretch}",
+    ".pr-side{width:250px;flex:0 0 250px;display:flex;flex-direction:column;gap:8px;min-height:0}",
+    ".pr-side .pr-panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}",
+    "@media (max-width:900px){.pr-main{flex-direction:column;align-items:center}.pr-side{width:100%;flex:none}}",
+
+    /* ---- the three stacked board layers ---- */
+    ".pr-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
+    ".pr-board,.pr-fx{image-rendering:pixelated;image-rendering:crisp-edges;display:block;",
+    "position:absolute;left:0;top:0;height:auto}",
+    ".pr-fx{pointer-events:none}",
+    ".pr-grid{position:absolute;left:0;top:0;display:grid}",
+    ".pr-cell{border:0;padding:0;background:transparent;cursor:default}",
+    ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
+    ".pr-piece{position:absolute;transition:transform .22s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
+    ".pr-piece canvas{image-rendering:pixelated;display:block;width:100%;height:100%;",
+    "transition:transform .22s cubic-bezier(.25,1,.5,1)}",
+    ".pr-piece.pr-dead{opacity:0;transform:scale(.4)}",
+    ".pr-archive{position:absolute;border:2px dashed currentColor;opacity:.5}",
+
+    /* ---- side panels ---- */
+    ".pr-panel{background:var(--pr-panel);border:1px solid var(--pr-border);padding:8px}",
+    ".pr-panel h2{font-size:11px;letter-spacing:1px;margin:0 0 6px;color:var(--pr-accent);font-weight:normal}",
+    ".pr-bot{display:flex;gap:6px;align-items:center;padding:3px 0;border-top:1px solid var(--pr-border)}",
+    ".pr-bot:first-of-type{border-top:0}",
+    ".pr-swatch{width:12px;height:12px;flex:0 0 12px}",
+    ".pr-bot-name{flex:1 1 auto;color:var(--pr-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".pr-bot.pr-me .pr-bot-name{color:var(--pr-accent)}",
+    ".pr-bot.pr-gone{opacity:.4}",
+    ".pr-pips{display:flex;gap:1px}",
+    ".pr-pip{width:4px;height:10px;background:var(--pr-border)}",
+    ".pr-pip.on{background:var(--pr-danger)}",
+    ".pr-pip.life{background:var(--pr-accent)}",
+    ".pr-log{flex:1 1 auto;min-height:160px;overflow-y:auto;font-size:11px;line-height:1.45}",
+    ".pr-log div{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.04)}",
+    ".pr-log .reg{color:var(--pr-accent)}",
+
+    /* ---- program bar ---- */
+    ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
+    ".pr-regs,.pr-hand{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}",
+    ".pr-card{width:76px;height:48px;display:flex;flex-direction:column;align-items:center;",
+    "justify-content:center;gap:2px;background:var(--pr-plate);border:1px solid var(--pr-border);padding:2px}",
+    ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:12px;letter-spacing:.5px}",
+    ".pr-card span{font-size:10px;opacity:.65}",
+    ".pr-slot{width:76px;height:48px;border:1px dashed var(--pr-border);display:flex;align-items:center;",
+    "justify-content:center;background:transparent;position:relative}",
+    ".pr-slot .pr-n{position:absolute;top:2px;left:4px;font-size:9px;opacity:.5}",
+    ".pr-slot.pr-locked{border-style:solid;border-color:var(--pr-danger)}",
+    ".pr-slot.pr-locked .pr-n{color:var(--pr-danger);opacity:1}",
+    ".pr-slot.pr-next{border-color:var(--pr-accent)}",
+    ".pr-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}",
+    ".pr-controls .on{border-color:var(--pr-warn);color:var(--pr-warn)}",
+    ".pr-hint{font-size:11px;opacity:.7;text-align:center;min-height:1.4em}",
+
+    /* ---- banner ---- */
+    ".pr-banner{width:100%;text-align:center;padding:10px;border:1px solid var(--pr-warn);",
+    "color:var(--pr-warn);background:var(--pr-panel)}",
+    ".pr-banner b{color:var(--pr-text);font-weight:normal}",
+
     ".pr-err{color:var(--pr-danger);white-space:pre-wrap;font-size:12px;max-width:640px}",
-    "@media (prefers-reduced-motion:reduce){.pr-root *{animation:none!important;transition:none!important}}",
-    ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}"
+    ".pr-legend{display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:center;max-width:780px;font-size:10px;opacity:.75}",
+    ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}",
+    "@media (prefers-reduced-motion:reduce){.pr-root *{animation:none!important;transition:none!important}}"
   ].join("");
 
   function injectCSS() {
@@ -2356,6 +2493,468 @@
     s.id = "pr-style";
     s.textContent = CSS;
     document.head.appendChild(s);
+  }
+
+  /* ============================================================
+     SAVE / LOAD
+     G is pure JSON, so this is the whole of it. Every localStorage
+     touch is guarded: private browsing throws on access rather than
+     returning null, and a game that cannot save must still play.
+     ============================================================ */
+  var SAVE_KEY = "pumarally_save_v1";
+  var SPEED_KEY = "pumarally_speed_v1";
+
+  function saveGame() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, G: G })); } catch (e) {}
+  }
+
+  function loadGame() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      return s && s.G && !s.G.gameOver ? s.G : null;
+    } catch (e) { return null; }
+  }
+
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+  /* ============================================================
+     EVENT QUEUE & ANIMATION
+     Presentation only: the state is already final when these run.
+     A step mutates G, then hands back a list of things to show, and
+     the last thing on the list re-enters advance(). That is why a
+     five-register turn can animate without the rules engine knowing
+     an animation exists -- and why the headless sim, which returns
+     NEXT from animate(), runs the identical code path at full speed.
+     ============================================================ */
+  var SPEEDS = [1.7, 1.0, 0.5];
+  var SPEED_NAMES = ["Slow", "Normal", "Fast"];
+
+  function delayFor(ms) { return Math.round(ms * SPEEDS[UI.speed]); }
+
+  function animate(events) {
+    if (UI.headless || !UI.mounted) {
+      for (var i = 0; i < events.length; i++) if (events[i].type === "log") log(events[i].msg);
+      return NEXT;
+    }
+    UI.queue = UI.queue.concat(events);
+    if (!UI.playing) processQueue();
+    return ANIM;
+  }
+
+  function processQueue() {
+    UI.playing = true;
+    for (;;) {
+      if (!UI.queue.length) {
+        UI.playing = false;
+        advance();                       // resume the phase machine
+        return;
+      }
+      var ev = UI.queue.shift();
+      if (ev.type === "log") { log(ev.msg); updateLog(); continue; }
+      if (ev.type === "render") { updateAll(); continue; }
+      if (ev.type === "beams") { UI.beams = ev.beams; drawBeams(); continue; }
+      if (ev.type === "wait") {
+        var ms = delayFor(ev.delay);
+        if (ms <= 0) continue;
+        UI.timer = setTimeout(function () { UI.timer = null; processQueue(); }, ms);
+        return;
+      }
+    }
+  }
+
+  function stopQueue() {
+    if (UI.timer) { clearTimeout(UI.timer); UI.timer = null; }
+    UI.queue = [];
+    UI.playing = false;
+  }
+
+  /* A cheap fingerprint of everything the board can show. Board
+     elements that moved nobody should not cost the player a pause,
+     and comparing this is how a step knows whether it did anything. */
+  function boardSig() {
+    var out = [], i, p;
+    for (i = 0; i < G.players.length; i++) {
+      p = G.players[i];
+      out.push(p.c, p.r, p.face, p.damage, p.alive ? 1 : 0, p.flags);
+    }
+    return out.join(",");
+  }
+
+  /* ============================================================
+     RENDERING
+     One entry point. The static course art is a canvas drawn once
+     per course; the robots are DOM precisely so FLIP works on them,
+     and an invisible grid of cells carries hit-testing and the
+     screen-reader view of a board that is otherwise pixels.
+     ============================================================ */
+  /* Scroll something into view only when it is actually off screen.
+     A 16-row course at 2x is 1024px tall, so the board and your hand
+     genuinely cannot share a laptop viewport. Shrinking the board to
+     make them fit undoes the thing that was just asked for, so the
+     board stays big and the page moves to whichever half matters
+     right now: your hand while programming, the board while it runs. */
+  function ensureVisible(node) {
+    if (!node || typeof node.getBoundingClientRect !== "function") return;
+    var r = node.getBoundingClientRect();
+    var vh = window.innerHeight || 0;
+    if (r.top >= 0 && r.bottom <= vh) return;
+    var smooth = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    try { node.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" }); }
+    catch (e) { node.scrollIntoView(false); }
+  }
+
+  function followPhase() {
+    var ph = G.phase + "." + G.step;
+    if (ph === UI.lastPhase) return;
+    UI.lastPhase = ph;
+    if (G.phase === "exec") ensureVisible(UI.els.stage);
+    else if (inPhase("turn", "program") && actor()) ensureVisible(UI.els.program);
+  }
+
+  function updateAll() {
+    if (UI.headless || !UI.mounted || !G) return;
+    snapshotPieces();
+    renderPieces();
+    playFlip();
+    renderHud();
+    renderPlayers();
+    renderProgram();
+    updateLog();
+    drawBeams();
+    followPhase();
+  }
+
+  function pxScale() { return parseFloat(UI.els.board.dataset.scale) || 1; }
+
+  function snapshotPieces() {
+    UI.prevRects = {};
+    var nodes = UI.els.pieces.children, i;
+    for (i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.dataset.uid === undefined) continue;
+      UI.prevRects[el.dataset.uid] = { x: el.offsetLeft, y: el.offsetTop };
+    }
+  }
+
+  function renderPieces() {
+    if (!G) return;                  // mount sizes the stage before the first deal
+    var s = pxScale(), size = TILE * s, host = UI.els.pieces, i;
+    for (i = 0; i < G.players.length; i++) {
+      var p = G.players[i], id = "p" + p.id;
+      var el = UI.pieceEls[id];
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "pr-piece";
+        el.dataset.uid = id;
+        var art = document.createElement("canvas");
+        art.width = TILE; art.height = TILE;
+        art.getContext("2d").drawImage(baked.robots[p.livery], 0, 0);
+        el.appendChild(art);
+        host.appendChild(el);
+        UI.pieceEls[id] = el;
+      }
+      el.style.width = size + "px";
+      el.style.height = size + "px";
+      el.style.left = (p.c * size) + "px";
+      el.style.top = (p.r * size) + "px";
+      el.firstChild.style.transform = "rotate(" + (p.face * 90) + "deg)";
+      el.classList.toggle("pr-dead", !p.alive);
+      el.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  /* FLIP: the layout has already moved the piece, so put it back
+     with a transform and let the transition carry it forward. A
+     robot that teleports a square reads as a bug even when the rules
+     are right. */
+  function playFlip() {
+    var nodes = UI.els.pieces.children, i;
+    for (i = 0; i < nodes.length; i++) {
+      var el = nodes[i], was = UI.prevRects[el.dataset.uid];
+      if (!was) continue;
+      var dx = was.x - el.offsetLeft, dy = was.y - el.offsetTop;
+      if (!dx && !dy) continue;
+      el.style.transition = "none";
+      el.style.transform = "translate(" + dx + "px," + dy + "px)";
+      void el.offsetWidth;                       // force the browser to take it
+      el.style.transition = "";
+      el.style.transform = "";
+    }
+  }
+
+  function drawBeams() {
+    var cv = UI.els.fx, ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (!UI.beams || !UI.beams.length) return;
+    var C = UI.course;
+    ctx.fillStyle = "rgba(255,80,80,0.85)";
+    for (var i = 0; i < UI.beams.length; i++) {
+      var b = UI.beams[i], horiz = (b.dir === E || b.dir === W);
+      var c = b.c, r = b.r;
+      for (var n = 0; n < 40; n++) {
+        var t = 3, off = Math.round(TILE / 2 - t / 2);
+        if (horiz) ctx.fillRect(c * TILE, r * TILE + off, TILE, t);
+        else ctx.fillRect(c * TILE + off, r * TILE, t, TILE);
+        if (b.stopC === c && b.stopR === r) break;
+        if (B.wallAt(C, c, r, b.dir)) break;
+        var nx = B.step(c, r, b.dir);
+        if (B.isVoid(C, nx.c, nx.r)) break;
+        c = nx.c; r = nx.r;
+      }
+    }
+  }
+
+  function renderHud() {
+    var h = UI.els.hud;
+    var phase = G.gameOver ? "Game over"
+      : G.phase === "turn" && G.step === "program" ? "Program your registers"
+      : G.phase === "exec" ? "Register " + (G.register + 1) + " of " + REGISTERS
+      : G.phase === "cleanup" ? "End of turn" : "Turn " + G.turn;
+    h.querySelector(".pr-phase").textContent = "Turn " + G.turn + " — " + phase;
+    h.querySelector("[data-act=speed]").textContent = "Speed: " + SPEED_NAMES[UI.speed];
+  }
+
+  function renderPlayers() {
+    var host = UI.els.players, out = [], i, j;
+    for (i = 0; i < G.players.length; i++) {
+      var p = G.players[i];
+      var dmg = "";
+      for (j = 0; j < MAX_DAMAGE; j++) dmg += '<i class="pr-pip' + (j < p.damage ? " on" : "") + '"></i>';
+      var lives = "";
+      for (j = 0; j < START_LIVES; j++) lives += '<i class="pr-pip' + (j < p.lives ? " life" : "") + '"></i>';
+      var state = p.out ? "out" : !p.alive ? "wrecked" : p.poweredDown ? "powered down" : "";
+      out.push(
+        '<div class="pr-bot' + (isHuman(p) ? " pr-me" : "") + (p.out ? " pr-gone" : "") + '">' +
+        '<i class="pr-swatch" style="background:' + LIVERIES[p.livery].a + '"></i>' +
+        '<span class="pr-bot-name">' + esc(p.name) + (isHuman(p) ? " (you)" : "") + "</span>" +
+        '<span title="flags">' + p.flags + "/" + UI.course.flags.length + "</span>" +
+        '<span class="pr-pips" title="lives">' + lives + "</span>" +
+        '<span class="pr-pips" title="damage">' + dmg + "</span>" +
+        "</div>" +
+        (state ? '<div class="pr-bot pr-gone"><span class="pr-bot-name">' + esc(state) + "</span></div>" : "")
+      );
+    }
+    host.innerHTML = out.join("");
+  }
+
+  function updateLog() {
+    var host = UI.els.log, out = [], start = Math.max(0, G.log.length - 60), i;
+    for (i = start; i < G.log.length; i++) {
+      var e = G.log[i];
+      out.push('<div' + (/^--/.test(e.msg) ? ' class="reg"' : "") + ">" + esc(e.msg) + "</div>");
+    }
+    host.innerHTML = out.join("");
+    host.scrollTop = host.scrollHeight;
+  }
+
+  function cardFace(cd) {
+    var k = CARD_KINDS[cd.kind];
+    return "<b>" + esc(k.label.toUpperCase()) + "</b><span>" + cd.pri + "</span>";
+  }
+
+  function renderProgram() {
+    var me = G.players[G.actor === undefined ? 0 : G.actor];
+    var mine = me && isHuman(me) && me.alive;
+    var programming = inPhase("turn", "program") && mine;
+    var open = me ? openRegisters(me.damage) : REGISTERS;
+    var i, out = [];
+
+    for (i = 0; i < REGISTERS; i++) {
+      var locked = i >= open;
+      var ci = me ? me.registers[i] : null;
+      var next = (programming && !locked && ci === null && firstEmpty(me) === i) ||
+                 (G.phase === "exec" && G.register === i);
+      out.push(
+        '<button class="pr-slot' + (locked ? " pr-locked" : "") + (next ? " pr-next" : "") +
+        '" data-act="slot" data-i="' + i + '"' + (programming && !locked && ci !== null ? "" : " disabled") +
+        ' aria-label="Register ' + (i + 1) + (locked ? ", locked" : ci !== null ? ", " + CARD_KINDS[card(ci).kind].label : ", empty") + '">' +
+        '<span class="pr-n">' + (i + 1) + (locked ? " LOCK" : "") + "</span>" +
+        (ci === null ? "" : '<span class="pr-card">' + cardFace(card(ci)) + "</span>") +
+        "</button>"
+      );
+    }
+    UI.els.regs.innerHTML = out.join("");
+
+    out = [];
+    if (programming) {
+      for (i = 0; i < me.hand.length; i++) {
+        var cd = card(me.hand[i]);
+        out.push('<button class="pr-card" data-act="card" data-i="' + i + '" aria-label="' +
+          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri + '">' + cardFace(cd) + "</button>");
+      }
+    }
+    UI.els.hand.innerHTML = out.join("");
+
+    var ready = programming && firstEmpty(me) === -1;
+    UI.els.run.disabled = !ready;
+    UI.els.clear.disabled = !programming || !me.registers.some(function (x, ix) { return x !== null && ix < open; });
+    UI.els.down.disabled = !programming;
+    UI.els.down.classList.toggle("on", !!(me && me.announceDown));
+    UI.els.hint.textContent = G.gameOver ? ""
+      : programming ? (ready ? "Registers full. Run, or click a register to take a card back."
+                             : "Click cards to fill registers " + (firstEmpty(me) + 1) + "-" + open + ".")
+      : inPhase("turn", "program") ? "Waiting for the other robots."
+      : "";
+  }
+
+  function firstEmpty(p) {
+    var open = openRegisters(p.damage);
+    for (var i = 0; i < open; i++) if (p.registers[i] === null) return i;
+    return -1;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function announce(msg) {
+    if (UI.els && UI.els.sr) UI.els.sr.textContent = msg;
+  }
+
+  /* ============================================================
+     HUMAN INPUT
+     One delegated listener per event, dispatching off data-act.
+     Every handler validates the phase first, mutates, then calls
+     advance() -- the same shape the bots go through, so there is no
+     second definition of what a legal program is.
+     ============================================================ */
+  function inPhase(ph, st) { return G && !G.gameOver && G.phase === ph && G.step === st; }
+
+  function actor() {
+    var p = G.players[G.actor === undefined ? 0 : G.actor];
+    return p && isHuman(p) && p.alive ? p : null;
+  }
+
+  function onCardClick(i) {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p) return;
+    var slot = firstEmpty(p);
+    if (slot < 0 || i < 0 || i >= p.hand.length) return;
+    p.registers[slot] = p.hand.splice(i, 1)[0];
+    announce("Register " + (slot + 1) + " set.");
+    updateAll();
+  }
+
+  function onSlotClick(i) {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p) return;
+    if (i >= openRegisters(p.damage)) return;        // locked registers are not yours to change
+    if (p.registers[i] === null) return;
+    p.hand.push(p.registers[i]);
+    p.registers[i] = null;
+    announce("Register " + (i + 1) + " cleared.");
+    updateAll();
+  }
+
+  function onClear() {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p) return;
+    var open = openRegisters(p.damage);
+    for (var i = 0; i < open; i++) {
+      if (p.registers[i] === null) continue;
+      p.hand.push(p.registers[i]);
+      p.registers[i] = null;
+    }
+    updateAll();
+  }
+
+  function onPowerDown() {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p) return;
+    p.announceDown = !p.announceDown;
+    announce(p.announceDown ? "Powering down next turn." : "Power down cancelled.");
+    updateAll();
+  }
+
+  function onRun() {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p || firstEmpty(p) !== -1) return;
+    announce("Running registers.");
+    advance();
+  }
+
+  function onSpeed() {
+    UI.speed = (UI.speed + 1) % SPEEDS.length;
+    try { localStorage.setItem(SPEED_KEY, String(UI.speed)); } catch (e) {}
+    renderHud();
+  }
+
+  function onNewGame() {
+    stopQueue();
+    clearSave();
+    UI.wallsChecked = false;
+    newGame((Math.random() * 1e9) | 0, UI.opts);
+    UI.beams = null;
+    hideBanner();
+    updateAll();
+    advance();
+  }
+
+  function dispatchAct(el) {
+    var a = el.dataset.act, i = parseInt(el.dataset.i, 10);
+    if (a === "card") onCardClick(i);
+    else if (a === "slot") onSlotClick(i);
+    else if (a === "clear") onClear();
+    else if (a === "down") onPowerDown();
+    else if (a === "run") onRun();
+    else if (a === "speed") onSpeed();
+    else if (a === "new") onNewGame();
+  }
+
+  function setupInput(root) {
+    root.addEventListener("click", function (e) {
+      var el = e.target.closest("[data-act]");
+      if (el && !el.disabled) dispatchAct(el);
+    });
+    root.addEventListener("keydown", function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var p = actor();
+      if (e.key >= "1" && e.key <= "9" && inPhase("turn", "program") && p) {
+        e.preventDefault();
+        onCardClick(parseInt(e.key, 10) - 1);
+      } else if ((e.key === "Backspace" || e.key === "Delete") && inPhase("turn", "program") && p) {
+        e.preventDefault();
+        for (var i = openRegisters(p.damage) - 1; i >= 0; i--) {
+          if (p.registers[i] !== null) { onSlotClick(i); break; }
+        }
+      } else if (e.key === "Enter" && !e.repeat) {
+        if (UI.els.run && !UI.els.run.disabled) { e.preventDefault(); onRun(); }
+      } else if (e.key === "s" || e.key === "S") {
+        onSpeed();
+      } else if (e.key === "n" || e.key === "N") {
+        onNewGame();
+      }
+    });
+  }
+
+  /* ============================================================
+     BANNER
+     ============================================================ */
+  function showBanner(html) {
+    UI.els.banner.innerHTML = html;
+    UI.els.banner.hidden = false;
+  }
+  function hideBanner() { UI.els.banner.hidden = true; }
+
+  /* The banner wants markup and the live region wants words. Passing
+     one string to both puts literal <b> tags into what a screen
+     reader reads out, which is invisible to anyone checking by eye. */
+  function renderGameOver() {
+    var html, plain;
+    if (G.winner !== null && G.winner !== undefined) {
+      var w = G.players[G.winner];
+      var tail = " took all " + UI.course.flags.length + " flags" + (isHuman(w) ? " — that was you." : ".");
+      html = "<b>" + esc(w.name) + "</b>" + tail;
+      plain = w.name + tail;
+    } else if (G.unfinished) {
+      html = plain = "Called after " + MAX_TURNS + " turns with no winner.";
+    } else {
+      html = plain = "Every robot is scrap. Nobody wins.";
+    }
+    showBanner(html + ' <button data-act="new">New game</button>');
+    announce(plain);
   }
 
   /* ============================================================
@@ -2380,100 +2979,189 @@
     return Math.max(1, Math.min(cap, Math.min(MAX_SCALE, whole)));
   }
 
-  function fitBoard(art, C, host, opts) {
+  function fitBoard(C, host, opts) {
     var avail = host.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
     var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
     if (cs) avail -= (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    if (UI.els && UI.els.side && avail > 900) avail -= 262;    // the side panel's column
     var scale = fitScale(C, avail, opts);
-    art.style.width = (C.w * TILE * scale) + "px";
-    art.dataset.scale = scale;
+    var w = C.w * TILE * scale, h = C.h * TILE * scale;
+    UI.els.stage.style.width = w + "px";
+    UI.els.stage.style.height = h + "px";
+    UI.els.board.style.width = w + "px";
+    UI.els.board.dataset.scale = scale;
+    UI.els.fx.style.width = w + "px";
+    UI.els.fx.style.height = h + "px";
+    UI.els.grid.style.width = w + "px";
+    UI.els.grid.style.height = h + "px";
+    UI.els.grid.style.gridTemplateColumns = "repeat(" + C.w + "," + (TILE * scale) + "px)";
+    UI.els.grid.style.gridAutoRows = (TILE * scale) + "px";
+    UI.els.pieces.style.width = w + "px";
+    UI.els.pieces.style.height = h + "px";
+    if (UI.mounted) renderPieces();
   }
 
   /* ============================================================
      MOUNT
-     P0 renders a course and nothing else: no state, no turn, no
-     input. The gate for this phase is that the Proving Ground
-     draws correctly and the validators throw on bad data.
      ============================================================ */
-  function mount(el, opts) {
+  function el(tag, cls, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html !== undefined) n.innerHTML = html;
+    return n;
+  }
+
+  function mount(host, opts) {
     opts = opts || {};
     injectCSS();
-    el.classList.add("pr-root");
-    el.innerHTML = "";
+    host.classList.add("pr-root");
+    host.innerHTML = "";
+    UI.opts = opts;
 
-    var courseId = opts.course || "provingRun";
     var C;
     try {
       validateTables();
       B.validateAll();
-      C = B.buildCourse(courseId);
+      C = B.buildCourse(opts.course || "provingRun");
     } catch (e) {
-      var pre = document.createElement("div");
-      pre.className = "pr-err";
+      var pre = el("div", "pr-err");
       pre.textContent = "PumaRally failed to load:\n" + e.message;
-      el.appendChild(pre);
+      host.appendChild(pre);
       throw e;
     }
 
     bakeAll();
-    var art = drawCourse(C);
 
-    var h = document.createElement("h1");
-    h.className = "pr-title";
-    h.textContent = "PUMARALLY";
-    var sub = document.createElement("p");
-    sub.className = "pr-sub";
-    sub.textContent = C.name + " — " + C.w + "x" + C.h + ", " + C.flags.length + " flags, " + C.docks.length + " docking bays";
+    var hud = el("div", "pr-hud",
+      '<h1 class="pr-title">PUMARALLY</h1><span class="pr-phase"></span>' +
+      '<span class="pr-hud-spacer"></span>' +
+      '<button data-act="speed">Speed</button><button data-act="new">New game</button>');
 
-    art.className = "pr-board";
-    fitBoard(art, C, el, opts);
-    art.setAttribute("role", "img");
-    art.setAttribute("aria-label", describeCourse(C));
+    var stage = el("div", "pr-stage");
+    var board = drawCourse(C);
+    board.className = "pr-board";
+    board.setAttribute("aria-hidden", "true");
+    var fx = document.createElement("canvas");
+    fx.className = "pr-fx";
+    fx.width = C.w * TILE; fx.height = C.h * TILE;
+    fx.setAttribute("aria-hidden", "true");
+    var grid = el("div", "pr-grid");
+    grid.setAttribute("role", "grid");
+    grid.setAttribute("aria-label", describeCourse(C));
+    var pieces = el("div", "pr-pieces");
+    stage.appendChild(board); stage.appendChild(fx);
+    stage.appendChild(grid); stage.appendChild(pieces);
 
-    var legend = document.createElement("div");
-    legend.className = "pr-legend";
-    legend.innerHTML = [
-      "<span><b>rust arrows</b> conveyor (1)</span>",
-      "<span><b>cyan arrows</b> express conveyor (2)</span>",
-      "<span><b>amber hub</b> gear, clockwise</span>",
-      "<span><b>cyan hub</b> gear, counter-clockwise</span>",
-      "<span><b>piston</b> pusher, registers shown</span>",
-      "<span><b>steel wrench</b> repair</span>",
-      "<span><b>amber wrench</b> repair + option</span>",
-      "<span><b>red bar</b> laser, thickness = damage</span>"
-    ].join("");
+    var side = el("aside", "pr-side");
+    var players = el("div", "pr-panel");
+    players.innerHTML = "<h2>ROBOTS</h2>";
+    var playersBody = el("div");
+    players.appendChild(playersBody);
+    var logPanel = el("div", "pr-panel");
+    logPanel.innerHTML = "<h2>LOG</h2>";
+    var logBody = el("div", "pr-log");
+    logBody.setAttribute("aria-live", "polite");
+    logPanel.appendChild(logBody);
+    side.appendChild(players); side.appendChild(logPanel);
 
-    el.appendChild(h);
-    el.appendChild(sub);
-    el.appendChild(art);
-    el.appendChild(legend);
+    var main = el("div", "pr-main");
+    main.appendChild(stage); main.appendChild(side);
 
-    /* Only the CSS width changes, so re-fitting never redraws the
-       course art -- the canvas keeps its native pixel size. */
+    var program = el("div", "pr-program");
+    var regs = el("div", "pr-regs");
+    var hand = el("div", "pr-hand");
+    var controls = el("div", "pr-controls",
+      '<button data-act="run">Run registers</button>' +
+      '<button data-act="clear">Clear</button>' +
+      '<button data-act="down">Power down</button>');
+    var hint = el("div", "pr-hint");
+    program.appendChild(regs); program.appendChild(hand);
+    program.appendChild(controls); program.appendChild(hint);
+
+    var banner = el("div", "pr-banner");
+    banner.hidden = true;
+    var sr = el("div", "pr-sr");
+    sr.setAttribute("aria-live", "assertive");
+
+    var legend = el("div", "pr-legend",
+      "<span>rust arrows = conveyor</span><span>cyan arrows = express conveyor</span>" +
+      "<span>amber hub = gear CW</span><span>cyan hub = gear CCW</span>" +
+      "<span>piston = pusher, registers shown</span><span>wrench = repair</span>" +
+      "<span>amber wrench = repair + option</span><span>red bar = laser</span>");
+
+    host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
+    host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
+
+    UI.els = { host: host, hud: hud, stage: stage, board: board, fx: fx, grid: grid, program: program,
+               pieces: pieces, side: side, players: playersBody, log: logBody,
+               regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
+               run: controls.querySelector("[data-act=run]"),
+               clear: controls.querySelector("[data-act=clear]"),
+               down: controls.querySelector("[data-act=down]") };
+    UI.pieceEls = {};
+    UI.course = C;
+    UI.mounted = true;
+    try { UI.speed = Math.min(2, Math.max(0, parseInt(localStorage.getItem(SPEED_KEY), 10) || 1)); } catch (e) { UI.speed = 1; }
+
+    fitBoard(C, host, opts);
+    buildGridCells(C);
+    setupInput(host);
+
     if (typeof window !== "undefined" && window.addEventListener) {
-      var refit = function () { fitBoard(art, C, el, opts); };
-      window.addEventListener("resize", refit);
-      if (window.matchMedia) {
-        var mq = window.matchMedia("(resolution: 1dppx)");
-        if (mq.addEventListener) mq.addEventListener("change", refit);
-      }
+      window.addEventListener("resize", function () { fitBoard(C, host, opts); });
     }
-    return { course: C, canvas: art };
+
+    var resumed = loadGame();
+    if (resumed && resumed.courseId === C.id) {
+      G = resumed;
+      UI.wallsChecked = false;
+      log("Resumed from a saved game.");
+    } else {
+      UI.wallsChecked = false;
+      newGame((Math.random() * 1e9) | 0, opts);
+    }
+    updateAll();
+    advance();
+    return { course: C, canvas: board };
   }
 
-  /* A course described in words, for the canvas's aria-label. The
-     grid of focusable cells arrives with the playable build in P2;
-     until then this is what a screen reader gets. */
+  /* The board is a canvas, so without this a screen reader sees one
+     image and nothing else. These cells carry the per-square reading
+     and, from a later wave, keyboard targeting. */
+  function buildGridCells(C) {
+    var out = [], c, r;
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        out.push('<div class="pr-cell" role="gridcell" tabindex="-1" data-c="' + c + '" data-r="' + r +
+          '" aria-label="' + esc(describeTile(C, c, r)) + '"></div>');
+      }
+    }
+    UI.els.grid.innerHTML = out.join("");
+  }
+
+  function describeTile(C, c, r) {
+    if (B.isVoid(C, c, r)) return "column " + (c + 1) + " row " + (r + 1) + ", off the course";
+    var code = B.codeAt(C, c, r), def = B.elemOf(code), parts = [];
+    parts.push("column " + (c + 1) + " row " + (r + 1));
+    if (def && def.name !== "floor") {
+      parts.push(def.name + (def.arg === "dir" ? " " + B.dirName(B.dirOf(code)) : ""));
+    }
+    for (var f = 0; f < C.flags.length; f++) if (C.flags[f].c === c && C.flags[f].r === r) parts.push("flag " + C.flags[f].n);
+    for (var d = 0; d < 4; d++) if (B.wallAt(C, c, r, d)) parts.push("wall " + B.dirName(d));
+    return parts.join(", ");
+  }
+
   function describeCourse(C) {
-    var counts = {};
-    for (var r = 0; r < C.h; r++) for (var c = 0; c < C.w; c++) {
+    var counts = {}, c, r;
+    for (r = 0; r < C.h; r++) for (c = 0; c < C.w; c++) {
       if (B.isVoid(C, c, r)) continue;
-      var el = B.elemOf(B.codeAt(C, c, r));
-      counts[el.name] = (counts[el.name] || 0) + 1;
+      var def = B.elemOf(B.codeAt(C, c, r));
+      counts[def.name] = (counts[def.name] || 0) + 1;
     }
     var parts = [];
-    for (var k in counts) if (k !== "floor") parts.push(counts[k] + " " + k + (counts[k] > 1 ? " tiles" : " tile"));
-    return C.name + ", " + C.w + " by " + C.h + " squares, " + C.flags.length + " flags. Contains " + parts.join(", ") + ".";
+    for (var k in counts) if (k !== "floor") parts.push(counts[k] + " " + k);
+    return C.name + ", " + C.w + " by " + C.h + " squares, " + C.flags.length +
+      " flags. Contains " + parts.join(", ") + ".";
   }
 
   function boot() {
@@ -2491,6 +3179,7 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
     else boot();
   }
+
 
   /* ============================================================
      DEBUG HOOKS
