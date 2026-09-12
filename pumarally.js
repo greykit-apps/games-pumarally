@@ -2336,10 +2336,11 @@
     "--pr-text:" + TOKENS.text + ";--pr-panel:" + TOKENS.panel + ";--pr-border:" + TOKENS.border + ";",
     "--pr-warn:" + TOKENS.warn + ";--pr-danger:" + TOKENS.danger + ";",
     "background:var(--pr-bg);color:var(--pr-ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;",
-    "display:flex;flex-direction:column;gap:12px;align-items:center;padding:16px;box-sizing:border-box}",
+    "display:flex;flex-direction:column;gap:12px;align-items:center;padding:16px;box-sizing:border-box;",
+    "overflow-x:auto}",
     ".pr-root *{box-sizing:border-box}",
     ".pr-board{image-rendering:pixelated;image-rendering:crisp-edges;display:block;",
-    "border:1px solid var(--pr-border);max-width:100%;height:auto}",
+    "border:1px solid var(--pr-border);height:auto}",
     ".pr-title{color:var(--pr-accent);letter-spacing:2px;font-size:16px;margin:0}",
     ".pr-sub{margin:0;font-size:12px;opacity:.8}",
     ".pr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;max-width:640px;font-size:11px}",
@@ -2355,6 +2356,37 @@
     s.id = "pr-style";
     s.textContent = CSS;
     document.head.appendChild(s);
+  }
+
+  /* ============================================================
+     BOARD SIZING
+     Pixel art only survives INTEGER scaling: at 1.5x some sprite
+     pixels land on two screen pixels and their neighbours on one,
+     so a conveyor's slats come out unevenly spaced and the whole
+     tile looks smeared. So the board takes the largest whole
+     multiple that fits the column it is given, and would rather
+     scroll a little than take a fractional one.
+
+     The cap exists because the multiple that fits a wide desktop is
+     not the one you want -- a 12-wide course at 4x is over 1500px
+     and you lose the board reading it.
+     ============================================================ */
+  var MAX_SCALE = 4;
+
+  function fitScale(C, width, opts) {
+    if (opts.scale) return opts.scale;
+    var cap = opts.maxScale || 2;
+    var whole = Math.floor(width / (C.w * TILE));
+    return Math.max(1, Math.min(cap, Math.min(MAX_SCALE, whole)));
+  }
+
+  function fitBoard(art, C, host, opts) {
+    var avail = host.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
+    var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
+    if (cs) avail -= (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    var scale = fitScale(C, avail, opts);
+    art.style.width = (C.w * TILE * scale) + "px";
+    art.dataset.scale = scale;
   }
 
   /* ============================================================
@@ -2393,9 +2425,8 @@
     sub.className = "pr-sub";
     sub.textContent = C.name + " — " + C.w + "x" + C.h + ", " + C.flags.length + " flags, " + C.docks.length + " docking bays";
 
-    var scale = opts.scale || 1;
     art.className = "pr-board";
-    art.style.width = (C.w * TILE * scale) + "px";
+    fitBoard(art, C, el, opts);
     art.setAttribute("role", "img");
     art.setAttribute("aria-label", describeCourse(C));
 
@@ -2416,6 +2447,17 @@
     el.appendChild(sub);
     el.appendChild(art);
     el.appendChild(legend);
+
+    /* Only the CSS width changes, so re-fitting never redraws the
+       course art -- the canvas keeps its native pixel size. */
+    if (typeof window !== "undefined" && window.addEventListener) {
+      var refit = function () { fitBoard(art, C, el, opts); };
+      window.addEventListener("resize", refit);
+      if (window.matchMedia) {
+        var mq = window.matchMedia("(resolution: 1dppx)");
+        if (mq.addEventListener) mq.addEventListener("change", refit);
+      }
+    }
     return { course: C, canvas: art };
   }
 
@@ -2437,8 +2479,11 @@
   function boot() {
     var nodes = document.querySelectorAll("[data-pumarally]");
     for (var i = 0; i < nodes.length; i++) {
-      mount(nodes[i], { course: nodes[i].getAttribute("data-course") || undefined,
-                        scale: parseFloat(nodes[i].getAttribute("data-scale")) || undefined });
+      mount(nodes[i], {
+        course: nodes[i].getAttribute("data-course") || undefined,
+        scale: parseFloat(nodes[i].getAttribute("data-scale")) || undefined,
+        maxScale: parseFloat(nodes[i].getAttribute("data-max-scale")) || undefined
+      });
     }
   }
 
