@@ -17,6 +17,7 @@
  * one CI would have rejected -- which is worth more here than an independent
  * second implementation would be.
  */
+const fs = require("fs");
 const path = require("path");
 const B = require(path.join(__dirname, "..", "pumarally-boards.js"));
 
@@ -46,6 +47,31 @@ const unused = Object.keys(B.ELEMENT_DEFS).filter(k => !used.has(k));
 if (unused.length) {
   console.log(`  note:    no board uses ${unused.map(k => `'${k}' (${B.ELEMENT_DEFS[k].name})`).join(", ")}`);
 }
+
+/* The editor's whole value is that what it exports can be pasted straight back
+ * into pumarally-boards.js. Formatting every shipped board has to reproduce its
+ * own source byte for byte, or the export has quietly become something a person
+ * has to hand-correct -- which is exactly where transcription errors get in. */
+const src = fs.readFileSync(path.join(__dirname, "..", "pumarally-boards.js"), "utf8");
+for (const id of boards) {
+  const text = B.formatBoard(id, res.boards[id]);
+  if (!src.includes(text)) {
+    console.error(`  error:   formatting board "${id}" does not reproduce its own source; ` +
+      "the editor's export would need hand-correcting");
+    const mine = text.split("\n"), theirs = src.split("\n");
+    const at = theirs.findIndex(l => l.trim() === mine[0].trim());
+    for (let i = 0; i < mine.length && at >= 0; i++) {
+      if (theirs[at + i] !== mine[i]) {
+        console.error(`             first difference at line ${i}:`);
+        console.error(`               source:    ${JSON.stringify(theirs[at + i])}`);
+        console.error(`               formatted: ${JSON.stringify(mine[i])}`);
+        break;
+      }
+    }
+    process.exitCode = 1;
+  }
+}
+console.log(`  ok -- ${boards.length} board(s) round-trip through formatBoard byte for byte`);
 
 for (const id of courses) {
   const C = B.buildCourse(id);
