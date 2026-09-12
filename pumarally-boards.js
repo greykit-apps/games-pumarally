@@ -553,6 +553,62 @@
       ]
     },
 
+    /* THE FIRST TRANSCRIBED OFFICIAL BOARD, from a photograph of the
+       printed 1994 base-game board.
+
+       Two express spines run north and south through the middle and
+       four conveyor bands cross them, which is the whole board: almost
+       every square is moving, and the only still ground is the pockets
+       the walls make. Five gears -- the two at the top turn clockwise,
+       the three below counter-clockwise. One 1-damage laser, mounted on
+       the wall at the top of column 3 and stopped by the wall three
+       squares down.
+
+       The walls were the hard part and were got wrong twice before
+       this. Twenty-eight of them: sixteen round the frame, at columns
+       3/5/8/10 top and bottom and rows 3/5/8/10 left and right, and
+       twelve inside. Note that the frame is symmetric but the board is
+       not -- (11,10)N and (10,2)W have no opposite number, and checking
+       by symmetry rather than by looking is how they went missing.
+
+       The transcription is the picture below; it is not derived from
+       anything and cannot be regenerated, so correcting it means going
+       back to the photograph. */
+    exchange: {
+      name: "Exchange", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      notes: "Transcribed from the printed board.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. bv .. B^ .. bv B^ .. bv .. b^ w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< r. .. B^ .. bv B^ .. bv|.. r. b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. .. B^ .. bv B^ .. bv .. .. ..|",
+        "+  +  +--+  +  +  +  +  +  +  +  +  +",
+        " b> b> b> b> .. bv B^ .. l. b> b> b> ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. .. .. ..|bv B^|W. .. .. .. ..|",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        " b< b< b< b< b< .. .. b< b< b< b< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> b> b> b> b> .. .. B> B> B> B> B> ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        "|.. .. .. .. ..|bv b^|.. .. .. .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< b< b< l. .. bv b^ .. l. b< b< b< ",
+        "+  +  +  +  +  +  +  +  +  +  +--+  +",
+        "|.. o. .. b^ .. bv b^ .. bv .. .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. b^ .. bv b^ .. bv .. ..|.. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " w. bv .. b^ .. bv .. .. bv .. o. .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 2, r: 0, d: "S", n: 1 }
+      ]
+    },
+
     /* The start area. Robots enter the course from here, so it is
        laid out with position 1 nearest the middle and the numbers
        fanning outward, the way the printed bay does.
@@ -602,6 +658,24 @@
       boards: [{ id: "shuntYard", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[5, 1], [10, 10], [3, 6]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* The first official board, under a course of our own.
+
+       The printed courses that use Exchange -- Risky Exchange and the
+       rest -- place their flags at positions printed on the course
+       cards, and those have not been photographed. Inventing them and
+       calling them by their printed names would be the one failure a
+       game promising faithful layouts cannot survive, so this is an
+       authored layout over a transcribed board, and says so. The
+       official courses land when the cards do. */
+    exchangeRun: {
+      name: "Exchange Run",
+      blurb: "Everything moves. The walls are the only place to stand.",
+      boards: [{ id: "exchange", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[9, 2], [2, 9], [7, 7]],
       minPlayers: 2, maxPlayers: 8
     },
 

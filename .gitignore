@@ -1,2 +1,8 @@
 .claude/
 .DS_Store
+
+# Reference photographs of the printed boards. Local only, and deliberately
+# so: the layouts are reproduced as functional tile data, never as scans, and
+# a public repo is the last place a photograph of someone else's board art
+# belongs. `git add -A` will otherwise happily stage the lot.
+maps/
