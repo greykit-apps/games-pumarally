@@ -3523,9 +3523,23 @@
     ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
     ".pr-regs,.pr-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}",
     ".pr-hand{min-height:76px}",
-    ".pr-row{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}",
+    /* One tinted box per section, the grouping PumaTriage uses for
+       staff and tools: set --pr-tint and the hairline, the ground and
+       the heading all follow from it. The two rows hold the same
+       object -- a card -- and a card moves between them, so the box is
+       what says which row you are looking at without having to infer
+       it from whatever happens to be sitting in it. */
+    ".pr-row{--pr-tint:var(--pr-accent);display:flex;flex-direction:column;align-items:center;",
+    "gap:6px;width:100%;box-sizing:border-box;border-radius:6px;padding:6px 10px 8px;",
+    "border:1px solid color-mix(in srgb, var(--pr-tint) 28%, transparent);",
+    "background:color-mix(in srgb, var(--pr-tint) 6%, var(--pr-bg))}",
+    /* Amber for the registers, because amber already means "committed
+       to" on this board -- it is the pushers and the flags. Cyan for
+       the hand, which is everything still open to you. */
+    ".pr-row-regs{--pr-tint:var(--pr-warn)}",
+    ".pr-row-hand{--pr-tint:var(--pr-accent)}",
     ".pr-row h2{margin:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;",
-    "color:var(--pr-dim);font-weight:normal}",
+    "color:var(--pr-tint);font-weight:normal}",
 
     /* ---- program cards ----
        A card is a bordered plate with its kind on the top edge, the
@@ -5757,10 +5771,10 @@
        and a card able to move between them, "which row is which" has to
        be readable without inferring it from what happens to be in
        them. */
-    var regsWrap = el("div", "pr-row", '<h2>Registers</h2>');
+    var regsWrap = el("div", "pr-row pr-row-regs", '<h2>Registers</h2>');
     var regs = el("div", "pr-regs");
     regsWrap.appendChild(regs);
-    var handWrap = el("div", "pr-row", '<h2>Your hand</h2>');
+    var handWrap = el("div", "pr-row pr-row-hand", '<h2>Your hand</h2>');
     var hand = el("div", "pr-hand");
     handWrap.appendChild(hand);
     var controls = el("div", "pr-controls",
