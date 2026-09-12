@@ -24,6 +24,7 @@ validate:
     - node tools/check-assets.js
     - node tools/gen-sprites.js --check
     - node tools/make-icon.js --check
+    - node tools/stamp-assets.js --check
     - test -s index.html
     - grep -q 'data-pumarally' index.html
 
