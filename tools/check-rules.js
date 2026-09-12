@@ -48,6 +48,22 @@ if (sim.unfinished > games * 0.1) {
   console.error(`  error:   ${sim.unfinished} games hit the turn cap without finishing`); failed++;
 }
 
+// Again with option cards in play. The plain run barely fires a hook: nobody
+// reaches an upgrade site in a twelve-turn game, so without this the whole
+// option system would be covered by unit tests and nothing else.
+const opt = PR.runSim(games, { startOptions: 3 });
+const optWins = Object.values(opt.wins).reduce((a, b) => a + b, 0);
+console.log(`sim (3 options each): ${opt.games} games, avg ${opt.turns.avg} turns, ` +
+  `${optWins} decided, ${opt.unfinished} unfinished, ${opt.flagsTouched} flags touched`);
+for (const c of opt.crashes.slice(0, 10)) {
+  console.error(`  error:   [options] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
+  failed++;
+}
+if (optWins === 0) { console.error("  error:   no game with options was ever won"); failed++; }
+if (opt.unfinished > games * 0.1) {
+  console.error(`  error:   ${opt.unfinished} option games hit the turn cap`); failed++;
+}
+
 // A seed must replay a game exactly, or saves and replays are worthless.
 const fp = s => { PR.newGame(s); PR.advance();
   return JSON.stringify([PR.G.turn, PR.G.winner, PR.G.players.map(p => [p.c, p.r, p.face, p.damage, p.lives, p.flags])]); };

@@ -977,6 +977,35 @@
       if (d <= 9 && cardsDealt(d) < openRegisters(d)) throw new Error("at " + d + " damage a robot is dealt fewer cards than it has open registers");
     }
 
+    /* The roster is deliberately short of the printed deck, so the
+       check is against the number we claim to have transcribed, not
+       against 26. Both numbers live in OPTION_ROSTER; closing the gap
+       is editing one of them. */
+    var optionIds = Object.keys(OPTION_DEFS);
+    if (optionIds.length !== OPTION_ROSTER.transcribed) {
+      throw new Error("option roster declares " + OPTION_ROSTER.transcribed +
+        " cards but the table has " + optionIds.length);
+    }
+    if (OPTION_ROSTER.transcribed > OPTION_ROSTER.printed) {
+      throw new Error("more option cards transcribed than the deck prints");
+    }
+
+    /* Both directions of the hook binding. A card naming a hook that
+       does not exist never fires; a hook no card uses is dead code
+       that reads as coverage. */
+    var used = {};
+    for (var oi = 0; oi < optionIds.length; oi++) {
+      var odef = OPTION_DEFS[optionIds[oi]];
+      if (!odef.name || !odef.text) throw new Error("option " + optionIds[oi] + " has no name or text");
+      for (var hk in odef.hooks) {
+        if (HOOKS.indexOf(hk) < 0) throw new Error('option "' + optionIds[oi] + '" binds unknown hook "' + hk + '"');
+        used[hk] = true;
+      }
+    }
+    for (var hi = 0; hi < HOOKS.length; hi++) {
+      if (!used[HOOKS[hi]]) throw new Error('hook "' + HOOKS[hi] + '" is declared but no option card uses it');
+    }
+
     if (LIVERIES.length !== 8) throw new Error("there are " + LIVERIES.length + " liveries, but the game seats 8");
     var lid = {};
     for (var j = 0; j < LIVERIES.length; j++) {
@@ -1101,7 +1130,7 @@
 
     var seats = Math.max(2, Math.min(8, opts.players || 4));
     G = {
-      v: 1,
+      v: SAVE_VERSION,
       seed: seed,
       rngState: seed | 0,
       courseId: courseId,
@@ -1112,11 +1141,14 @@
       players: [],
       deck: [],
       discard: [],
+      optionDeck: [],
+      optionDiscard: [],
+      optionAnswers: {},
       gameOver: false,
       winner: null,
       unfinished: false,
       log: [],
-      exec: { queue: [], resume: null },
+      exec: { queue: [], resume: null, resumePhase: null },
       pendingChoices: []
     };
 
@@ -1138,6 +1170,8 @@
         flags: 0,
         archive: { c: dock.c, r: dock.r, face: N },
         hand: [],
+        dealtCount: 0,
+        options: [],
         registers: [null, null, null, null, null],
         poweredDown: false,
         announceDown: false,
@@ -1148,6 +1182,13 @@
 
     for (var d = 0; d < PROGRAM_DECK.length; d++) G.deck.push(d);
     shuffle(G.deck);
+    for (var o = 0; o < OPTION_IDS.length; o++) G.optionDeck.push(OPTION_IDS[o]);
+    shuffle(G.optionDeck);
+    /* A house rule for exercising the option hooks: without it a sim
+       has to play until somebody reaches an upgrade site before a
+       single card is ever fired. */
+    var start = opts.startOptions || 0;
+    for (var q = 0; q < start; q++) for (var pi = 0; pi < G.players.length; pi++) drawOption(G.players[pi]);
     return G;
   }
 
@@ -1172,6 +1213,331 @@
 
   function discardCards(list) {
     for (var i = 0; i < list.length; i++) if (list[i] !== null && list[i] !== undefined) G.discard.push(list[i]);
+  }
+
+  /* ============================================================
+     OPTION CARDS — the hooks
+
+     Twenty-six special cases would be twenty-six `if`s buried in the
+     rules engine. Instead every card is a data row that binds to one
+     of the moments below, and nothing outside this table may
+     intercept the rules: a card that needs a new moment gets a new
+     hook here, not a branch somewhere in playCard.
+
+     Three rules keep it honest.
+
+     Hooks mutate a ctx request object, never G. The engine applies
+     the ctx, so determinism and replay survive.
+
+     Hooks never prompt. A "you may" card calls ctx.pick(), which
+     parks a descriptor on G.pendingChoices and reports the step as
+     pending; one generic phase step drains that queue -- WAIT for a
+     human, botPick for a bot -- and the step then RE-RUNS and finds
+     the answer waiting. That is why twenty-six "you may" cards cost
+     one UI flow instead of twenty-six, and why a save written
+     mid-choice reloads: the queue is plain JSON with no closures in
+     it.
+
+     Hooks never touch the DOM, because the headless sim runs them.
+
+     validateTables asserts both directions of the binding: no card
+     may name a hook that is not declared, and no hook may be
+     declared that no card uses. A hook nothing fires is dead code
+     that looks like coverage.
+     ============================================================ */
+  var HOOKS = [
+    "modifyDealt",        // how many program cards you are dealt
+    "onDealt",            // after the deal, before programming
+    "modifyMove",         // a card's movement, before it happens
+    "onPush",             // you shoved somebody
+    "onBoardElement",     // a belt, curve, gear or pusher is about to act on you
+    "laserShots",         // what your robot fires this register
+    "onLaserHit",         // a shot of yours connected
+    "onDamage",           // damage is about to land on you
+    "onTouchCheckpoint",  // how far you can reach for a flag or wrench
+    "onRespawn"           // you are coming back from the scrap heap
+  ];
+
+  /* ------------------------------------------------------------
+     THE ROSTER
+
+     The printed base deck is 26 cards. Sixteen are transcribed here
+     -- the ones whose effect is unambiguous. The rest are NOT
+     guessed at: an option card that does nearly the right thing is
+     worse than one that is missing, because a player cannot tell.
+     They land the same way boards do, from the physical cards,
+     against a hook system that is already finished.
+
+     OPTION_ROSTER.printed vs .transcribed is what the validator
+     checks, so the gap is a number in the source rather than a
+     thing someone has to remember.
+     ------------------------------------------------------------ */
+  var OPTION_ROSTER = { printed: 26, transcribed: 16 };
+
+  var OPTION_DEFS = {
+    ablativeCoat: {
+      name: "Ablative Coat",
+      text: "Absorbs the next 3 damage, then burns off.",
+      init: function () { return { charges: 3 }; },
+      hooks: {
+        onDamage: function (ctx, st) {
+          if (st.charges <= 0 || ctx.amount <= 0) return;
+          var take = Math.min(st.charges, ctx.amount);
+          st.charges -= take;
+          ctx.amount -= take;
+          ctx.absorbed += take;
+          if (st.charges <= 0) ctx.discard();
+        }
+      }
+    },
+
+    brakes: {
+      name: "Brakes",
+      text: "You may treat a Move 1 as a Move 0.",
+      hooks: {
+        modifyMove: function (ctx) {
+          if (ctx.kind !== "move" || ctx.dist !== 1) return;
+          var pick = ctx.pick("brakes", "hold still instead of moving 1?", ["Move 1", "Brake"]);
+          if (pick === 1) ctx.dist = 0;
+        }
+      },
+      botPrefers: 0
+    },
+
+    crabLegs: {
+      name: "Crab Legs",
+      text: "You may take a Move 1 sideways, without turning.",
+      hooks: {
+        modifyMove: function (ctx) {
+          if (ctx.kind !== "move" || ctx.dist !== 1) return;
+          var pick = ctx.pick("crabLegs", "sidestep instead of moving forward?",
+            ["Forward", "Sidestep left", "Sidestep right"]);
+          if (pick === 1) ctx.lateral = -1;
+          else if (pick === 2) ctx.lateral = 1;
+        }
+      },
+      botPrefers: 0
+    },
+
+    doubleBarreledLaser: {
+      name: "Double-Barreled Laser",
+      text: "Your robot's laser does 2 damage.",
+      hooks: {
+        laserShots: function (ctx) {
+          for (var i = 0; i < ctx.shots.length; i++) if (ctx.shots[i].own) ctx.shots[i].damage += 1;
+        }
+      }
+    },
+
+    extraMemory: {
+      name: "Extra Memory",
+      text: "You are dealt one extra program card each turn.",
+      hooks: { modifyDealt: function (ctx) { ctx.count += 1; } }
+    },
+
+    gyroscopicStabilizer: {
+      name: "Gyroscopic Stabilizer",
+      text: "Gears do not rotate your robot.",
+      hooks: {
+        onBoardElement: function (ctx) { if (ctx.kind === "gear") ctx.veto = true; }
+      }
+    },
+
+    highPowerLaser: {
+      name: "High-Power Laser",
+      text: "Your laser shoots through one wall.",
+      hooks: {
+        laserShots: function (ctx) {
+          for (var i = 0; i < ctx.shots.length; i++) if (ctx.shots[i].own) ctx.shots[i].pierce = 1;
+        }
+      }
+    },
+
+    mechanicalArm: {
+      name: "Mechanical Arm",
+      text: "You may touch a flag or repair site one square away.",
+      hooks: { onTouchCheckpoint: function (ctx) { ctx.reach = Math.max(ctx.reach, 1); } }
+    },
+
+    powerDownShield: {
+      name: "Power Down Shield",
+      text: "While powered down, lasers do not damage you.",
+      hooks: {
+        onDamage: function (ctx) {
+          if (ctx.source !== "laser" || !ctx.player.poweredDown) return;
+          ctx.absorbed += ctx.amount;
+          ctx.amount = 0;
+        }
+      }
+    },
+
+    pressorBeam: {
+      name: "Pressor Beam",
+      text: "Instead of damaging a target, you may push it one square away.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          var pick = ctx.pick("pressorBeam", "shove " + ctx.target.name + " instead of damaging it?",
+            ["Damage", "Shove away"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "push", dir: ctx.shotDir, n: 1 };
+        }
+      },
+      botPrefers: 0
+    },
+
+    rammingGear: {
+      name: "Ramming Gear",
+      text: "A robot you push takes 1 damage.",
+      hooks: { onPush: function (ctx) { ctx.pushDamage += 1; } }
+    },
+
+    rearFiringLaser: {
+      name: "Rear-Firing Laser",
+      text: "Your robot also fires a laser backwards.",
+      hooks: {
+        laserShots: function (ctx) {
+          ctx.shots.push({ own: true, dir: B.opposite(ctx.player.face), damage: 1, pierce: 0 });
+        }
+      }
+    },
+
+    recompile: {
+      name: "Recompile",
+      text: "You may discard your hand and be dealt a new one.",
+      hooks: {
+        onDealt: function (ctx) {
+          var pick = ctx.pick("recompile", "throw this hand away and draw a fresh one?",
+            ["Keep", "Recompile"]);
+          if (pick === 1) ctx.redraw = true;
+        }
+      },
+      botPrefers: 0
+    },
+
+    scrambler: {
+      name: "Scrambler",
+      text: "Instead of damaging a target, you may replace its next register card with the top of the deck.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          var pick = ctx.pick("scrambler", "scramble " + ctx.target.name + "'s next register instead?",
+            ["Damage", "Scramble"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "scramble" };
+        }
+      },
+      botPrefers: 0
+    },
+
+    superiorArchive: {
+      name: "Superior Archive",
+      text: "You return from the scrap heap with 1 damage instead of 2.",
+      hooks: { onRespawn: function (ctx) { ctx.damage = 1; } }
+    },
+
+    tractorBeam: {
+      name: "Tractor Beam",
+      text: "Instead of damaging a target, you may pull it one square toward you.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          var pick = ctx.pick("tractorBeam", "pull " + ctx.target.name + " toward you instead?",
+            ["Damage", "Pull closer"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "push", dir: B.opposite(ctx.shotDir), n: 1 };
+        }
+      },
+      botPrefers: 0
+    }
+  };
+
+  var OPTION_IDS = Object.keys(OPTION_DEFS);
+
+  /* ------------------------------------------------------------
+     THE DISPATCHER
+     ------------------------------------------------------------ */
+
+  /* A choice has to be identified by something that survives the
+     step re-running, a save, and a reload -- so it is derived from
+     the position in the game, never from a counter or an object
+     identity. */
+  function choiceKey(player, hook, optionId, tag) {
+    return G.turn + ":" + G.register + ":" + hook + ":" + optionId + ":" + player.id + ":" + (tag || "");
+  }
+
+  function fire(player, hook, ctx) {
+    ctx = ctx || {};
+    ctx.player = player;
+    ctx.pending = false;
+    var current = null;
+
+    ctx.pick = function (optionId, prompt, labels, tag) {
+      var key = choiceKey(player, hook, optionId, tag);
+      var have = G.optionAnswers[key];
+      if (have === undefined) {
+        for (var i = 0; i < G.pendingChoices.length; i++) if (G.pendingChoices[i].key === key) { ctx.pending = true; return null; }
+        G.pendingChoices.push({ key: key, owner: player.id, optionId: optionId, prompt: prompt, labels: labels });
+        ctx.pending = true;
+        return null;
+      }
+      if (have === "used") return 0;          // already applied; do not fire twice on a re-run
+      G.optionAnswers[key] = "used";
+      return have;
+    };
+
+    ctx.discard = function () { if (current) discardOption(player, current.id); };
+
+    /* Iterate a snapshot: a hook may discard its own card mid-loop
+       (Ablative Coat burning off is the ordinary case), and mutating
+       the array being walked is how one of the others gets skipped. */
+    var held = player.options.slice();
+    for (var i = 0; i < held.length; i++) {
+      var h = held[i];
+      if (player.options.indexOf(h) < 0) continue;      // already gone
+      var def = OPTION_DEFS[h.id];
+      if (!def || !def.hooks[hook]) continue;
+      if (!h.st) h.st = def.init ? def.init() : {};
+      current = h;
+      def.hooks[hook](ctx, h.st, h);
+    }
+    current = null;
+    return ctx;
+  }
+
+  function discardOption(p, id) {
+    for (var i = 0; i < p.options.length; i++) {
+      if (p.options[i].id !== id) continue;
+      G.optionDiscard.push(p.options.splice(i, 1)[0].id);
+      log(p.name + " burns out " + OPTION_DEFS[id].name);
+      return;
+    }
+  }
+
+  function drawOption(p) {
+    if (!G.optionDeck.length) {
+      G.optionDeck = shuffle(G.optionDiscard);
+      G.optionDiscard = [];
+    }
+    if (!G.optionDeck.length) return null;
+    var id = G.optionDeck.pop();
+    var def = OPTION_DEFS[id];
+    p.options.push({ id: id, st: def.init ? def.init() : {} });
+    log(p.name + " picks up " + def.name);
+    return id;
+  }
+
+  /* Bots answer immediately and without consulting rnd(), same
+     contract as botProgram: a seeded replay must not drift because a
+     bot was offered a different number of choices. */
+  function botPick(p, choice) {
+    var def = OPTION_DEFS[choice.optionId];
+    var prefer = def && def.botPrefers !== undefined ? def.botPrefers : 1;
+    if (prefer >= choice.labels.length) prefer = choice.labels.length - 1;
+    return prefer;
   }
 
   /* ============================================================
@@ -1205,29 +1571,53 @@
       chain.push(occ); c = nx.c; r = nx.r;
     }
     // Far end first, so nobody is ever asked to land on an occupied square.
+    var hurt = [];
     for (i = chain.length - 1; i >= 0; i--) {
       var m = chain[i];
       var to = B.step(m.c, m.r, dir);
       m.c = to.c; m.r = to.r;
-      if (i > 0) log(chain[i - 1].name + " shoves " + m.name + " " + B.dirName(dir));
+      if (i > 0) {
+        log(chain[i - 1].name + " shoves " + m.name + " " + B.dirName(dir));
+        var pctx = fire(chain[i - 1], "onPush", { pushed: m, dir: dir, pushDamage: 0 });
+        if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage });
+      }
       if (isHole(C, m.c, m.r)) destroy(m, B.isVoid(C, m.c, m.r) ? "over the edge" : "into a pit");
+    }
+    /* Push damage lands after the whole chain has moved: applying it
+       mid-loop can destroy a robot the robots behind it are still
+       being pushed into. */
+    for (i = 0; i < hurt.length; i++) {
+      if (!hurt[i].who.alive) continue;
+      log(hurt[i].who.name + " takes " + hurt[i].n + " from ramming gear");
+      damage(hurt[i].who, hurt[i].n, "ram");
     }
     return true;
   }
 
-  function playCard(p, cd) {
+  /* A card becomes a plan before it becomes movement, so modifyMove
+     has something to rewrite. Firing the hook from inside the walk
+     would mean unwinding a half-finished move when a card asks the
+     player a question. */
+  function planFor(cd) {
     var k = CARD_KINDS[cd.kind];
-    if (k.turn !== undefined) {
-      p.face = B.rot(p.face, k.turn === 2 ? 2 : k.turn);
-      log(p.name + " " + k.label.toLowerCase());
-      return;
-    }
-    var dist = k.move, dir = dist > 0 ? p.face : B.opposite(p.face);
-    log(p.name + " " + k.label.toLowerCase());
-    for (var i = 0; i < Math.abs(dist); i++) {
+    if (k.turn !== undefined) return { kind: "turn", turn: k.turn, dist: 0, lateral: 0 };
+    return { kind: "move", turn: 0, dist: k.move, lateral: 0 };
+  }
+
+  function runPlan(p, plan) {
+    if (plan.kind === "turn") { p.face = B.rot(p.face, plan.turn); return; }
+    var dir = plan.lateral ? B.rot(p.face, plan.lateral)
+            : plan.dist > 0 ? p.face : B.opposite(p.face);
+    var n = Math.abs(plan.dist);
+    for (var i = 0; i < n; i++) {
       if (!p.alive) return;
       if (!stepRobot(p, dir, "move")) break;          // walked into a wall; the rest of the move is lost
     }
+  }
+
+  function playCard(p, cd) {
+    log(p.name + " " + CARD_KINDS[cd.kind].label.toLowerCase());
+    runPlan(p, planFor(cd));
   }
 
   /* One conveyor pass. speed 2 moves express belts only; speed 1
@@ -1282,8 +1672,11 @@
       if (B.beltSpeed(landed)) {
         var turn = B.turnBetween(mv.dir, B.dirOf(landed));
         if (turn === 1 || turn === -1) {
-          b.face = B.rot(b.face, turn);
-          log(b.name + " is carried round a curve");
+          var bctx = fire(b, "onBoardElement", { kind: "beltCurve", turn: turn, veto: false });
+          if (!bctx.veto) {
+            b.face = B.rot(b.face, bctx.turn);
+            log(b.name + " is carried round a curve");
+          }
         }
       }
     }
@@ -1294,7 +1687,9 @@
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i], t = B.gearTurn(B.codeAt(C, p.c, p.r));
       if (!t) continue;
-      p.face = B.rot(p.face, t);
+      var gctx = fire(p, "onBoardElement", { kind: "gear", turn: t, veto: false });
+      if (gctx.veto) { log(p.name + " is held steady by its gyroscope"); continue; }
+      p.face = B.rot(p.face, gctx.turn);
       log(p.name + " is turned by a gear");
     }
   }
@@ -1308,18 +1703,21 @@
       if (!el || !el.push) continue;
       if ((el.push === "odd") !== wantOdd) continue;
       var d = B.dirOf(B.codeAt(C, p.c, p.r));
+      var uctx = fire(p, "onBoardElement", { kind: "pusher", turn: 0, dir: d, veto: false });
+      if (uctx.veto) continue;
       log(p.name + " is shoved by a pusher");
-      stepRobot(p, d, "pusher");
+      stepRobot(p, uctx.dir, "pusher");
     }
   }
 
   /* The first robot a beam meets, or null. Robot lasers skip their
      own square; board lasers illuminate theirs. */
-  function firstRobotAlong(c, r, dir, skipOrigin) {
+  function firstRobotAlong(c, r, dir, skipOrigin, pierce) {
     var C = UI.course, hit;
+    pierce = pierce || 0;
     if (!skipOrigin) { hit = robotAt(c, r); if (hit) return hit; }
     for (var guard = 0; guard < C.w + C.h + 2; guard++) {
-      if (B.wallAt(C, c, r, dir)) return null;
+      if (B.wallAt(C, c, r, dir)) { if (pierce <= 0) return null; pierce--; }
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) return null;
       c = nx.c; r = nx.r;
@@ -1334,33 +1732,69 @@
      laser still fires its own laser this register. So every shot is
      resolved against one frozen board, and only then is any damage
      applied. */
-  function laserPass() {
-    var C = UI.course, hits = [], i;
-
+  /* Every shot fired this register, resolved against one frozen
+     board. Nothing is applied here, which is what lets the step park
+     for an option-card question and re-run without double-firing. */
+  function computeLaserHits() {
+    var C = UI.course, hits = [], i, s2;
     for (i = 0; i < C.lasers.length; i++) {
       var L = C.lasers[i];
-      var t = firstRobotAlong(L.c, L.r, L.d, false);
-      if (t) hits.push({ target: t, damage: L.n, from: "a board laser" });
+      var t = firstRobotAlong(L.c, L.r, L.d, false, 0);
+      if (t) hits.push({ target: t, damage: L.n, from: "a board laser", shooter: null, dir: L.d });
     }
-
     var alive = live();
     for (i = 0; i < alive.length; i++) {
       var p = alive[i];
       if (p.poweredDown) continue;                    // a powered-down robot does not shoot
-      var v = firstRobotAlong(p.c, p.r, p.face, true);
-      if (v) hits.push({ target: v, damage: 1, from: p.name + "'s laser" });
+      var ctx = fire(p, "laserShots", { shots: [{ own: true, dir: p.face, damage: 1, pierce: 0 }] });
+      for (s2 = 0; s2 < ctx.shots.length; s2++) {
+        var sh = ctx.shots[s2];
+        if (sh.damage <= 0) continue;
+        var v = firstRobotAlong(p.c, p.r, sh.dir, true, sh.pierce || 0);
+        if (v) hits.push({ target: v, damage: sh.damage, from: p.name + "'s laser", shooter: p, dir: sh.dir });
+      }
     }
+    return hits;
+  }
 
-    for (i = 0; i < hits.length; i++) {
+  function applyLaserHits(hits) {
+    for (var i = 0; i < hits.length; i++) {
       var h = hits[i];
       if (!h.target.alive) continue;
+      if (h.replaceWith) {
+        if (h.replaceWith.kind === "push") {
+          log(h.target.name + " is shoved by a beam");
+          stepRobot(h.target, h.replaceWith.dir, "beam");
+        } else if (h.replaceWith.kind === "scramble") {
+          scrambleRegister(h.target);
+        }
+        continue;
+      }
+      if (h.damage <= 0) continue;
       log(h.target.name + " takes " + h.damage + " from " + h.from);
-      damage(h.target, h.damage);
+      damage(h.target, h.damage, "laser");
     }
   }
 
-  function damage(p, n) {
-    p.damage += n;
+  function scrambleRegister(p) {
+    var next = G.register + 1;
+    if (next >= REGISTERS) return;
+    var drawn = draw(1);
+    if (!drawn.length) return;                        // never leave a locked register empty
+    if (p.registers[next] !== null) G.discard.push(p.registers[next]);
+    p.registers[next] = drawn[0];
+    log(p.name + "'s register " + (next + 1) + " is scrambled");
+  }
+
+  /* Kept for the rule tests, which assert laser behaviour directly
+     rather than through the phase machine. */
+  function laserPass() { applyLaserHits(computeLaserHits()); }
+
+  function damage(p, n, source) {
+    var ctx = fire(p, "onDamage", { amount: n, source: source || "laser", absorbed: 0 });
+    if (ctx.absorbed > 0) log(p.name + " absorbs " + ctx.absorbed + " damage");
+    if (ctx.amount <= 0) return;
+    p.damage += ctx.amount;
     if (p.damage >= MAX_DAMAGE) destroy(p, "shot to pieces");
   }
 
@@ -1370,6 +1804,27 @@
     p.lives--;
     discardCards(p.hand); p.hand = [];
     discardCards(p.registers); p.registers = [null, null, null, null, null];
+    /* A wrecked robot loses an option card. Which one is the player's
+       choice at the table, and destruction happens deep inside a move
+       -- far from anywhere a question can be parked -- so the choice
+       is made here by a fixed preference instead.
+
+       It cannot simply be the last card. A robot holding only
+       Superior Archive would discard the one card whose entire
+       purpose is the respawn that is about to happen, so the card
+       could never once work. Anything that acts on coming back is
+       kept until there is nothing else left. Marked as a
+       simplification in the README. */
+    if (p.options.length) {
+      var drop = -1;
+      for (var oi = 0; oi < p.options.length; oi++) {
+        var odef = OPTION_DEFS[p.options[oi].id];
+        if (odef && odef.hooks.onRespawn) continue;
+        drop = oi;
+      }
+      if (drop < 0) drop = p.options.length - 1;
+      G.optionDiscard.push(p.options.splice(drop, 1)[0].id);
+    }
     p.damage = 0;
     p.poweredDown = false;
     p.announceDown = false;
@@ -1397,22 +1852,32 @@
   function checkpointPass() {
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
-      var p = alive[i], code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
+      var p = alive[i];
+      var reach = fire(p, "onTouchCheckpoint", { reach: 0 }).reach;
+      var spots = [{ c: p.c, r: p.r }];
+      for (var d = 0; d < 4 && reach > 0; d++) {
+        var nb = B.step(p.c, p.r, d);
+        if (!B.isVoid(C, nb.c, nb.r)) spots.push(nb);
+      }
+
+      for (var sp = 0; sp < spots.length; sp++) {
+      var code = B.codeAt(C, spots[sp].c, spots[sp].r), el = B.elemOf(code);
 
       // A repair site is always an archive point.
-      if (el && el.repair) p.archive = { c: p.c, r: p.r, face: p.face };
+      if (el && el.repair) p.archive = { c: spots[sp].c, r: spots[sp].r, face: p.face };
 
       for (var f = 0; f < C.flags.length; f++) {
         var F = C.flags[f];
-        if (F.c !== p.c || F.r !== p.r) continue;
+        if (F.c !== spots[sp].c || F.r !== spots[sp].r) continue;
         // Standing on ANY flag re-archives. Only the next one in
         // sequence scores; touching them out of order is a no-op.
-        p.archive = { c: p.c, r: p.r, face: p.face };
+        p.archive = { c: F.c, r: F.r, face: p.face };
         if (F.n === p.flags + 1) {
           p.flags++;
           log(p.name + " touches flag " + F.n);
           if (p.flags === C.flags.length) return win(p);
         }
+      }
       }
     }
   }
@@ -1444,12 +1909,13 @@
           if (p.alive || p.out) continue;
           var spot = freeSpotNear(p.archive.c, p.archive.r);
           if (!spot) { p.out = true; continue; }
+          var rctx = fire(p, "onRespawn", { damage: 2, facing: p.archive.face });
           p.c = spot.c; p.r = spot.r;
-          p.face = p.archive.face;
-          p.damage = 2;                                // returns damaged, by the book
+          p.face = rctx.facing;
+          p.damage = rctx.damage;                      // 2 by the book; Superior Archive makes it 1
           p.alive = true;
           any = true;
-          log(p.name + " returns at (" + p.c + "," + p.r + ") with 2 damage");
+          log(p.name + " returns at (" + p.c + "," + p.r + ") with " + p.damage + " damage");
         }
         if (!live().length) { G.gameOver = true; log("Every robot is scrap. Nobody wins."); return NEXT; }
         go("turn", "powerStart");
@@ -1474,9 +1940,32 @@
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
-          if (p.poweredDown) { p.hand = []; continue; }
-          p.hand = draw(cardsDealt(p.damage));
+          if (p.poweredDown) { p.hand = []; p.dealtCount = 0; continue; }
+          var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
+          p.dealtCount = Math.max(0, dctx.count);
+          p.hand = draw(p.dealtCount);
         }
+        go("turn", "postDeal");
+        return NEXT;
+      },
+
+      /* Cards that act on the hand you were dealt get their own step,
+         because a step that can park for a question has to be safe to
+         re-run, and the deal itself is not. */
+      postDeal: function () {
+        var alive = live(), pending = false;
+        for (var i = 0; i < alive.length; i++) {
+          var p = alive[i];
+          if (p.poweredDown) continue;
+          var ctx = fire(p, "onDealt", { hand: p.hand, redraw: false });
+          if (ctx.pending) { pending = true; continue; }
+          if (ctx.redraw) {
+            discardCards(p.hand);
+            p.hand = draw(p.dealtCount);
+            log(p.name + " recompiles");
+          }
+        }
+        if (pending) return park("turn", "postDeal");
         go("turn", "program");
         return NEXT;
       },
@@ -1529,11 +2018,20 @@
 
       move: function () {
         if (!G.exec.queue.length) { go("exec", "express"); return NEXT; }
-        var p = G.players[G.exec.queue.shift()];
-        if (!p.alive) return NEXT;
+        /* Peek rather than shift: an option card can park this step
+           for a question, and a shifted queue would lose the robot. */
+        var p = G.players[G.exec.queue[0]];
+        if (!p.alive) { G.exec.queue.shift(); return NEXT; }
         var cd = cardAt(p, G.register);
-        if (!cd) return NEXT;
-        playCard(p, cd);
+        if (!cd) { G.exec.queue.shift(); return NEXT; }
+
+        var plan = planFor(cd);
+        var ctx = fire(p, "modifyMove", plan);
+        if (ctx.pending) return park("exec", "move");
+
+        G.exec.queue.shift();
+        log(p.name + " " + describePlan(cd, ctx));
+        runPlan(p, ctx);
         return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
       },
 
@@ -1549,7 +2047,21 @@
       lasers: function () {
         var before = boardSig();
         var beams = (UI.headless || !UI.mounted) ? null : collectBeams();
-        laserPass();
+
+        /* Compute every shot first, ask whatever needs asking, and
+           only then apply. Nothing has been mutated at the point this
+           parks, so the re-run recomputes the identical hits. */
+        var hits = computeLaserHits(), pending = false, i;
+        for (i = 0; i < hits.length; i++) {
+          if (!hits[i].shooter) continue;
+          var hctx = fire(hits[i].shooter, "onLaserHit",
+            { target: hits[i].target, damage: hits[i].damage, shotDir: hits[i].dir, replaceWith: null });
+          if (hctx.pending) { pending = true; continue; }
+          hits[i].damage = hctx.damage;
+          hits[i].replaceWith = hctx.replaceWith;
+        }
+        if (pending) return park("exec", "lasers");
+        applyLaserHits(hits);
         go("exec", "touch");
         if (UI.headless || !UI.mounted) return NEXT;
         var hit = boardSig() !== before;
@@ -1569,6 +2081,22 @@
         go("exec", "endReg");
         if (boardSig() === before) return NEXT;
         return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
+      },
+
+      /* The whole of the option-card UI. Every "you may" card in the
+         deck drains through here, which is why adding a card costs a
+         data row and no interface at all. */
+      optionChoice: function () {
+        var q = G.pendingChoices;
+        if (!q.length) {
+          go(G.exec.resumePhase || "exec", G.exec.resume);
+          return NEXT;
+        }
+        var ch = q[0], p = G.players[ch.owner];
+        if (isHuman(p) && p.alive) { G.actor = p.id; return WAIT; }
+        G.optionAnswers[ch.key] = botPick(p, ch);
+        q.shift();
+        return NEXT;
       },
 
       endReg: function () {
@@ -1591,7 +2119,7 @@
           if ((el && el.repair) || onFlag) {
             if (p.damage > 0) { p.damage--; log(p.name + " repairs 1 damage"); }
           }
-          // el.option also deals an Option card; that arrives in P4.
+          if (el && el.option) drawOption(p);
         }
         go("cleanup", "stayDown");
         return NEXT;
@@ -1633,6 +2161,11 @@
           p.poweredDown = p.announceDown;
           p.announceDown = false;
         }
+        /* Answers are keyed by turn and register, so last turn's can
+           never match this turn's question -- but they would pile up
+           in every save for the rest of the game. */
+        G.optionAnswers = {};
+        G.pendingChoices = [];
         G.turn++;
         if (G.turn > MAX_TURNS) {
           G.gameOver = true;
@@ -1677,6 +2210,29 @@
       out.push({ c: nx.c, r: nx.r, dir: p.face, stopC: v ? v.c : -1, stopR: v ? v.r : -1 });
     }
     return out;
+  }
+
+  /* Hand control to the choice queue and remember where to come back
+     to. The parked step re-runs from the top once the queue drains,
+     so it must be free of side effects up to the question. */
+  function park(phase, step) {
+    G.exec.resumePhase = phase;
+    G.exec.resume = step;
+    go("exec", "optionChoice");
+    return NEXT;
+  }
+
+  /* An option card can turn a Move 1 into standing still, and a log
+     line that still says "move 1" describes a move that did not
+     happen -- which is exactly the register a player rewinds to when
+     the board surprises them. */
+  function describePlan(cd, plan) {
+    var base = planFor(cd), label = CARD_KINDS[cd.kind].label.toLowerCase();
+    if (plan.kind !== "move") return label;
+    if (plan.lateral) return label + ", sidestepping " + (plan.lateral < 0 ? "left" : "right");
+    if (plan.dist === 0 && base.dist !== 0) return label + ", but brakes and holds still";
+    if (plan.dist !== base.dist) return label + ", modified to " + plan.dist;
+    return label;
   }
 
   function programmed(p) {
@@ -1736,6 +2292,14 @@
     }
     if (n !== 84) throw new Error("program card conservation broken: " + n + "/84 at " + G.phase + "." + G.step + " turn " + G.turn);
 
+    // 1b. Option cards are conserved too.
+    var o = G.optionDeck.length + G.optionDiscard.length;
+    for (i = 0; i < G.players.length; i++) o += G.players[i].options.length;
+    if (o !== OPTION_ROSTER.transcribed) {
+      throw new Error("option card conservation broken: " + o + "/" + OPTION_ROSTER.transcribed +
+        " at " + G.phase + "." + G.step + " turn " + G.turn);
+    }
+
     var occupied = {};
     for (i = 0; i < G.players.length; i++) {
       p = G.players[i];
@@ -1749,10 +2313,22 @@
       // 3. Flags touched are a prefix: no gaps, ever.
       if (p.flags < 0 || p.flags > C.flags.length) throw new Error(p.name + " has touched " + p.flags + " of " + C.flags.length + " flags");
 
-      // 4. The deal arithmetic that drives the entire damage system.
-      if (G.phase === "turn" && G.step === "program" && p.alive && !p.poweredDown && !programmed(p)) {
-        if (p.hand.length !== cardsDealt(p.damage) && G.deck.length + G.discard.length > 0) {
-          throw new Error(p.name + " holds " + p.hand.length + " cards at " + p.damage + " damage, expected " + cardsDealt(p.damage));
+      /* 4. The deal arithmetic that drives the entire damage system.
+         Checked against what was actually dealt rather than against
+         9 - damage, because Extra Memory legitimately changes the
+         second number and would turn this into a false alarm. The
+         conservation property is the one that matters: every card
+         dealt is either still in hand or sitting in a register. */
+      if (G.phase === "turn" && G.step === "program" && p.alive && !p.poweredDown) {
+        var placed = 0;
+        for (var rq = 0; rq < REGISTERS; rq++) if (p.registers[rq] !== null && rq < openRegisters(p.damage)) placed++;
+        if (p.hand.length + placed !== p.dealtCount && G.deck.length + G.discard.length > 0) {
+          throw new Error(p.name + " holds " + p.hand.length + " cards and has placed " + placed +
+            ", but was dealt " + p.dealtCount);
+        }
+        if (!p.options.length && p.dealtCount !== cardsDealt(p.damage) && G.deck.length + G.discard.length > 0) {
+          throw new Error(p.name + " was dealt " + p.dealtCount + " at " + p.damage +
+            " damage with no options, expected " + cardsDealt(p.damage));
         }
       }
 
@@ -2047,8 +2623,9 @@
     G = {
       v: 1, seed: 1, rngState: 1, courseId: "bench", turn: 1, register: 0,
       phase: "exec", step: "move", players: [], deck: [], discard: [],
+      optionDeck: [], optionDiscard: [], optionAnswers: {},
       gameOver: false, winner: null, unfinished: false, log: [],
-      exec: { queue: [], resume: null }, pendingChoices: []
+      exec: { queue: [], resume: null, resumePhase: null }, pendingChoices: []
     };
     for (var i = 0; i < robots.length; i++) {
       var rb = robots[i], face = rb.face === undefined ? N : rb.face;
@@ -2059,12 +2636,26 @@
         lives: rb.lives === undefined ? START_LIVES : rb.lives,
         flags: rb.flags || 0,
         archive: rb.archive || { c: rb.c, r: rb.r, face: face },
-        hand: [], registers: [null, null, null, null, null],
+        hand: [], dealtCount: 0, registers: [null, null, null, null, null],
+        /* Options are opt-in per test: a card firing in a test that is
+           not about that card would be a false pass or a false alarm. */
+        options: (rb.options || []).map(function (id) {
+          var def = OPTION_DEFS[id];
+          if (!def) throw new Error("bench robot given unknown option " + id);
+          return { id: id, st: def.init ? def.init() : {} };
+        }),
         poweredDown: !!rb.poweredDown, announceDown: false,
         alive: rb.alive !== false, out: false
       });
     }
     for (var d = 0; d < PROGRAM_DECK.length; d++) G.deck.push(d);
+    /* The bench holds whatever the robots were not given, so option
+       conservation still balances if a test checks it. */
+    var taken = {};
+    for (var q = 0; q < G.players.length; q++) {
+      for (var o = 0; o < G.players[q].options.length; o++) taken[G.players[q].options[o].id] = true;
+    }
+    for (var k = 0; k < OPTION_IDS.length; k++) if (!taken[OPTION_IDS[k]]) G.optionDeck.push(OPTION_IDS[k]);
     return G;
   }
 
@@ -2331,6 +2922,213 @@
       assert(G.players[0].hand.length === 0, "a powered-down robot programs nothing");
     } },
 
+    // ---- option cards: the dispatcher --------------------------------
+    { name: "a 'you may' card parks a choice and applies the answer on the re-run", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E, options: ["brakes"] }]);
+      var p = G.players[0];
+      var ctx = fire(p, "modifyMove", planFor(firstCard("move1")));
+      assert(ctx.pending, "the card should have parked a question");
+      assert(G.pendingChoices.length === 1, "exactly one choice should be queued, got " + G.pendingChoices.length);
+      G.optionAnswers[G.pendingChoices[0].key] = 1;          // "Brake"
+      G.pendingChoices.shift();
+      var again = fire(p, "modifyMove", planFor(firstCard("move1")));
+      assert(!again.pending, "the re-run must not ask the same question again");
+      assert(again.dist === 0, "braking should turn a Move 1 into a Move 0, got " + again.dist);
+    } },
+
+    { name: "an answered choice fires once, not on every later re-run", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E, options: ["brakes"] }]);
+      var p = G.players[0];
+      fire(p, "modifyMove", planFor(firstCard("move1")));
+      G.optionAnswers[G.pendingChoices[0].key] = 1;
+      G.pendingChoices.shift();
+      fire(p, "modifyMove", planFor(firstCard("move1")));      // consumes it
+      var third = fire(p, "modifyMove", planFor(firstCard("move1")));
+      assert(third.dist === 1, "a spent choice must not keep applying, got dist " + third.dist);
+    } },
+
+    { name: "a robot without the card is never asked", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var ctx = fire(G.players[0], "modifyMove", planFor(firstCard("move1")));
+      assert(!ctx.pending && G.pendingChoices.length === 0, "no option, no question");
+    } },
+
+    { name: "a choice key is stable across a save and reload", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E, options: ["brakes"] }]);
+      fire(G.players[0], "modifyMove", planFor(firstCard("move1")));
+      var key = G.pendingChoices[0].key;
+      G = JSON.parse(JSON.stringify(G));                       // the save round-trip
+      fire(G.players[0], "modifyMove", planFor(firstCard("move1")));
+      assert(G.pendingChoices[0].key === key, "the same question must get the same key after a reload");
+      assert(G.pendingChoices.length === 1, "and must not be queued twice");
+    } },
+
+    // ---- option cards: the effects -----------------------------------
+    { name: "Ablative Coat absorbs three damage and then burns off", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, options: ["ablativeCoat"] }]);
+      var p = G.players[0];
+      damage(p, 2, "laser");
+      assert(p.damage === 0, "the first 2 should be absorbed, damage is " + p.damage);
+      damage(p, 2, "laser");
+      assert(p.damage === 1, "the coat has 1 charge left, so 1 gets through; damage is " + p.damage);
+      assert(p.options.length === 0, "the coat should have burned off");
+      assert(G.optionDiscard.length === 1, "and gone to the discard");
+    } },
+
+    { name: "Power Down Shield stops lasers only while powered down", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, options: ["powerDownShield"] }]);
+      var p = G.players[0];
+      damage(p, 2, "laser");
+      assert(p.damage === 2, "the shield does nothing while running, damage is " + p.damage);
+      p.poweredDown = true;
+      damage(p, 3, "laser");
+      assert(p.damage === 2, "powered down, lasers should do nothing; damage is " + p.damage);
+      damage(p, 1, "ram");
+      assert(p.damage === 3, "but the shield is not armour against everything");
+    } },
+
+    { name: "Extra Memory deals one more card", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, options: ["extraMemory"] }, { c: 0, r: 0 }]);
+      G.players[1].c = 1;                                      // keep one robot per square
+      G.phase = "turn"; G.step = "deal";
+      STEP.turn.deal();
+      assert(G.players[0].dealtCount === 10, "9 + 1, got " + G.players[0].dealtCount);
+      assert(G.players[1].dealtCount === 9, "the robot without the card gets 9, got " + G.players[1].dealtCount);
+    } },
+
+    { name: "Gyroscopic Stabilizer ignores gears but not conveyor curves", run: function () {
+      benchGame(bench([["r.", ".."]]), [{ c: 0, r: 0, face: N, options: ["gyroscopicStabilizer"] }]);
+      gearPass();
+      assert(G.players[0].face === N, "the gear should not have turned it");
+      benchGame(bench([["b>", "bv"], ["..", ".."]]), [{ c: 0, r: 0, face: N, options: ["gyroscopicStabilizer"] }]);
+      beltPass(1);
+      assert(G.players[0].face === E, "a conveyor curve still turns it; facing is " + G.players[0].face);
+    } },
+
+    { name: "Ramming Gear hurts the robot you shove", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E, options: ["rammingGear"] }, { c: 1, r: 0 }]);
+      stepRobot(G.players[0], E, "move");
+      assert(G.players[1].c === 2, "the shove should still happen");
+      assert(G.players[1].damage === 1, "and cost the shoved robot 1, got " + G.players[1].damage);
+      assert(G.players[0].damage === 0, "the rammer takes nothing");
+    } },
+
+    { name: "Double-Barreled Laser does 2", run: function () {
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, face: E, options: ["doubleBarreledLaser"] }, { c: 1, r: 0, face: N }]);
+      applyLaserHits(computeLaserHits());
+      assert(G.players[1].damage === 2, "expected 2, got " + G.players[1].damage);
+    } },
+
+    { name: "Rear-Firing Laser shoots the robot behind you", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: N }, { c: 1, r: 0, face: E, options: ["rearFiringLaser"] }]);
+      applyLaserHits(computeLaserHits());
+      assert(G.players[0].damage === 1, "the robot behind should be hit, damage " + G.players[0].damage);
+    } },
+
+    { name: "High-Power Laser shoots through exactly one wall", run: function () {
+      var cells = [["..", "..", "..", ".."]];
+      benchGame(bench(cells, ["1,0,E"]), [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: N }]);
+      applyLaserHits(computeLaserHits());
+      assert(G.players[1].damage === 0, "an ordinary laser is stopped by the wall");
+      benchGame(bench(cells, ["1,0,E"]), [{ c: 0, r: 0, face: E, options: ["highPowerLaser"] }, { c: 2, r: 0, face: N }]);
+      applyLaserHits(computeLaserHits());
+      assert(G.players[1].damage === 1, "the high-power laser goes through it, damage " + G.players[1].damage);
+      benchGame(bench(cells, ["1,0,E", "2,0,E"]), [{ c: 0, r: 0, face: E, options: ["highPowerLaser"] }, { c: 3, r: 0, face: N }]);
+      applyLaserHits(computeLaserHits());
+      assert(G.players[1].damage === 0, "but not through two of them");
+    } },
+
+    { name: "Pressor Beam shoves instead of damaging", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E, options: ["pressorBeam"] }, { c: 1, r: 0, face: N }]);
+      var hits = computeLaserHits();
+      var ctx = fire(G.players[0], "onLaserHit",
+        { target: hits[0].target, damage: hits[0].damage, shotDir: hits[0].dir, replaceWith: null });
+      assert(ctx.pending, "it should ask first");
+      G.optionAnswers[G.pendingChoices[0].key] = 1;
+      G.pendingChoices.shift();
+      ctx = fire(G.players[0], "onLaserHit",
+        { target: hits[0].target, damage: hits[0].damage, shotDir: hits[0].dir, replaceWith: null });
+      hits[0].damage = ctx.damage; hits[0].replaceWith = ctx.replaceWith;
+      applyLaserHits(hits);
+      assert(G.players[1].damage === 0, "no damage when the beam shoves instead");
+      assert(G.players[1].c === 2, "the target should have been shoved away, it is at " + G.players[1].c);
+    } },
+
+    { name: "Mechanical Arm touches a flag one square away", run: function () {
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, options: ["mechanicalArm"] }], [{ c: 1, r: 0, n: 1 }]);
+      checkpointPass();
+      assert(G.players[0].flags === 1, "the arm should have reached the flag, flags " + G.players[0].flags);
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }], [{ c: 1, r: 0, n: 1 }]);
+      checkpointPass();
+      assert(G.players[0].flags === 0, "without the arm it is out of reach");
+    } },
+
+    { name: "Superior Archive brings you back with 1 damage", run: function () {
+      /* Two cards, because destruction costs you one: the preference
+         in destroy() has to spend the other card so the one that acts
+         on the respawn survives to act on it. */
+      benchGame(bench([["..", ".."]]),
+        [{ c: 1, r: 0, archive: { c: 0, r: 0, face: N }, options: ["brakes", "superiorArchive"] }]);
+      destroy(G.players[0], "for the test");
+      assert(G.players[0].options.length === 1 && G.players[0].options[0].id === "superiorArchive",
+        "destruction should have spent the other card, not this one");
+      G.phase = "turn"; G.step = "respawn";
+      STEP.turn.respawn();
+      assert(G.players[0].damage === 1, "expected 1 damage, got " + G.players[0].damage);
+    } },
+
+    { name: "Superior Archive is still lost if it is your only card", run: function () {
+      /* You must discard one, so a robot holding nothing else spends
+         it and comes back on the ordinary 2. Keeping it would be a
+         nicer card and a different game. */
+      benchGame(bench([["..", ".."]]),
+        [{ c: 1, r: 0, archive: { c: 0, r: 0, face: N }, options: ["superiorArchive"] }]);
+      destroy(G.players[0], "for the test");
+      assert(G.players[0].options.length === 0, "the only card must still be discarded");
+      G.phase = "turn"; G.step = "respawn";
+      STEP.turn.respawn();
+      assert(G.players[0].damage === 2, "back on the ordinary 2, got " + G.players[0].damage);
+    } },
+
+    { name: "a wrecked robot loses one option card, not all of them", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, options: ["brakes", "extraMemory"] }]);
+      destroy(G.players[0], "for the test");
+      assert(G.players[0].options.length === 1, "one card should survive, " + G.players[0].options.length + " did");
+      assert(G.optionDiscard.length === 1, "and exactly one should be discarded");
+    } },
+
+    { name: "option cards are conserved across a whole game", run: function () {
+      var keepH = UI.headless, keepA = UI.autoHuman;
+      UI.headless = true; UI.autoHuman = true;
+      UI.wallsChecked = false;
+      newGame(11, { startOptions: 2 });
+      advance();
+      var total = G.optionDeck.length + G.optionDiscard.length;
+      for (var i = 0; i < G.players.length; i++) total += G.players[i].options.length;
+      UI.headless = keepH; UI.autoHuman = keepA;
+      assert(total === OPTION_ROSTER.transcribed,
+        "expected " + OPTION_ROSTER.transcribed + " option cards, found " + total);
+    } },
+
+    { name: "the table rejects a card bound to a hook that does not exist", run: function () {
+      OPTION_DEFS.__bogus = { name: "Bogus", text: "x", hooks: { onNothing: function () {} } };
+      OPTION_ROSTER.transcribed++;
+      var threw = null;
+      try { validateTables(); } catch (e) { threw = e.message; }
+      delete OPTION_DEFS.__bogus;
+      OPTION_ROSTER.transcribed--;
+      assert(threw && /unknown hook/.test(threw), "expected an unknown-hook error, got " + threw);
+    } },
+
+    { name: "the table rejects a hook that no card uses", run: function () {
+      HOOKS.push("onNeverFired");
+      var threw = null;
+      try { validateTables(); } catch (e) { threw = e.message; }
+      HOOKS.pop();
+      assert(threw && /no option card uses it/.test(threw),
+        "a hook nothing fires is dead code that reads as coverage; expected an error, got " + threw);
+    } },
+
     // ---- conservation ----------------------------------------------
     { name: "destroying a robot returns all of its cards to the discard", run: function () {
       benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
@@ -2475,6 +3273,12 @@
     ".pr-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}",
     ".pr-controls .on{border-color:var(--pr-warn);color:var(--pr-warn)}",
     ".pr-hint{font-size:11px;opacity:.7;text-align:center;min-height:1.4em}",
+    ".pr-choice{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;",
+    "border:1px solid var(--pr-warn);background:var(--pr-panel);padding:6px 10px;max-width:640px}",
+    ".pr-choice b{color:var(--pr-warn);font-weight:normal}",
+    ".pr-choice span{color:var(--pr-text)}",
+    ".pr-opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font-size:11px}",
+    ".pr-opt{border:1px solid var(--pr-border);background:var(--pr-panel);padding:2px 8px;color:var(--pr-warn);cursor:help}",
 
     /* ---- banner ---- */
     ".pr-banner{width:100%;text-align:center;padding:10px;border:1px solid var(--pr-warn);",
@@ -2504,14 +3308,24 @@
   var SAVE_KEY = "pumarally_save_v1";
   var SPEED_KEY = "pumarally_speed_v1";
 
+  /* Bumped whenever G grows a field the code then assumes is there.
+     A save written before option cards existed has players with no
+     options array, and resuming it does not produce an older game --
+     it produces a broken one, with the first render throwing on a
+     field that was never written. Refusing to load is the only
+     honest option, since there is nothing to migrate from. */
+  var SAVE_VERSION = 2;
+
   function saveGame() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, G: G })); } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION, G: G })); } catch (e) {}
   }
 
   function loadGame() {
     try {
       var s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
-      return s && s.G && !s.G.gameOver ? s.G : null;
+      if (!s || !s.G || s.G.gameOver) return null;
+      if (s.v !== SAVE_VERSION) return null;         // a save of a different shape
+      return s.G;
     } catch (e) { return null; }
   }
 
@@ -2619,6 +3433,8 @@
     renderHud();
     renderPlayers();
     renderProgram();
+    renderChoice();
+    renderOptions();
     updateLog();
     drawBeams();
     followPhase();
@@ -2791,10 +3607,48 @@
     UI.els.down.disabled = !programming;
     UI.els.down.classList.toggle("on", !!(me && me.announceDown));
     UI.els.hint.textContent = G.gameOver ? ""
+      : (G.phase === "exec" && G.step === "optionChoice") ? ""
       : programming ? (ready ? "Registers full. Run, or click a register to take a card back."
                              : "Click cards to fill registers " + (firstEmpty(me) + 1) + "-" + open + ".")
       : inPhase("turn", "program") ? "Waiting for the other robots."
       : "";
+  }
+
+  /* The whole option-card interface: one prompt and a row of buttons,
+     shared by every "you may" card in the deck. */
+  function renderChoice() {
+    var host = UI.els.choice;
+    var ch = G.pendingChoices[0];
+    var waiting = ch && G.phase === "exec" && G.step === "optionChoice" && isHuman(G.players[ch.owner]);
+    if (!waiting) {
+      if (!host.hidden) { host.hidden = true; host.innerHTML = ""; }
+      return;
+    }
+    var def = OPTION_DEFS[ch.optionId], out = "<b>" + esc(def.name) + "</b> <span>" + esc(ch.prompt) + "</span>";
+    for (var i = 0; i < ch.labels.length; i++) {
+      out += ' <button data-act="pick" data-i="' + i + '">' + esc(ch.labels[i]) + "</button>";
+    }
+    if (host.innerHTML !== out) {
+      host.innerHTML = out;
+      announce(def.name + ". " + ch.prompt);
+    }
+    host.hidden = false;
+  }
+
+  function humanSeat() {
+    for (var i = 0; i < G.players.length; i++) if (isHuman(G.players[i])) return G.players[i];
+    return null;
+  }
+
+  function renderOptions() {
+    var me = humanSeat(), out = [];
+    if (me) {
+      for (var i = 0; i < me.options.length; i++) {
+        var def = OPTION_DEFS[me.options[i].id];
+        out.push('<span class="pr-opt" title="' + esc(def.text) + '">' + esc(def.name) + "</span>");
+      }
+    }
+    UI.els.opts.innerHTML = out.join("");
   }
 
   function firstEmpty(p) {
@@ -2892,9 +3746,21 @@
     advance();
   }
 
+  function onOptionPick(i) {
+    var ch = G.pendingChoices[0];
+    if (!ch || G.phase !== "exec" || G.step !== "optionChoice") return;
+    if (!isHuman(G.players[ch.owner])) return;
+    if (!(i >= 0 && i < ch.labels.length)) return;
+    G.optionAnswers[ch.key] = i;
+    G.pendingChoices.shift();
+    announce(ch.labels[i] + ".");
+    advance();
+  }
+
   function dispatchAct(el) {
     var a = el.dataset.act, i = parseInt(el.dataset.i, 10);
-    if (a === "card") onCardClick(i);
+    if (a === "pick") onOptionPick(i);
+    else if (a === "card") onCardClick(i);
     else if (a === "slot") onSlotClick(i);
     else if (a === "clear") onClear();
     else if (a === "down") onPowerDown();
@@ -3075,8 +3941,12 @@
       '<button data-act="clear">Clear</button>' +
       '<button data-act="down">Power down</button>');
     var hint = el("div", "pr-hint");
+    var choice = el("div", "pr-choice");
+    choice.hidden = true;
+    var opts = el("div", "pr-opts");
     program.appendChild(regs); program.appendChild(hand);
-    program.appendChild(controls); program.appendChild(hint);
+    program.appendChild(controls); program.appendChild(choice);
+    program.appendChild(opts); program.appendChild(hint);
 
     var banner = el("div", "pr-banner");
     banner.hidden = true;
@@ -3095,6 +3965,7 @@
     UI.els = { host: host, hud: hud, stage: stage, board: board, fx: fx, grid: grid, program: program,
                pieces: pieces, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
+               choice: choice, opts: opts,
                run: controls.querySelector("[data-act=run]"),
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
@@ -3200,6 +4071,9 @@
     advance: advance,
     runSim: runSim,
     ruleTests: ruleTests,
+    OPTION_DEFS: OPTION_DEFS,
+    OPTION_ROSTER: OPTION_ROSTER,
+    HOOKS: HOOKS,
     RULE_TESTS: RULE_TESTS,
     assertInvariants: assertInvariants,
     get G() { return G; },
