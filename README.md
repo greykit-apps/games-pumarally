@@ -10,8 +10,8 @@ printed boards remain theirs. Nothing here is scanned — the tiles are original
 sprites and the layouts are hand-transcribed tile data.
 
 > **Status: in development, and playable.** Program five registers and race
-> three AI robots round the Proving Ground. The twelve official boards, the
-> option cards and hot-seat are still to come — see
+> three AI robots round the Proving Ground. The twelve official boards and
+> hot-seat are still to come, and the option deck is 16 of its 26 cards — see
 > [What works today](#what-works-today).
 
 ## Play
@@ -30,7 +30,8 @@ at play time.
 | AI opponents | done (distance-field beam search) |
 | Headless simulation + 32 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
-| Option cards | not yet |
+| Option cards — hook system | done |
+| Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
 | Hot-seat | not yet |
 | Board editor | not yet |
 | The twelve official boards | not yet — see [Board provenance](#board-provenance) |
@@ -47,6 +48,47 @@ in the guess you made ninety seconds ago.
 Damage is the pressure. Each point costs you a card next turn, and from five
 damage your registers start locking from the right, so a wounded robot is
 committed to moves it can no longer choose.
+
+## Option cards
+
+Twenty-six special cases would be twenty-six `if`s buried in the rules engine.
+Instead each card is a data row bound to one of ten hooks, and **nothing
+outside that table may intercept the rules** — a card needing a new moment gets
+a new hook, not a branch inside `playCard`.
+
+Three properties hold it together. Hooks mutate a request object, never the
+game state, so the engine stays in charge of applying it. Hooks never prompt: a
+*you may* card calls `ctx.pick()`, which parks a plain-JSON descriptor on a
+queue that **one** phase step drains — so twenty-six optional cards cost one
+interface, and a save written mid-question reloads, because there are no
+closures in the queue. And hooks never touch the DOM, because the headless
+simulation runs them too.
+
+The validator asserts the binding **both ways**: no card may name a hook that
+does not exist, and no hook may be declared that no card uses. A hook nothing
+fires is dead code that reads as coverage.
+
+### The roster is 16 of 26, on purpose
+
+The printed base deck is 26 cards. Sixteen are transcribed — the ones whose
+effect is unambiguous. The rest are **not guessed at**: an option card that
+does nearly the right thing is worse than one that is missing, because a player
+cannot tell which they are holding. They land the way boards do, from the
+physical cards, against a hook system that is already finished. The gap is a
+number in the source (`OPTION_ROSTER`) that the validator checks, not something
+anyone has to remember.
+
+Two deliberate simplifications, both marked here because no check can see them:
+
+- **Losing a card when wrecked** is the player's choice at the table. Here it is
+  a fixed preference, because destruction happens deep inside a move where no
+  question can be parked. Cards that act on the respawn are kept until nothing
+  else is left — otherwise a robot holding only Superior Archive would discard
+  the one card whose purpose is the respawn about to happen, and it could never
+  once work.
+- **Bots answer instantly** and consume no shared randomness, same contract as
+  their programming: a seeded replay must not drift because a bot was offered a
+  different number of choices.
 
 ## Board provenance
 
@@ -141,6 +183,7 @@ press `1`–`9`), then **Run**. You do not get to react once they are running.
 | `Backspace` | take the last card back |
 | `Enter` | run the registers |
 | `S` | cycle speed — slow, normal, fast |
+| click | answer an option card's question when one is asked |
 | `N` | new game |
 
 The game autosaves every settled step and resumes where you left off. A 16-row
