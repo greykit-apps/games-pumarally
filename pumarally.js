@@ -885,6 +885,10 @@
       seed: seed,
       rngState: seed | 0,
       courseId: courseId,
+      /* House rules ride in the SAVE, not in localStorage, so a game
+         replays under the rules it was started with even if the setup
+         screen has been changed since. */
+      flagTouch: opts.flagTouch ? 1 : 0,
       turn: 1,
       register: 0,
       phase: "turn",
@@ -1325,6 +1329,18 @@
      pushes the next. A wall anywhere in the chain stops EVERYTHING,
      including the robot that started the push -- which is the part
      that is easy to get wrong and changes outcomes when it is. */
+  /* Every square a robot passes THROUGH this register, not just the one
+     it stops on. Only the "crossing counts" house rule reads it, but it
+     is recorded either way: making the recording conditional on a rule
+     would mean the rule could not be changed mid-game, and a saved game
+     would carry a trail that silently depended on a setting. */
+  function tread(p) {
+    if (!p.trail) p.trail = [];
+    var last = p.trail[p.trail.length - 1];
+    if (last && last[0] === p.c && last[1] === p.r) return;
+    p.trail.push([p.c, p.r]);
+  }
+
   function stepRobot(p, dir, cause) {
     var C = UI.course, chain = [p], c = p.c, r = p.r, i;
     for (var guard = 0; guard < 10; guard++) {
@@ -1341,6 +1357,7 @@
       var m = chain[i];
       var to = B.step(m.c, m.r, dir);
       m.c = to.c; m.r = to.r;
+      tread(m);
       if (i > 0) {
         log(chain[i - 1].name + " shoves " + m.name + " " + B.dirName(dir));
         var pctx = fire(chain[i - 1], "onPush", { pushed: m, dir: dir, pushDamage: 0 });
@@ -1429,6 +1446,7 @@
       if (!mv) continue;
       var b = G.players[ids[i]];
       b.c = mv.to.c; b.r = mv.to.r;
+      tread(b);
       if (isHole(C, b.c, b.r)) { destroy(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
       /* Rotate ONLY because a belt carried the robot onto the curve.
          A robot that was already standing there, or was pushed on,
@@ -1664,6 +1682,18 @@
       if (p.poweredDown) continue;
       var reach = fire(p, "onTouchCheckpoint", { reach: 0 }).reach;
       var spots = [{ c: p.c, r: p.r }];
+
+      /* "Crossing it counts" (Euro): every square walked through this
+         register is a candidate, in the order it was walked, with the
+         square the robot actually stopped on considered last so the
+         archive ends up where the robot is. Off by default -- the
+         English manual wants a robot to END a register on the flag. */
+      if (G.flagTouch && p.trail && p.trail.length > 1) {
+        spots = [];
+        for (var ti = 0; ti < p.trail.length; ti++) spots.push({ c: p.trail[ti][0], r: p.trail[ti][1] });
+        spots.push({ c: p.c, r: p.r });
+      }
+
       for (var d = 0; d < 4 && reach > 0; d++) {
         var nb = B.step(p.c, p.r, d);
         if (!B.isVoid(C, nb.c, nb.r)) spots.push(nb);
@@ -1845,6 +1875,10 @@
           if (!cd) continue;
           q.push({ id: p.id, pri: cd.pri });
         }
+        /* A new register, a new trail. It starts at where each robot
+           stands, so a robot that does not move has a trail of one and
+           behaves identically under either rule. */
+        for (var ti = 0; ti < alive.length; ti++) alive[ti].trail = [[alive[ti].c, alive[ti].r]];
         q.sort(function (a, b) { return b.pri - a.pri; });   // highest priority first
         G.exec.queue = q.map(function (x) { return x.id; });
         go("exec", "move");
@@ -2946,6 +2980,48 @@
       assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
+    // ---- house rule: what counts as touching a flag -------------------
+    { name: "by default, crossing a flag does not touch it", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 1, r: 0, n: 1 }]);
+      G.flagTouch = 0;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move"); stepRobot(p, E, "move");
+      checkpointPass();
+      assert(p.c === 2, "the robot should have ended two squares along");
+      assert(p.flags === 0, "the English manual wants it to STOP on the flag; it scored " + p.flags);
+    } },
+
+    { name: "Euro style: crossing a flag touches it", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 1, r: 0, n: 1 }]);
+      G.flagTouch = 1;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move"); stepRobot(p, E, "move");
+      checkpointPass();
+      assert(p.flags === 1, "crossing should count under the German reading; it scored " + p.flags);
+    } },
+
+    { name: "Euro style still refuses flags out of order", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 2, r: 0, n: 1 }, { c: 1, r: 0, n: 2 }]);
+      G.flagTouch = 1;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move");                     // crosses flag 2 with flag 1 untouched
+      checkpointPass();
+      assert(p.flags === 0, "flag 2 before flag 1 must score nothing; it scored " + p.flags);
+    } },
+
+    { name: "a robot that never moves behaves the same under either rule", run: function () {
+      for (var mode = 0; mode < 2; mode++) {
+        benchGame(bench([[".."]]), [{ c: 0, r: 0 }], [{ c: 0, r: 0, n: 1 }]);
+        G.flagTouch = mode;
+        G.players[0].trail = [[0, 0]];
+        checkpointPass();
+        assert(G.players[0].flags === 1, "standing on flag 1 scores it whatever the house rule (mode " + mode + ")");
+      }
+    } },
+
     // ---- Crash and Burn: presses and burners -------------------------
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
       benchGame(bench([["X3"]]), [{ c: 0, r: 0 }]);
@@ -3779,6 +3855,8 @@
     ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
     ".pr-burner .pr-flame{fill:var(--pr-danger)}",
     ".pr-burner .pr-flame-core{fill:var(--pr-warn)}",
+        ".pr-rule-group{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--pr-accent);",
+    "font-weight:normal;margin:14px 0 2px;border-top:1px solid var(--pr-border);padding-top:10px}",
         ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
     "color:var(--pr-hazard);background:var(--pr-bg);padding:1px 2px;pointer-events:none;z-index:2}",
 
@@ -4785,7 +4863,8 @@
     return {
       course: courseId,
       players: cfg.players, humans: cfg.humans,
-      skill: cfg.skill, startOptions: cfg.startOptions
+      skill: cfg.skill, startOptions: cfg.startOptions,
+      flagTouch: cfg.flagTouch
     };
   }
 
@@ -4990,7 +5069,21 @@
              labels: ["Scrapyard", "Circuit", "Grand Prix"],
              desc: "How far ahead the bots look when they program." },
     startOptions: { label: "Starting options", min: 0, max: 3, def: 0,
-                    desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." }
+                    desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." },
+
+    /* HOUSE RULES: variants, not game size. Kept in the same table so
+       they load, save, clamp and ride in the presets exactly as the
+       others do, and separated only by which section draws them.
+
+       flagTouch exists because the books disagree. The English manual
+       is explicit that a robot must END a register phase on the flag to
+       touch it; the German Crash and Burn rulebook says a robot reaches
+       a checkpoint if it crosses it OR stays on it. Rather than pick a
+       winner between two printings of the same game, the strict reading
+       is the default and the other is offered by name. */
+    flagTouch: { label: "Touching a flag", min: 0, max: 1, def: 0, group: "house",
+                 labels: ["Must end a register on it", "Crossing it counts"],
+                 desc: "The English manual wants you to stop on a flag. The German Crash and Burn book counts crossing it. Euro style is the looser one." }
   };
 
   var DIFFICULTY_PRESETS = {
@@ -5038,7 +5131,8 @@
       players: players,
       humans: Math.min(players, clampRule("humans", h.humans)),
       skill: clampRule("skill", h.skill),
-      startOptions: clampRule("startOptions", h.startOptions)
+      startOptions: clampRule("startOptions", h.startOptions),
+      flagTouch: clampRule("flagTouch", h.flagTouch)
     };
   }
 
@@ -5230,13 +5324,19 @@
     out.push("</div><div class='pr-rule-desc'>" +
       esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
 
+    var groups = [["setup", null], ["house", "House rules"]];
+    for (var gi = 0; gi < groups.length; gi++) {
+    var gname = groups[gi][0];
+    if (groups[gi][1]) out.push('<h3 class="pr-rule-group">' + esc(groups[gi][1]) + "</h3>");
     for (var k in SLIDER_DEFS) {
       var d = SLIDER_DEFS[k], v = houseRules[k];
+      if ((d.group || "setup") !== gname) continue;
       var shown = d.labels ? d.labels[v] : v;
       out.push('<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
         '<span class="pr-rule-val">' + esc(String(shown)) + (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>" +
         '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max + '" value="' + v + '">' +
         '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>");
+    }
     }
     var cfg = resolveConfig(houseRules);
     out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
