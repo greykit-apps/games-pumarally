@@ -74,4 +74,13 @@ deploy:
       }
   script:
     # Single destination, so this job costs exactly one SSH connection.
-    - puma_rsync -avz --delete --exclude='.git' --exclude='.claude' --exclude='.gitlab-ci.yml' --exclude='tools' --exclude='maps' --exclude='manual*' --exclude='rules' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
+    #
+    # --delete-excluded is load-bearing, and the reason is a trap worth
+    # naming: plain --delete does NOT delete paths matched by --exclude.
+    # Excluded paths are PROTECTED on the destination. So adding
+    # --exclude='maps' to stop publishing board photographs had the exact
+    # opposite effect on the ones already up there -- it pinned them in
+    # place, and a deploy that looked like a cleanup changed nothing.
+    # With --delete-excluded, anything excluded here is also removed from
+    # the live site, which is what "do not publish this" has to mean.
+    - puma_rsync -avz --delete --delete-excluded --exclude='.git' --exclude='.claude' --exclude='.gitlab-ci.yml' --exclude='tools' --exclude='maps' --exclude='manual*' --exclude='rules' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
