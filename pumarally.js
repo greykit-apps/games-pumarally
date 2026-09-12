@@ -279,7 +279,13 @@
      The control point is where the entry and exit lines cross. For a
      quarter turn between perpendicular edges that is one coordinate
      from each end, which is why this is arithmetic and not algebra. */
-  function markPath(g) {
+  function markPath(g, headed) {
+    /* A headless run is painted edge to edge, so consecutive tiles
+       join into one continuous line you can follow across the board
+       instead of a row of separate stamps. That continuity is what
+       replaces the arrowhead: the line has to go somewhere, and where
+       it goes is visible on the next square. */
+    if (!headed) return g.straight ? lineOf(g, 0) : arcOf(g, TURN_R, g.t1, g.t2);
     if (g.straight) {
       var d = g.dir;
       var ax = g.a[0] + DC[d] * TAIL_IN, ay = g.a[1] + DR[d] * TAIL_IN;
@@ -297,45 +303,6 @@
      of the exit and nothing else. */
   function headPoint(exit) {
     return [EDGE[exit][0] - DC[exit] * HEAD_BACK, EDGE[exit][1] - DR[exit] * HEAD_BACK];
-  }
-
-  function pickLead(runs, exit) {
-    for (var i = 0; i < runs.length; i++) if (runs[i] === exit) return runs[i];
-    return runs[0];
-  }
-
-  /* A point some distance back along a run's painted mark, with the
-     direction the belt is travelling there. Walked rather than solved:
-     the mark is a quadratic, arc length along one has no closed form
-     worth writing, and this runs once per tile when the board is
-     built. */
-  function backAlong(g, dist) {
-    if (g.straight) {
-      var d = g.dir, hp = headPoint(g.exit);
-      return { x: hp[0] - DC[d] * dist, y: hp[1] - DR[d] * dist, hx: DC[d], hy: DR[d] };
-    }
-    var sx = g.a[0] + DC[g.inDir] * TAIL_IN, sy = g.a[1] + DR[g.inDir] * TAIL_IN;
-    var hp2 = headPoint(g.exit);
-    var horizIn = (g.inDir === E || g.inDir === W);
-    var cx = horizIn ? hp2[0] : sx, cy = horizIn ? sy : hp2[1];
-    function at(t) {
-      var u = 1 - t;
-      return { x: u * u * sx + 2 * t * u * cx + t * t * hp2[0],
-               y: u * u * sy + 2 * t * u * cy + t * t * hp2[1] };
-    }
-    var prev = at(1), walked = 0, t;
-    for (t = 0.98; t >= 0; t -= 0.02) {
-      var pt = at(t);
-      walked += Math.sqrt((pt.x - prev.x) * (pt.x - prev.x) + (pt.y - prev.y) * (pt.y - prev.y));
-      prev = pt;
-      if (walked >= dist) break;
-    }
-    /* Tangent of a quadratic at t: 2[(1-t)(C-S) + t(H-C)]. */
-    var u2 = 1 - t;
-    var tx = 2 * (u2 * (cx - sx) + t * (hp2[0] - cx));
-    var ty = 2 * (u2 * (cy - sy) + t * (hp2[1] - cy));
-    var len = Math.sqrt(tx * tx + ty * ty) || 1;
-    return { x: prev.x, y: prev.y, hx: tx / len, hy: ty / len };
   }
 
   /* The arrowhead, as a stroked chevron rather than a filled triangle
@@ -371,6 +338,12 @@
 
   function beltSvg(art) {
     var runs = art.ins.length ? art.ins : [art.exit];
+    /* Only a plain straight run carries an arrowhead. On a turn or a
+       merge the painted line curves or converges, which already says
+       rotation and junction, and the direction is carried by the run
+       it came from -- so the head would be decoration competing with
+       the one thing the tile has to say. */
+    var headed = runs.length === 1 && runs[0] === art.exit;
     var beds = "", rails = "", marks = "", i, j;
     /* Every bed first, then every rail: at a junction the rails have
        to be able to cross a neighbouring bed, which is what a
@@ -380,21 +353,12 @@
       beds += '<path class="pr-bed" d="' + bedPath(g) + '"/>';
       var rp = railPaths(g);
       for (j = 0; j < rp.length; j++) rails += '<path class="pr-rail" d="' + rp[j] + '"/>';
-      marks += '<path class="pr-mark" d="' + markPath(g) + '"/>';
+      marks += '<path class="pr-mark" d="' + markPath(g, headed) + '"/>';
     }
-    /* One head, however many feeds: the shafts converge on it.
-       Express belts get a second chevron behind the first, and it has
-       to sit ON the belt -- placing it back along the exit AXIS put it
-       off the path by a third of a tile on a turn, floating on bare
-       bed. It rides the lead run instead: the straight feed where
-       there is one, since that is the through route, and otherwise
-       the only run there is. */
-    var dc = DC[art.exit], dr = DR[art.exit], h = headPoint(art.exit);
-    marks += chev(h[0], h[1], dc, dr, 14);
-    if (art.speed === 2) {
-      var lead = runGeom(pickLead(runs, art.exit), art.exit);
-      var p2 = backAlong(lead, 19);
-      marks += chev(p2.x, p2.y, p2.hx, p2.hy, 14);
+    if (headed) {
+      var dc = DC[art.exit], dr = DR[art.exit], h = headPoint(art.exit);
+      marks += chev(h[0], h[1], dc, dr, 14);
+      if (art.speed === 2) marks += chev(h[0] - dc * 19, h[1] - dr * 19, dc, dr, 14);
     }
     return svg(beds + rails + marks, art.speed === 2 ? "pr-express" : "pr-belt");
   }
@@ -2930,8 +2894,23 @@
       var m = art(merge, 1, 1);
       assert(shafts(m) === 2, "a merge draws one shaft per feed, got " + shafts(m));
       assert(curves(m) === 1, "and exactly the side feed bends, got " + curves(m));
-      assert(marks(m).length - shafts(m) === 1,
-        "however many feeds, a merge has exactly one arrowhead");
+      /* Heads belong to plain straights only. A turn already says
+         "you rotate" with its curve and a merge already says
+         "junction" with its converging lines; an arrowhead on either
+         is decoration competing with the thing the tile has to say,
+         and the direction is carried by the run it came from. */
+      assert(marks(m).length === shafts(m), "a merge carries no arrowhead");
+      assert(marks(art(corner, 1, 1)).length === shafts(art(corner, 1, 1)),
+        "and neither does a turn");
+      assert(marks(art(straight, 1, 0)).length - shafts(art(straight, 1, 0)) === 1,
+        "a plain straight belt carries exactly one");
+
+      /* Headless runs are painted edge to edge so consecutive tiles
+         join into one line. That continuity is what replaces the
+         head, so it is the property worth asserting. */
+      var cm = art(corner, 1, 1).match(/class="pr-mark" d="M([\d.]+) ([\d.]+)/);
+      assert(cm && (+cm[1] === 0 || +cm[2] === 0 || +cm[1] === 100 || +cm[2] === 100),
+        "a headless run starts on the tile edge, so it meets its neighbour");
     } },
 
     { name: "the table rejects an element nobody drew", run: function () {
