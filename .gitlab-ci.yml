@@ -1,0 +1,74 @@
+stages:
+  - validate
+  - deploy
+
+# Board data is transcribed by hand from reference images and the sprite art is
+# hand-edited character grids, so the likely breakage is data-shaped and silent:
+# a picture row that lost a character, a conveyor pointing into a wall, a laser
+# with nothing to mount on. None of those throw on their own -- they render a
+# board that is plausible and wrong, which is the one failure a game promising
+# faithful maps cannot survive. Catch it before it reaches the site.
+#
+# check-rules.js also fails when no simulated game is ever WON. A sim that only
+# reports "no crashes" cannot tell a working engine from one where the win
+# condition is unreachable, and that distinction has already mattered once here.
+validate:
+  stage: validate
+  image: node:20-alpine
+  script:
+    - node --check pumarally.js
+    - node --check pumarally-boards.js
+    - node tools/check-boards.js
+    - node tools/validator-selftest.js
+    - node tools/check-rules.js 200
+    - test -s index.html
+    - grep -q 'data-pumarally' index.html
+
+deploy:
+  stage: deploy
+  image: debian:bookworm-slim
+  only:
+    - main
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq openssh-client rsync > /dev/null 2>&1
+    - mkdir -p ~/.ssh
+    - cp "$DREAMHOST_SSH_KEY" ~/.ssh/id_rsa
+    - echo "" >> ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    # Host key is PINNED rather than scanned. A bare `ssh-keyscan` opens a burst
+    # of parallel connections (one per host-key type), which trips an SSH-scan
+    # detector on the self-hosted runner's network path; outbound port 22 to the
+    # target is then blackholed for ~3 minutes -- long enough for the rsync below
+    # to time out, which is what makes the job die with exit 255 after 133s.
+    # Pinning costs zero connections and is also strictly safer than trusting
+    # whatever key happens to answer at deploy time.
+    # If DreamHost rebuilds the VPS this must be re-pinned: the job will then
+    # fail loudly on a host key mismatch rather than silently trust a new key.
+    - echo "$DREAMHOST_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtxw582rJAeTpXMTRJeGJ6GHis19hHmWWBwEL1bCbYd" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    # ConnectTimeout turns a blocked port into a 15s failure instead of a 133s
+    # one. It lives in ssh_config rather than on each command line so that
+    # rsync's own ssh picks it up too, without touching any rsync invocation.
+    - printf 'Host *\n  ConnectTimeout 15\n  BatchMode yes\n' > ~/.ssh/config
+    - chmod 600 ~/.ssh/config
+    # Outbound port 22 to this host gets blackholed for minutes once too many
+    # SSH connections go to it in a short window -- a mass deploy trips it even
+    # with no ssh-keyscan anywhere. Retry with long gaps so a queued deploy rides
+    # the block out instead of going red. The gaps are deliberately long: probing
+    # harder re-arms the block rather than clearing it.
+    - |
+      puma_rsync() {
+        attempt=1
+        until rsync "$@"; do
+          if [ "$attempt" -ge 3 ]; then
+            echo "rsync failed after $attempt attempts" >&2
+            return 1
+          fi
+          echo "attempt $attempt failed; waiting 200s for any port-22 block to clear"
+          attempt=$((attempt + 1))
+          sleep 200
+        done
+      }
+  script:
+    # Single destination, so this job costs exactly one SSH connection.
+    - puma_rsync -avz --delete --exclude='.git' --exclude='.claude' --exclude='.gitlab-ci.yml' --exclude='tools' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
