@@ -22,6 +22,22 @@ const PR = require(path.join(__dirname, "..", "pumarally.js")).__PR;
 const games = parseInt(process.argv[2], 10) || 200;
 let failed = 0;
 
+/* The load-time table self-check, run against the SHIPPED tables.
+ *
+ * It is called from mount(), so until now nothing outside a browser ever ran
+ * it on data nobody had deliberately broken -- two rule tests called it, but
+ * each injected its own fault and asserted its own message, so a real fault
+ * elsewhere in the tables passed straight through them. Deleting a tile's art
+ * and watching the suite stay green is how that was found: the check worked
+ * perfectly and nothing in CI was asking it. */
+try {
+  PR.validateTables();
+  console.log("table self-check: shipped tables validate");
+} catch (e) {
+  console.error(`  error:   table self-check -- ${e.message}`);
+  failed++;
+}
+
 const rt = PR.ruleTests();
 console.log(`rule tests: ${rt.passed}/${rt.total} passed`);
 for (const f of rt.failed) { console.error(`  error:   ${f.name} -- ${f.error}`); failed++; }

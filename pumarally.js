@@ -1,6 +1,6 @@
 /* ============================================================
    PUMARALLY
-   A faithful port of the RoboRally rules in original pixel art.
+   A faithful port of the RoboRally rules in original vector art.
 
    One script that injects its own CSS and mounts into any
    [data-pumarally] element, so index.html stays a shell. Board
@@ -12,45 +12,71 @@
 (function (root) {
   "use strict";
 
-  /* The rules engine, its 32 rule tests and the headless sim touch no
+  /* The rules engine, its rule tests and the headless sim touch no
      DOM, so Node can load this file and run them in CI. Only mount()
-     and the sprite bake reach for document, and neither runs until
-     something asks for a screen. */
+     reaches for document, and it does not run until something asks
+     for a screen. The tile art is markup rather than drawing calls,
+     which is why even that is buildable without a canvas. */
   var B = root.PumaRallyBoards ||
     (typeof require === "function" ? require("./pumarally-boards.js") : null);
   if (!B) throw new Error("PumaRally: pumarally-boards.js must load first");
 
   var N = B.N, E = B.E, S = B.S, W = B.W;
+  var DC = B.DC, DR = B.DR;   /* unit step per direction, for tile art geometry */
 
   /* ============================================================
-     TOKENS — pixel-industrial tribe
-     Base and accent are byte-identical to Retro Surfer '96, which
-     is what makes this a tribe rather than a one-off palette. The
-     extensions exist because a RoboRally board asks a dozen
-     functional tile types to be told apart at a glance, which two
-     hues cannot do: conveyors are rust, express conveyors are the
-     accent, pushers are warn, harm is danger, and the floor stays
-     out of the way so the pieces read first.
+     TOKENS — terminal, not pixels
+
+     The style language is the one PumaTriage uses: monospace, a near
+     black ground, hairline borders, uppercase letterspaced labels,
+     and colour carrying meaning rather than decoration. The hues are
+     PumaRally's own -- cyan and rust rather than PumaTriage's green
+     and amber -- because a shared palette would make these the same
+     game wearing two names, and a shared grammar is what actually
+     makes them siblings.
+
+     A RoboRally board asks a dozen functional tile types to be told
+     apart at a glance, which is more than an accent and a dim accent
+     can do. So each element owns a hue and keeps it everywhere it
+     appears -- board, legend, help table -- and the floor stays out
+     of the way so the robots read first.
      ============================================================ */
   var TOKENS = {
     bg: "#05070f",
-    accent: "#54f2ff",
-    ink: "#8b8fa8",
-    text: "#e8ecff",
-    plate: "#1a2338",
-    plateDark: "#151c2e",
-    rivet: "#223052",
-    rust: "#c25a2b",
-    warn: "#ffb000",
-    danger: "#ff3333",
-    steel: "#8b93b5",
-    panel: "#0c1120",
-    border: "#1f2a45"
+    panel: "#0a0e1a",
+    panelAlt: "#0d1424",
+    floor: "#0e1524",
+    border: "#1b2540",
+    line: "#141d33",          /* the grid hairline, a shade under the border */
+    accent: "#54f2ff",        /* express conveyors, headings, focus */
+    accentDim: "#2b7f92",
+    text: "#dbe4fb",
+    ink: "#8b96b8",
+    dim: "#5b6884",
+    rust: "#d2713f",          /* conveyors */
+    warn: "#ffb000",          /* pushers, flags */
+    danger: "#ff5266",        /* lasers, pits */
+    good: "#4ade6a",          /* repair */
+    violet: "#b47dff",        /* upgrade */
+    steel: "#94a0c4",         /* gears, walls */
+    wall: "#c3cde8",
+    /* Hazard stripes: the yellow-and-black the printed board uses for
+       anything that will hurt you -- wall faces, pit frames, rams. */
+    hazard: "#f2c400",
+    hazardDark: "#14161c",
+    /* Belt beds are near-black so the painted arrow reads; the rails
+       are the element's own hue, which is what tells a conveyor from
+       an express conveyor at a glance without reading the arrow. */
+    beltBed: "#2a1a0e",
+    expressBed: "#0b2028",
+    plate: "#273249"
   };
 
   /* The eight robot liveries. Colour is the only thing that tells
      robots apart, exactly as on the table, so these are chosen for
-     separation at 16 pixels rather than for prettiness. */
+     separation at a glance rather than for prettiness. Each carries a
+     bright tone for the outline and a dark one for the body, which is
+     what lets one drawing serve all eight. */
   var LIVERIES = [
     { id: "amber",  name: "Hazard",   a: "#ffb000", d: "#8a5c00" },
     { id: "cyan",   name: "Coolant",  a: "#54f2ff", d: "#1d6a7a" },
@@ -110,842 +136,366 @@
 
   var MAX_DAMAGE = 10, START_LIVES = 3, REGISTERS = 5;
 
-  /* ============================================================
-     SPRITES
-     Hand-editable character grids with a per-sprite palette, the
-     format Retro Surfer uses. Each is pre-rendered once to an
-     offscreen canvas and thereafter blitted, and every rotation is
-     a canvas transform rather than a fourth copy of the art.
-
-     Robots are ONE sprite with eight palette maps. That is the
-     difference between 40 lines of art and 320.
-     ============================================================ */
-  /* @gen-sprites-begin */
-  var SPRITES = {
-    floor: {
-      palette: { q: "#151c2e", p: "#1a2338", d: "#223052", h: "#2e4172" },
-      rows: [
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqpphdpppppppppppppppppppphdppqq",
-        "qqppddppppppppppppppppppppddppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqpphdpppppppppppppppppppphdppqq",
-        "qqppddppppppppppppppppppppddppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqppppppppppppppppppppppppppppqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
-      ]
-    },
-    pit: {
-      palette: { q: "#151c2e", m: "#0d1322", k: "#05070f", d: "#1d2740" },
-      rows: [
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqqqqqqqqqqqmmmmmmmmqqqqqqqqqqqq",
-        "qqqqqqqqqqmddddddddddmqqqqqqqqqq",
-        "qqqqqqqqmddkkkkkkkkkkddmqqqqqqqq",
-        "qqqqqqqmdkkkkkkkkkkkkkkdmqqqqqqq",
-        "qqqqqqddkkkkkkkkkkkkkkkkddqqqqqq",
-        "qqqqqmdkkkkkkkkkkkkkkkkkkdmqqqqq",
-        "qqqqmdkkkkkkkkkkkkkkkkkkkkdmqqqq",
-        "qqqqdkkkkkkkkkkkkkkkkkkkkkkdqqqq",
-        "qqqmdkkkkkkkkkkkkkkkkkkkkkkdmqqq",
-        "qqqdkkkkkkkkkkkkkkkkkkkkkkkkdqqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqmdkkkkkkkkkkkkkkkkkkkkkkkkdmqq",
-        "qqqdkkkkkkkkkkkkkkkkkkkkkkkkdqqq",
-        "qqqmdkkkkkkkkkkkkkkkkkkkkkkdmqqq",
-        "qqqqdkkkkkkkkkkkkkkkkkkkkkkdqqqq",
-        "qqqqmdkkkkkkkkkkkkkkkkkkkkdmqqqq",
-        "qqqqqmdkkkkkkkkkkkkkkkkkkdmqqqqq",
-        "qqqqqqddkkkkkkkkkkkkkkkkddqqqqqq",
-        "qqqqqqqmdkkkkkkkkkkkkkkdmqqqqqqq",
-        "qqqqqqqqmddkkkkkkkkkkddmqqqqqqqq",
-        "qqqqqqqqqqmddddddddddmqqqqqqqqqq",
-        "qqqqqqqqqqqqmmmmmmmmqqqqqqqqqqqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-        "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
-      ]
-    },
-    /* Conveyors are authored pointing NORTH and rotated to suit. One
-       chevron for a conveyor, two for an express -- the speed has to be
-       readable without reading the colour, because the two belts are the
-       commonest thing to misjudge. The slats sell the direction. */
-    belt: {
-      palette: { v: "#241a11", u: "#3d2c1c", s: "#70512f", a: "#c25a2b" },
-      transparent: ".",
-      rows: [
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
-        "...vvsssssssssaaassssssssssvv...",
-        "...vvssssssssaaaaasssssssssvv...",
-        "...vvuuuuuuuaaaaaaauuuuuuuuvv...",
-        "...vvuuuuuuaaaaaaaaauuuuuuuvv...",
-        "...vvuuuuuaaaaaaaaaaauuuuuuvv...",
-        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
-        "...vvsssaaaaaaaaaaaaaaassssvv...",
-        "...vvssaaaaaaaaaaaaaaaaasssvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvsssssssssaaassssssssssvv...",
-        "...vvsssssssssaaassssssssssvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv..."
-      ]
-    },
-    express: {
-      palette: { v: "#0e2233", u: "#163449", s: "#2b6e93", a: "#54f2ff" },
-      transparent: ".",
-      rows: [
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuaaaaauuuuuuuuuvv...",
-        "...vvuuuuuuuaaaaaaauuuuuuuuvv...",
-        "...vvssssssaaaaaaaaasssssssvv...",
-        "...vvsssssaaaaaaaaaaassssssvv...",
-        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuauuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuaaaaauuuuuuuuuvv...",
-        "...vvsssssssaaaaaaassssssssvv...",
-        "...vvssssssaaaaaaaaasssssssvv...",
-        "...vvuuuuuaaaaaaaaaaauuuuuuvv...",
-        "...vvuuuuaaaaaaaaaaaaauuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "...vvsssssssssaaassssssssssvv...",
-        "...vvssssssssssssssssssssssvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv..."
-      ]
-    },
-    /* A curve authored as fed-from-the-west, exits-north -- a LEFT turn.
-       The right-turn curve is this mirrored at bake time, so the corner
-       art is authored once. */
-    beltCurve: {
-      palette: { v: "#241a11", u: "#3d2c1c", s: "#70512f", a: "#c25a2b" },
-      transparent: ".",
-      rows: [
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvssssssssssasssssssssssvv...",
-        "uuuvvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuaaaaauuuuuuuuuvv...",
-        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
-        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
-        "uuuvvsssssaaaaaaaaaaassssssvv...",
-        "uuuvvssssaaaaaaaaaaaaasssssvv...",
-        "uuuvvuuuaaaaaaaaaaaaaaauuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "................................",
-        "................................",
-        "................................"
-      ]
-    },
-    expressCurve: {
-      palette: { v: "#0e2233", u: "#163449", s: "#2b6e93", a: "#54f2ff" },
-      transparent: ".",
-      rows: [
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "...vvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "uuuvvuuuuuuuuuuauuuuuuuuuuuvv...",
-        "uuuvvsssssssssaaassssssssssvv...",
-        "uuuvvssssssssaaaaasssssssssvv...",
-        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
-        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
-        "uuuvvuuuuuaaaaaaaaaaauuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvssssssssssasssssssssssvv...",
-        "uuuvvuuuuuuuuuaaauuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuaaaaauuuuuuuuuvv...",
-        "uuuvvuuuuuuuaaaaaaauuuuuuuuvv...",
-        "uuuvvuuuuuuaaaaaaaaauuuuuuuvv...",
-        "uuuvvsssssaaaaaaaaaaassssssvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvssssssssssssssssssssssvv...",
-        "uuuvvuuuuuuuuuuuuuuuuuuuuuuvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvv...",
-        "................................",
-        "................................",
-        "................................"
-      ]
-    },
-    /* Eight teeth, a hub and an offset notch. Colour alone carried the
-       turn direction at 16 pixels; at 32 the notch does the work and the
-       colour is redundancy rather than the only cue. */
-    gearCW: {
-      palette: { g: "#4a5578", h: "#6b7aa8", a: "#ffb000" },
-      transparent: ".",
-      rows: [
-        ".............gggggg.............",
-        ".............gggggg.............",
-        ".............gggggg.............",
-        "...ggggg....hhhhhhhh....ggggg...",
-        "...gggggg.hhhhhhhhhhhh.gggggg...",
-        "...ggggghhhhhgggggaahhhhggggg...",
-        "...gggghhhgggggggaaaaghhhgggg...",
-        "...ggghhhggggggggaaaagghhhggg...",
-        "....ghhhgggggggggaaaaggghhhg....",
-        ".....hhgggggggggggaaggggghh.....",
-        "....hhgggggggghhhhgggggggghh....",
-        "....hhgggggghhhhhhhhgggggghh....",
-        "...hhhggggghhhaaaahhhggggghhh...",
-        "ggghhgggggghhaaaaaahhgggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhgggggghhaaaaaahhgggggghhggg",
-        "...hhhggggghhhaaaahhhggggghhh...",
-        "....hhgggggghhhhhhhhgggggghh....",
-        "....hhgggggggghhhhgggggggghh....",
-        ".....hhgggggggggggggggggghh.....",
-        "....ghhhgggggggggggggggghhhg....",
-        "...ggghhhgggggggggggggghhhggg...",
-        "...gggghhhgggggggggggghhhgggg...",
-        "...ggggghhhhhgggggghhhhhggggg...",
-        "...gggggg.hhhhhhhhhhhh.gggggg...",
-        "...ggggg....hhhhhhhh....ggggg...",
-        ".............gggggg.............",
-        ".............gggggg.............",
-        ".............gggggg............."
-      ]
-    },
-    gearCCW: {
-      palette: { g: "#4a5578", h: "#6b7aa8", a: "#54f2ff" },
-      transparent: ".",
-      rows: [
-        ".............gggggg.............",
-        ".............gggggg.............",
-        ".............gggggg.............",
-        "...ggggg....hhhhhhhh....ggggg...",
-        "...gggggg.hhhhhhhhhhhh.gggggg...",
-        "...ggggghhhhaaggggghhhhhggggg...",
-        "...gggghhhgaaaaggggggghhhgggg...",
-        "...ggghhhggaaaagggggggghhhggg...",
-        "....ghhhgggaaaaggggggggghhhg....",
-        ".....hhgggggaaggggggggggghh.....",
-        "....hhgggggggghhhhgggggggghh....",
-        "....hhgggggghhhhhhhhgggggghh....",
-        "...hhhggggghhhaaaahhhggggghhh...",
-        "ggghhgggggghhaaaaaahhgggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhggggghhaaaaaaaahhggggghhggg",
-        "ggghhgggggghhaaaaaahhgggggghhggg",
-        "...hhhggggghhhaaaahhhggggghhh...",
-        "....hhgggggghhhhhhhhgggggghh....",
-        "....hhgggggggghhhhgggggggghh....",
-        ".....hhgggggggggggggggggghh.....",
-        "....ghhhgggggggggggggggghhhg....",
-        "...ggghhhgggggggggggggghhhggg...",
-        "...gggghhhgggggggggggghhhgggg...",
-        "...ggggghhhhhgggggghhhhhggggg...",
-        "...gggggg.hhhhhhhhhhhh.gggggg...",
-        "...ggggg....hhhhhhhh....ggggg...",
-        ".............gggggg.............",
-        ".............gggggg.............",
-        ".............gggggg............."
-      ]
-    },
-    /* Pushers are authored pushing NORTH: the housing sits on the south
-       edge, where its wall is, and the ram points the way it shoves. The
-       renderer stamps the register numbers on top. */
-    pusherOdd: {
-      palette: { n: "#a86a28", m: "#7a4a1a", a: "#ffb000" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "................................",
-        "...............a................",
-        "..............aaa...............",
-        ".............aaaaa..............",
-        "............aaaaaaa.............",
-        "...........aaaaaaaaa............",
-        "..........aaaaaaaaaaa...........",
-        ".........aaaaaaaaaaaaa..........",
-        "........aaaaaaaaaaaaaaa.........",
-        "..............aaaa..............",
-        ".............naaaan.............",
-        ".............nnnnnn.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        "....nnnnnnnnnmmmmmmnnnnnnnnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
-        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn...."
-      ]
-    },
-    pusherEven: {
-      palette: { n: "#2c6a7f", m: "#194a5c", a: "#54f2ff" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "................................",
-        "...............a................",
-        "..............aaa...............",
-        ".............aaaaa..............",
-        "............aaaaaaa.............",
-        "...........aaaaaaaaa............",
-        "..........aaaaaaaaaaa...........",
-        ".........aaaaaaaaaaaaa..........",
-        "........aaaaaaaaaaaaaaa.........",
-        "..............aaaa..............",
-        ".............naaaan.............",
-        ".............nnnnnn.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        ".............mmmmmm.............",
-        "....nnnnnnnnnmmmmmmnnnnnnnnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
-        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmmmmmmmmmmmmmmmmmmmmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnmnnnmmmmmmmmmmmmnnnmnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn....",
-        "....nnnnnnnnnnnnnnnnnnnnnnnn...."
-      ]
-    },
-    repair: {
-      palette: { s: "#8b93b5", h: "#c9d2f0" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............ssssssss...........",
-        ".............sshhhhss...........",
-        ".............sshhhhss...........",
-        ".............ssssssss...........",
-        "...............ssss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............ssss.............",
-        "..............ssssss............",
-        "..............ssssss............",
-        "..............ssssss............",
-        "..............ssssss............",
-        "................................",
-        "................................",
-        "................................"
-      ]
-    },
-    upgrade: {
-      palette: { s: "#ffb000", h: "#ffd98a", a: "#ffb000", k: "#4a3000" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............sss..sss...........",
-        ".............ssssssss...........",
-        ".............sshhhhss...........",
-        ".............sshhhhss...........",
-        ".............ssssssss...........",
-        "...............ssss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss.............",
-        "...............shss..aaa..aaa...",
-        "...............shss..aaaaaaaa...",
-        "...............shss..aaaaaaaa...",
-        "...............shss..aaaaaaaa...",
-        "...............shssaaaaakkaaaaa.",
-        "...............sssaaaaakkkkaaaaa",
-        "..............ssssaaaaakkkkaaaaa",
-        "..............sssssaaaaakkaaaaa.",
-        "..............ssssss.aaaaaaaa...",
-        "..............ssssss.aaaaaaaa...",
-        ".....................aaaaaaaa...",
-        ".....................aaa..aaa...",
-        "................................"
-      ]
-    },
-    flag: {
-      palette: { s: "#8b93b5", a: "#ffb000", h: "#ffd98a" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        ".........sss....................",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssahhhhhhhhhhhaaaa....",
-        ".........sssahhhhhhhhhhhaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sssaaaaaaaaaaaaaaaa....",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        ".........sss....................",
-        "......sssssssss.................",
-        "......sssssssss.................",
-        "......sssssssss.................",
-        "......sssssssss.................",
-        "................................"
-      ]
-    },
-    dock: {
-      palette: { h: "#54f2ff" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "..hhhhhhhhh..........hhhhhhhhh..",
-        "..hhhhhh................hhhhhh..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..h..........................h..",
-        "..h..........................h..",
-        "..h..........................h..",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "..h..........................h..",
-        "..h..........................h..",
-        "..h..........................h..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..hh........................hh..",
-        "..hhhhhh................hhhhhh..",
-        "..hhhhhhhhh..........hhhhhhhhh..",
-        "................................",
-        "................................"
-      ]
-    },
-    /* One robot, authored facing north, with eight palette maps. That is
-       the difference between 40 lines of art and 320. */
-    robot: {
-      palette: { a: "#ffb000", d: "#8a5c00", e: "#54f2ff", h: "#e8ecff", t: "#7d86a8", k: "#2a1c00" },
-      transparent: ".",
-      rows: [
-        "................................",
-        "................................",
-        "...............d................",
-        "..............ddd...............",
-        ".............ddeed..............",
-        "............dddeedd.............",
-        "...........ddddeeddd............",
-        "..........dddaaaaaadd...........",
-        ".............aaaaaa.............",
-        ".......ddddddaaaaaadddddd.......",
-        ".......dddddddddddddddddd.......",
-        "..dddddddhhhhhhhhhhhhhhddddddd..",
-        "..dddddddaaaaaaaaaaaaaaddddddd..",
-        "..dttttddakkkkkkkkkkkkaddttttd..",
-        "..dddddddakeeeeeeeeeekaddddddd..",
-        "..dddddddakeeeeeeeeeekaddddddd..",
-        "..dddddddakeeeeeeeeeekaddddddd..",
-        "..dttttddakkkkkkkkkkkkaddttttd..",
-        "..dddddddakkkkkkkkkkkkaddddddd..",
-        "..dddddddaaaaaaaaaaaaaaddddddd..",
-        "..dddddddaaaaaaaaaaaaaaddddddd..",
-        "..dttttddaaddddddddddaaddttttd..",
-        "..dddddddaaddddddddddaaddddddd..",
-        "..dddddddaaaaaaaaaaaaaaddddddd..",
-        "..dddddddaaaaaaaaaaaaaaddddddd..",
-        "..dttttddaaaaaaaaaaaaaaddttttd..",
-        "..dddddddddddddddddddddddddddd..",
-        "..dddddddddddddddddddddddddddd..",
-        "..dddddd................dddddd..",
-        "..dddddd................dddddd..",
-        "................................",
-        "................................"
-      ]
-    }
-  };
-  /* @gen-sprites-end */
-
-  /* A 5x7 numeral font. Flag numbers,
-     docking bay numbers and register pips all come from here, so
-     the game never needs a web font to render a digit. */
-  var FONT = {
-    "0": "01110,10001,10011,10101,11001,10001,01110",
-    "1": "00100,01100,00100,00100,00100,00100,01110",
-    "2": "01110,10001,00001,00010,00100,01000,11111",
-    "3": "11111,00010,00100,00010,00001,10001,01110",
-    "4": "00010,00110,01010,10010,11111,00010,00010",
-    "5": "11111,10000,11110,00001,00001,10001,01110",
-    "6": "00110,01000,10000,11110,10001,10001,01110",
-    "7": "11111,00001,00010,00100,01000,01000,01000",
-    "8": "01110,10001,10001,01110,10001,10001,01110",
-    "9": "01110,10001,10001,01111,00001,00010,01100"
-  };
-
-  /* ============================================================
-     SPRITE PRE-RENDER
-     Character grids become ImageData once, at load. Nothing in the
-     draw path parses a string.
-     ============================================================ */
+  /* The nominal tile edge in CSS pixels. It is a starting point, not
+     a grid: the art is vector, so the board scales to whatever the
+     column gives it and this only sets what 1x means -- the editor's
+     zoom and the `data-scale` mount option are both multiples of it. */
   var TILE = 32;
-  var baked = {};
-
-  function bakeSprite(spec, paletteOverride) {
-    var rows = spec.rows, pal = paletteOverride || spec.palette;
-    var trans = spec.transparent || null;
-    var cv = makeCanvas(TILE, TILE);
-    var ctx = cv.getContext("2d");
-    var img = ctx.createImageData(TILE, TILE);
-    for (var y = 0; y < TILE; y++) {
-      for (var x = 0; x < TILE; x++) {
-        var ch = rows[y].charAt(x);
-        var o = (y * TILE + x) * 4;
-        if (ch === trans) continue;
-        var hex = pal[ch];
-        if (!hex) continue;
-        img.data[o] = parseInt(hex.substr(1, 2), 16);
-        img.data[o + 1] = parseInt(hex.substr(3, 2), 16);
-        img.data[o + 2] = parseInt(hex.substr(5, 2), 16);
-        img.data[o + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    return cv;
-  }
-
-  function mirrorCanvas(src) {
-    var cv = makeCanvas(TILE, TILE), ctx = cv.getContext("2d");
-    ctx.translate(TILE, 0);
-    ctx.scale(-1, 1);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(src, 0, 0);
-    return cv;
-  }
-
-  function makeCanvas(w, h) {
-    var cv = document.createElement("canvas");
-    cv.width = w; cv.height = h;
-    return cv;
-  }
-
-  function bakeAll() {
-    for (var k in SPRITES) baked[k] = bakeSprite(SPRITES[k]);
-    // The right-turn curves are the authored left-turn art mirrored.
-    baked.beltCurveR = mirrorCanvas(baked.beltCurve);
-    baked.expressCurveR = mirrorCanvas(baked.expressCurve);
-    /* A livery overrides only the two body colours. The rest of the
-       palette is copied rather than listed, so adding a colour to the
-       robot cannot silently drop those pixels from all eight liveries --
-       which is exactly what an explicit list did when the treads gained
-       their own tone. */
-    baked.robots = LIVERIES.map(function (L) {
-      var pal = {}, key;
-      for (key in SPRITES.robot.palette) pal[key] = SPRITES.robot.palette[key];
-      pal.a = L.a;
-      pal.d = L.d;
-      return bakeSprite(SPRITES.robot, pal);
-    });
-  }
 
   /* ============================================================
-     BOARD RENDERING
-     The course art is static, so it is drawn once per course to an
-     offscreen canvas and thereafter blitted. Robots and beams are
-     drawn on top every frame; the floor is not.
+     TILE ART — vector, with body
+
+     Every functional element is one <svg> of shapes in a 100x100 box,
+     sized by CSS and coloured from the palette. Vector rather than
+     the character-grid sprites this started with, which buys three
+     things pixels could not.
+
+     It is resolution-free, so the board takes whatever fraction of
+     the column it is given instead of the largest whole multiple --
+     the integer-scale rule existed only because pixel art smears at
+     1.5x, and nothing here has a pixel grid to smear.
+
+     Shapes compose without erasing. The old sprites were opaque
+     tiles, so a merge drew the straight belt over the curve's centre
+     and the curve came out looking like a stub; that was a real bug,
+     found by reading canvas pixels.
+
+     And the palette drives the art rather than being baked into it:
+     a livery is a colour on an element, not eight pre-rendered
+     canvases.
+
+     The art is deliberately SOLID rather than line work. A conveyor
+     is a belt bed with rails down both sides and an arrow painted on
+     it, not an arrow floating on the floor; a wall is a raised
+     hazard-striped bar with a shadow under it, not a line on an
+     edge. Outlines read as a diagram. The printed board reads as a
+     place with things bolted to it, and a player picking a route is
+     reading depth as much as symbol -- a wall you can see standing
+     up is a wall you do not try to drive through.
      ============================================================ */
 
-  /* Which way a conveyor's art bends. Mechanically the engine
-     derives rotation from the direction a robot travelled, so the
-     in-arrows exist only for art -- they are exactly "which
-     adjacent belts of my speed point at me", and are computed here
-     rather than stored, which is one fewer thing to transcribe and
-     one fewer thing to get wrong. */
+  /* Edge midpoints and the tile centre, in viewBox units. Indexed by
+     direction, so N/E/S/W is the array order the engine already uses. */
+  var EDGE = [[50, 0], [100, 50], [50, 100], [0, 50]];
+
+  function svg(inner, cls) {
+    return '<svg class="pr-art' + (cls ? " " + cls : "") + '" viewBox="0 0 100 100" ' +
+           'aria-hidden="true">' + inner + "</svg>";
+  }
+
+  function polar(a, rad) {
+    return (50 + Math.cos(a) * rad).toFixed(1) + " " + (50 + Math.sin(a) * rad).toFixed(1);
+  }
+
+  /* ------------------------------------------------------------
+     CONVEYORS
+
+     Three passes over the same path: the rail, the bed laid over it
+     so only the rail's edges show, and the arrow painted on the bed.
+     Drawing it as one stroke three times is what makes a curve and a
+     straight run the same code, and what makes a merge look like a
+     merge -- the side feed's bed joins the main one instead of being
+     covered by it.
+
+     All the rails go down before any bed, and all the beds before
+     any arrow, so where two runs cross, one belt's rail never lies
+     across the other's bed.
+     ------------------------------------------------------------ */
+  function runPath(inDir, exit) {
+    var a = EDGE[B.opposite(inDir)], b = EDGE[exit];
+    if (inDir === exit) return "M" + a[0] + " " + a[1] + "L" + b[0] + " " + b[1];
+    return "M" + a[0] + " " + a[1] + "Q50 50 " + b[0] + " " + b[1];
+  }
+
+  /* The painted arrow: a shaft up the outgoing half of the run and a
+     chevron at the end of it. It sits inside the tile rather than at
+     the edge, because two tiles of belt meeting should read as one
+     continuous belt with two arrows on it, not as a seam. */
+  function paintedArrow(exit, doubled) {
+    var e = EDGE[exit], dc = DC[exit], dr = DR[exit];
+    var tipAt = 76, tail = 30;
+    var tx = 50 + dc * (tipAt - 50) * 2 * 0.5 + dc * 0;
+    tx = 50 + dc * 26; var ty = 50 + dr * 26;
+    var sx = 50 - dc * tail * 0.5, sy = 50 - dr * tail * 0.5;
+    var out = '<path class="pr-mark" d="M' + sx + " " + sy + "L" + tx + " " + ty + '"/>';
+    out += chev(tx, ty, dc, dr, 15);
+    if (doubled) out += chev(tx - dc * 17, ty - dr * 17, dc, dr, 15);
+    return out;
+  }
+
+  function chev(x, y, hx, hy, size) {
+    var bx = x - hx * size, by = y - hy * size;
+    var px = -hy * size * 0.78, py = hx * size * 0.78;
+    return '<path class="pr-mark" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+           "L" + x.toFixed(1) + " " + y.toFixed(1) +
+           "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + '"/>';
+  }
+
+  /* Which way a conveyor's art bends. Mechanically the engine derives
+     rotation from the direction a robot travelled, so the in-arrows
+     exist only for art -- they are exactly "which adjacent belts of
+     my speed point at me", computed here rather than stored, which is
+     one fewer thing to transcribe and one fewer thing to get wrong. */
   function beltArt(C, c, r) {
     var code = B.codeAt(C, c, r);
     var speed = B.beltSpeed(code);
     if (!speed) return null;
-    var exit = B.dirOf(code), feeds = [];
+    var exit = B.dirOf(code), ins = [];
     for (var d = 0; d < 4; d++) {
       if (d === exit) continue;
       var nb = B.step(c, r, d);
       if (B.isVoid(C, nb.c, nb.r)) continue;
       var ncode = B.codeAt(C, nb.c, nb.r);
       if (B.beltSpeed(ncode) !== speed) continue;
-      if (B.dirOf(ncode) === B.opposite(d)) feeds.push(B.opposite(d)); // travel direction into this tile
+      if (B.dirOf(ncode) === B.opposite(d)) ins.push(B.opposite(d));  // travel direction into this tile
     }
-    var turns = [], straight = feeds.length === 0;
-    for (var i = 0; i < feeds.length; i++) {
-      var t = B.turnBetween(feeds[i], exit);
-      if (t) turns.push(t); else straight = true;
-    }
-    return { speed: speed, exit: exit, turns: turns, straight: straight };
+    return { speed: speed, exit: exit, ins: ins };
   }
 
-  function drawSprite(ctx, cv, x, y, quarterTurns) {
-    if (!quarterTurns) { ctx.drawImage(cv, x, y); return; }
-    ctx.save();
-    ctx.translate(x + TILE / 2, y + TILE / 2);
-    ctx.rotate(quarterTurns * Math.PI / 2);
-    ctx.drawImage(cv, -TILE / 2, -TILE / 2);
-    ctx.restore();
+  function beltSvg(art) {
+    var runs = art.ins.length ? art.ins : [art.exit], i, rails = "", beds = "";
+    for (i = 0; i < runs.length; i++) {
+      var d = runPath(runs[i], art.exit);
+      rails += '<path class="pr-rail" d="' + d + '"/>';
+      beds += '<path class="pr-bed" d="' + d + '"/>';
+    }
+    return svg(rails + beds + paintedArrow(art.exit, art.speed === 2),
+      art.speed === 2 ? "pr-express" : "pr-belt");
   }
 
-  var GLYPH_W = 5, GLYPH_H = 7, GLYPH_ADV = 6;
+  /* ------------------------------------------------------------
+     THE REST OF THE FURNITURE
+     ------------------------------------------------------------ */
 
-  function drawDigits(ctx, text, x, y, color) {
-    ctx.fillStyle = color;
-    for (var i = 0; i < text.length; i++) {
-      var g = FONT[text.charAt(i)];
-      if (!g) continue;
-      var lines = g.split(",");
-      for (var ry = 0; ry < GLYPH_H; ry++) {
-        for (var rx = 0; rx < GLYPH_W; rx++) {
-          if (lines[ry].charAt(rx) === "1") ctx.fillRect(x + i * GLYPH_ADV + rx, y + ry, 1, 1);
-        }
-      }
+  /* A cog: eight teeth as one filled path, a hub, and the direction
+     arrow on top. WHICH WAY it turns is a rule the player reads off
+     the board, so the arrow is the loudest thing on the tile.
+
+     An earlier pass drew a short arc inside a ring of tick marks and
+     the two directions were indistinguishable at tile size, which is
+     a rules bug wearing an art bug's clothes. The arc now sweeps 250
+     degrees, far enough that the eye follows it round. */
+  function gearSvg(dir) {
+    var cw = dir > 0, i, pts = [], TEETH = 8;
+    for (i = 0; i < TEETH * 2; i++) {
+      var a0 = (i - 0.34) * Math.PI / TEETH, a1 = (i + 0.34) * Math.PI / TEETH;
+      var rad = (i % 2) ? 30 : 42;
+      pts.push(polar(a0, rad), polar(a1, rad));
     }
+    var RAD = 20, SWEEP = 250 * Math.PI / 180;
+    var s0 = (cw ? 60 : 120) * Math.PI / 180;
+    var s1 = cw ? s0 + SWEEP : s0 - SWEEP;
+    var hx = cw ? -Math.sin(s1) : Math.sin(s1);
+    var hy = cw ? Math.cos(s1) : -Math.cos(s1);
+    return svg(
+      '<path class="pr-cog" d="M' + pts.join("L") + 'Z"/>' +
+      '<circle class="pr-hub" cx="50" cy="50" r="26"/>' +
+      '<path class="pr-turn" d="M' + polar(s0, RAD) + "A" + RAD + " " + RAD + " 0 1 " +
+        (cw ? 1 : 0) + " " + polar(s1, RAD) + '"/>' +
+      turnHead(50 + Math.cos(s1) * RAD, 50 + Math.sin(s1) * RAD, hx, hy, 13),
+      cw ? "pr-gear pr-cw" : "pr-gear pr-ccw");
   }
 
-  function digitsWidth(text) { return text.length * GLYPH_ADV - 1; }
+  function turnHead(x, y, hx, hy, size) {
+    var bx = x - hx * size, by = y - hy * size;
+    var px = -hy * size * 0.72, py = hx * size * 0.72;
+    return '<path class="pr-turn" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+           "L" + x.toFixed(1) + " " + y.toFixed(1) +
+           "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + '"/>';
+  }
 
-  var WALL_T = 4;
+  /* A pusher is a hazard-striped ram bolted to the wall behind it.
+     Which registers it fires on is a rule, not decoration, so the
+     digits are stamped on the tile rather than left to the legend --
+     upright and in a fixed corner whichever way the ram points. */
+  function pusherSvg(dir, odd) {
+    var mount = B.opposite(dir), m = EDGE[mount];
+    var px = -DR[mount] * 34, py = DC[mount] * 34;
+    var qx = DC[dir] * 16, qy = DR[dir] * 16;
+    var reach = 30;
+    return svg(
+      '<path class="pr-ram-base" d="M' + (m[0] + px) + " " + (m[1] + py) +
+        "L" + (m[0] - px) + " " + (m[1] - py) +
+        "L" + (m[0] - px + qx) + " " + (m[1] - py + qy) +
+        "L" + (m[0] + px + qx) + " " + (m[1] + py + qy) + 'Z"/>' +
+      '<path class="pr-ram" d="M' + m[0] + " " + m[1] + "L" +
+        (m[0] + DC[dir] * reach) + " " + (m[1] + DR[dir] * reach) + '"/>' +
+      pushHead(m[0] + DC[dir] * (reach + 20), m[1] + DR[dir] * (reach + 20), DC[dir], DR[dir], 17),
+      "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
+  }
 
-  function drawCourse(C) {
-    var cv = makeCanvas(C.w * TILE, C.h * TILE);
-    var ctx = cv.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    var c, r, x, y, code, el;
+  function pushHead(x, y, hx, hy, size) {
+    var bx = x - hx * size, by = y - hy * size;
+    var px = -hy * size * 0.85, py = hx * size * 0.85;
+    return '<path class="pr-ram-head" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+           "L" + x.toFixed(1) + " " + y.toFixed(1) +
+           "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + 'Z"/>';
+  }
 
-    // ---- floor and tile elements ----
-    for (r = 0; r < C.h; r++) for (c = 0; c < C.w; c++) {
-      x = c * TILE; y = r * TILE;
-      if (B.isVoid(C, c, r)) { ctx.fillStyle = TOKENS.bg; ctx.fillRect(x, y, TILE, TILE); continue; }
-      code = B.codeAt(C, c, r);
-      el = B.elemOf(code);
-      ctx.drawImage(baked.floor, x, y);
+  /* Repair is a plate with a cross cut into it; upgrade is the same
+     plate with a second bar, because an upgrade site repairs as well.
+     Keeping the shared shape shared is what makes that readable. */
+  function repairSvg(upgrade) {
+    return svg(
+      '<rect class="pr-plate" x="12" y="12" width="76" height="76" rx="4"/>' +
+      '<path class="pr-tool" d="M50 24L50 76M24 50L76 50"/>' +
+      (upgrade ? '<rect class="pr-tool-ring" x="22" y="22" width="56" height="56" rx="3"/>' : ""),
+      upgrade ? "pr-upgrade" : "pr-repair");
+  }
 
-      var art = beltArt(C, c, r);
-      if (art) {
-        /* Curves first, straight band last. Where a belt is fed from
-           more than one side the straight band covers the curve's
-           centre and leaves only its side arm showing, which is what
-           a merge actually looks like -- drawing the curve alone
-           would claim the flow comes from the side, and a player
-           reading the board would plan the wrong route. */
-        var fam = art.speed === 2 ? "express" : "belt";
-        for (var t = 0; t < art.turns.length; t++) {
-          drawSprite(ctx, baked[fam + (art.turns[t] === -1 ? "Curve" : "CurveR")], x, y, art.exit);
-        }
-        if (art.straight || !art.turns.length) drawSprite(ctx, baked[fam], x, y, art.exit);
-      } else if (el.gear) {
-        ctx.drawImage(el.gear > 0 ? baked.gearCW : baked.gearCCW, x, y);
-      } else if (el.push) {
-        drawSprite(ctx, el.push === "odd" ? baked.pusherOdd : baked.pusherEven, x, y, B.dirOf(code));
-        /* Which registers a pusher fires on is a rule, not decoration,
-           so it is stamped on the tile rather than left to the legend.
-           Upright and in a fixed corner whatever way the ram points,
-           on its own dark backing so it reads over any art. */
-        var lbl = el.push === "odd" ? "135" : "24";
-        ctx.fillStyle = TOKENS.bg;
-        ctx.fillRect(x + 2, y + 2, digitsWidth(lbl) + 4, GLYPH_H + 4);
-        drawDigits(ctx, lbl, x + 4, y + 4, el.push === "odd" ? TOKENS.warn : TOKENS.accent);
-      } else if (el.option) {
-        ctx.drawImage(baked.upgrade, x, y);
-      } else if (el.repair) {
-        ctx.drawImage(baked.repair, x, y);
-      } else if (code.charAt(0) === "o") {
-        ctx.drawImage(baked.pit, x, y);
-      } else if (code.charAt(0) === "s") {
-        ctx.drawImage(baked.dock, x, y);
-        var dn = code.charAt(1);
-        drawDigits(ctx, dn, x + (TILE - digitsWidth(dn)) / 2, y + (TILE - GLYPH_H) / 2, TOKENS.accent);
-      }
+  /* A hole with a hazard frame round it, which is exactly how the
+     printed board marks one: the stripes are the warning, the black
+     is the drop. */
+  function pitSvg() {
+    return svg('<rect class="pr-hole" x="16" y="16" width="68" height="68" rx="3"/>' +
+               '<rect class="pr-hole-2" x="30" y="30" width="40" height="40" rx="2"/>', "pr-pit");
+  }
+
+  function dockSvg(n) {
+    return svg('<rect class="pr-plate" x="16" y="16" width="68" height="68" rx="4"/>' +
+               '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
+  }
+
+  function flagSvg(n) {
+    return svg('<rect class="pr-pole" x="27" y="16" width="7" height="68" rx="3"/>' +
+               '<path class="pr-pennant" d="M34 20L78 34L34 48Z"/>' +
+               '<text x="52" y="66" class="pr-num">' + esc(String(n)) + "</text>", "pr-flag");
+  }
+
+  /* The emitter housing, on the wall the laser is mounted to. The
+     beam itself is a separate layer: it crosses tiles, so it cannot
+     be a property of one. */
+  function emitterSvg(d) {
+    var mount = B.opposite(d), m = EDGE[mount];
+    var px = -DR[mount] * 20, py = DC[mount] * 20;
+    var qx = DC[d] * 18, qy = DR[d] * 18;
+    return svg('<path class="pr-mount" d="M' + (m[0] + px) + " " + (m[1] + py) +
+               "L" + (m[0] - px) + " " + (m[1] - py) +
+               "L" + (m[0] - px * 0.5 + qx) + " " + (m[1] - py * 0.5 + qy) +
+               "L" + (m[0] + px * 0.5 + qx) + " " + (m[1] + py * 0.5 + qy) + 'Z"/>', "pr-emitter");
+  }
+
+  /* A one-square course holding a single element. The legend draws
+     its swatches through it, and the table self-check walks every
+     element through it looking for art that does not exist. */
+  function probeTile(code) {
+    return { w: 1, h: 1, cell: [code], wallN: {}, wallW: {}, lasers: [], flags: [], docks: [] };
+  }
+
+  function sampleCode(key, def) {
+    return key + (def.arg === "dir" ? "^" : def.arg === "digit" ? "1" : ".");
+  }
+
+  /* ------------------------------------------------------------
+     ONE TILE
+
+     Returns the inner HTML of a .pr-cell. Everything the tile knows
+     about itself is a class on the cell, so the CSS -- not this
+     function -- decides what a wall or a pit looks like.
+     ------------------------------------------------------------ */
+  function tileClasses(C, c, r) {
+    var cls = ["pr-cell"];
+    if (B.isVoid(C, c, r)) return cls.concat("pr-void");
+    var code = B.codeAt(C, c, r), def = B.elemOf(code);
+    if (def && def.name !== "floor") cls.push("pr-has");
+    if (B.beltSpeed(code)) cls.push(B.beltSpeed(code) === 2 ? "pr-t-express" : "pr-t-belt");
+    else if (def.gear) cls.push("pr-t-gear");
+    else if (def.push) cls.push("pr-t-pusher");
+    else if (def.option) cls.push("pr-t-upgrade");
+    else if (def.repair) cls.push("pr-t-repair");
+    else if (code.charAt(0) === "o") cls.push("pr-t-pit");
+    else if (code.charAt(0) === "s") cls.push("pr-t-dock");
+    return cls;
+  }
+
+  function tileInner(C, c, r) {
+    if (B.isVoid(C, c, r)) return "";
+    var code = B.codeAt(C, c, r), def = B.elemOf(code), out = [];
+    var art = beltArt(C, c, r);
+    if (art) out.push(beltSvg(art));
+    else if (def.gear) out.push(gearSvg(def.gear));
+    else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
+    else if (def.option) out.push(repairSvg(true));
+    else if (def.repair) out.push(repairSvg(false));
+    else if (code.charAt(0) === "o") out.push(pitSvg());
+    else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
+
+    if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
+
+    for (var fi = 0; fi < C.flags.length; fi++) {
+      if (C.flags[fi].c === c && C.flags[fi].r === r) out.push(flagSvg(C.flags[fi].n));
     }
-
-    // ---- laser beams, under the walls so a mount reads as solid ----
     for (var li = 0; li < C.lasers.length; li++) {
+      if (C.lasers[li].c === c && C.lasers[li].r === r) out.push(emitterSvg(C.lasers[li].d));
+    }
+    /* Walls are elements rather than classes on the cell, because a
+       raised, striped, shadow-casting bar is four properties of its
+       own and a corner square has two of them. They go last so they
+       sit over whatever they block. */
+    for (var d = 0; d < 4; d++) {
+      if (B.wallAt(C, c, r, d)) out.push('<i class="pr-wall pr-' + "news".charAt(d) + '"></i>');
+    }
+    return out.join("");
+  }
+
+  /* The legend is RENDERED, not written. Each swatch is the same
+     tileInner the board calls, so a tile that changes shape changes
+     its own legend entry in the same edit.
+
+     It used to be a hand-typed string -- "amber hub = gear CW",
+     "wrench = repair" -- and the first time the art changed, every
+     word of it was wrong while reading perfectly plausibly. That is
+     the same failure the turn-order help is guarded against, and it
+     gets the same answer: generate it from the thing it describes.
+
+     Only the elements this course's edition actually has are listed,
+     because a legend entry for a square that cannot appear is worse
+     than no entry at all. */
+  function buildLegend(C) {
+    var edition = C.edition || "classic", out = [], k;
+    for (k in B.ELEMENT_DEFS) {
+      var d = B.ELEMENT_DEFS[k];
+      if (d.name === "floor" || d.name === "docking bay") continue;
+      if (d.editions && d.editions.indexOf(edition) < 0) continue;
+      out.push(legendSwatch(tileInner(probeTile(sampleCode(k, d)), 0, 0), d.name));
+    }
+    /* Flags and lasers are course tokens rather than printed board
+       elements, so they are not in ELEMENT_DEFS and are added here. */
+    out.push(legendSwatch(flagSvg(1), "flag, in order"));
+    if (C.lasers.length) out.push(legendSwatch(emitterSvg(S), "board laser"));
+    return out.join("");
+  }
+
+  function legendSwatch(art, name) {
+    /* The swatch is aria-hidden because the name beside it already
+       says what it is, and a pusher's stamped digits would otherwise
+       be read out twice. */
+    return '<span class="pr-leg"><span class="pr-leg-art" aria-hidden="true">' + art +
+           "</span>" + esc(name) + "</span>";
+  }
+
+  /* Laser beams cross tiles, so they are their own absolutely
+     positioned layer rather than tile art. Drawn under the walls:
+     a beam that appears to pass through its own mount reads as a
+     bug even when the rules are right. */
+  function beamSpans(C) {
+    var out = [], li, pi, n;
+    for (li = 0; li < C.lasers.length; li++) {
       var L = C.lasers[li], path = B.laserPath(C, L);
       var horiz = (L.d === E || L.d === W);
-      var bar = 3, gap = 6;
-      ctx.fillStyle = "rgba(255,51,51,0.22)";
-      for (var pi = 0; pi < path.length; pi++) {
-        var px = path[pi].c * TILE, py = path[pi].r * TILE;
-        for (var n = 0; n < L.n; n++) {
-          var off = Math.round(TILE / 2 - ((L.n - 1) * gap + bar) / 2 + n * gap);
-          if (horiz) ctx.fillRect(px, py + off, TILE, bar);
-          else ctx.fillRect(px + off, py, bar, TILE);
+      for (pi = 0; pi < path.length; pi++) {
+        for (n = 0; n < L.n; n++) {
+          /* --off is a FRACTION of a tile, not a percentage: the CSS
+             multiplies it by --tile, and a percentage there would
+             resolve against the element rather than the square. */
+          var off = (0.5 + (n - (L.n - 1) / 2) * 0.16).toFixed(3);
+          out.push('<i class="pr-beam' + (horiz ? " pr-h" : "") + '"' +
+            ' data-c="' + path[pi].c + '" data-r="' + path[pi].r + '" style="' +
+            "--c:" + path[pi].c + ";--r:" + path[pi].r + ";--off:" + off + '"></i>');
         }
       }
-      // the emitter itself
-      var ex = L.c * TILE, ey = L.r * TILE;
-      ctx.fillStyle = TOKENS.danger;
-      var m = B.opposite(L.d), lw = Math.round(TILE * 0.4), lt = 5, lo = Math.round((TILE - lw) / 2);
-      if (m === N) ctx.fillRect(ex + lo, ey, lw, lt);
-      else if (m === S) ctx.fillRect(ex + lo, ey + TILE - lt, lw, lt);
-      else if (m === W) ctx.fillRect(ex, ey + lo, lt, lw);
-      else ctx.fillRect(ex + TILE - lt, ey + lo, lt, lw);
     }
-
-    // ---- flags ----
-    for (var fi = 0; fi < C.flags.length; fi++) {
-      var F = C.flags[fi];
-      ctx.drawImage(baked.flag, F.c * TILE, F.r * TILE);
-      drawDigits(ctx, String(F.n), F.c * TILE + 16, F.r * TILE + 7, TOKENS.bg);
-    }
-
-    // ---- walls last: they sit on top of everything they block ----
-    ctx.fillStyle = TOKENS.steel;
-    for (r = 0; r < C.h; r++) for (c = 0; c < C.w; c++) {
-      if (B.isVoid(C, c, r)) continue;
-      x = c * TILE; y = r * TILE;
-      if (B.wallAt(C, c, r, N)) ctx.fillRect(x, y, TILE, WALL_T);
-      if (B.wallAt(C, c, r, W)) ctx.fillRect(x, y, WALL_T, TILE);
-      if (B.wallAt(C, c, r, S)) ctx.fillRect(x, y + TILE - WALL_T, TILE, WALL_T);
-      if (B.wallAt(C, c, r, E)) ctx.fillRect(x + TILE - WALL_T, y, WALL_T, TILE);
-    }
-    return cv;
+    return out.join("");
   }
 
   /* ============================================================
@@ -1033,30 +583,17 @@
       lid[LIVERIES[j].a] = true;
     }
 
-    // Sprite grids: the same data-shaped failure as a board picture.
-    for (k in SPRITES) {
-      var sp = SPRITES[k];
-      if (sp.rows.length !== TILE) throw new Error("sprite " + k + " has " + sp.rows.length + " rows, expected " + TILE);
-      for (var y = 0; y < sp.rows.length; y++) {
-        if (sp.rows[y].length !== TILE) throw new Error("sprite " + k + " row " + y + " is " + sp.rows[y].length + " chars, expected " + TILE);
-        for (var x = 0; x < TILE; x++) {
-          var ch = sp.rows[y].charAt(x);
-          if (ch === sp.transparent) continue;
-          if (!sp.palette[ch]) throw new Error("sprite " + k + " row " + y + " uses '" + ch + "', which is not in its palette");
-        }
-      }
-    }
-    for (k in SPRITES) {
-      var sp2 = SPRITES[k];
-      if (sp2.transparent && sp2.palette[sp2.transparent]) {
-        throw new Error("sprite " + k + " lists '" + sp2.transparent + "' as both transparent and a palette colour");
-      }
-    }
-    for (k in FONT) {
-      var lines = FONT[k].split(",");
-      if (lines.length !== GLYPH_H) throw new Error("font glyph " + k + " has " + lines.length + " rows, expected " + GLYPH_H);
-      for (var fy = 0; fy < GLYPH_H; fy++) {
-        if (lines[fy].length !== GLYPH_W) throw new Error("font glyph " + k + " row " + fy + " is " + lines[fy].length + " wide, expected " + GLYPH_W);
+    /* Tile art: every element the boards can contain has to have a
+       drawing. The old character-grid sprites got a geometry check
+       here; vector art cannot be the wrong size, but it CAN be
+       missing, which is the same data-shaped failure -- a board
+       transcribes an element nobody drew and it renders as bare
+       floor. That is silent and plausible, so it throws. */
+    for (k in B.ELEMENT_DEFS) {
+      var ed = B.ELEMENT_DEFS[k];
+      if (ed.name === "floor") continue;
+      if (!tileInner(probeTile(sampleCode(k, ed)), 0, 0)) {
+        throw new Error("element \"" + ed.name + "\" (" + k + ") has no tile art, so it would render as bare floor");
       }
     }
   }
@@ -3146,6 +2683,18 @@
       assert(threw && /unknown hook/.test(threw), "expected an unknown-hook error, got " + threw);
     } },
 
+    { name: "the table rejects an element nobody drew", run: function () {
+      /* A board can transcribe an element the art does not cover, and
+         it renders as bare floor: silent, plausible, and wrong in the
+         one way a game promising faithful layouts cannot afford. */
+      B.ELEMENT_DEFS["\u00a7"] = { name: "undrawn thing", arg: "none", editions: ["classic", "modern"] };
+      var threw = null;
+      try { validateTables(); } catch (e) { threw = e.message; }
+      delete B.ELEMENT_DEFS["\u00a7"];
+      assert(threw && /no tile art/.test(threw),
+        "expected the missing-art error, got " + threw);
+    } },
+
     { name: "the table rejects a hook that no card uses", run: function () {
       HOOKS.push("onNeverFired");
       var threw = null;
@@ -3335,9 +2884,9 @@
      shell and the game is one drop-in script.
      ============================================================ */
   var CSS = [
-    ".pr-root{--pr-bg:" + TOKENS.bg + ";--pr-accent:" + TOKENS.accent + ";--pr-ink:" + TOKENS.ink + ";",
-    "--pr-text:" + TOKENS.text + ";--pr-panel:" + TOKENS.panel + ";--pr-border:" + TOKENS.border + ";",
-    "--pr-warn:" + TOKENS.warn + ";--pr-danger:" + TOKENS.danger + ";--pr-plate:" + TOKENS.plate + ";",
+    ".pr-root{" + Object.keys(TOKENS).map(function (k) {
+      return "--pr-" + k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); }) + ":" + TOKENS[k];
+    }).join(";") + ";",
     "background:var(--pr-bg);color:var(--pr-ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;",
     "display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;box-sizing:border-box;",
     "overflow-x:auto}",
@@ -3365,19 +2914,115 @@
     ".pr-side .pr-panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}",
     "@media (max-width:900px){.pr-main{flex-direction:column;align-items:center}.pr-side{width:100%;flex:none}}",
 
-    /* ---- the three stacked board layers ---- */
-    ".pr-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
-    ".pr-board,.pr-fx{image-rendering:pixelated;image-rendering:crisp-edges;display:block;",
-    "position:absolute;left:0;top:0;height:auto}",
-    ".pr-fx{pointer-events:none}",
-    ".pr-grid{position:absolute;left:0;top:0;display:grid}",
-    ".pr-cell{border:0;padding:0;background:transparent;cursor:default}",
+    /* ---- the board ----
+       Three layers, all DOM. The grid of cells IS the board now: it
+       was always there, invisible, carrying the hit targets and the
+       ARIA labels, while a canvas underneath drew the same 288 tiles
+       a second time. Deleting the canvas deleted the duplication. */
+    ".pr-stage{position:relative;border:1px solid var(--pr-border);background:var(--pr-bg);flex:0 0 auto}",
+    ".pr-grid{position:absolute;left:0;top:0;display:grid;",
+    "grid-template-columns:repeat(var(--cols),var(--tile));grid-auto-rows:var(--tile)}",
+
+    ".pr-cell{position:relative;border:0;padding:0;cursor:default;overflow:hidden;",
+    "background:var(--pr-floor);color:var(--pr-ink);",
+    "box-shadow:inset 0 0 0 1px var(--pr-line)}",
+    ".pr-void{background:var(--pr-bg);box-shadow:none}",
+
+    /* ---- tile art ----
+       Solid shapes, not line work. Each element owns a hue and keeps
+       it everywhere it appears, so the legend, the board and the help
+       agree without anyone maintaining that agreement. */
+    ".pr-art{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;fill:none}",
+    ".pr-art .pr-num{fill:var(--pr-bg);stroke:none;font:700 34px ui-monospace,Menlo,Consolas,monospace;",
+    "text-anchor:middle;dominant-baseline:middle}",
+
+    /* Conveyors: rail, then bed over it so only the rail's edges
+       show, then the arrow painted on the bed. */
+    ".pr-art .pr-rail{stroke-width:74;stroke-linecap:butt;stroke-linejoin:round}",
+    ".pr-art .pr-bed{stroke-width:62;stroke-linecap:butt;stroke-linejoin:round}",
+    ".pr-art .pr-mark{stroke-width:9;stroke-linecap:round;stroke-linejoin:round}",
+    ".pr-belt .pr-rail{stroke:var(--pr-rust)}",
+    ".pr-belt .pr-bed{stroke:var(--pr-belt-bed)}",
+    ".pr-belt .pr-mark{stroke:var(--pr-warn)}",
+    ".pr-express .pr-rail{stroke:var(--pr-steel)}",
+    ".pr-express .pr-bed{stroke:var(--pr-express-bed)}",
+    ".pr-express .pr-mark{stroke:var(--pr-accent)}",
+
+    /* Gears: a filled cog with the direction arrow cut across it. */
+    ".pr-gear .pr-cog{fill:var(--pr-steel);opacity:.5}",
+    ".pr-gear .pr-hub{fill:var(--pr-plate)}",
+    ".pr-gear .pr-turn{stroke:var(--pr-accent);stroke-width:8;fill:none;",
+    "stroke-linecap:round;stroke-linejoin:round}",
+
+    /* Pushers: a hazard-striped ram on the wall it is bolted to. */
+    ".pr-pusher .pr-ram-base{fill:var(--pr-hazard)}",
+    ".pr-pusher .pr-ram{stroke:var(--pr-steel);stroke-width:16;stroke-linecap:butt}",
+    ".pr-pusher .pr-ram-head{fill:var(--pr-steel)}",
+
+    ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
+    ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
+    ".pr-upgrade .pr-tool{stroke:var(--pr-violet);stroke-width:13;stroke-linecap:round}",
+    ".pr-upgrade .pr-tool-ring{fill:none;stroke:var(--pr-violet);stroke-width:6}",
+    ".pr-dock .pr-plate{fill:var(--pr-panel-alt);stroke:var(--pr-border);stroke-width:3}",
+    ".pr-dock .pr-num{fill:var(--pr-dim)}",
+
+    ".pr-pit .pr-hole{fill:#04060b}",
+    ".pr-pit .pr-hole-2{fill:#000}",
+    ".pr-flag .pr-pole{fill:var(--pr-steel)}",
+    ".pr-flag .pr-pennant{fill:var(--pr-warn)}",
+    ".pr-flag .pr-num{fill:var(--pr-bg)}",
+    ".pr-emitter .pr-mount{fill:var(--pr-danger)}",
+
+    /* The hazard stripe, shared by everything that will hurt you: the
+       face of a wall, the frame of a pit, the head of a ram. One
+       definition, so they cannot drift apart. */
+    ".pr-root{--pr-stripe:repeating-linear-gradient(-45deg,var(--pr-hazard) 0 5px,",
+    "var(--pr-hazard-dark) 5px 10px)}",
+    ".pr-t-pit{background:var(--pr-stripe)}",
+    ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
+    /* Which registers a pusher fires on is a rule, not decoration, so
+       it is stamped on the tile instead of left to the legend. */
+    ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
+    "color:var(--pr-hazard);background:var(--pr-bg);padding:1px 2px;pointer-events:none;z-index:2}",
+
+    /* ---- walls ----
+       Raised, striped, and casting a shadow onto the square they
+       block. A wall you can see standing up is a wall you do not try
+       to drive through, which is the whole reason for the depth. */
+    ".pr-wall{position:absolute;background:var(--pr-stripe);z-index:3;pointer-events:none}",
+    ".pr-wall::after{content:\"\";position:absolute;inset:0;",
+    "border:1px solid rgba(0,0,0,.55)}",
+    ".pr-wall.pr-n{left:0;right:0;top:0;height:15%;box-shadow:0 3px 5px rgba(0,0,0,.65)}",
+    ".pr-wall.pr-s{left:0;right:0;bottom:0;height:15%;box-shadow:0 -3px 5px rgba(0,0,0,.65)}",
+    ".pr-wall.pr-w{top:0;bottom:0;left:0;width:15%;box-shadow:3px 0 5px rgba(0,0,0,.65)}",
+    ".pr-wall.pr-e{top:0;bottom:0;right:0;width:15%;box-shadow:-3px 0 5px rgba(0,0,0,.65)}",
+
+    /* Beams cross tiles, so they are their own layer. --off is a
+       fraction of a tile, which is what lets several parallel beams
+       share a square without arithmetic in the markup. */
+    ".pr-beams{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}",
+    ".pr-beam{position:absolute;background:var(--pr-danger);opacity:.30;",
+    "width:2px;height:var(--tile);",
+    "left:calc((var(--c) + var(--off)) * var(--tile) - 1px);top:calc(var(--r) * var(--tile))}",
+    ".pr-beam.pr-h{width:var(--tile);height:2px;",
+    "left:calc(var(--c) * var(--tile));top:calc((var(--r) + var(--off)) * var(--tile) - 1px)}",
+    ".pr-beam.pr-live{opacity:1;box-shadow:0 0 6px var(--pr-danger)}",
+
+    /* ---- robots ---- */
     ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
-    ".pr-piece{position:absolute;transition:transform .22s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
-    ".pr-piece canvas{image-rendering:pixelated;display:block;width:100%;height:100%;",
-    "transition:transform .22s cubic-bezier(.25,1,.5,1)}",
+    ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
+    "transition:left .22s var(--pr-ease),top .22s var(--pr-ease),opacity .3s,transform .3s}",
+    ".pr-piece svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;",
+    "transition:transform .22s var(--pr-ease)}",
+    ".pr-piece .pr-hull{fill:var(--livery-dark,var(--pr-bg));stroke:currentColor;stroke-width:6;",
+    "stroke-linejoin:round}",
+    ".pr-piece .pr-nose{fill:currentColor;stroke:none}",
+    ".pr-piece .pr-eye{fill:currentColor;stroke:none;opacity:.55}",
     ".pr-piece.pr-dead{opacity:0;transform:scale(.4)}",
-    ".pr-archive{position:absolute;border:2px dashed currentColor;opacity:.5}",
+    ".pr-piece.pr-down .pr-hull{stroke-dasharray:9 7}",
+    ".pr-piece.pr-down svg{opacity:.5}",
+    ".pr-archive{position:absolute;width:var(--tile);height:var(--tile);",
+    "border:1px dashed currentColor;opacity:.4;pointer-events:none}",
 
     /* ---- side panels ---- */
     ".pr-panel{background:var(--pr-panel);border:1px solid var(--pr-border);padding:8px}",
@@ -3425,7 +3070,11 @@
     ".pr-banner b{color:var(--pr-text);font-weight:normal}",
 
     ".pr-err{color:var(--pr-danger);white-space:pre-wrap;font-size:12px;max-width:640px}",
-    ".pr-legend{display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:center;max-width:780px;font-size:10px;opacity:.75}",
+    ".pr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;max-width:820px;font-size:10px}",
+    ".pr-leg{display:flex;align-items:center;gap:5px;color:var(--pr-ink);letter-spacing:.5px}",
+    ".pr-leg-art{position:relative;width:20px;height:20px;flex:0 0 20px;display:block;",
+    "background:var(--pr-floor);box-shadow:inset 0 0 0 1px var(--pr-line)}",
+    ".pr-leg-art .pr-pushreg{display:none}",
     ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}",
     /* modals */
     ".pr-overlay{position:fixed;inset:0;z-index:40;background:rgba(3,5,12,.86);display:flex;",
@@ -3468,7 +3117,7 @@
     "color:var(--pr-text);font:inherit;padding:3px 6px}",
     ".pr-ed-row input[type=range]{width:90px;accent-color:var(--pr-accent)}",
     ".pr-ed-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
-    ".pr-ed-stage .pr-board{position:absolute;left:0;top:0}",
+    ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams{position:absolute;left:0;top:0}",
     ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
     ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
     ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
@@ -3589,7 +3238,7 @@
      One entry point. The static course art is a canvas drawn once
      per course; the robots are DOM precisely so FLIP works on them,
      and an invisible grid of cells carries hit-testing and the
-     screen-reader view of a board that is otherwise pixels.
+     screen-reader view of the same cells the sighted player sees.
      ============================================================ */
   /* Scroll something into view only when it is actually off screen.
      A 16-row course at 2x is 1024px tall, so the board and your hand
@@ -3631,7 +3280,7 @@
     followPhase();
   }
 
-  function pxScale() { return parseFloat(UI.els.board.dataset.scale) || 1; }
+  function tilePx() { return UI.tile || TILE; }
 
   function snapshotPieces() {
     UI.prevRects = {};
@@ -3643,9 +3292,20 @@
     }
   }
 
+  /* A robot is one <svg>: a hull, a nose that says which way it is
+     facing, and a visor. It takes its livery from `color` on the
+     wrapper, which is why eight robots cost one drawing rather than
+     the eight pre-rendered canvases the sprite sheet needed. */
+  var ROBOT_SVG =
+    '<svg viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
+    '<path class="pr-hull" d="M24 30h52a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8V38a8 8 0 0 1 8-8z"/>' +
+    '<path class="pr-nose" d="M50 8L66 30H34Z"/>' +
+    '<rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/>' +
+    "</svg>";
+
   function renderPieces() {
     if (!G) return;                  // mount sizes the stage before the first deal
-    var s = pxScale(), size = TILE * s, host = UI.els.pieces, i;
+    var tile = tilePx(), host = UI.els.pieces, i;
     for (i = 0; i < G.players.length; i++) {
       var p = G.players[i], id = "p" + p.id;
       var el = UI.pieceEls[id];
@@ -3653,20 +3313,17 @@
         el = document.createElement("div");
         el.className = "pr-piece";
         el.dataset.uid = id;
-        var art = document.createElement("canvas");
-        art.width = TILE; art.height = TILE;
-        art.getContext("2d").drawImage(baked.robots[p.livery], 0, 0);
-        el.appendChild(art);
+        el.innerHTML = ROBOT_SVG;
         host.appendChild(el);
         UI.pieceEls[id] = el;
       }
-      el.style.width = size + "px";
-      el.style.height = size + "px";
-      el.style.left = (p.c * size) + "px";
-      el.style.top = (p.r * size) + "px";
+      el.style.color = LIVERIES[p.livery].a;
+      el.style.setProperty("--livery-dark", LIVERIES[p.livery].d);
+      el.style.left = (p.c * tile) + "px";
+      el.style.top = (p.r * tile) + "px";
       el.firstChild.style.transform = "rotate(" + (p.face * 90) + "deg)";
       el.classList.toggle("pr-dead", !p.alive);
-      el.setAttribute("aria-hidden", "true");
+      el.classList.toggle("pr-down", !!p.poweredDown);
     }
   }
 
@@ -3689,25 +3346,26 @@
     }
   }
 
+  /* The beam elements are already in the DOM -- every square a
+     mounted laser can reach got one when the course was built -- so
+     firing is a class, not a redraw. */
   function drawBeams() {
-    var cv = UI.els.fx, ctx = cv.getContext("2d");
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    if (!UI.beams || !UI.beams.length) return;
-    var C = UI.course;
-    ctx.fillStyle = "rgba(255,80,80,0.85)";
-    for (var i = 0; i < UI.beams.length; i++) {
-      var b = UI.beams[i], horiz = (b.dir === E || b.dir === W);
-      var c = b.c, r = b.r;
-      for (var n = 0; n < 40; n++) {
-        var t = 3, off = Math.round(TILE / 2 - t / 2);
-        if (horiz) ctx.fillRect(c * TILE, r * TILE + off, TILE, t);
-        else ctx.fillRect(c * TILE + off, r * TILE, t, TILE);
+    var lit = {}, C = UI.course, i, n;
+    for (i = 0; UI.beams && i < UI.beams.length; i++) {
+      var b = UI.beams[i], c = b.c, r = b.r;
+      for (n = 0; n < 40; n++) {
+        lit[c + "," + r] = 1;
         if (b.stopC === c && b.stopR === r) break;
         if (B.wallAt(C, c, r, b.dir)) break;
         var nx = B.step(c, r, b.dir);
         if (B.isVoid(C, nx.c, nx.r)) break;
         c = nx.c; r = nx.r;
       }
+    }
+    var nodes = UI.els.beams.children;
+    for (i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      el.classList.toggle("pr-live", !!lit[el.dataset.c + "," + el.dataset.r]);
     }
   }
 
@@ -4434,7 +4092,7 @@
 
   function buildAboutHelp() {
     return "<div class='pr-about'><p><b>PumaRally</b></p>" +
-      "<p>A faithful port of the RoboRally rules in original pixel art.</p>" +
+      "<p>A faithful port of the RoboRally rules in original vector art.</p>" +
       "<p>Inspired by <i>RoboRally</i> by Richard Garfield. The rules are reimplemented as code and the " +
       "board layouts as tile data; the artwork here is original and nothing is scanned.</p>" +
       "<p>Built by <a href='https://greykit.com/games/'>greykit.com</a>.</p></div>";
@@ -4721,15 +4379,42 @@
 
   function edRender() {
     var host = UI.els.edBoard;
-    var s = ED.zoom;
-    var cv = drawCourse(edCourseView());
-    cv.className = "pr-board";
-    cv.style.width = (ED.grid.w * TILE * s) + "px";
-    cv.dataset.scale = s;
-    host.innerHTML = "";
-    host.style.width = (ED.grid.w * TILE * s) + "px";
-    host.style.height = (ED.grid.h * TILE * s) + "px";
+    var C = edCourseView();
+    var tile = Math.round(TILE * ED.zoom);
+    var w = C.w * tile, h = C.h * tile;
+    var out = [], c, r;
 
+    host.innerHTML = "";
+    host.style.width = w + "px";
+    host.style.height = h + "px";
+    host.style.setProperty("--tile", tile + "px");
+    host.style.setProperty("--cols", C.w);
+
+    /* The board being traced, drawn exactly the way the game draws it
+       -- same tileClasses, same tileInner. That is the whole point of
+       the workshop being WYSIWYG: there is no second renderer to
+       drift from the first. */
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        out.push('<div class="' + tileClasses(C, c, r).join(" ") + '" data-c="' + c + '" data-r="' + r +
+          '">' + tileInner(C, c, r) + "</div>");
+      }
+    }
+    var board = el("div", "pr-grid");
+    board.style.width = w + "px";
+    board.style.height = h + "px";
+    board.innerHTML = out.join("");
+    host.appendChild(board);
+
+    var beams = el("div", "pr-beams");
+    beams.style.width = w + "px";
+    beams.style.height = h + "px";
+    beams.innerHTML = beamSpans(C);
+    host.appendChild(beams);
+
+    /* The reference photograph sits ABOVE the traced board at an
+       adjustable opacity, so you are always comparing your work with
+       the thing it is a transcription of. It is never exported. */
     if (ED.underlay) {
       var img = document.createElement("img");
       img.className = "pr-ed-under";
@@ -4737,29 +4422,27 @@
       img.style.opacity = ED.opacity;
       img.style.left = ED.offX + "px";
       img.style.top = ED.offY + "px";
-      img.style.width = (ED.grid.w * TILE * s * ED.uScale) + "px";
+      img.style.width = (w * ED.uScale) + "px";
       host.appendChild(img);
     }
-    host.appendChild(cv);
 
-    var grid = document.createElement("div");
-    grid.className = "pr-ed-grid";
-    grid.style.gridTemplateColumns = "repeat(" + ED.grid.w + "," + (TILE * s) + "px)";
-    grid.style.gridAutoRows = (TILE * s) + "px";
-    var out = [], c, r;
-    for (r = 0; r < ED.grid.h; r++) {
-      for (c = 0; c < ED.grid.w; c++) {
-        out.push('<div class="pr-ed-cell" data-c="' + c + '" data-r="' + r + '"' +
-          ' title="' + c + "," + r + '"></div>');
+    var hits = el("div", "pr-ed-grid");
+    hits.style.gridTemplateColumns = "repeat(" + C.w + "," + tile + "px)";
+    hits.style.gridAutoRows = tile + "px";
+    out = [];
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        out.push('<div class="pr-ed-cell" data-c="' + c + '" data-r="' + r +
+          '" title="' + c + "," + r + '"></div>');
       }
     }
-    grid.innerHTML = out.join("");
-    host.appendChild(grid);
+    hits.innerHTML = out.join("");
+    host.appendChild(hits);
     edRenderPanel();
   }
 
-  /* drawCourse wants something course-shaped. A board being edited is
-     one board with no flags, which is exactly that minus the flags. */
+  /* The tile renderer wants something course-shaped. A board being
+     edited is one board with no flags, which is exactly that. */
   function edCourseView() {
     ED.grid.flags = ED.grid.flags || [];
     ED.grid.id = ED.id;
@@ -4876,8 +4559,6 @@
     else ED = edState(edNew(12, 12), "newBoard");
     ED.uScale = ED.uScale || 1;
 
-    bakeAll();
-
     var hud = el("div", "pr-hud",
       '<h1 class="pr-title">BOARD WORKSHOP</h1>' +
       '<span class="pr-phase">Trace a photograph, export the source.</span>');
@@ -4988,24 +4669,23 @@
 
   /* ============================================================
      BOARD SIZING
-     Pixel art only survives INTEGER scaling: at 1.5x some sprite
-     pixels land on two screen pixels and their neighbours on one,
-     so a conveyor's slats come out unevenly spaced and the whole
-     tile looks smeared. So the board takes the largest whole
-     multiple that fits the column it is given, and would rather
-     scroll a little than take a fractional one.
 
-     The cap exists because the multiple that fits a wide desktop is
-     not the one you want -- a 12-wide course at 4x is over 1500px
-     and you lose the board reading it.
+     The old rule here was that the board took the largest WHOLE
+     multiple of the tile that fit, because pixel art only survives
+     integer scaling: at 1.5x some sprite pixels land on two screen
+     pixels and their neighbours on one, and a conveyor's slats come
+     out unevenly spaced. Vector art has no pixel grid to smear, so
+     that constraint is gone and the board simply takes the room it
+     is given, between a floor that stays legible and a cap that
+     stops a 12-wide course from filling a wide desktop -- at which
+     point you are reading a tile instead of the board.
      ============================================================ */
-  var MAX_SCALE = 4;
+  var TILE_MIN = 22, TILE_MAX = 64;
 
-  function fitScale(C, width, opts) {
-    if (opts.scale) return opts.scale;
-    var cap = opts.maxScale || 2;
-    var whole = Math.floor(width / (C.w * TILE));
-    return Math.max(1, Math.min(cap, Math.min(MAX_SCALE, whole)));
+  function fitTile(C, width, opts) {
+    if (opts.scale) return opts.scale * TILE;
+    var cap = opts.maxScale ? opts.maxScale * TILE : TILE_MAX;
+    return Math.max(TILE_MIN, Math.min(cap, Math.floor(width / C.w)));
   }
 
   function fitBoard(C, host, opts) {
@@ -5013,18 +4693,17 @@
     var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
     if (cs) avail -= (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     if (UI.els && UI.els.side && avail > 900) avail -= 262;    // the side panel's column
-    var scale = fitScale(C, avail, opts);
-    var w = C.w * TILE * scale, h = C.h * TILE * scale;
-    UI.els.stage.style.width = w + "px";
-    UI.els.stage.style.height = h + "px";
-    UI.els.board.style.width = w + "px";
-    UI.els.board.dataset.scale = scale;
-    UI.els.fx.style.width = w + "px";
-    UI.els.fx.style.height = h + "px";
+    var tile = fitTile(C, avail, opts);
+    var w = C.w * tile, h = C.h * tile;
+    UI.tile = tile;
+    var st = UI.els.stage.style;
+    st.width = w + "px"; st.height = h + "px";
+    st.setProperty("--tile", tile + "px");
+    st.setProperty("--cols", C.w);
     UI.els.grid.style.width = w + "px";
     UI.els.grid.style.height = h + "px";
-    UI.els.grid.style.gridTemplateColumns = "repeat(" + C.w + "," + (TILE * scale) + "px)";
-    UI.els.grid.style.gridAutoRows = (TILE * scale) + "px";
+    UI.els.beams.style.width = w + "px";
+    UI.els.beams.style.height = h + "px";
     UI.els.pieces.style.width = w + "px";
     UI.els.pieces.style.height = h + "px";
     if (UI.mounted) renderPieces();
@@ -5068,8 +4747,6 @@
       throw e;
     }
 
-    bakeAll();
-
     var hud = el("div", "pr-hud",
       '<h1 class="pr-title">PUMARALLY</h1><span class="pr-phase"></span>' +
       '<span class="pr-hud-spacer"></span>' +
@@ -5078,19 +4755,14 @@
       '<button data-act="new">New game</button>');
 
     var stage = el("div", "pr-stage");
-    var board = drawCourse(C);
-    board.className = "pr-board";
-    board.setAttribute("aria-hidden", "true");
-    var fx = document.createElement("canvas");
-    fx.className = "pr-fx";
-    fx.width = C.w * TILE; fx.height = C.h * TILE;
-    fx.setAttribute("aria-hidden", "true");
     var grid = el("div", "pr-grid");
     grid.setAttribute("role", "grid");
     grid.setAttribute("aria-label", describeCourse(C));
+    var beams = el("div", "pr-beams");
+    beams.setAttribute("aria-hidden", "true");
     var pieces = el("div", "pr-pieces");
-    stage.appendChild(board); stage.appendChild(fx);
-    stage.appendChild(grid); stage.appendChild(pieces);
+    pieces.setAttribute("aria-hidden", "true");
+    stage.appendChild(grid); stage.appendChild(beams); stage.appendChild(pieces);
 
     var side = el("aside", "pr-side");
     var players = el("div", "pr-panel");
@@ -5131,17 +4803,13 @@
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "assertive");
 
-    var legend = el("div", "pr-legend",
-      "<span>rust arrows = conveyor</span><span>cyan arrows = express conveyor</span>" +
-      "<span>amber hub = gear CW</span><span>cyan hub = gear CCW</span>" +
-      "<span>piston = pusher, registers shown</span><span>wrench = repair</span>" +
-      "<span>amber wrench = repair + option</span><span>red bar = laser</span>");
+    var legend = el("div", "pr-legend", buildLegend(C));
 
     host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
     host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
     host.appendChild(overlay); host.appendChild(curtain);
 
-    UI.els = { host: host, hud: hud, stage: stage, board: board, fx: fx, grid: grid, program: program,
+    UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, program: program,
                pieces: pieces, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
                choice: choice, opts: optsRow, main: main, overlay: overlay, curtain: curtain,
@@ -5163,7 +4831,7 @@
     }
 
     var shot = /[#&]shot=([a-z]+)/.exec(root.location ? root.location.hash : "");
-    if (shot) { applyShotState(shot[1]); return { course: C, canvas: board }; }
+    if (shot) { applyShotState(shot[1]); return { course: C, stage: stage }; }
 
     var resumed = loadGame();
     if (resumed && resumed.courseId === C.id) {
@@ -5177,21 +4845,25 @@
     updateAll();
     advance();
     if (!tutorialSeen()) showTutorial(0);
-    return { course: C, canvas: board };
+    return { course: C, stage: stage };
   }
 
-  /* The board is a canvas, so without this a screen reader sees one
-     image and nothing else. These cells carry the per-square reading
-     and, from a later wave, keyboard targeting. */
+  /* Every square is a real element with a real label, so a screen
+     reader gets the board rather than one image with a caption. The
+     cells were built for that when the board was a canvas drawn
+     underneath them; now they ARE the board, and the label and the
+     drawing are generated side by side from the same tile. */
   function buildGridCells(C) {
     var out = [], c, r;
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
-        out.push('<div class="pr-cell" role="gridcell" tabindex="-1" data-c="' + c + '" data-r="' + r +
-          '" aria-label="' + esc(describeTile(C, c, r)) + '"></div>');
+        out.push('<div class="' + tileClasses(C, c, r).join(" ") + '" role="gridcell" tabindex="-1"' +
+          ' data-c="' + c + '" data-r="' + r + '" aria-label="' + esc(describeTile(C, c, r)) + '">' +
+          tileInner(C, c, r) + "</div>");
       }
     }
     UI.els.grid.innerHTML = out.join("");
+    UI.els.beams.innerHTML = beamSpans(C);
   }
 
   function describeTile(C, c, r) {
@@ -5244,15 +4916,14 @@
   root.__PR = {
     B: B,
     mount: mount,
-    TOKENS: TOKENS,
-    SPRITES: SPRITES,
+    TOKENS: TOKENS, ROBOT_SVG: ROBOT_SVG,
     LIVERIES: LIVERIES,
     PROGRAM_DECK: PROGRAM_DECK,
     openRegisters: openRegisters,
     cardsDealt: cardsDealt,
     validateTables: validateTables,
     buildCourse: function (id) { return B.buildCourse(id); },
-    drawCourse: drawCourse,
+    tileInner: tileInner, tileClasses: tileClasses,
     newGame: function (seed, opts) { UI.wallsChecked = false; return newGame(seed, opts); },
     advance: advance,
     runSim: runSim,
