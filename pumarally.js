@@ -308,10 +308,10 @@
 
   /* The arrowhead, as a stroked chevron rather than a filled triangle
      so it keeps the weight of the shaft it terminates. */
-  function chev(x, y, hx, hy, size) {
+  function chev(x, y, hx, hy, size, cls) {
     var bx = x - hx * size, by = y - hy * size;
     var px = -hy * size * 0.78, py = hx * size * 0.78;
-    return '<path class="pr-mark" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+    return '<path class="' + (cls || "pr-mark") + '" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
            "L" + x.toFixed(1) + " " + y.toFixed(1) +
            "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + '"/>';
   }
@@ -3009,6 +3009,53 @@
         "a headless run starts on the tile edge, so it meets its neighbour");
     } },
 
+    { name: "a card's art says what the card does", run: function () {
+      /* The art is not decoration: the chevron count IS the distance
+         and the arc's direction IS the rotation. A Move 3 drawn with
+         two chevrons, or a Rotate L drawn sweeping clockwise, misstates
+         the card to anyone reading the picture rather than the label --
+         which is the whole reason for putting a picture on it. */
+      function chevs(k) { return (cardArt(k).match(/class="pr-cmark"/g) || []).length; }
+      /* The tip of the arrowhead, and its wings, so a card can be asked
+         which way it actually points rather than which primitive drew
+         it -- the shapes have changed three times and the question has
+         not. */
+      function head(k) {
+        var m = /class="pr-cmark" d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)/.exec(cardArt(k));
+        return { wingX: parseFloat(m[1]), wingY: parseFloat(m[2]),
+                 tipX: parseFloat(m[3]), tipY: parseFloat(m[4]) };
+      }
+
+      var k;
+      for (k in CARD_KINDS) {
+        assert(cardArt(k).indexOf("<path") >= 0, "card kind " + k + " draws nothing");
+      }
+      for (k in CARD_KINDS) {
+        var d = CARD_KINDS[k];
+        if (!d.move) continue;
+        assert(chevs(k) === Math.abs(d.move),
+          k + " moves " + Math.abs(d.move) + " but draws " + chevs(k) + " chevron(s)");
+      }
+      /* A rotate card ends pointing the way you will be FACING, so its
+         arrowhead goes sideways -- left for Rotate L, right for
+         Rotate R. Get that backwards and the card tells the player to
+         turn the wrong way. */
+      assert(head("left").tipX < head("left").wingX, "Rotate L must point left");
+      assert(head("right").tipX > head("right").wingX, "Rotate R must point right");
+
+      /* A move card points up the card; backing up and a U-turn come
+         back down, which is the whole content of those two. */
+      assert(head("move1").tipY < head("move1").wingY, "a move card points up the card");
+      assert(head("uturn").tipY > head("uturn").wingY, "a U-turn comes back down; that is what it does");
+      assert(head("back").tipY > head("back").wingY, "and so does backing up");
+
+      /* And the bend clears the arrowhead. Turning the corner inside
+         the chevron makes the two read as one smudge at card size. */
+      var bend = /Q(\d+) \d+ (\d+) /.exec(cardArt("left"));
+      assert(parseFloat(bend[2]) > head("left").wingX + 12,
+        "the rotate shaft must run clear of its own arrowhead before it bends");
+    } },
+
     { name: "the table rejects an element nobody drew", run: function () {
       /* A board can transcribe an element the art does not cover, and
          it renders as bare floor: silent, plausible, and wrong in the
@@ -3380,7 +3427,7 @@
     /* ---- program bar ---- */
     ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
     ".pr-regs,.pr-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}",
-    ".pr-hand{min-height:62px}",
+    ".pr-hand{min-height:84px}",
     ".pr-row{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}",
     ".pr-row h2{margin:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;",
     "color:var(--pr-dim);font-weight:normal}",
@@ -3390,21 +3437,28 @@
        card-panel language PumaTriage uses. It has two faces and turns
        over: what a register holds is secret once it is committed, and
        the board game says so by putting the card face down. */
-    ".pr-card{width:82px;height:56px;perspective:520px;background:none;border:0;padding:0;",
+    ".pr-card{width:84px;height:78px;perspective:600px;background:none;border:0;padding:0;",
     "position:relative;flex:0 0 auto}",
     ".pr-card .pr-faces{position:absolute;inset:0;transform-style:preserve-3d;",
     "transition:transform .42s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
     ".pr-card.pr-down .pr-faces{transform:rotateY(180deg)}",
     ".pr-face{position:absolute;inset:0;backface-visibility:hidden;",
-    "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;",
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;",
     "border:1px solid var(--pr-border);border-top:3px solid var(--pr-kind,var(--pr-border));",
     "background:var(--pr-panel-alt)}",
     ".pr-face.pr-back{transform:rotateY(180deg);border-top-color:var(--pr-border);",
     "background:repeating-linear-gradient(-45deg,var(--pr-panel) 0 6px,var(--pr-panel-alt) 6px 12px)}",
     ".pr-face.pr-back::after{content:\"\";width:22px;height:22px;border:2px solid var(--pr-border);",
     "border-radius:50%;box-shadow:inset 0 0 0 3px var(--pr-panel)}",
-    ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:12px;letter-spacing:.5px}",
-    ".pr-card span.pr-pri{font-size:10px;color:var(--pr-dim)}",
+    ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:11px;letter-spacing:.5px;",
+    "line-height:1.1}",
+    ".pr-card span.pr-pri{font-size:9px;color:var(--pr-dim);line-height:1}",
+    /* The art carries the card's kind colour, the same way a tile's
+       art carries its element's. */
+    ".pr-cart{width:38px;height:38px;display:block;margin-bottom:1px;color:var(--pr-kind,var(--pr-ink))}",
+    ".pr-cart .pr-cshaft{stroke:currentColor;stroke-width:8;stroke-linecap:round;fill:none}",
+    ".pr-cart .pr-cmark{stroke:currentColor;stroke-width:8;stroke-linecap:round;",
+    "stroke-linejoin:round;fill:none}",
     /* Each kind keeps one hue everywhere it appears. */
     ".pr-k-move1,.pr-k-move2,.pr-k-move3{--pr-kind:var(--pr-accent)}",
     ".pr-k-back{--pr-kind:var(--pr-rust)}",
@@ -3420,7 +3474,7 @@
     /* ---- registers ----
        A slot is a landing place: dashed while empty, solid once it
        holds something, and lit while a card is over it. */
-    ".pr-slot{width:82px;height:56px;border:1px dashed var(--pr-border-lit);display:flex;",
+    ".pr-slot{width:84px;height:78px;border:1px dashed var(--pr-border-lit);display:flex;",
     "align-items:center;justify-content:center;background:var(--pr-panel);position:relative;",
     "padding:0;flex:0 0 auto}",
     ".pr-slot.pr-filled{border-color:transparent;background:none}",
@@ -3791,10 +3845,73 @@
     host.scrollTop = host.scrollHeight;
   }
 
+  /* CARD ART, in the board's own vocabulary.
+
+     A chevron already means one square of travel out there: an
+     ordinary conveyor carries one and paints one, an express carries
+     two and paints two. So a Move 2 card carries two chevrons and a
+     Move 3 three, and the card is telling you the same thing the
+     floor does in the same way. Rotation is the gear's arc, for the
+     same reason -- that arc already means "you turn" on this board,
+     and inventing a second symbol for it would be a second thing to
+     learn for no gain.
+
+     Everything is stroked in currentColor, so a card's kind colour
+     drives its art exactly the way an element's does on the board. */
+  function cardArt(kind) {
+    var d = CARD_KINDS[kind], i, out = [];
+    if (d.move) {
+      /* Backing up is the same arrow the other way round, because that
+         is what the move is: the robot does not turn to do it. */
+      var dir = d.move > 0 ? -1 : 1, n = Math.abs(d.move);
+      var tip = 50 + dir * 34, tail = 50 - dir * 30;
+      out.push('<path class="pr-cshaft" d="M50 ' + tail + "L50 " + (tip - dir * 6) + '"/>');
+      for (i = 0; i < n; i++) out.push(chev(50, tip - dir * i * 19, 0, dir, 13, "pr-cmark"));
+    } else if (kind === "uturn") {
+      /* Up, round, and back the way you came.
+
+         A U-turn IS drawn as a half-circle further down, and as an arc
+         it reads as "half a spin" -- true, and not the point. What a
+         U-turn does is reverse you, and the shape that says reverse is
+         one that leaves going up and returns going down. The rotate
+         cards keep the arc; this one keeps the U. */
+      out.push('<path class="pr-cshaft" d="M32 80L32 52A18 18 0 0 1 68 52L68 72"/>');
+      out.push(chev(68, 80, 0, 1, 13, "pr-cmark"));
+    } else {
+      /* A ROTATE CARD SHOWS THE HEADING CHANGING, not a spin.
+
+         Up the card is where the robot is pointing now. The line runs
+         up, turns the corner, and leaves sideways under an arrowhead
+         pointing the way you will be facing -- so the picture is the
+         before and the after, in that order.
+
+         The corner turns only once the line is well clear of the
+         arrowhead's wings. Bending it earlier puts the curve inside
+         the chevron and the two read as one smudge at card size,
+         which is the size that matters.
+
+         An arc was tried first and was worse: a quarter circle says
+         "ninety degrees of something" without saying of what, and
+         both cards came out as the same gesture mirrored rather than
+         as two directions. */
+      var cw = d.turn > 0;
+      var TIP = cw ? 80 : 20, Y = 42;
+      var rise = cw ? 32 : 68;                 // the upright, on the far side
+      var corner = cw ? 46 : 54;               // where the bend finishes
+      var shaftEnd = cw ? 67 : 33;             // the chevron's back
+      out.push('<path class="pr-cshaft" d="M' + rise + " 80L" + rise + " 56Q" + rise + " " + Y +
+        " " + corner + " " + Y + "L" + shaftEnd + " " + Y + '"/>');
+      out.push(chev(TIP, Y, cw ? 1 : -1, 0, 13, "pr-cmark"));
+    }
+    return '<svg class="pr-cart" viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
+           out.join("") + "</svg>";
+  }
+
   function cardFace(cd) {
     var k = CARD_KINDS[cd.kind];
     return '<span class="pr-faces">' +
-      '<span class="pr-face pr-front"><b>' + esc(k.label.toUpperCase()) + "</b>" +
+      '<span class="pr-face pr-front">' + cardArt(cd.kind) +
+      "<b>" + esc(k.label.toUpperCase()) + "</b>" +
       '<span class="pr-pri">' + cd.pri + "</span></span>" +
       '<span class="pr-face pr-back"></span></span>';
   }
@@ -5489,7 +5606,7 @@
     cardsDealt: cardsDealt,
     validateTables: validateTables,
     buildCourse: function (id) { return B.buildCourse(id); },
-    tileInner: tileInner, tileClasses: tileClasses,
+    tileInner: tileInner, tileClasses: tileClasses, cardArt: cardArt,
     newGame: function (seed, opts) { UI.wallsChecked = false; return newGame(seed, opts); },
     advance: advance,
     runSim: runSim,
