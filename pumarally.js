@@ -3441,7 +3441,8 @@
     ".pr-modal td:first-child{color:var(--pr-text);white-space:nowrap}",
     ".pr-steps{margin:0;padding-left:20px}.pr-steps li{margin:0 0 7px}",
     ".pr-steps b{color:var(--pr-text);font-weight:normal}",
-    ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px}",
+    ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px;align-items:center}",
+    ".pr-set-label{font-size:10px;opacity:.6;width:100%;margin-top:4px}",
     ".pr-tabs .on,.pr-presets .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
     ".pr-help-body{min-height:180px}",
     ".pr-modal-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px}",
@@ -4310,10 +4311,23 @@
     out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Course</b>' +
       '<span class="pr-rule-val">' + esc(B.COURSES[houseRules.course].name) + "</span></div>" +
       '<div class="pr-presets">');
+    /* Grouped by box, because "a course from Armed and Dangerous" is
+       how anyone with the shelf actually picks one. */
+    var bySet = {}, order = [];
     for (var cid in B.COURSES) {
       if (cid.charAt(0) === "_") continue;             // the editor's scratch course
-      out.push('<button data-act="course" data-c="' + esc(cid) + '"' +
-        (houseRules.course === cid ? ' class="on"' : "") + ">" + esc(B.COURSES[cid].name) + "</button>");
+      var setId = B.BOARD_SPECS[B.COURSES[cid].boards[0].id].set || "authored";
+      if (!bySet[setId]) { bySet[setId] = []; order.push(setId); }
+      bySet[setId].push(cid);
+    }
+    for (var si = 0; si < order.length; si++) {
+      var sid = order[si];
+      if (order.length > 1) out.push('<span class="pr-set-label">' + esc(B.SETS[sid].name) + "</span>");
+      for (var ci = 0; ci < bySet[sid].length; ci++) {
+        var id2 = bySet[sid][ci];
+        out.push('<button data-act="course" data-c="' + esc(id2) + '"' +
+          (houseRules.course === id2 ? ' class="on"' : "") + ">" + esc(B.COURSES[id2].name) + "</button>");
+      }
     }
     out.push("</div><div class='pr-rule-desc'>" +
       esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");

@@ -163,6 +163,13 @@ the wrong game.
 **The classic ruleset is what is implemented today.** The modern one is
 scaffolded at the data layer and not yet built.
 
+Boards also declare which **box** they came from — base game, Armed and
+Dangerous, Wet and Wild, and so on — because picking a course by expansion is
+how anyone with the shelf actually picks one. A set belongs to exactly one
+edition, and a board whose set disagrees with its own edition is a
+transcription error rather than a variant: there is no Armed and Dangerous
+board in the 2016 game.
+
 ## Board provenance
 
 Faithfulness is a claim about data, so the data says where it came from.
