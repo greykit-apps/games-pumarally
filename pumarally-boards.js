@@ -194,6 +194,67 @@
   }
 
   /* ============================================================
+     FORMATTING
+     The inverse of parsePic, and the reason the editor is worth
+     having: it emits source text byte-identical to the shipped
+     literals, so a board traced over a photograph can be pasted
+     straight back into this file with nothing to tidy up.
+
+     check-boards.js asserts that formatting every shipped board
+     reproduces its own source exactly. If that ever stops being
+     true, the editor's export has quietly become a thing someone
+     has to hand-correct, which is how transcription errors get in.
+     ============================================================ */
+  function gridToPic(g) {
+    var rows = [], y, c, r;
+    for (y = 0; y <= 2 * g.h; y++) {
+      r = y >> 1;
+      var out = "";
+      if (y % 2 === 0) {
+        for (c = 0; c < g.w; c++) out += "+" + (g.wallN[r * g.w + c] ? "--" : "  ");
+        out += "+";
+      } else {
+        for (c = 0; c < g.w; c++) {
+          out += (g.wallW[r * (g.w + 1) + c] ? "|" : " ") + g.cell[r * g.w + c];
+        }
+        out += g.wallW[r * (g.w + 1) + g.w] ? "|" : " ";
+      }
+      rows.push(out);
+    }
+    return rows;
+  }
+
+  var DIR_LETTER = ["N", "E", "S", "W"];
+
+  function formatBoard(id, g, meta) {
+    meta = meta || {};
+    var name = meta.name || g.name || id;
+    var origin = meta.origin || g.origin || "authored";
+    var notes = meta.notes !== undefined ? meta.notes : (g.notes || "");
+    var pic = gridToPic(g), i;
+    var out = [];
+    out.push("    " + id + ": {");
+    out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h + ', origin: "' + origin + '",');
+    if (notes) out.push('      notes: "' + notes + '",');
+    out.push("      pic: [");
+    for (i = 0; i < pic.length; i++) out.push('        "' + pic[i] + '"' + (i === pic.length - 1 ? "" : ","));
+    out.push("      ],");
+    if (!g.lasers.length) {
+      out.push("      lasers: []");
+    } else {
+      out.push("      lasers: [");
+      for (i = 0; i < g.lasers.length; i++) {
+        var L = g.lasers[i];
+        out.push("        { c: " + L.c + ", r: " + L.r + ', d: "' + DIR_LETTER[L.d] + '", n: ' + L.n + " }" +
+          (i === g.lasers.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
+    out.push("    }");
+    return out.join("\n");
+  }
+
+  /* ============================================================
      ROTATION
      One pure function, never four hand-rotated copies of a board.
      Quarter-turns clockwise: a tile at (c,r) lands at (h-1-r, c)
@@ -537,6 +598,7 @@
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
+    gridToPic: gridToPic, formatBoard: formatBoard, blankGrid: blankGrid,
     idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall,
     buildCourse: buildCourse, isVoid: isVoid,
     validateGrid: validateGrid, validateCourse: validateCourse, validateAll: validateAll

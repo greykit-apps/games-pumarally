@@ -34,7 +34,7 @@ at play time.
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
 | Hot-seat pass-and-play | done |
 | Difficulty tiers, setup, help, tutorial, sound | done |
-| Board editor | not yet |
+| Board editor | done |
 | The twelve official boards | not yet — see [Board provenance](#board-provenance) |
 
 ## How it works
@@ -75,6 +75,29 @@ The turn-order page is the exception, since prose cannot be derived. So each
 row names a real step in the phase machine and `validateTables()` **refuses to
 load** if one of them does not exist. Rename a step and that is the only thing
 that will notice the help now lies.
+
+## The board workshop
+
+`#edit` opens the editor; `#edit=provingGround` opens a shipped board in it.
+
+It exists because the twelve official boards are roughly 1,700 tiles that have
+to come off photographs, and describing a board to someone in prose is exactly
+how a plausible, wrong map gets made. So: **drop a photograph behind the grid,
+trace it, and paste the export straight back** into `pumarally-boards.js`.
+
+- `formatBoard()` emits the shipped style **byte for byte**, and CI asserts
+  that formatting every shipped board reproduces its own source. If that ever
+  stopped being true, the export would have quietly become something a person
+  has to hand-correct — which is where transcription errors get in.
+- The board **validates live** as you draw, naming the offending square.
+- **Test play** drops three flags on the board and starts a game on it, without
+  it being shipped.
+- The reference image **never leaves the machine and is never exported**:
+  `URL.createObjectURL`, nothing uploaded. The repo holds original art and
+  transcribed layout data, nothing scanned.
+
+Left/click stamps, right-click erases, `R` rotates the current tool, `W`
+toggles wall mode. Work autosaves, so a long transcription survives a reload.
 
 ## Option cards
 

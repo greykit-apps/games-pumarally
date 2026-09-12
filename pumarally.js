@@ -3155,6 +3155,44 @@
         "a hook nothing fires is dead code that reads as coverage; expected an error, got " + threw);
     } },
 
+    // ---- the editor's export -----------------------------------------
+    { name: "a board survives a round trip through the editor's export", run: function () {
+      /* The editor's entire value is that its output can be pasted back
+         without correction. If parse -> format -> parse is not a fixed
+         point, a transcription quietly changes every time it is opened. */
+      var id = "provingGround", spec = B.BOARD_SPECS[id];
+      var g = B.parsePic(id, spec);
+      var pic = B.gridToPic(g);
+      assert(JSON.stringify(pic) === JSON.stringify(spec.pic),
+        "formatting the picture back did not reproduce the source picture");
+      var again = B.parsePic(id, {
+        w: g.w, h: g.h, pic: pic,
+        lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+      });
+      /* Same metadata to both: the board DATA is what has to be a fixed
+         point, and a re-parse of a bare picture legitimately carries no
+         name or notes of its own. */
+      var meta = { name: spec.name, origin: spec.origin, notes: spec.notes };
+      assert(B.formatBoard(id, again, meta) === B.formatBoard(id, g, meta),
+        "a second trip through the editor changed the board");
+    } },
+
+    { name: "the editor's export names every wall exactly once", run: function () {
+      /* A wall lives in one lattice slot, so emitting and re-reading it
+         must not duplicate or drop it -- the failure a per-tile wall
+         list invites, and the reason the format is a picture. */
+      var g = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+      var again = B.parsePic("x", { w: g.w, h: g.h, pic: B.gridToPic(g), lasers: [] });
+      var walls = 0, c, r, d;
+      for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) for (d = 0; d < 4; d++) {
+        if (B.wallAt(g, c, r, d) !== B.wallAt(again, c, r, d)) {
+          assert(false, "wall on side " + d + " of (" + c + "," + r + ") did not survive the export");
+        }
+        if (B.wallAt(g, c, r, d)) walls++;
+      }
+      assert(walls > 0, "the test board has no walls, so this proves nothing");
+    } },
+
     // ---- conservation ----------------------------------------------
     { name: "destroying a robot returns all of its cards to the discard", run: function () {
       benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
@@ -3350,6 +3388,24 @@
     "flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}",
     ".pr-curtain h2{color:var(--pr-accent);letter-spacing:2px;font-size:16px;margin:0}",
     ".pr-curtained .pr-main,.pr-curtained .pr-program{filter:blur(10px)}",
+    /* editor */
+    ".pr-ed-panel{display:flex;flex-direction:column;gap:6px;width:100%;max-width:1000px}",
+    ".pr-ed-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:11px}",
+    ".pr-ed-row span{opacity:.7}",
+    ".pr-ed-row .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
+    ".pr-ed-row input[type=text]{background:var(--pr-panel);border:1px solid var(--pr-border);",
+    "color:var(--pr-text);font:inherit;padding:3px 6px}",
+    ".pr-ed-row input[type=range]{width:90px;accent-color:var(--pr-accent)}",
+    ".pr-ed-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
+    ".pr-ed-stage .pr-board{position:absolute;left:0;top:0}",
+    ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
+    ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
+    ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
+    ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
+    ".pr-ed-ok{color:var(--pr-accent);font-size:11px}",
+    ".pr-ed-bad{color:var(--pr-danger);font-size:11px}",
+    ".pr-ed-out{width:100%;background:var(--pr-bg);color:var(--pr-ink);border:1px solid var(--pr-border);",
+    "font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px}",
     "@media (prefers-reduced-motion:reduce){.pr-root *{animation:none!important;transition:none!important}}"
   ].join("");
 
@@ -4439,6 +4495,386 @@
   }
 
   /* ============================================================
+     BOARD EDITOR
+
+     Reached at #edit, or #edit=<boardId> to open a shipped board.
+
+     It exists because the twelve official boards are ~1,700 tiles
+     that have to come off photographs, and describing a board to
+     someone in prose is how a plausible, wrong map gets made. So:
+     drop a photograph behind the grid, trace it, and paste the
+     export straight back into pumarally-boards.js -- formatBoard
+     emits the shipped style byte for byte, and CI asserts that.
+
+     The reference image never leaves the machine and is never part
+     of the export. URL.createObjectURL, nothing uploaded, and the
+     repo keeps original art and transcribed layout data only.
+     ============================================================ */
+  var ED_KEY = "pumarally_editor_v1";
+
+  var ED_TOOLS = [
+    { key: "..", label: "Floor" },
+    { key: "b", label: "Conveyor", dir: true },
+    { key: "B", label: "Express", dir: true },
+    { key: "l", label: "Gear CCW" },
+    { key: "r", label: "Gear CW" },
+    { key: "p", label: "Pusher 1/3/5", dir: true },
+    { key: "P", label: "Pusher 2/4", dir: true },
+    { key: "o", label: "Pit" },
+    { key: "w", label: "Repair" },
+    { key: "W", label: "Upgrade" },
+    { key: "s", label: "Docking bay", digit: true }
+  ];
+
+  var ED = null;
+
+  function edNew(w, h) {
+    var g = B.blankGrid(w, h);
+    for (var i = 0; i < w * h; i++) g.cell[i] = "..";
+    g.name = "New Board"; g.origin = "transcribed"; g.notes = "";
+    g.flags = [];
+    return g;
+  }
+
+  function edLoadShipped(id) {
+    var g = B.parsePic(id, B.BOARD_SPECS[id]);
+    g.flags = [];
+    return g;
+  }
+
+  function edState(grid, id) {
+    return {
+      id: id || "newBoard",
+      grid: grid,
+      tool: "b",
+      dir: N,
+      digit: 1,
+      laserN: 1,
+      mode: "tile",              // tile | wall | laser
+      underlay: null,            // an object URL, never exported
+      opacity: 0.5,
+      offX: 0, offY: 0, zoom: 2, uScale: 1,
+      errors: [],
+      warnings: []
+    };
+  }
+
+  /* Autosave the DATA, never the reference image: a 40-minute
+     transcription must survive a reload, and an object URL would not
+     be valid after one anyway. */
+  function edSave() {
+    try {
+      localStorage.setItem(ED_KEY, JSON.stringify({
+        id: ED.id, w: ED.grid.w, h: ED.grid.h,
+        name: ED.grid.name, notes: ED.grid.notes,
+        pic: B.gridToPic(ED.grid),
+        lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+      }));
+    } catch (e) {}
+  }
+
+  function edRestore() {
+    try {
+      var s = JSON.parse(localStorage.getItem(ED_KEY) || "null");
+      if (!s || !s.pic) return null;
+      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [] });
+      g.name = s.name || "New Board"; g.notes = s.notes || ""; g.origin = "transcribed"; g.flags = [];
+      return edState(g, s.id);
+    } catch (e) { return null; }
+  }
+
+  function edValidate() {
+    ED.errors = []; ED.warnings = [];
+    try {
+      B.validateGrid(ED.id, ED.grid, function (id, m) { ED.warnings.push(m); });
+    } catch (e) {
+      ED.errors.push(e.message);
+    }
+  }
+
+  function edSetCell(c, r, code) {
+    if (!B.inGrid(ED.grid, c, r)) return;
+    ED.grid.cell[r * ED.grid.w + c] = code;
+  }
+
+  function edToolCode() {
+    var t = null;
+    for (var i = 0; i < ED_TOOLS.length; i++) if (ED_TOOLS[i].key === ED.tool) t = ED_TOOLS[i];
+    if (!t) return "..";
+    if (t.key === "..") return "..";
+    if (t.dir) return t.key + B.DIR_CHARS.charAt(ED.dir);
+    if (t.digit) return t.key + ED.digit;
+    return t.key + ".";
+  }
+
+  function edRender() {
+    var host = UI.els.edBoard;
+    var s = ED.zoom;
+    var cv = drawCourse(edCourseView());
+    cv.className = "pr-board";
+    cv.style.width = (ED.grid.w * TILE * s) + "px";
+    cv.dataset.scale = s;
+    host.innerHTML = "";
+    host.style.width = (ED.grid.w * TILE * s) + "px";
+    host.style.height = (ED.grid.h * TILE * s) + "px";
+
+    if (ED.underlay) {
+      var img = document.createElement("img");
+      img.className = "pr-ed-under";
+      img.src = ED.underlay;
+      img.style.opacity = ED.opacity;
+      img.style.left = ED.offX + "px";
+      img.style.top = ED.offY + "px";
+      img.style.width = (ED.grid.w * TILE * s * ED.uScale) + "px";
+      host.appendChild(img);
+    }
+    host.appendChild(cv);
+
+    var grid = document.createElement("div");
+    grid.className = "pr-ed-grid";
+    grid.style.gridTemplateColumns = "repeat(" + ED.grid.w + "," + (TILE * s) + "px)";
+    grid.style.gridAutoRows = (TILE * s) + "px";
+    var out = [], c, r;
+    for (r = 0; r < ED.grid.h; r++) {
+      for (c = 0; c < ED.grid.w; c++) {
+        out.push('<div class="pr-ed-cell" data-c="' + c + '" data-r="' + r + '"' +
+          ' title="' + c + "," + r + '"></div>');
+      }
+    }
+    grid.innerHTML = out.join("");
+    host.appendChild(grid);
+    edRenderPanel();
+  }
+
+  /* drawCourse wants something course-shaped. A board being edited is
+     one board with no flags, which is exactly that minus the flags. */
+  function edCourseView() {
+    ED.grid.flags = ED.grid.flags || [];
+    ED.grid.id = ED.id;
+    return ED.grid;
+  }
+
+  function edRenderPanel() {
+    var out = ['<div class="pr-ed-row">'];
+    for (var i = 0; i < ED_TOOLS.length; i++) {
+      var t = ED_TOOLS[i];
+      out.push('<button data-act="edtool" data-k="' + esc(t.key) + '"' +
+        (ED.mode === "tile" && ED.tool === t.key ? ' class="on"' : "") + ">" + esc(t.label) + "</button>");
+    }
+    out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
+    out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
+    out.push("</div>");
+
+    out.push('<div class="pr-ed-row"><span>Facing</span>');
+    for (var d = 0; d < 4; d++) {
+      out.push('<button data-act="eddir" data-d="' + d + '"' + (ED.dir === d ? ' class="on"' : "") + ">" +
+        esc(B.dirName(d)) + "</button>");
+    }
+    out.push('<span>Bay</span>');
+    for (var n = 1; n <= 8; n++) {
+      out.push('<button data-act="eddigit" data-n="' + n + '"' + (ED.digit === n ? ' class="on"' : "") + ">" + n + "</button>");
+    }
+    out.push('<span>Laser</span>');
+    for (var ln = 1; ln <= 3; ln++) {
+      out.push('<button data-act="edlaser" data-n="' + ln + '"' + (ED.laserN === ln ? ' class="on"' : "") + ">" + ln + "</button>");
+    }
+    out.push("</div>");
+
+    out.push('<div class="pr-ed-row"><span>Reference</span>' +
+      '<input type="file" accept="image/*" data-act="edimg">' +
+      '<span>Fade</span><input type="range" min="0" max="100" value="' + Math.round(ED.opacity * 100) + '" data-act="edop">' +
+      '<span>Size</span><input type="range" min="50" max="200" value="' + Math.round(ED.uScale * 100) + '" data-act="edscale">' +
+      '<button data-act="ednudge" data-dx="-4" data-dy="0">&larr;</button>' +
+      '<button data-act="ednudge" data-dx="4" data-dy="0">&rarr;</button>' +
+      '<button data-act="ednudge" data-dx="0" data-dy="-4">&uarr;</button>' +
+      '<button data-act="ednudge" data-dx="0" data-dy="4">&darr;</button>' +
+      '<button data-act="edclearimg">Remove</button></div>');
+
+    out.push('<div class="pr-ed-row"><span>Board</span>' +
+      '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
+      '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
+      '<button data-act="edexport">Export</button>' +
+      '<button data-act="edplay">Test play</button>' +
+      '<button data-act="edquit">Leave editor</button></div>');
+
+    var msg = "";
+    if (ED.errors.length) {
+      msg = '<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" + (ED.errors.length > 1 ? "s" : "") + "</b><br>" +
+        ED.errors.map(esc).join("<br>") + "</div>";
+    } else {
+      msg = '<div class="pr-ed-ok">Valid board.' +
+        (ED.warnings.length ? " " + ED.warnings.length + " warning: " + esc(ED.warnings[0]) : "") + "</div>";
+    }
+    out.push(msg);
+    UI.els.edPanel.innerHTML = out.join("");
+  }
+
+  function edExport() {
+    edValidate();
+    var text = B.formatBoard(ED.id, ED.grid,
+      { name: ED.grid.name, origin: ED.grid.origin || "transcribed", notes: ED.grid.notes });
+    openModal("<h2>PASTE INTO pumarally-boards.js</h2>" +
+      (ED.errors.length ? '<p class="pr-ed-bad">This board does not validate yet: ' + esc(ED.errors[0]) + "</p>" : "") +
+      '<textarea class="pr-ed-out" rows="16" readonly>' + esc(text) + "</textarea>" +
+      '<div class="pr-modal-foot"><button data-act="edcopy">Copy</button>' +
+      '<button data-act="closemodal">Close</button></div>');
+  }
+
+  function edHit(e) {
+    var cell = e.target.closest(".pr-ed-cell");
+    if (!cell) return null;
+    var c = parseInt(cell.dataset.c, 10), r = parseInt(cell.dataset.r, 10);
+    var box = cell.getBoundingClientRect();
+    var fx = (e.clientX - box.left) / box.width, fy = (e.clientY - box.top) / box.height;
+    var edge = null, m = 0.22;
+    if (fy < m) edge = N; else if (fy > 1 - m) edge = S;
+    else if (fx < m) edge = W; else if (fx > 1 - m) edge = E;
+    return { c: c, r: r, edge: edge, fx: fx, fy: fy };
+  }
+
+  function edClick(e, erase) {
+    var hit = edHit(e);
+    if (!hit) return;
+    if (ED.mode === "wall") {
+      if (hit.edge === null) return;
+      B.setWall(ED.grid, hit.c, hit.r, hit.edge, !B.wallAt(ED.grid, hit.c, hit.r, hit.edge));
+    } else if (ED.mode === "laser") {
+      var found = -1;
+      for (var i = 0; i < ED.grid.lasers.length; i++) {
+        if (ED.grid.lasers[i].c === hit.c && ED.grid.lasers[i].r === hit.r) found = i;
+      }
+      if (found >= 0) ED.grid.lasers.splice(found, 1);
+      if (!erase && found < 0) ED.grid.lasers.push({ c: hit.c, r: hit.r, d: ED.dir, n: ED.laserN });
+    } else {
+      edSetCell(hit.c, hit.r, erase ? ".." : edToolCode());
+    }
+    edValidate();
+    edSave();
+    edRender();
+  }
+
+  function edMount(host, bootId) {
+    injectCSS();
+    host.classList.add("pr-root", "pr-editing");
+    host.innerHTML = "";
+
+    var restored = edRestore();
+    if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
+    else if (restored) ED = restored;
+    else ED = edState(edNew(12, 12), "newBoard");
+    ED.uScale = ED.uScale || 1;
+
+    bakeAll();
+
+    var hud = el("div", "pr-hud",
+      '<h1 class="pr-title">BOARD WORKSHOP</h1>' +
+      '<span class="pr-phase">Trace a photograph, export the source.</span>');
+    var stage = el("div", "pr-ed-stage");
+    var panel = el("div", "pr-ed-panel");
+    var overlay = el("div", "pr-overlay");
+    overlay.hidden = true;
+    var sr = el("div", "pr-sr");
+    sr.setAttribute("aria-live", "polite");
+
+    host.appendChild(hud);
+    host.appendChild(panel);
+    host.appendChild(stage);
+    host.appendChild(overlay);
+    host.appendChild(sr);
+
+    UI.els = { host: host, edBoard: stage, edPanel: panel, overlay: overlay, sr: sr };
+    UI.mounted = false;                 // there is no game here to render
+
+    stage.addEventListener("click", function (e) { edClick(e, false); });
+    stage.addEventListener("contextmenu", function (e) { e.preventDefault(); edClick(e, true); });
+    host.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-act]");
+      if (b && !b.disabled) edDispatch(b, e);
+    });
+    host.addEventListener("input", function (e) {
+      var b = e.target.closest("[data-act]");
+      if (b) edDispatch(b, e);
+    });
+    host.addEventListener("change", function (e) {
+      var b = e.target.closest("[data-act=edimg]");
+      if (b) edLoadImage(b.files && b.files[0]);
+    });
+    document.addEventListener("keydown", edKey);
+
+    edValidate();
+    edRender();
+  }
+
+  function edKey(e) {
+    if (!ED || modalOpen()) return;
+    if (e.key === "r" || e.key === "R") { ED.dir = B.rot(ED.dir, 1); edRenderPanel(); }
+    else if (e.key === "w" || e.key === "W") { ED.mode = ED.mode === "wall" ? "tile" : "wall"; edRenderPanel(); }
+    else if (e.key === "Escape" && modalOpen()) closeModal();
+  }
+
+  function edLoadImage(file) {
+    if (!file) return;
+    if (ED.underlay) { try { URL.revokeObjectURL(ED.underlay); } catch (e) {} }
+    ED.underlay = URL.createObjectURL(file);
+    announce("Reference image loaded. It stays on this machine and is never exported.");
+    edRender();
+  }
+
+  function edDispatch(b, e) {
+    var a = b.dataset.act;
+    if (a === "edtool") { ED.mode = "tile"; ED.tool = b.dataset.k; edRenderPanel(); }
+    else if (a === "edmode") { ED.mode = ED.mode === b.dataset.m ? "tile" : b.dataset.m; edRenderPanel(); }
+    else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
+    else if (a === "eddigit") { ED.digit = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
+    else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
+    else if (a === "ednudge") { ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10); edRender(); }
+    else if (a === "edclearimg") { ED.underlay = null; edRender(); }
+    else if (a === "edid") { ED.id = b.value.replace(/[^A-Za-z0-9_]/g, "") || "newBoard"; edSave(); }
+    else if (a === "edname") { ED.grid.name = b.value; edSave(); }
+    else if (a === "edexport") edExport();
+    else if (a === "edcopy") {
+      var ta = UI.els.overlay.querySelector("textarea");
+      if (ta) { ta.select(); try { document.execCommand("copy"); announce("Copied."); } catch (err) {} }
+    }
+    else if (a === "edplay") edTestPlay();
+    else if (a === "edquit") { root.location.hash = ""; root.location.reload(); }
+    else if (a === "closemodal") closeModal();
+  }
+
+  /* Play the board being edited without shipping it: a temporary
+     board and course, three flags dropped on legal squares. */
+  function edTestPlay() {
+    edValidate();
+    if (ED.errors.length) { announce("Fix the board first: " + ED.errors[0]); edRenderPanel(); return; }
+    var spec = { w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), name: ED.grid.name, origin: "authored",
+                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }) };
+    B.BOARD_SPECS.__editorTest = spec;
+    var spots = [];
+    for (var r = 0; r < ED.grid.h && spots.length < 3; r++) {
+      for (var c = 0; c < ED.grid.w && spots.length < 3; c++) {
+        if (B.isPit(B.codeAt(ED.grid, c, r))) continue;
+        if ((c + r) % 4) continue;
+        spots.push([c, r]);
+      }
+    }
+    if (spots.length < 3) { announce("Not enough open squares to place flags."); return; }
+    B.COURSES.__editorTest = {
+      name: ED.grid.name + " (test)",
+      boards: [{ id: "__editorTest", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, ED.grid.h] },
+      flags: spots, minPlayers: 2, maxPlayers: 8
+    };
+    try { B.validateCourse("__editorTest", function () {}); }
+    catch (err) { announce("Test course will not build: " + err.message); return; }
+    root.location.hash = "";
+    document.removeEventListener("keydown", edKey);
+    ED = null;
+    mount(UI.els.host, { course: "__editorTest" });
+  }
+
+  /* ============================================================
      BOARD SIZING
      Pixel art only survives INTEGER scaling: at 1.5x some sprite
      pixels land on two screen pixels and their neighbours on one,
@@ -4492,6 +4928,13 @@
     return n;
   }
 
+  /* NOTE: do not declare a local named `opts` anywhere in here. A
+     `var` declaration hoists over the whole function, so a DOM node
+     called opts silently replaces the settings object from the line
+     it is declared -- and only for the code AFTER the point where
+     UI.opts was already assigned, which is what makes it look fine
+     from the outside. That bug shipped once and cost data-scale,
+     data-max-scale and the editor's test-play course. */
   function mount(host, opts) {
     opts = opts || {};
     injectCSS();
@@ -4560,10 +5003,10 @@
     var hint = el("div", "pr-hint");
     var choice = el("div", "pr-choice");
     choice.hidden = true;
-    var opts = el("div", "pr-opts");
+    var optsRow = el("div", "pr-opts");
     program.appendChild(regs); program.appendChild(hand);
     program.appendChild(controls); program.appendChild(choice);
-    program.appendChild(opts); program.appendChild(hint);
+    program.appendChild(optsRow); program.appendChild(hint);
 
     var banner = el("div", "pr-banner");
     banner.hidden = true;
@@ -4587,7 +5030,7 @@
     UI.els = { host: host, hud: hud, stage: stage, board: board, fx: fx, grid: grid, program: program,
                pieces: pieces, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
-               choice: choice, opts: opts, main: main, overlay: overlay, curtain: curtain,
+               choice: choice, opts: optsRow, main: main, overlay: overlay, curtain: curtain,
                run: controls.querySelector("[data-act=run]"),
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
@@ -4665,6 +5108,8 @@
 
   function boot() {
     var nodes = document.querySelectorAll("[data-pumarally]");
+    var edit = /[#&]edit(?:=([A-Za-z0-9_]+))?/.exec(root.location ? root.location.hash : "");
+    if (edit && nodes.length) { edMount(nodes[0], edit[1]); return; }
     for (var i = 0; i < nodes.length; i++) {
       mount(nodes[i], {
         course: nodes[i].getAttribute("data-course") || undefined,
@@ -4706,6 +5151,8 @@
     applyProgram: applyProgram,
     botProgram: botProgram,
     applyShotState: applyShotState,
+    edMount: function (host, id) { return edMount(host || document.querySelector("[data-pumarally]"), id); },
+    get ED() { return ED; },
     showHelp: function (t) { return showHelp(t); },
     showSetup: function () { return showSetup(); },
     OPTION_ROSTER: OPTION_ROSTER,
