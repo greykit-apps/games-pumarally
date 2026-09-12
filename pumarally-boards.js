@@ -117,6 +117,7 @@
     /* CRASH AND BURN (1997). Both act on a register timer, which is
        printed on the square as a number -- so the argument slot, which
        these do not need for a direction, carries WHEN instead. */
+    "L": { name: "oil slick", arg: "none", oil: true, editions: ["classic"] },
     "X": { name: "press", arg: "when", crush: true, editions: ["classic"] },
     "F": { name: "burner", arg: "when", burn: 1, editions: ["classic"] },
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
@@ -129,6 +130,7 @@
   function beltSpeed(code) { var e = elemOf(code); return e && e.belt || 0; }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
   function isPit(code) { return code.charAt(0) === "o"; }
+  function isOil(code) { var e = elemOf(code); return !!(e && e.oil); }
   /* '.' always, '1'-'5' one printed register, 'o' the odd ones and 'e'
      the even ones -- the same 1/3/5 and 2/4 split the pushers use, and
      for the same reason: the board prints a set of numbers, not one. */
@@ -163,6 +165,7 @@
        r.  gear cw        Pv  pusher, registers 2/4,   pushes south
        w.  repair (1 damage)
        W.  upgrade (2 damage OR an option card -- the player chooses)
+       L.  oil slick                        (Crash and Burn)
        X3  press, active in register 3      (Crash and Burn)
        Fo  burner, active in registers 1/3/5 (Crash and Burn)
        s3  docking bay position 3
@@ -1248,7 +1251,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,

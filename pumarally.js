@@ -502,6 +502,15 @@
      shaft it comes down in. A burner is the nozzle and its flame. Both
      are stamped with the registers they act in, the way a pusher is,
      because the timing is the whole of what makes them dangerous. */
+  /* A spill: an irregular dark pool with a slick highlight, so it reads
+     as a hazard without borrowing the pit's black hole or the danger
+     red that already means damage. Oil does no damage at all. */
+  function oilSvg() {
+    return svg('<path class="pr-oil" d="M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z"/>' +
+               '<path class="pr-oil-sheen" d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>',
+               "pr-oil");
+  }
+
   function pressSvg() {
     return svg('<circle class="pr-shaft" cx="50" cy="50" r="37"/>' +
                '<circle class="pr-press-ram" cx="50" cy="50" r="26"/>' +
@@ -592,6 +601,7 @@
     else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
+    else if (def.oil) out.push(oilSvg());
     else if (def.crush) out.push(pressSvg());
     else if (def.burn) out.push(burnerSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
@@ -1386,14 +1396,57 @@
     return { kind: "move", turn: 0, dist: k.move, lateral: 0 };
   }
 
+  function onOil(p) {
+    var C = UI.course;
+    return !B.isVoid(C, p.c, p.r) && B.isOil(B.codeAt(C, p.c, p.r));
+  }
+
+  /* CRASH AND BURN: oil.
+
+     Two separate effects, and they are easy to conflate. Starting a
+     move on oil costs you a square, because the wheels spin -- a Move 3
+     carries two and a Move 1 carries none at all. ENDING a move on oil
+     makes you slide on, because you cannot stop.
+
+     The slide is not a move, which is the part the rulebook is at pains
+     about: "Ein Roboter rutscht nicht, solange er in Bewegung ist. Erst
+     wenn er seine Bewegung beendet (bremst), gerät er auf einer Öllache
+     ins Rutschen." So it happens once, after the card is finished, and
+     a robot slides only if it actually travelled -- momentum it never
+     had cannot carry it. A robot whose Move 1 was cancelled by the oil
+     stays exactly where it is.
+
+     It stops on the first square without oil, before a wall, or against
+     a robot that is NOT itself on oil. A robot that IS on the same
+     slick gets shoved along instead, which stepRobot's chain already
+     does. */
+  function oilSlide(p, dir) {
+    var C = UI.course;
+    for (var guard = 0; guard < 32; guard++) {
+      if (!p.alive || !onOil(p)) return;
+      if (B.wallAt(C, p.c, p.r, dir)) return;
+      var nx = B.step(p.c, p.r, dir);
+      var occ = B.isVoid(C, nx.c, nx.r) ? null : robotAt(nx.c, nx.r);
+      if (occ && !onOil(occ)) return;                 // a robot with grip stops the slide
+      if (!stepRobot(p, dir, "oil")) return;
+    }
+  }
+
   function runPlan(p, plan) {
     if (plan.kind === "turn") { p.face = B.rot(p.face, plan.turn); return; }
     var dir = plan.lateral ? B.rot(p.face, plan.lateral)
             : plan.dist > 0 ? p.face : B.opposite(p.face);
     var n = Math.abs(plan.dist);
+    if (n > 0 && onOil(p)) n--;                       // wheels spin: one square less
+    var moved = 0;
     for (var i = 0; i < n; i++) {
       if (!p.alive) return;
       if (!stepRobot(p, dir, "move")) break;          // walked into a wall; the rest of the move is lost
+      moved++;
+    }
+    if (moved > 0 && p.alive && onOil(p)) {
+      log(p.name + " skids on the oil");
+      oilSlide(p, dir);
     }
   }
 
@@ -3022,6 +3075,51 @@
       }
     } },
 
+    // ---- Crash and Burn: oil -----------------------------------------
+    { name: "ending a move on oil slides you off it", run: function () {
+      benchGame(bench([["..", "L.", "L.", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 3, "it should slide across both oil squares and stop on the first dry one, got c=" + p.c);
+      assert(p.damage === 0, "oil does no damage");
+    } },
+
+    { name: "starting a move on oil costs a square", run: function () {
+      benchGame(bench([["L.", "..", "..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 3 });
+      assert(G.players[0].c === 2, "a Move 3 off oil carries two, got c=" + G.players[0].c);
+    } },
+
+    { name: "a Move 1 that starts on oil goes nowhere, and does not then skid", run: function () {
+      benchGame(bench([["L.", "L.", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[0].c === 0,
+        "the move is cancelled outright, and momentum it never had cannot carry it -- c=" + G.players[0].c);
+    } },
+
+    { name: "a slide stops against a robot with grip, and shoves one without", run: function () {
+      // the blocker is on dry floor: the slide stops short of it
+      benchGame(bench([["..", "L.", "L.", "..", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 3, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[0].c === 2 && G.players[1].c === 3,
+        "a robot off the oil is not shoved: " + G.players[0].c + "," + G.players[1].c);
+
+      // the blocker is on the same slick: it gets shoved along
+      benchGame(bench([["..", "L.", "L.", "L.", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[1].c === 4 && G.players[0].c === 3,
+        "both should slide, front one first: " + G.players[0].c + "," + G.players[1].c);
+    } },
+
+    { name: "oil does not touch rotation", run: function () {
+      benchGame(bench([["L."]]), [{ c: 0, r: 0, face: N }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "turn", turn: 1 });
+      assert(p.face === E && p.c === 0 && p.r === 0, "a rotate on oil turns and stays put");
+    } },
+
     // ---- Crash and Burn: presses and burners -------------------------
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
       benchGame(bench([["X3"]]), [{ c: 0, r: 0 }]);
@@ -3850,6 +3948,8 @@
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
+    ".pr-oil .pr-oil{fill:#0a0d16;stroke:var(--pr-concrete);stroke-width:1.5;opacity:.95}",
+    ".pr-oil .pr-oil-sheen{fill:var(--pr-accent);opacity:.32}",
     ".pr-press .pr-shaft{fill:var(--pr-bg)}",
     ".pr-press .pr-press-ram{fill:var(--pr-concrete);stroke:var(--pr-bg);stroke-width:3}",
     ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
