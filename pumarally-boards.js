@@ -664,6 +664,128 @@
       lasers: []
     },
 
+    /* THE THIRD TRANSCRIBED OFFICIAL BOARD, and the densest so far:
+       106 of its 144 squares are conveyor.
+
+       A spiral. Nested rectangular runs work inward, alternating
+       ordinary conveyor and express, and everything ends at a 2x2 pit
+       in the middle. Sixteen pushers, four to an edge. Four
+       wall-mounted lasers firing into the centre, two of them double.
+
+       TELLING THE TWO BELT SPEEDS APART is the whole difficulty of
+       this board, and the tell is the ARROW: an ordinary conveyor's is
+       solid, an express conveyor's is a hollow outline. Rail colour --
+       copper for ordinary, bare metal for express -- looks like the
+       easier test and is a trap, because a tile's two rails can belong
+       to two different belts and shadow desaturates copper until it
+       measures the same as bare metal. Two classifiers built on rail
+       colour disagreed with each other and with the board.
+
+       Pusher facing is the other trap. The hazard bar marks the wall
+       the ram is bolted to, so a pusher on row 1 shoves SOUTH and one
+       on row 12 shoves NORTH. The first draft had row 12 backwards.
+
+       Each pusher needs the wall it is mounted on, which is what the
+       sixteen perimeter walls are: not a decorative frame like
+       Exchange's and Island's, but structural. */
+    maelstrom: {
+      name: "Maelstrom", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " w. bv Pv .. pv bv b^ pv .. Pv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> b> b> b> b> b> bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|P> B> B> B> B> B> B> B> B> Bv bv P<|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|p> B^ b^ B> B> B> B> Bv bv Bv bv p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|p> B^ b^ B^ b^ b< b< b< b< Bv bv p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        "|P> B^ b^ b< b< b< b< b< b< b< b< P<|",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. P^ .. p^ .. B^ p^ .. P^ B^ w. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 4, r: 5, d: "E", n: 1 },
+        { c: 3, r: 6, d: "E", n: 2 },
+        { c: 5, r: 8, d: "N", n: 1 },
+        { c: 6, r: 9, d: "N", n: 2 }
+      ]
+    },
+
+    /* THE THIRD TRANSCRIBED OFFICIAL BOARD, and the densest so far:
+       106 of its 144 squares are conveyor.
+
+       A spiral. Nested rectangular runs work inward, alternating
+       ordinary conveyor and express, and everything ends at a 2x2 pit
+       in the middle. Sixteen pushers, four to an edge. Four
+       wall-mounted lasers firing into the centre, all single.
+
+       TELLING THE TWO BELT SPEEDS APART is the whole difficulty of
+       this board, and the tell is the ARROW: an ordinary conveyor's is
+       solid, an express conveyor's is a hollow outline. Rail colour --
+       copper for ordinary, bare metal for express -- looks like the
+       easier test and is a trap, because a tile's two rails can belong
+       to two different belts and shadow desaturates copper until it
+       measures the same as bare metal. Two classifiers built on rail
+       colour disagreed with each other and with the board.
+
+       Pusher facing is the other trap. The hazard bar marks the wall
+       the ram is bolted to, so a pusher on row 1 shoves SOUTH and one
+       on row 12 shoves NORTH. The first draft had row 12 backwards.
+
+       Each pusher needs the wall it is mounted on, which is what the
+       sixteen perimeter walls are: not a decorative frame like
+       Exchange's and Island's, but structural. */
+    maelstrom: {
+      name: "Maelstrom", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " w. bv Pv .. pv bv b^ pv .. Pv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> b> b> b> b> b> bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|P> B> B> B> B> B> B> B> B> Bv bv P<|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|p> B^ b^ B> B> B> B> Bv bv Bv bv p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|p> B^ b^ B^ b^ b< b< b< b< Bv bv p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        "|P> B^ b^ b< b< b< b< b< b< b< b< P<|",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. P^ .. p^ .. B^ p^ .. P^ B^ w. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 4, r: 5, d: "E", n: 1 },
+        { c: 3, r: 6, d: "E", n: 1 },
+        { c: 5, r: 8, d: "N", n: 1 },
+        { c: 6, r: 9, d: "N", n: 1 }
+      ]
+    },
+
     /* The start area. Robots enter the course from here, so it is
        laid out with position 1 nearest the middle and the numbers
        fanning outward, the way the printed bay does.
@@ -742,6 +864,30 @@
       boards: [{ id: "island", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[4, 4], [0, 5], [6, 7]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Flags ours, not the printed course. Only fifteen squares on this
+       board are plain floor, so they go on three of those rather than
+       on a belt that would carry the robot straight off them. */
+    maelstromRun: {
+      name: "Maelstrom Run",
+      blurb: "Everything spirals inward, and the middle is a hole.",
+      boards: [{ id: "maelstrom", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[3, 0], [11, 6], [5, 11]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Flags ours, not the printed course. Only fifteen squares on this
+       board are plain floor, so they go on three of those rather than
+       on a belt that would carry the robot straight off them. */
+    maelstromRun: {
+      name: "Maelstrom Run",
+      blurb: "Everything spirals inward, and the middle is a hole.",
+      boards: [{ id: "maelstrom", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[3, 0], [11, 6], [5, 11]],
       minPlayers: 2, maxPlayers: 8
     },
 
