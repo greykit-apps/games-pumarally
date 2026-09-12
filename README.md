@@ -138,10 +138,20 @@ node tools/check-rules.js 200     # 32 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
 node tools/gen-sprites.js         # redraw the 32x32 tile art
 node tools/make-icon.js           # regenerate icon.svg from the robot sprite
+node tools/stamp-assets.js        # content-hash the assets index.html loads
 ```
 
-`gen-sprites.js` and `make-icon.js` both take `--check`, which fails when the
-shipped output no longer matches the generator. Resolution is one constant in
+`gen-sprites.js`, `make-icon.js` and `stamp-assets.js` all take `--check`,
+which fails when the shipped output no longer matches its source.
+
+`stamp-assets.js` exists because the host serves `index.html` with
+`max-age=60, must-revalidate` but the `.js` files with `max-age=2592000` —
+thirty days, no revalidation. A returning visitor would pick up a fresh
+`index.html` and keep running a month-old engine, silently. The single-file
+games in this portfolio are immune by accident, since their whole game *is*
+the HTML; this is the first one split across files, so the split is ours to
+compensate for. Hashing content rather than counting versions means the URL
+changes exactly when the bytes do. Resolution is one constant in
 `gen-sprites.js` — though raising it does not by itself buy detail, since each
 sprite is drawn at real proportions rather than scaled up.
 
