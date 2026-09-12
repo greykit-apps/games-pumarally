@@ -9,9 +9,10 @@ board layouts are reimplemented as functional data; the name, artwork and
 printed boards remain theirs. Nothing here is scanned — the tiles are original
 sprites and the layouts are hand-transcribed tile data.
 
-> **Status: in development.** The rules engine is complete and tested. The game
-> is not yet playable — the current build renders a course and nothing else.
-> See [What works today](#what-works-today).
+> **Status: in development, and playable.** Program five registers and race
+> three AI robots round the Proving Ground. The twelve official boards, the
+> option cards and hot-seat are still to come — see
+> [What works today](#what-works-today).
 
 ## Play
 
@@ -28,7 +29,7 @@ at play time.
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
 | Headless simulation + 32 rule tests | done |
-| Playable UI — programming, register execution, animation | not yet |
+| Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards | not yet |
 | Hot-seat | not yet |
 | Board editor | not yet |
@@ -128,6 +129,23 @@ Each has a test, because each is easy to implement plausibly and wrongly.
 - **A wall stops an entire push chain**, including the robot that started it.
 - **An out-of-order flag scores nothing but still moves your archive**, and
   repairs happen in cleanup, never at the moment of touching.
+
+## Playing
+
+Each turn you are dealt `9 − damage` cards. Click five into your registers (or
+press `1`–`9`), then **Run**. You do not get to react once they are running.
+
+| Key | |
+|---|---|
+| `1`–`9` | place that card in the next open register |
+| `Backspace` | take the last card back |
+| `Enter` | run the registers |
+| `S` | cycle speed — slow, normal, fast |
+| `N` | new game |
+
+The game autosaves every settled step and resumes where you left off. A 16-row
+course at 2× is taller than a laptop viewport, so the page follows the phase:
+your hand while you program, the board while it runs.
 
 ## Development
 
