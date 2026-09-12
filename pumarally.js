@@ -505,6 +505,22 @@
   /* A spill: an irregular dark pool with a slick highlight, so it reads
      as a hazard without borrowing the pit's black hole or the danger
      red that already means damage. Oil does no damage at all. */
+  /* A portal is a ring of teeth around a throat, and the COLOUR is the
+     whole of what matters -- a robot needs to see at a glance which
+     other square on the board this one is paired with, so the hue is
+     driven off the colour digit rather than the palette. */
+  var PORTAL_HUES = ["#a06cff", "#3fd67a", "#4aa8ff", "#ff7ad1", "#ffd166",
+                     "#ff8a5c", "#7ce0d3", "#c0c6e0", "#ff5f6d"];
+  function portalHue(n) { return PORTAL_HUES[(parseInt(n, 10) - 1) % PORTAL_HUES.length]; }
+
+  function portalSvg(n) {
+    var hue = portalHue(n);
+    return svg('<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
+               '<circle cx="50" cy="50" r="25" fill="none" stroke="' + hue + '" stroke-width="3" opacity=".65"/>' +
+               '<circle cx="50" cy="50" r="13" fill="' + hue + '" opacity=".9"/>' +
+               '<circle cx="50" cy="50" r="6" fill="var(--pr-bg)"/>', "pr-portal");
+  }
+
   function oilSvg() {
     return svg('<path class="pr-oil" d="M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z"/>' +
                '<path class="pr-oil-sheen" d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>',
@@ -602,6 +618,7 @@
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
+    else if (def.portal) out.push(portalSvg(code.charAt(1)));
     else if (def.crush) out.push(pressSvg());
     else if (def.burn) out.push(burnerSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
@@ -1368,6 +1385,7 @@
       var to = B.step(m.c, m.r, dir);
       m.c = to.c; m.r = to.r;
       tread(m);
+      throughPortal(m);
       if (i > 0) {
         log(chain[i - 1].name + " shoves " + m.name + " " + B.dirName(dir));
         var pctx = fire(chain[i - 1], "onPush", { pushed: m, dir: dir, pushDamage: 0 });
@@ -1394,6 +1412,53 @@
     var k = CARD_KINDS[cd.kind];
     if (k.turn !== undefined) return { kind: "turn", turn: k.turn, dist: 0, lateral: 0 };
     return { kind: "move", turn: 0, dist: k.move, lateral: 0 };
+  }
+
+  /* CRASH AND BURN: portals.
+
+     A robot entering a portal comes out of the other one of the same
+     colour and carries on from there -- the pair counts as one square,
+     so this is not a move and nothing on the way is triggered twice.
+
+     What keeps it finite is the rule that a robot STANDING on a portal
+     switches both off. The robot that just arrived is standing on the
+     far one, so the pair is dead behind it and it cannot bounce back.
+     The same sentence covers the occupied case for free: if anyone is
+     already on either end, the colour is off and the entering robot
+     simply stands on what is now an ordinary square. */
+  function portalExit(p) {
+    var C = UI.course;
+    if (B.isVoid(C, p.c, p.r)) return null;
+    var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
+    if (!el || !el.portal) return null;
+    var colour = code.charAt(1), other = null;
+    for (var r = 0; r < C.h && !other; r++) {
+      for (var c = 0; c < C.w; c++) {
+        if (c === p.c && r === p.r) continue;
+        if (B.isVoid(C, c, r)) continue;
+        var cd = B.codeAt(C, c, r);
+        if (cd.charAt(0) === "t" && cd.charAt(1) === colour) { other = { c: c, r: r }; break; }
+      }
+    }
+    if (!other) return null;
+    if (occupiedBySomeoneElse(p, p.c, p.r) || occupiedBySomeoneElse(p, other.c, other.r)) return null;
+    return other;
+  }
+
+  function occupiedBySomeoneElse(p, c, r) {
+    var q = robotAt(c, r);
+    return !!(q && q !== p);
+  }
+
+  /* Called wherever a robot's position changes, so a robot reaches a
+     portal the same way whether it drove, was shoved, was carried by a
+     belt or skidded there on oil. */
+  function throughPortal(p) {
+    var to = portalExit(p);
+    if (!to) return;
+    p.c = to.c; p.r = to.r;
+    tread(p);
+    log(p.name + " drops through a portal");
   }
 
   function onOil(p) {
@@ -1500,6 +1565,7 @@
       var b = G.players[ids[i]];
       b.c = mv.to.c; b.r = mv.to.r;
       tread(b);
+      throughPortal(b);
       if (isHole(C, b.c, b.r)) { destroy(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
       /* Rotate ONLY because a belt carried the robot onto the curve.
          A robot that was already standing there, or was pushed on,
@@ -3073,6 +3139,37 @@
         checkpointPass();
         assert(G.players[0].flags === 1, "standing on flag 1 scores it whatever the house rule (mode " + mode + ")");
       }
+    } },
+
+    // ---- Crash and Burn: portals -------------------------------------
+    { name: "a portal drops you out of its twin and you carry on", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 2 });
+      /* Move 2: into the portal at c1, out at c3, then one more square. */
+      assert(p.c === 4, "should come out of the far portal and finish the move, got c=" + p.c);
+    } },
+
+    { name: "the pair counts as one square, so a robot cannot bounce back", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 3, "one square in, straight out the other side, got c=" + p.c);
+    } },
+
+    { name: "a robot standing on a portal switches the colour off", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 3, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 1, "the far end is occupied, so the colour is dead and this is ordinary floor -- c=" + p.c);
+      assert(G.players[1].c === 3, "and the robot standing there is not disturbed");
+    } },
+
+    { name: "a lone portal is refused as a transcription error", run: function () {
+      var threw = false;
+      try { bench([["..", "t1", ".."]]); } catch (e) { threw = /pairs/.test(e.message); }
+      assert(threw, "a portal colour appearing once must not validate");
     } },
 
     // ---- Crash and Burn: oil -----------------------------------------

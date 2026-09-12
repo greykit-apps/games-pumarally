@@ -118,6 +118,11 @@
        printed on the square as a number -- so the argument slot, which
        these do not need for a direction, carries WHEN instead. */
     "L": { name: "oil slick", arg: "none", oil: true, editions: ["classic"] },
+    /* The argument is the COLOUR, and colours come in pairs -- the
+       validator refuses a portal without its twin, because a lone
+       portal is a transcription error that would otherwise render and
+       play as a square that swallows robots. */
+    "t": { name: "portal", arg: "pair", portal: true, editions: ["classic"] },
     "X": { name: "press", arg: "when", crush: true, editions: ["classic"] },
     "F": { name: "burner", arg: "when", burn: 1, editions: ["classic"] },
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
@@ -166,6 +171,7 @@
        w.  repair (1 damage)
        W.  upgrade (2 damage OR an option card -- the player chooses)
        L.  oil slick                        (Crash and Burn)
+       t1  portal, colour 1 (exactly two)   (Crash and Burn)
        X3  press, active in register 3      (Crash and Burn)
        Fo  burner, active in registers 1/3/5 (Crash and Burn)
        s3  docking bay position 3
@@ -263,6 +269,7 @@
           if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) E_("(" + c + "," + r + ") " + def.name + " needs a direction (^ > v <), got '" + a + "'");
           if (def.arg === "none" && a !== ".") E_("(" + c + "," + r + ") " + def.name + " takes no argument, got '" + a + "'");
           if (def.arg === "digit" && !/[1-8]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a position 1-8, got '" + a + "'");
+          if (def.arg === "pair" && !/[1-9]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a colour 1-9, got '" + a + "'");
           if (def.arg === "when" && !/[.oe1-5]/.test(a)) {
             E_("(" + c + "," + r + ") " + def.name + " needs a register: '.' always, " +
                "1-5 for one, 'o' for 1/3/5 or 'e' for 2/4, got '" + a + "'");
@@ -276,6 +283,24 @@
         }
       }
     }
+    /* Portals come in twos. One is a dropped character; three is a
+       colour used twice by mistake. Either reads as a plausible board. */
+    var portals = {};
+    for (var pr = 0; pr < h; pr++) {
+      for (var pc = 0; pc < w; pc++) {
+        var pcode = g.cell[pr * w + pc];
+        if (!pcode || pcode.charAt(0) !== "t") continue;
+        var col = pcode.charAt(1);
+        (portals[col] = portals[col] || []).push(pc + "," + pr);
+      }
+    }
+    for (var col2 in portals) {
+      if (portals[col2].length !== 2) {
+        E_("portal colour " + col2 + " appears " + portals[col2].length +
+           " time(s) at " + portals[col2].join(" and ") + "; portals come in pairs");
+      }
+    }
+
     for (var i = 0; i < (spec.lasers || []).length; i++) {
       var L = spec.lasers[i];
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
