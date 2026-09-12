@@ -448,13 +448,6 @@
     for (var li = 0; li < C.lasers.length; li++) {
       if (C.lasers[li].c === c && C.lasers[li].r === r) out.push(emitterSvg(C.lasers[li].d));
     }
-    /* Walls are elements rather than classes on the cell, because a
-       raised, striped, shadow-casting bar is four properties of its
-       own and a corner square has two of them. They go last so they
-       sit over whatever they block. */
-    for (var d = 0; d < 4; d++) {
-      if (B.wallAt(C, c, r, d)) out.push('<i class="pr-wall pr-' + "news".charAt(d) + '"></i>');
-    }
     return out.join("");
   }
 
@@ -492,6 +485,46 @@
        be read out twice. */
     return '<span class="pr-leg"><span class="pr-leg-art" aria-hidden="true">' + art +
            "</span>" + esc(name) + "</span>";
+  }
+
+  /* WALLS SIT ON THE LATTICE, NOT IN A SQUARE.
+
+     A wall is not a property of a square, it is the edge between two
+     of them, and it exists equally from both sides -- so it is drawn
+     once, straddling the line, half in each. Its own layer is what
+     makes that possible: a bar inside a cell is clipped by that cell
+     and can only ever be a wall that square has, which is not what a
+     wall is.
+
+     Drawing them per-cell was also quietly wrong twice over. wallAt
+     is symmetric, so every interior wall was drawn TWICE, once inside
+     each neighbour -- while a perimeter wall, having one neighbour,
+     was drawn once. Interior walls came out at double the weight of
+     perimeter ones, which is precisely backwards as a signal: the
+     board's edge is the hardest boundary on it.
+
+     Walls are stored on the N/W lattice, so emitting N and W for
+     every square covers every interior edge exactly once. The far
+     edges have no square past them to own their N or W, so the last
+     row's S and the last column's E are emitted explicitly -- and so
+     is any edge against the void, which on a multi-board course is an
+     interior edge with nothing on the other side. */
+  function wallSpans(C) {
+    var out = [], c, r;
+    function bar(c, r, vertical) {
+      return '<i class="pr-wall' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r + '"></i>';
+    }
+    function edgeOfCourse(c, r) { return !B.inGrid(C, c, r) || B.isVoid(C, c, r); }
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        if (B.isVoid(C, c, r)) continue;
+        if (B.wallAt(C, c, r, N)) out.push(bar(c, r, false));
+        if (B.wallAt(C, c, r, W)) out.push(bar(c, r, true));
+        if (edgeOfCourse(c, r + 1) && B.wallAt(C, c, r, S)) out.push(bar(c, r + 1, false));
+        if (edgeOfCourse(c + 1, r) && B.wallAt(C, c, r, E)) out.push(bar(c + 1, r, true));
+      }
+    }
+    return out.join("");
   }
 
   /* Laser beams cross tiles, so they are their own absolutely
@@ -2703,6 +2736,28 @@
       assert(threw && /unknown hook/.test(threw), "expected an unknown-hook error, got " + threw);
     } },
 
+    { name: "a wall is drawn once, on the line, however many squares own it", run: function () {
+      /* wallAt is symmetric, so both neighbours report an interior
+         wall. Drawing it per-cell therefore drew it TWICE -- while a
+         perimeter wall, having one neighbour, was drawn once, so
+         interior walls came out at double the weight of the board's
+         own edge. Exactly backwards as a signal. */
+      function bars(g) { return (wallSpans(g).match(/class="pr-wall/g) || []).length; }
+
+      var between = bench([["..", ".."]], ["0,0,E"]);
+      assert(B.wallAt(between, 0, 0, E) && B.wallAt(between, 1, 0, W),
+        "the fixture needs a wall both squares can see");
+      assert(bars(between) === 1, "one edge, one bar, got " + bars(between));
+
+      var boxed = bench([[".."]], ["0,0,N", "0,0,E", "0,0,S", "0,0,W"]);
+      assert(bars(boxed) === 4, "four edges, four bars, got " + bars(boxed));
+
+      /* And it is emitted against the lattice slot, which for a wall
+         between two squares is the FAR square's near edge -- that is
+         what puts the bar on the line instead of inside a box. */
+      assert(/--c:1;--r:0/.test(wallSpans(between)), "the bar belongs to the edge, not to a square");
+    } },
+
     { name: "a conveyor curve is DRAWN as a curve, and a merge as a merge", run: function () {
       /* A curve rotates the robot on it and a straight belt does not,
          so a curve drawn with a straight arrow hides a rule. It did:
@@ -3048,16 +3103,20 @@
        Raised, striped, and casting a shadow onto the square they
        block. A wall you can see standing up is a wall you do not try
        to drive through, which is the whole reason for the depth. */
-    ".pr-wall{position:absolute;background:var(--pr-stripe);z-index:3;pointer-events:none}",
-    /* The striped face is the warning; the concrete edge is the thing
-       the warning is painted on, and it is what gives the bar an
-       outside rather than just a colour. */
-    ".pr-wall::after{content:\"\";position:absolute;inset:0;box-sizing:border-box;",
-    "border:2px solid var(--pr-concrete)}",
-    ".pr-wall.pr-n{left:0;right:0;top:0;height:15%;box-shadow:0 3px 5px rgba(0,0,0,.65)}",
-    ".pr-wall.pr-s{left:0;right:0;bottom:0;height:15%;box-shadow:0 -3px 5px rgba(0,0,0,.65)}",
-    ".pr-wall.pr-w{top:0;bottom:0;left:0;width:15%;box-shadow:3px 0 5px rgba(0,0,0,.65)}",
-    ".pr-wall.pr-e{top:0;bottom:0;right:0;width:15%;box-shadow:-3px 0 5px rgba(0,0,0,.65)}",
+    ".pr-walls{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;",
+    "--wt:calc(var(--tile) * 0.19)}",
+    /* Centred on the edge, so half of it lies in each square. The
+       striped face is the warning; the concrete edge is the thing the
+       warning is painted on, and it is what gives the bar an outside
+       rather than just a colour. The shadow falls both ways, because
+       the wall is standing on the line rather than against a side. */
+    ".pr-wall{position:absolute;background:var(--pr-stripe);pointer-events:none;",
+    "box-sizing:border-box;border:2px solid var(--pr-concrete);",
+    "box-shadow:0 0 6px 1px rgba(0,0,0,.7);",
+    "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 2);",
+    "width:var(--tile);height:var(--wt)}",
+    ".pr-wall.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
+    "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile)}",
 
     /* Beams cross tiles, so they are their own layer. --off is a
        fraction of a tile, which is what lets several parallel beams
@@ -3179,7 +3238,7 @@
     "color:var(--pr-text);font:inherit;padding:3px 6px}",
     ".pr-ed-row input[type=range]{width:90px;accent-color:var(--pr-accent)}",
     ".pr-ed-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
-    ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams{position:absolute;left:0;top:0}",
+    ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams,.pr-ed-stage .pr-walls{position:absolute;left:0;top:0}",
     ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
     ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
     ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
@@ -4474,6 +4533,12 @@
     beams.innerHTML = beamSpans(C);
     host.appendChild(beams);
 
+    var walls = el("div", "pr-walls");
+    walls.style.width = w + "px";
+    walls.style.height = h + "px";
+    walls.innerHTML = wallSpans(C);
+    host.appendChild(walls);
+
     /* The reference photograph sits ABOVE the traced board at an
        adjustable opacity, so you are always comparing your work with
        the thing it is a transcription of. It is never exported. */
@@ -4766,6 +4831,8 @@
     UI.els.grid.style.height = h + "px";
     UI.els.beams.style.width = w + "px";
     UI.els.beams.style.height = h + "px";
+    UI.els.walls.style.width = w + "px";
+    UI.els.walls.style.height = h + "px";
     UI.els.pieces.style.width = w + "px";
     UI.els.pieces.style.height = h + "px";
     if (UI.mounted) renderPieces();
@@ -4822,9 +4889,12 @@
     grid.setAttribute("aria-label", describeCourse(C));
     var beams = el("div", "pr-beams");
     beams.setAttribute("aria-hidden", "true");
+    var walls = el("div", "pr-walls");
+    walls.setAttribute("aria-hidden", "true");
     var pieces = el("div", "pr-pieces");
     pieces.setAttribute("aria-hidden", "true");
-    stage.appendChild(grid); stage.appendChild(beams); stage.appendChild(pieces);
+    stage.appendChild(grid); stage.appendChild(beams);
+    stage.appendChild(walls); stage.appendChild(pieces);
 
     var side = el("aside", "pr-side");
     var players = el("div", "pr-panel");
@@ -4871,7 +4941,8 @@
     host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
     host.appendChild(overlay); host.appendChild(curtain);
 
-    UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, program: program,
+    UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, walls: walls,
+      program: program,
                pieces: pieces, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
                choice: choice, opts: optsRow, main: main, overlay: overlay, curtain: curtain,
@@ -4926,6 +4997,7 @@
     }
     UI.els.grid.innerHTML = out.join("");
     UI.els.beams.innerHTML = beamSpans(C);
+    UI.els.walls.innerHTML = wallSpans(C);
   }
 
   function describeTile(C, c, r) {
