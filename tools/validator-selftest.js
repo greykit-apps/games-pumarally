@@ -80,7 +80,7 @@ board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[
 // ---- editions ------------------------------------------------------------
 board("unknown edition",  s => { s.edition = "gritty reboot"; },        "which is not a thing");
 board("repair site on a modern board",
-      s => { s.edition = "modern"; },
+      s => { s.edition = "modern"; s.set = "modernBase"; },
       "which the Modern edition does not print");
 
 // A modern board and a classic one cannot share a course.
@@ -89,11 +89,20 @@ board("repair site on a modern board",
   let msg = null;
   try {
     B.BOARD_SPECS.dockingBay.edition = "modern";
+    B.BOARD_SPECS.dockingBay.set = "modernBase";
+    // strip the elements the modern edition does not print, so the
+    // course check is what fires rather than the element check
+    B.BOARD_SPECS.dockingBay.pic = B.BOARD_SPECS.dockingBay.pic.map(r => r.replace(/[wW]\./g, ".."));
     B.validateCourse("provingRun", () => {});
   } catch (e) { msg = e.message; }
   finally { Object.assign(B.BOARD_SPECS.dockingBay, keepB); }
   record("mixed-edition course", msg, "a course is one game or the other");
 }
+
+board("unknown set",      s => { s.set = "kickstarter"; },             "not a box that exists");
+board("set from the wrong edition",
+      s => { s.set = "wetAndWild"; },
+      "but declares itself Classic");
 
 // ---- courses -------------------------------------------------------------
 course("unknown board",   c => { c.boards[0].id = "nope"; },             "which is not defined");

@@ -71,6 +71,29 @@
 
   var BOTH = ["classic", "modern"];
 
+  /* ------------------------------------------------------------
+     SETS
+
+     Which box a board came out of. Boards are picked by set as much
+     as by name -- "give me a course from Armed and Dangerous" is the
+     ordinary way to choose one -- so the box is data rather than a
+     note in the name, and a set belongs to exactly one edition.
+
+     A board whose set disagrees with its own edition is a
+     transcription error: there is no Armed and Dangerous board in
+     the 2016 game, and saying so here is cheaper than finding out
+     when the rules do not fit.
+     ------------------------------------------------------------ */
+  var SETS = {
+    authored:         { name: "Authored",            edition: "classic", box: "Not from any box" },
+    base:             { name: "Base Game",           edition: "classic", box: "RoboRally (1994-2005)" },
+    armedAndDangerous:{ name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous (1995)" },
+    crashAndBurn:     { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn (1997)" },
+    modernBase:       { name: "Base Game",           edition: "modern",  box: "Robo Rally (2016)" },
+    wetAndWild:       { name: "Wet and Wild",        edition: "modern",  box: "Wet and Wild" },
+    chaosAndCarnage:  { name: "Chaos and Carnage",   edition: "modern",  box: "Chaos and Carnage" }
+  };
+
   /* ============================================================
      ELEMENT LEGEND
      A cell is exactly two characters: element, then argument. The
@@ -179,6 +202,13 @@
     var edition = spec.edition || "classic";
     if (!EDITIONS[edition]) E_('declares edition "' + edition + '", which is not a thing');
 
+    var set = spec.set || "authored";
+    if (!SETS[set]) E_('declares set "' + set + '", which is not a box that exists');
+    if (SETS[set].edition !== edition) {
+      E_('is in the ' + SETS[set].name + " set, which is " + EDITIONS[SETS[set].edition].name +
+         ", but declares itself " + EDITIONS[edition].name);
+    }
+
     if (!Array.isArray(pic)) E_("has no picture");
     if (pic.length !== wantRows) E_("has " + pic.length + " picture rows, expected " + wantRows + " for a " + w + "x" + h + " board");
 
@@ -226,6 +256,7 @@
     }
     g.name = spec.name;
     g.edition = edition;
+    g.set = set;
     g.origin = spec.origin || "authored";
     g.notes = spec.notes || "";
     return g;
@@ -273,8 +304,9 @@
     var out = [];
     out.push("    " + id + ": {");
     var edition = meta.edition || g.edition || "classic";
+    var set = meta.set || g.set || "authored";
     out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h +
-             ', edition: "' + edition + '", origin: "' + origin + '",');
+             ', edition: "' + edition + '", set: "' + set + '", origin: "' + origin + '",');
     if (notes) out.push('      notes: "' + notes + '",');
     out.push("      pic: [");
     for (i = 0; i < pic.length; i++) out.push('        "' + pic[i] + '"' + (i === pic.length - 1 ? "" : ","));
@@ -438,7 +470,7 @@
        construction in a way no transcribed board is on day one.
        It doubles as the tutorial course. */
     provingGround: {
-      name: "Proving Ground", w: 12, h: 12, edition: "classic", origin: "authored",
+      name: "Proving Ground", w: 12, h: 12, edition: "classic", set: "authored", origin: "authored",
       notes: "Authored for PumaRally. Every element type appears at least once.",
       pic: [
         "+  +  +  +--+  +  +  +  +  +  +  +  +",
@@ -485,7 +517,7 @@
        pushers of both parities in the corners, 1/2/3-damage lasers on
        three different edges. */
     shuntYard: {
-      name: "Shunt Yard", w: 12, h: 12, edition: "classic", origin: "authored",
+      name: "Shunt Yard", w: 12, h: 12, edition: "classic", set: "authored", origin: "authored",
       notes: "Authored for PumaRally, to exercise multi-board assembly and rotation.",
       pic: [
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
@@ -530,7 +562,7 @@
        when reference material is available; nothing in the engine
        depends on its contents beyond the eight numbered squares. */
     dockingBay: {
-      name: "Docking Bay", w: 12, h: 4, edition: "classic", origin: "authored",
+      name: "Docking Bay", w: 12, h: 4, edition: "classic", set: "authored", origin: "authored",
       notes: "Authored placeholder. Eight start positions; no printed belts.",
       pic: [
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -734,7 +766,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, EDITIONS: EDITIONS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
