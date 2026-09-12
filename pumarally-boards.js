@@ -860,6 +860,80 @@
       ]
     },
 
+    /* THE FIFTH TRANSCRIBED OFFICIAL BOARD.
+
+       Named for the hole in the middle: five pit squares in a plus --
+       (6,5), (5,6), (6,6), (7,6), (6,7) -- printed as ONE cross-shaped
+       opening. Count it as five pits, not one, the same care Island's
+       L-shaped holes need. Eleven pits in all.
+
+       Two full-width belt lanes run west then east across the middle
+       (rows 6 and 7) and two full-height lanes run down and up the
+       middle (columns 6 and 7), so the board is a crossroads with the
+       hole sitting in the junction.
+
+       Every arrow is SOLID: no express conveyors, every belt speed 1.
+       No gears and no pushers.
+
+       Forty-five walls -- the same sixteen-wall frame Exchange, Island
+       and Pit Maze carry (columns 3/5/8/10 top and bottom, rows 3/5/8/10
+       left and right) plus twenty-nine interior.
+
+       THE FRAME WALL AT (1,10)W IS PRINTED ALMOST ENTIRELY OUTSIDE THE
+       PLAYING GRID. Clipped to the squares it scores 0.48 where the
+       other three west-frame walls score 0.97-1.00, which reads exactly
+       like "no wall". It is the same thing the note above `island`
+       records about that board's top row, and it is not resolvable by
+       arguing from the frame's symmetry -- Exchange has two frame walls
+       that are not where symmetry would put them. It was settled by
+       rectifying again with a margin OUTSIDE the grid and measuring the
+       rim: rows 3/5/8/10 carry 15-17% yellow there and every other row
+       carries 0-3%.
+
+       FOUR lasers, and the one on column 9 does TWO damage -- two
+       barrels on one wall mount throwing two parallel beams, which is
+       how the printed board draws a 2-damage laser. Both of its beams
+       are off the cell centre line, so a scan that samples only the
+       middle of each square finds the other three lasers and misses
+       this one completely. Sample the full cell width. */
+    cross: {
+      name: "Cross", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      notes: "Transcribed from the printed board.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. bv .. .. .. bv b^ .. .. .. b^ w. ",
+        "+  +  +  +  +  +  +  +  +--+--+  +  +",
+        " .. b> b> b> b> bv b^ .. .. ..|b^ b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. .. .. .. bv b^|.. .. o. .. ..|",
+        "+  +  +  +  +--+  +  +  +  +  +  +  +",
+        " .. ..|.. W.|bv b< b^|.. .. .. .. .. ",
+        "+  +--+  +--+  +  +  +--+--+  +--+  +",
+        "|.. o. o.|bv b< o. b^ b< .. .. .. ..|",
+        "+  +  +  +  +  +  +  +  +  +--+  +  +",
+        " b< b< b< b< o. o. o. b^ b< b< b< b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> b> b> b> bv o. b> b> b> b> b> b> ",
+        "+  +  +--+  +  +  +  +--+  +  +  +  +",
+        "|.. .. .. .. b> bv b^|.. .. .. .. ..|",
+        "+  +--+  +--+--+  +  +  +  +  +--+  +",
+        " .. ..|.. ..|.. bv b^|.. ..|o. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|w. .. .. .. .. bv b^ ..|.. .. .. ..|",
+        "+  +  +--+  +  +  +  +  +  +  +  +  +",
+        " b> bv o. .. .. bv b^ b< b< b< b< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " o. bv .. .. .. bv b^ ..|.. .. b^ .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 4, r: 2, d: "N", n: 1 },
+        { c: 8, r: 3, d: "N", n: 2 },
+        { c: 2, r: 8, d: "E", n: 1 },
+        { c: 7, r: 8, d: "E", n: 1 }
+      ]
+    },
+
     /* The start area. Robots enter the course from here, so it is
        laid out with position 1 nearest the middle and the numbers
        fanning outward, the way the printed bay does.
@@ -975,6 +1049,18 @@
       boards: [{ id: "pitMaze", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[8, 2], [2, 7], [11, 10]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Flags ours, not the printed course -- same reason as the others:
+       the course cards have not been photographed. All three are on
+       plain floor, clear of the belt lanes and the central hole. */
+    crossRun: {
+      name: "Cross Run",
+      blurb: "Four belt lanes meet, and the junction is a hole.",
+      boards: [{ id: "cross", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[1, 2], [10, 7], [3, 10]],
       minPlayers: 2, maxPlayers: 8
     },
 
