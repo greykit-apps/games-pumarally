@@ -9,10 +9,10 @@ board layouts are reimplemented as functional data; the name, artwork and
 printed boards remain theirs. Nothing here is scanned — the tiles are original
 sprites and the layouts are hand-transcribed tile data.
 
-> **Status: in development, and playable.** Program five registers and race
-> three AI robots round the Proving Ground. The twelve official boards and
-> hot-seat are still to come, and the option deck is 16 of its 26 cards — see
-> [What works today](#what-works-today).
+> **Status: in development, and playable.** Program five registers and race up
+> to seven robots round the Proving Ground, alone or pass-and-play. The twelve
+> official boards are still to come, and the option deck is 16 of its 26 cards
+> — see [What works today](#what-works-today).
 
 ## Play
 
@@ -32,7 +32,8 @@ at play time.
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
-| Hot-seat | not yet |
+| Hot-seat pass-and-play | done |
+| Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | not yet |
 | The twelve official boards | not yet — see [Board provenance](#board-provenance) |
 
@@ -48,6 +49,32 @@ in the guess you made ninety seconds ago.
 Damage is the pressure. Each point costs you a card next turn, and from five
 damage your registers start locking from the right, so a wounded robot is
 committed to moves it can no longer choose.
+
+## Playing with other people
+
+Set the **Humans** slider above one and the game becomes pass-and-play. The
+curtain between players is a function of how many humans are *seated*, not of
+whether there are bots — one human against seven robots gets no curtain at all,
+which is the common case and the one where any friction would be pure cost.
+
+It hides the board as well as the hand, and does it three ways, because covering
+the screen is not the same as hiding it: the board goes `aria-hidden` (a screen
+reader reads straight through an overlay), it is blurred rather than merely
+occluded, and the keyboard handler refuses everything except the dismiss — a
+delegated key listener has no idea anything is on top of it, and `3` would
+otherwise still program the previous player's card.
+
+## Help that cannot drift
+
+The help is generated from the tables the engine reads. Board elements come
+from `ELEMENT_DEFS`, the card table and the damage/lock table from the deck
+definition, the option list from `OPTION_DEFS` — so renaming a tile renames it
+in the help, and adding an option card documents it.
+
+The turn-order page is the exception, since prose cannot be derived. So each
+row names a real step in the phase machine and `validateTables()` **refuses to
+load** if one of them does not exist. Rename a step and that is the only thing
+that will notice the help now lies.
 
 ## Option cards
 
@@ -183,6 +210,9 @@ press `1`–`9`), then **Run**. You do not get to react once they are running.
 | `Backspace` | take the last card back |
 | `Enter` | run the registers |
 | `S` | cycle speed — slow, normal, fast |
+| `M` | mute |
+| `H` or `?` | help |
+| `N` | new game |
 | click | answer an option card's question when one is asked |
 | `N` | new game |
 

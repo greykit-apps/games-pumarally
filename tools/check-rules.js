@@ -64,6 +64,17 @@ if (opt.unfinished > games * 0.1) {
   console.error(`  error:   ${opt.unfinished} option games hit the turn cap`); failed++;
 }
 
+// The difficulty slider has to mean something. Nothing else would notice if the
+// tiers collapsed into each other -- every game would still finish, every test
+// would still pass, and the setting would quietly be decoration.
+const tiers = [0, 2].map(skill => PR.runSim(Math.max(60, games / 2), { skill }, 300));
+console.log(`tiers: scrapyard ${tiers[0].turns.avg} turns/game, grand prix ${tiers[1].turns.avg}`);
+if (!(tiers[1].turns.avg < tiers[0].turns.avg)) {
+  console.error(`  error:   the best bots (${tiers[1].turns.avg} turns) are no faster than the worst ` +
+    `(${tiers[0].turns.avg}) -- the difficulty tiers are not doing anything`);
+  failed++;
+}
+
 // A seed must replay a game exactly, or saves and replays are worthless.
 const fp = s => { PR.newGame(s); PR.advance();
   return JSON.stringify([PR.G.turn, PR.G.winner, PR.G.players.map(p => [p.c, p.r, p.face, p.damage, p.lives, p.flags])]); };

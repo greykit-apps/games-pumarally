@@ -1006,6 +1006,26 @@
       if (!used[HOOKS[hi]]) throw new Error('hook "' + HOOKS[hi] + '" is declared but no option card uses it');
     }
 
+    /* Every step the help describes has to be a step the machine
+       actually runs. Rename a step and this is the only thing that
+       will notice the help now lies. */
+    for (var ts = 0; ts < TURN_STEPS.length; ts++) {
+      var row = TURN_STEPS[ts];
+      if (!STEP[row.phase] || !STEP[row.phase][row.step]) {
+        throw new Error('the help describes step "' + row.phase + "." + row.step + '", which the phase machine does not have');
+      }
+    }
+
+    for (var pk in DIFFICULTY_PRESETS) {
+      for (var rk in DIFFICULTY_PRESETS[pk]) {
+        if (!SLIDER_DEFS[rk]) throw new Error('preset "' + pk + '" sets unknown rule "' + rk + '"');
+        var pv = DIFFICULTY_PRESETS[pk][rk];
+        if (pv < SLIDER_DEFS[rk].min || pv > SLIDER_DEFS[rk].max) {
+          throw new Error('preset "' + pk + '" sets ' + rk + " to " + pv + ", outside its range");
+        }
+      }
+    }
+
     if (LIVERIES.length !== 8) throw new Error("there are " + LIVERIES.length + " liveries, but the game seats 8");
     var lid = {};
     for (var j = 0; j < LIVERIES.length; j++) {
@@ -1106,7 +1126,11 @@
     beams: null,
     speed: 1,
     opts: null,
-    lastPhase: null
+    lastPhase: null,
+    muted: false,
+    curtainCleared: null,
+    helpTab: "turn",
+    prevFocus: null
   };
 
   function go(phase, step) { G.phase = phase; G.step = step; }
@@ -2011,6 +2035,7 @@
         go("exec", "move");
         return animate([
           { type: "log", msg: "-- register " + (G.register + 1) + " --" },
+          { type: "sfx", name: "reveal" },
           { type: "render" },
           { type: "wait", delay: 320 }
         ]);
@@ -2032,17 +2057,17 @@
         G.exec.queue.shift();
         log(p.name + " " + describePlan(cd, ctx));
         runPlan(p, ctx);
-        return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
+        return animate([{ type: "sfx", name: "move" }, { type: "render" }, { type: "wait", delay: 300 }]);
       },
 
       /* Each board element gets its own beat, but only if it actually
          moved somebody. A pause for a pusher nobody was standing on is
          five wasted seconds a turn, and the player learns to stop
          watching -- which is the opposite of what the beat is for. */
-      express: function () { return boardBeat(beltPass, 2, "belts", 300); },
-      belts: function () { return boardBeat(beltPass, 1, "pushers", 300); },
-      pushers: function () { return boardBeat(pusherPass, null, "gears", 260); },
-      gears: function () { return boardBeat(gearPass, null, "lasers", 260); },
+      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt"); },
+      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt"); },
+      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove"); },
+      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear"); },
 
       lasers: function () {
         var before = boardSig();
@@ -2067,6 +2092,7 @@
         var hit = boardSig() !== before;
         if (!beams.length) return NEXT;
         return animate([
+          { type: "sfx", name: "laser" },
           { type: "beams", beams: beams },
           { type: "wait", delay: 240 },
           { type: "render" },
@@ -2080,7 +2106,7 @@
         checkpointPass();
         go("exec", "endReg");
         if (boardSig() === before) return NEXT;
-        return animate([{ type: "render" }, { type: "wait", delay: 300 }]);
+        return animate([{ type: "sfx", name: "flag" }, { type: "render" }, { type: "wait", delay: 300 }]);
       },
 
       /* The whole of the option-card UI. Every "you may" card in the
@@ -2181,12 +2207,12 @@
 
   /* Run one board element, and hand back a beat only if the board
      actually did something. */
-  function boardBeat(fn, arg, nextStep, delay) {
+  function boardBeat(fn, arg, nextStep, delay, sound) {
     var before = boardSig();
     if (arg === null) fn(); else fn(arg);
     go("exec", nextStep);
     if (boardSig() === before) return NEXT;
-    return animate([{ type: "render" }, { type: "wait", delay: delay }]);
+    return animate([{ type: "sfx", name: sound }, { type: "render" }, { type: "wait", delay: delay }]);
   }
 
   /* Where every beam starts and stops this register, for the overlay.
@@ -2272,7 +2298,7 @@
     if (UI.headless || !UI.mounted) return;
     saveGame();
     updateAll();
-    if (G.gameOver) { clearSave(); renderGameOver(); }
+    if (G.gameOver) { clearSave(); renderGameOver(); sfx(G.winner !== null && isHuman(G.players[G.winner]) ? "win" : "lose"); }
   }
 
   /* ============================================================
@@ -3208,6 +3234,11 @@
     "display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;box-sizing:border-box;",
     "overflow-x:auto}",
     ".pr-root *{box-sizing:border-box}",
+    /* A class that sets display beats the user agent's [hidden] rule on
+       specificity, so .pr-curtain{display:flex} quietly defeats
+       curtain.hidden and covers the whole page forever. Anything here
+       toggled with .hidden needs this. */
+    ".pr-root [hidden]{display:none!important}",
     ".pr-root button{font:inherit;color:inherit;background:var(--pr-panel);border:1px solid var(--pr-border);",
     "padding:4px 10px;cursor:pointer}",
     ".pr-root button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-text)}",
@@ -3288,6 +3319,37 @@
     ".pr-err{color:var(--pr-danger);white-space:pre-wrap;font-size:12px;max-width:640px}",
     ".pr-legend{display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:center;max-width:780px;font-size:10px;opacity:.75}",
     ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}",
+    /* modals */
+    ".pr-overlay{position:fixed;inset:0;z-index:40;background:rgba(3,5,12,.86);display:flex;",
+    "align-items:center;justify-content:center;padding:20px}",
+    ".pr-modal{background:var(--pr-panel);border:1px solid var(--pr-accent);padding:16px;",
+    "max-width:680px;width:100%;max-height:86vh;overflow-y:auto;",
+    "font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;color:var(--pr-ink)}",
+    ".pr-modal h2{margin:0 0 10px;font-size:13px;letter-spacing:2px;color:var(--pr-accent);font-weight:normal}",
+    ".pr-modal p{margin:0 0 10px}",
+    ".pr-modal table{border-collapse:collapse;width:100%;margin:0 0 10px;font-size:12px}",
+    ".pr-modal th{text-align:left;color:var(--pr-accent);font-weight:normal;border-bottom:1px solid var(--pr-border);padding:3px 6px 3px 0}",
+    ".pr-modal td{padding:3px 6px 3px 0;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}",
+    ".pr-modal td:first-child{color:var(--pr-text);white-space:nowrap}",
+    ".pr-steps{margin:0;padding-left:20px}.pr-steps li{margin:0 0 7px}",
+    ".pr-steps b{color:var(--pr-text);font-weight:normal}",
+    ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px}",
+    ".pr-tabs .on,.pr-presets .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
+    ".pr-help-body{min-height:180px}",
+    ".pr-modal-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px}",
+    ".pr-rule{margin:0 0 10px}",
+    ".pr-rule-head{display:flex;justify-content:space-between;align-items:baseline}",
+    ".pr-rule-head b{color:var(--pr-text);font-weight:normal}",
+    ".pr-rule-val{color:var(--pr-accent)}",
+    ".pr-harder{color:var(--pr-danger);font-style:normal;font-size:10px}",
+    ".pr-rule-desc{font-size:11px;opacity:.7}",
+    ".pr-rule input[type=range]{width:100%;accent-color:var(--pr-accent)}",
+    ".pr-about{text-align:center}.pr-about a{color:var(--pr-accent)}",
+    /* hot seat */
+    ".pr-curtain{position:fixed;inset:0;z-index:50;background:var(--pr-bg);display:flex;",
+    "flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}",
+    ".pr-curtain h2{color:var(--pr-accent);letter-spacing:2px;font-size:16px;margin:0}",
+    ".pr-curtained .pr-main,.pr-curtained .pr-program{filter:blur(10px)}",
     "@media (prefers-reduced-motion:reduce){.pr-root *{animation:none!important;transition:none!important}}"
   ].join("");
 
@@ -3366,6 +3428,7 @@
       var ev = UI.queue.shift();
       if (ev.type === "log") { log(ev.msg); updateLog(); continue; }
       if (ev.type === "render") { updateAll(); continue; }
+      if (ev.type === "sfx") { sfx(ev.name); continue; }
       if (ev.type === "beams") { UI.beams = ev.beams; drawBeams(); continue; }
       if (ev.type === "wait") {
         var ms = delayFor(ev.delay);
@@ -3435,6 +3498,7 @@
     renderProgram();
     renderChoice();
     renderOptions();
+    renderCurtain();
     updateLog();
     drawBeams();
     followPhase();
@@ -3528,6 +3592,7 @@
       : G.phase === "cleanup" ? "End of turn" : "Turn " + G.turn;
     h.querySelector(".pr-phase").textContent = "Turn " + G.turn + " — " + phase;
     h.querySelector("[data-act=speed]").textContent = "Speed: " + SPEED_NAMES[UI.speed];
+    h.querySelector("[data-act=mute]").textContent = UI.muted ? "Sound: off" : "Sound: on";
   }
 
   function renderPlayers() {
@@ -3603,6 +3668,7 @@
 
     var ready = programming && firstEmpty(me) === -1;
     UI.els.run.disabled = !ready;
+    UI.els.run.textContent = needsCurtain() ? "Lock in" : "Run registers";
     UI.els.clear.disabled = !programming || !me.registers.some(function (x, ix) { return x !== null && ix < open; });
     UI.els.down.disabled = !programming;
     UI.els.down.classList.toggle("on", !!(me && me.announceDown));
@@ -3683,9 +3749,10 @@
 
   function onCardClick(i) {
     var p = actor();
-    if (!inPhase("turn", "program") || !p) return;
+    if (!inPhase("turn", "program") || !p || curtainUp()) return;
     var slot = firstEmpty(p);
     if (slot < 0 || i < 0 || i >= p.hand.length) return;
+    sfx("place");
     p.registers[slot] = p.hand.splice(i, 1)[0];
     announce("Register " + (slot + 1) + " set.");
     updateAll();
@@ -3698,6 +3765,7 @@
     if (p.registers[i] === null) return;
     p.hand.push(p.registers[i]);
     p.registers[i] = null;
+    sfx("clear");
     announce("Register " + (i + 1) + " cleared.");
     updateAll();
   }
@@ -3735,11 +3803,23 @@
     renderHud();
   }
 
+  /* The course comes from the mount point; everything else comes from
+     the house rules, so the setup screen and a fresh page load agree. */
+  function gameOpts(base) {
+    var cfg = resolveConfig(houseRules);
+    return {
+      course: (base && base.course) || undefined,
+      players: cfg.players, humans: cfg.humans,
+      skill: cfg.skill, startOptions: cfg.startOptions
+    };
+  }
+
   function onNewGame() {
     stopQueue();
     clearSave();
     UI.wallsChecked = false;
-    newGame((Math.random() * 1e9) | 0, UI.opts);
+    UI.curtainCleared = null;
+    newGame((Math.random() * 1e9) | 0, gameOpts(UI.opts));
     UI.beams = null;
     hideBanner();
     updateAll();
@@ -3759,6 +3839,20 @@
 
   function dispatchAct(el) {
     var a = el.dataset.act, i = parseInt(el.dataset.i, 10);
+    if (a === "setup") { showSetup(); return; }
+    if (a === "help") { showHelp(); return; }
+    if (a === "closemodal") { closeModal(); return; }
+    if (a === "helptab") { showHelp(el.dataset.tab); return; }
+    if (a === "preset") {
+      var pre = DIFFICULTY_PRESETS[el.dataset.name];
+      for (var k in pre) houseRules[k] = pre[k];
+      saveRules(); showSetup(); return;
+    }
+    if (a === "start") { saveRules(); closeModal(); onNewGame(); return; }
+    if (a === "tut") { showTutorial(i); return; }
+    if (a === "tutskip") { showTutorial(TUTORIAL.length); return; }
+    if (a === "mute") { toggleMute(); return; }
+    if (a === "ready") { onReady(); return; }
     if (a === "pick") onOptionPick(i);
     else if (a === "card") onCardClick(i);
     else if (a === "slot") onSlotClick(i);
@@ -3774,8 +3868,32 @@
       var el = e.target.closest("[data-act]");
       if (el && !el.disabled) dispatchAct(el);
     });
+    root.addEventListener("input", function (e) {
+      var el = e.target.closest("[data-act=rule]");
+      if (!el) return;
+      houseRules[el.dataset.k] = clampRule(el.dataset.k, parseInt(el.value, 10));
+      showSetup();
+    });
     root.addEventListener("keydown", function (e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (modalOpen()) {
+        trapFocus(e);
+        if (e.key === "Escape" && UI.modalDismissable) { e.preventDefault(); closeModal(); }
+        return;
+      }
+
+      /* A curtain that only covers the screen is not a curtain: the
+         delegated key handler has no idea anything is over it, and
+         "3" would still program the previous player's card. */
+      if (curtainUp()) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onReady(); }
+        return;
+      }
+
+      if (e.key === "h" || e.key === "H" || e.key === "?") { e.preventDefault(); showHelp(); return; }
+      if (e.key === "m" || e.key === "M") { toggleMute(); return; }
+
       var p = actor();
       if (e.key >= "1" && e.key <= "9" && inPhase("turn", "program") && p) {
         e.preventDefault();
@@ -3821,6 +3939,503 @@
     }
     showBanner(html + ' <button data-act="new">New game</button>');
     announce(plain);
+  }
+
+  /* ============================================================
+     HOUSE RULES
+     One declarative table. The setup screen renders itself from it,
+     the presets are named bundles of the same keys, and resolveConfig
+     turns the flat values into what newGame actually reads -- so a
+     new rule is one row here and nothing else.
+     ============================================================ */
+  var SLIDER_DEFS = {
+    players: { label: "Robots", min: 2, max: 8, def: 4, desc: "How many robots are in the race." },
+    humans: { label: "Humans", min: 1, max: 8, def: 1, desc: "Seats played at this keyboard. More than one turns on pass-and-play." },
+    skill: { label: "Rival skill", min: 0, max: 2, def: 1, harder: true,
+             labels: ["Scrapyard", "Circuit", "Grand Prix"],
+             desc: "How far ahead the bots look when they program." },
+    startOptions: { label: "Starting options", min: 0, max: 3, def: 0,
+                    desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." }
+  };
+
+  var DIFFICULTY_PRESETS = {
+    Solo: { players: 4, humans: 1, skill: 0, startOptions: 0 },
+    Race: { players: 4, humans: 1, skill: 1, startOptions: 0 },
+    "Grand Prix": { players: 6, humans: 1, skill: 2, startOptions: 1 },
+    "Pass-and-play": { players: 4, humans: 2, skill: 1, startOptions: 0 }
+  };
+
+  var RULES_KEY = "pumarally_rules_v1";
+  var houseRules = {};
+
+  function defaultRules() {
+    var out = {};
+    for (var k in SLIDER_DEFS) out[k] = SLIDER_DEFS[k].def;
+    return out;
+  }
+
+  function loadRules() {
+    var out = defaultRules();
+    try {
+      var s = JSON.parse(localStorage.getItem(RULES_KEY) || "null");
+      for (var k in out) if (s && typeof s[k] === "number") out[k] = clampRule(k, s[k]);
+    } catch (e) {}
+    return out;
+  }
+
+  function clampRule(k, v) {
+    var d = SLIDER_DEFS[k];
+    return Math.max(d.min, Math.min(d.max, Math.round(v)));
+  }
+
+  function saveRules() {
+    try { localStorage.setItem(RULES_KEY, JSON.stringify(houseRules)); } catch (e) {}
+  }
+
+  /* Humans cannot outnumber the seats, and the setup screen should not
+     be able to describe a game that cannot be dealt. */
+  function resolveConfig(h) {
+    var players = clampRule("players", h.players);
+    return {
+      players: players,
+      humans: Math.min(players, clampRule("humans", h.humans)),
+      skill: clampRule("skill", h.skill),
+      startOptions: clampRule("startOptions", h.startOptions)
+    };
+  }
+
+  function currentPreset() {
+    for (var name in DIFFICULTY_PRESETS) {
+      var p = DIFFICULTY_PRESETS[name], match = true;
+      for (var k in p) if (houseRules[k] !== p[k]) { match = false; break; }
+      if (match) return name;
+    }
+    return null;
+  }
+
+  /* ============================================================
+     THE TURN, AS THE HELP DESCRIBES IT
+     Each row names a real step in the phase machine, and
+     validateTables refuses to load if one of them does not exist.
+     That is the whole point: help that drifts from the engine is
+     worse than no help, and nothing else would ever catch it.
+     ============================================================ */
+  var TURN_STEPS = [
+    { phase: "turn", step: "respawn", title: "Wrecks return",
+      body: "Robots destroyed last turn come back on their archive with 2 damage." },
+    { phase: "turn", step: "powerStart", title: "Powered-down robots repair",
+      body: "Damage clears at the start of the powered-down turn, not when it was announced." },
+    { phase: "turn", step: "deal", title: "Deal",
+      body: "You are dealt 9 cards minus your damage. Every point of damage is a card you do not get." },
+    { phase: "turn", step: "program", title: "Program five registers",
+      body: "Face down, all at once. From 5 damage your registers lock from the right and keep last turn's card." },
+    { phase: "turn", step: "announce", title: "Announce power down",
+      body: "Declared now, for next turn." },
+    { phase: "exec", step: "reveal", title: "Reveal",
+      body: "Everyone's card for this register turns over. Highest priority number moves first." },
+    { phase: "exec", step: "move", title: "Robots move",
+      body: "One at a time, in priority order. A robot moving into another pushes it, and a wall stops the whole chain." },
+    { phase: "exec", step: "express", title: "Express conveyors",
+      body: "Blue belts move one square." },
+    { phase: "exec", step: "belts", title: "All conveyors",
+      body: "Blue and rust belts both move one square, so an express moves two in total. A belt will not push a robot that is standing still, and two robots converging on one square means neither moves." },
+    { phase: "exec", step: "pushers", title: "Pushers",
+      body: "Only the ones whose registers are printed on them." },
+    { phase: "exec", step: "gears", title: "Gears",
+      body: "A quarter turn, the way the hub points." },
+    { phase: "exec", step: "lasers", title: "Lasers",
+      body: "Board lasers and robot lasers fire at the same instant, so a robot destroyed this register still gets its shot off. Walls block. A powered-down robot does not fire." },
+    { phase: "exec", step: "touch", title: "Flags and repair sites",
+      body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
+    { phase: "cleanup", step: "repair", title: "Repairs",
+      body: "One damage off if you end the turn on a wrench or a flag. Upgrade sites also deal an option card." },
+    { phase: "cleanup", step: "discard", title: "Discard",
+      body: "Everything except the cards held in locked registers." }
+  ];
+
+  var KEYS = [
+    ["1 - 9", "Place that card in the next open register"],
+    ["Backspace", "Take the last card back"],
+    ["Enter", "Run the registers, or dismiss a hand-over"],
+    ["H or ?", "This help"],
+    ["S", "Cycle speed"],
+    ["M", "Mute"],
+    ["N", "New game"],
+    ["Esc", "Close a dialog"]
+  ];
+
+  /* ============================================================
+     AUDIO
+     Synthesised, so there is nothing to download and nothing to
+     404. Every call is wrapped: a blocked AudioContext must cost the
+     sound, never the game.
+     ============================================================ */
+  var MUTE_KEY = "pumarally_muted_v1";
+  var actx = null;
+
+  function tone(freq, type, dur, gain, delay) {
+    try {
+      if (!actx) actx = new (root.AudioContext || root.webkitAudioContext)();
+      var t = actx.currentTime + (delay || 0);
+      var osc = actx.createOscillator(), g = actx.createGain();
+      osc.type = type; osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(actx.destination);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+
+  var SFX = {
+    place: function () { tone(520, "square", 0.05, 0.05); },
+    clear: function () { tone(300, "square", 0.05, 0.04); },
+    reveal: function () { tone(380, "triangle", 0.07, 0.05); tone(520, "triangle", 0.07, 0.04, 0.06); },
+    move: function () { tone(220, "square", 0.05, 0.035); },
+    shove: function () { tone(150, "square", 0.08, 0.06); },
+    belt: function () { tone(180, "sawtooth", 0.09, 0.03); },
+    gear: function () { tone(300, "sawtooth", 0.08, 0.035); tone(360, "sawtooth", 0.07, 0.03, 0.05); },
+    laser: function () { tone(900, "sawtooth", 0.07, 0.05); tone(600, "sawtooth", 0.09, 0.04, 0.05); },
+    hurt: function () { tone(200, "square", 0.12, 0.07); },
+    wreck: function () { tone(140, "sawtooth", 0.3, 0.1); tone(90, "sawtooth", 0.4, 0.08, 0.14); },
+    flag: function () { [660, 880, 1180].forEach(function (f, i) { tone(f, "square", 0.14, 0.06, i * 0.09); }); },
+    win: function () { [523, 659, 784, 1046].forEach(function (f, i) { tone(f, "square", 0.22, 0.08, i * 0.14); }); },
+    lose: function () { [392, 330, 262, 196].forEach(function (f, i) { tone(f, "sawtooth", 0.26, 0.08, i * 0.18); }); }
+  };
+
+  function sfx(name) {
+    if (UI.muted || UI.headless || !SFX[name]) return;
+    SFX[name]();
+  }
+
+  function toggleMute() {
+    UI.muted = !UI.muted;
+    try { localStorage.setItem(MUTE_KEY, UI.muted ? "1" : "0"); } catch (e) {}
+    renderHud();
+    announce(UI.muted ? "Muted." : "Sound on.");
+  }
+
+  /* ============================================================
+     MODALS
+     One overlay, one focus trap. Everything that is not the board
+     goes through here.
+     ============================================================ */
+  function openModal(html, dismissable) {
+    var ov = UI.els.overlay;
+    ov.innerHTML = '<div class="pr-modal" role="dialog" aria-modal="true">' + html + "</div>";
+    ov.hidden = false;
+    UI.modalDismissable = dismissable !== false;
+    UI.prevFocus = document.activeElement;
+    var focusable = ov.querySelectorAll("button, [href], input, select, [tabindex]");
+    if (focusable.length) focusable[0].focus();
+  }
+
+  function closeModal() {
+    var ov = UI.els.overlay;
+    ov.hidden = true;
+    ov.innerHTML = "";
+    if (UI.prevFocus && UI.prevFocus.focus) { try { UI.prevFocus.focus(); } catch (e) {} }
+    UI.prevFocus = null;
+  }
+
+  function modalOpen() { return UI.els && UI.els.overlay && !UI.els.overlay.hidden; }
+
+  function trapFocus(e) {
+    if (!modalOpen() || e.key !== "Tab") return;
+    var items = UI.els.overlay.querySelectorAll("button, [href], input, select, [tabindex]");
+    if (!items.length) return;
+    var first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  /* ============================================================
+     SETUP AND HELP
+     The help tables are generated from the same tables the engine
+     reads. A board element renamed in ELEMENT_DEFS renames itself in
+     the help, and a card added to OPTION_DEFS documents itself.
+     ============================================================ */
+  function showSetup() {
+    var out = ['<h2>SET UP A RACE</h2><div class="pr-presets">'];
+    var cur = currentPreset();
+    for (var name in DIFFICULTY_PRESETS) {
+      out.push('<button data-act="preset" data-name="' + esc(name) + '"' +
+        (cur === name ? ' class="on"' : "") + ">" + esc(name) + "</button>");
+    }
+    out.push(cur ? "" : '<button class="on" disabled>Custom</button>');
+    out.push("</div>");
+
+    for (var k in SLIDER_DEFS) {
+      var d = SLIDER_DEFS[k], v = houseRules[k];
+      var shown = d.labels ? d.labels[v] : v;
+      out.push('<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
+        '<span class="pr-rule-val">' + esc(String(shown)) + (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>" +
+        '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max + '" value="' + v + '">' +
+        '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>");
+    }
+    var cfg = resolveConfig(houseRules);
+    out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
+      (cfg.humans === 1 ? " played here" : " played here in turn") + ".</p>");
+    out.push('<div class="pr-modal-foot"><button data-act="start">Start</button>' +
+      '<button data-act="closemodal">Cancel</button></div>');
+    openModal(out.join(""));
+  }
+
+  function helpTabs() {
+    return [
+      { id: "turn", label: "The turn", build: buildTurnHelp },
+      { id: "board", label: "The board", build: buildBoardHelp },
+      { id: "cards", label: "Cards", build: buildCardHelp },
+      { id: "options", label: "Options", build: buildOptionHelp },
+      { id: "keys", label: "Keys", build: buildKeyHelp },
+      { id: "about", label: "About", build: buildAboutHelp }
+    ];
+  }
+
+  function buildTurnHelp() {
+    var out = ["<p>Five registers, revealed one at a time. You do not get to react.</p><ol class='pr-steps'>"];
+    for (var i = 0; i < TURN_STEPS.length; i++) {
+      out.push("<li><b>" + esc(TURN_STEPS[i].title) + "</b><br>" + esc(TURN_STEPS[i].body) + "</li>");
+    }
+    return out.join("") + "</ol>";
+  }
+
+  function buildBoardHelp() {
+    var out = ["<table><tr><th>Tile</th><th>What it does</th></tr>"];
+    var seen = {};
+    for (var ch in B.ELEMENT_DEFS) {
+      var d = B.ELEMENT_DEFS[ch];
+      if (seen[d.name]) continue;
+      seen[d.name] = true;
+      out.push("<tr><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
+    }
+    return out.join("") + "</table>";
+  }
+
+  function elementBlurb(ch, d) {
+    if (d.belt === 2) return "Moves you two squares. Curves turn you, but only if the belt carried you on.";
+    if (d.belt === 1) return "Moves you one square. Will not push a robot that is standing still.";
+    if (d.gear) return "Turns you a quarter turn " + (d.gear > 0 ? "clockwise" : "counter-clockwise") + ".";
+    if (d.push) return "Shoves you one square, on the registers printed on the tile.";
+    if (d.option) return "Repairs 1 damage at the end of the turn and deals you an option card. Sets your archive.";
+    if (d.repair) return "Repairs 1 damage at the end of the turn. Sets your archive.";
+    if (ch === "o") return "Destroyed. So is walking off the edge of the course.";
+    if (ch === "s") return "A starting square in the docking bay.";
+    return "Nothing at all, which is rarer than you would like.";
+  }
+
+  function buildCardHelp() {
+    var out = ["<p>Eighty-four cards. The priority number decides who moves first in a register, and no two cards share one.</p>",
+      "<table><tr><th>Card</th><th>Count</th><th>Priority</th><th>Effect</th></tr>"];
+    for (var i = 0; i < DECK_RANGES.length; i++) {
+      var kind = DECK_RANGES[i][0], lo = DECK_RANGES[i][1], hi = DECK_RANGES[i][2];
+      var k = CARD_KINDS[kind];
+      var effect = k.turn !== undefined
+        ? (k.turn === 2 ? "Turn to face the other way." : "Turn a quarter " + (k.turn > 0 ? "right" : "left") + ".")
+        : k.move < 0 ? "Move backwards one square, still facing the same way."
+        : "Move " + k.move + " square" + (k.move > 1 ? "s" : "") + " forwards.";
+      out.push("<tr><td>" + esc(k.label) + "</td><td>" + DECK_COUNTS[kind] + "</td><td>" + lo + "-" + hi +
+        "</td><td>" + esc(effect) + "</td></tr>");
+    }
+    out.push("</table><p>Damage costs you a card a turn, and from 5 damage it starts locking registers from the right.</p>");
+    out.push("<table><tr><th>Damage</th><th>Cards dealt</th><th>Open registers</th></tr>");
+    for (var d = 0; d <= MAX_DAMAGE; d++) {
+      out.push("<tr><td>" + d + (d === MAX_DAMAGE ? " (wrecked)" : "") + "</td><td>" + cardsDealt(d) +
+        "</td><td>" + openRegisters(d) + "</td></tr>");
+    }
+    return out.join("") + "</table>";
+  }
+
+  function buildOptionHelp() {
+    var ids = Object.keys(OPTION_DEFS).sort(function (a, b) {
+      return OPTION_DEFS[a].name < OPTION_DEFS[b].name ? -1 : 1;
+    });
+    var out = ["<p>Picked up at upgrade sites. " + OPTION_ROSTER.transcribed + " of the printed " +
+      OPTION_ROSTER.printed + " are in this build; the rest are not guessed at, because a card that does " +
+      "nearly the right thing is worse than one that is missing.</p><table><tr><th>Card</th><th>Effect</th></tr>"];
+    for (var i = 0; i < ids.length; i++) {
+      out.push("<tr><td>" + esc(OPTION_DEFS[ids[i]].name) + "</td><td>" + esc(OPTION_DEFS[ids[i]].text) + "</td></tr>");
+    }
+    return out.join("") + "</table>";
+  }
+
+  function buildKeyHelp() {
+    var out = ["<table><tr><th>Key</th><th></th></tr>"];
+    for (var i = 0; i < KEYS.length; i++) out.push("<tr><td>" + esc(KEYS[i][0]) + "</td><td>" + esc(KEYS[i][1]) + "</td></tr>");
+    return out.join("") + "</table>";
+  }
+
+  function buildAboutHelp() {
+    return "<div class='pr-about'><p><b>PumaRally</b></p>" +
+      "<p>A faithful port of the RoboRally rules in original pixel art.</p>" +
+      "<p>Inspired by <i>RoboRally</i> by Richard Garfield. The rules are reimplemented as code and the " +
+      "board layouts as tile data; the artwork here is original and nothing is scanned.</p>" +
+      "<p>Built by <a href='https://greykit.com/games/'>greykit.com</a>.</p></div>";
+  }
+
+  function showHelp(tabId) {
+    var tabs = helpTabs();
+    tabId = tabId || UI.helpTab || "turn";
+    UI.helpTab = tabId;
+    var out = ['<h2>HOW TO PLAY</h2><div class="pr-tabs">'];
+    for (var i = 0; i < tabs.length; i++) {
+      out.push('<button data-act="helptab" data-tab="' + tabs[i].id + '"' +
+        (tabs[i].id === tabId ? ' class="on"' : "") + ">" + esc(tabs[i].label) + "</button>");
+    }
+    out.push('</div><div class="pr-help-body">');
+    for (var j = 0; j < tabs.length; j++) if (tabs[j].id === tabId) out.push(tabs[j].build());
+    out.push('</div><div class="pr-modal-foot"><button data-act="closemodal">Close</button></div>');
+    openModal(out.join(""));
+  }
+
+  /* ============================================================
+     TUTORIAL
+     Shown once. Its job is to explain the one thing that is not
+     obvious from the screen -- that you are committing five moves
+     blind -- and then get out of the way.
+     ============================================================ */
+  var TUTORIAL_KEY = "pumarally_tutorial_v1";
+  var TUTORIAL = [
+    ["You program, then you watch",
+     "Each turn you are dealt program cards and commit five of them, face down, to your five registers. Then all five run, one at a time, and you cannot touch anything until they have."],
+    ["The board moves too",
+     "After the robots move in a register, the floor takes its turn: conveyors carry, gears turn, pushers shove, lasers fire. Half of what happens to you is the board, not the other robots."],
+    ["Damage is the clock",
+     "Every point of damage costs you a card next turn. At five, your registers start locking from the right and you are committed to moves you can no longer choose."],
+    ["Touch the flags in order",
+     "Flag 1, then 2, then 3. Touching one out of order scores nothing, though it does move the archive you respawn on."]
+  ];
+
+  function showTutorial(i) {
+    i = i || 0;
+    if (i >= TUTORIAL.length) {
+      try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch (e) {}
+      closeModal();
+      return;
+    }
+    openModal("<h2>" + esc(TUTORIAL[i][0]) + "</h2><p>" + esc(TUTORIAL[i][1]) + "</p>" +
+      '<div class="pr-modal-foot"><span class="pr-rule-desc">' + (i + 1) + " of " + TUTORIAL.length + "</span>" +
+      '<button data-act="tut" data-i="' + (i + 1) + '">' + (i + 1 === TUTORIAL.length ? "Play" : "Next") + "</button>" +
+      '<button data-act="tutskip">Skip</button></div>');
+  }
+
+  function tutorialSeen() {
+    try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch (e) { return true; }
+  }
+
+  /* ============================================================
+     HOT SEAT
+     The curtain is a function of how many humans are SEATED, not of
+     whether there are bots. One human against seven robots gets no
+     curtain at all, which is the common case and where any friction
+     would be pure cost.
+
+     It hides the board as well as the hand: #app goes aria-hidden
+     and blurred rather than merely covered, because a screen reader
+     happily reads straight through an overlay, and the keyboard
+     handler refuses everything but the dismiss -- a delegated
+     listener does not know the screen is covered.
+     ============================================================ */
+  function humanSeats() {
+    var n = 0;
+    for (var i = 0; i < G.players.length; i++) if (isHuman(G.players[i]) && !G.players[i].out) n++;
+    return n;
+  }
+
+  function needsCurtain() {
+    return !UI.headless && !UI.autoHuman && humanSeats() > 1;
+  }
+
+  function curtainUp() {
+    if (!G || G.gameOver || !needsCurtain()) return false;
+    if (!inPhase("turn", "program")) return false;       // execution is public, as at the table
+    var p = actor();
+    return !!p && UI.curtainCleared !== p.id;
+  }
+
+  function renderCurtain() {
+    var on = curtainUp(), el2 = UI.els.curtain;
+    if (!on) {
+      /* Unconditional: the blur class lives on the host element, which
+         outlives a remount, so a cleanup gated on the curtain having
+         been visible leaves the whole page blurred forever. */
+      el2.hidden = true;
+      UI.els.main.removeAttribute("aria-hidden");
+      UI.els.program.removeAttribute("aria-hidden");
+      UI.els.host.classList.remove("pr-curtained");
+      return;
+    }
+    var p = actor();
+    el2.innerHTML = "<h2>Pass to " + esc(p.name) + "</h2>" +
+      "<p>Everyone else look away.</p>" +
+      '<button data-act="ready">' + esc(p.name) + " is ready</button>";
+    el2.hidden = false;
+    UI.els.main.setAttribute("aria-hidden", "true");
+    UI.els.program.setAttribute("aria-hidden", "true");
+    UI.els.host.classList.add("pr-curtained");
+  }
+
+  function onReady() {
+    var p = actor();
+    if (!p) return;
+    UI.curtainCleared = p.id;
+    announce(p.name + " is programming.");
+    updateAll();
+  }
+
+  /* ============================================================
+     SCREENSHOT STATES
+     #shot=setup|midgame|gameover drives the game to a fixed state
+     from a fixed seed, so the README images are reproducible rather
+     than whatever happened to be on screen.
+     ============================================================ */
+  function applyShotState(name) {
+    UI.headless = true; UI.autoHuman = false;
+    UI.wallsChecked = false;
+    newGame(7, { players: 4, humans: 1, skill: 2, startOptions: 2 });
+    var target = name === "midgame" ? 6 : name === "gameover" ? MAX_TURNS : 1;
+    var guard = 0;
+    /* Deliberately NOT autoHuman. With every seat botted, one advance()
+       plays the entire game before the loop gets to look at the turn
+       counter, and "midgame" lands on the final screen. Leaving the
+       human seat human makes the machine stop once a turn, which is
+       the only place a turn count can be read. */
+    while (!G.gameOver && G.turn < target && guard++ < 400) {
+      advance();
+      if (G.gameOver) break;
+      /* There are TWO places the machine waits for a human, and a
+         driver that is not autoHuman has to answer both. Handling
+         only the programming one leaves this spinning forever on the
+         first option card that asks a question. */
+      if (inPhase("exec", "optionChoice") && G.pendingChoices.length) {
+        var ch = G.pendingChoices[0];
+        G.optionAnswers[ch.key] = botPick(G.players[ch.owner], ch);
+        G.pendingChoices.shift();
+        continue;
+      }
+      if (inPhase("turn", "program") && G.actor !== undefined) {
+        var seat = G.players[G.actor];
+        if (seat && seat.alive) applyProgram(seat, botProgram(seat));
+      }
+    }
+    UI.headless = false; UI.autoHuman = false;
+
+    /* The sim drove the human seat too, so its cards are already
+       committed and a programming screenshot would show an empty
+       hand. Re-deal that seat and half-fill it, which is what the
+       screen actually looks like when someone is deciding. */
+    if (name !== "gameover") {
+      G.phase = "turn"; G.step = "program"; G.actor = 0;
+      var me = G.players[0];
+      if (!me.alive) { me.alive = true; me.damage = 2; }
+      discardCards(me.hand);
+      discardCards(me.registers);
+      me.registers = [null, null, null, null, null];
+      me.dealtCount = cardsDealt(me.damage);
+      me.hand = draw(me.dealtCount);
+      for (var i = 0; i < 2 && me.hand.length; i++) me.registers[i] = me.hand.shift();
+    }
+    updateAll();
+    if (G.gameOver) renderGameOver();
   }
 
   /* ============================================================
@@ -3901,7 +4516,9 @@
     var hud = el("div", "pr-hud",
       '<h1 class="pr-title">PUMARALLY</h1><span class="pr-phase"></span>' +
       '<span class="pr-hud-spacer"></span>' +
-      '<button data-act="speed">Speed</button><button data-act="new">New game</button>');
+      '<button data-act="setup">Set up</button><button data-act="help">Help</button>' +
+      '<button data-act="speed">Speed</button><button data-act="mute">Sound</button>' +
+      '<button data-act="new">New game</button>');
 
     var stage = el("div", "pr-stage");
     var board = drawCourse(C);
@@ -3950,6 +4567,10 @@
 
     var banner = el("div", "pr-banner");
     banner.hidden = true;
+    var overlay = el("div", "pr-overlay");
+    overlay.hidden = true;
+    var curtain = el("div", "pr-curtain");
+    curtain.hidden = true;
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "assertive");
 
@@ -3961,11 +4582,12 @@
 
     host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
     host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
+    host.appendChild(overlay); host.appendChild(curtain);
 
     UI.els = { host: host, hud: hud, stage: stage, board: board, fx: fx, grid: grid, program: program,
                pieces: pieces, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
-               choice: choice, opts: opts,
+               choice: choice, opts: opts, main: main, overlay: overlay, curtain: curtain,
                run: controls.querySelector("[data-act=run]"),
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
@@ -3973,6 +4595,8 @@
     UI.course = C;
     UI.mounted = true;
     try { UI.speed = Math.min(2, Math.max(0, parseInt(localStorage.getItem(SPEED_KEY), 10) || 1)); } catch (e) { UI.speed = 1; }
+    try { UI.muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) { UI.muted = false; }
+    houseRules = loadRules();
 
     fitBoard(C, host, opts);
     buildGridCells(C);
@@ -3982,6 +4606,9 @@
       window.addEventListener("resize", function () { fitBoard(C, host, opts); });
     }
 
+    var shot = /[#&]shot=([a-z]+)/.exec(root.location ? root.location.hash : "");
+    if (shot) { applyShotState(shot[1]); return { course: C, canvas: board }; }
+
     var resumed = loadGame();
     if (resumed && resumed.courseId === C.id) {
       G = resumed;
@@ -3989,10 +4616,11 @@
       log("Resumed from a saved game.");
     } else {
       UI.wallsChecked = false;
-      newGame((Math.random() * 1e9) | 0, opts);
+      newGame((Math.random() * 1e9) | 0, gameOpts(opts));
     }
     updateAll();
     advance();
+    if (!tutorialSeen()) showTutorial(0);
     return { course: C, canvas: board };
   }
 
@@ -4072,6 +4700,14 @@
     runSim: runSim,
     ruleTests: ruleTests,
     OPTION_DEFS: OPTION_DEFS,
+    TURN_STEPS: TURN_STEPS,
+    SLIDER_DEFS: SLIDER_DEFS,
+    DIFFICULTY_PRESETS: DIFFICULTY_PRESETS,
+    applyProgram: applyProgram,
+    botProgram: botProgram,
+    applyShotState: applyShotState,
+    showHelp: function (t) { return showHelp(t); },
+    showSetup: function () { return showSetup(); },
     OPTION_ROSTER: OPTION_ROSTER,
     HOOKS: HOOKS,
     RULE_TESTS: RULE_TESTS,
