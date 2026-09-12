@@ -47,6 +47,7 @@
     panelAlt: "#0d1424",
     floor: "#0e1524",
     border: "#1b2540",
+    borderLit: "#2c3b60",     /* an empty slot: visible without competing */
     line: "#141d33",          /* the grid hairline, a shade under the border */
     accent: "#54f2ff",        /* express conveyors, headings, focus */
     accentDim: "#2b7f92",
@@ -307,10 +308,10 @@
 
   /* The arrowhead, as a stroked chevron rather than a filled triangle
      so it keeps the weight of the shaft it terminates. */
-  function chev(x, y, hx, hy, size) {
+  function chev(x, y, hx, hy, size, cls) {
     var bx = x - hx * size, by = y - hy * size;
     var px = -hy * size * 0.78, py = hx * size * 0.78;
-    return '<path class="pr-mark" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+    return '<path class="' + (cls || "pr-mark") + '" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
            "L" + x.toFixed(1) + " " + y.toFixed(1) +
            "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + '"/>';
   }
@@ -502,10 +503,21 @@
                '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
   }
 
+  /* WHICH flag this is matters more than that it is a flag.
+
+     You are looking for number three, and there are up to eight of
+     them on a course; a player scanning the board is reading digits,
+     not bunting. So the banner is big enough to hold one at size and
+     the numeral is the loudest thing on the square: near-black on
+     amber, which is the strongest contrast this palette has.
+
+     The first version drew a small pennant with the number BELOW it,
+     dark on the dark floor -- invisible at any tile size, and worse
+     the smaller the board got. */
   function flagSvg(n) {
-    return svg('<rect class="pr-pole" x="27" y="16" width="7" height="68" rx="3"/>' +
-               '<path class="pr-pennant" d="M34 20L78 34L34 48Z"/>' +
-               '<text x="52" y="66" class="pr-num">' + esc(String(n)) + "</text>", "pr-flag");
+    return svg('<rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
+               '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/>' +
+               '<text x="56" y="41" class="pr-num">' + esc(String(n)) + "</text>", "pr-flag");
   }
 
   /* The emitter housing, on the wall the laser is mounted to. The
@@ -577,40 +589,10 @@
     return out.join("");
   }
 
-  /* The legend is RENDERED, not written. Each swatch is the same
-     tileInner the board calls, so a tile that changes shape changes
-     its own legend entry in the same edit.
-
-     It used to be a hand-typed string -- "amber hub = gear CW",
-     "wrench = repair" -- and the first time the art changed, every
-     word of it was wrong while reading perfectly plausibly. That is
-     the same failure the turn-order help is guarded against, and it
-     gets the same answer: generate it from the thing it describes.
-
-     Only the elements this course's edition actually has are listed,
-     because a legend entry for a square that cannot appear is worse
-     than no entry at all. */
-  function buildLegend(C) {
-    var edition = C.edition || "classic", out = [], k;
-    for (k in B.ELEMENT_DEFS) {
-      var d = B.ELEMENT_DEFS[k];
-      if (d.name === "floor" || d.name === "docking bay") continue;
-      if (d.editions && d.editions.indexOf(edition) < 0) continue;
-      out.push(legendSwatch(tileInner(probeTile(sampleCode(k, d)), 0, 0), d.name));
-    }
-    /* Flags and lasers are course tokens rather than printed board
-       elements, so they are not in ELEMENT_DEFS and are added here. */
-    out.push(legendSwatch(flagSvg(1), "flag, in order"));
-    if (C.lasers.length) out.push(legendSwatch(emitterSvg(S), "board laser"));
-    return out.join("");
-  }
-
-  function legendSwatch(art, name) {
-    /* The swatch is aria-hidden because the name beside it already
-       says what it is, and a pusher's stamped digits would otherwise
-       be read out twice. */
-    return '<span class="pr-leg"><span class="pr-leg-art" aria-hidden="true">' + art +
-           "</span>" + esc(name) + "</span>";
+  /* aria-hidden because the name in the next cell already says what it
+     is, and a pusher's stamped digits would otherwise be read twice. */
+  function legendSwatch(art) {
+    return '<span class="pr-leg-art" aria-hidden="true">' + art + "</span>";
   }
 
   /* WALLS SIT ON THE LATTICE, NOT IN A SQUARE.
@@ -835,11 +817,16 @@
        game, not the animation that was mid-flight when it was written. */
     els: null,
     pieceEls: null,
+    /* Per-robot render memory, so a change can be ANIMATED rather than
+       just drawn: which way it was facing, how far it has wound, and
+       how hurt it was last time we looked. */
+    pieceFace: null, pieceDeg: null, pieceHurt: null,
     prevRects: null,
     queue: [],
     playing: false,
     timer: null,
     beams: null,
+    drag: null,          /* what is in the hand mid-drag, if anything */
     speed: 1,
     opts: null,
     lastPhase: null,
@@ -1730,7 +1717,19 @@
           if (!isHuman(p)) p.announceDown = botWantsPowerDown(p);
         }
         go("turn", "beginExec");
-        return NEXT;
+        /* Hold here while the registers turn over.
+           Committing is the moment your program stops being yours to
+           change and becomes something the floor will read back to
+           you, and the cards going face down is how the board game
+           says so. Returning NEXT would run straight into register 1,
+           which reveals the first card again before the turn-over had
+           a frame to happen in -- the state would be right and nobody
+           would ever see it. */
+        return animate([
+          { type: "render" },
+          { type: "sfx", name: "place" },
+          { type: "wait", delay: 420 }     // the flip's own duration
+        ]);
       },
 
       beginExec: function () { G.register = 0; go("exec", "reveal"); return NEXT; }
@@ -1758,7 +1757,13 @@
       },
 
       move: function () {
-        if (!G.exec.queue.length) { go("exec", "express"); return NEXT; }
+        if (!G.exec.queue.length) {
+          go("exec", "express");
+          /* Let the last robot finish. Everything before it waited only
+             a gap, so the tail of the slowest motion is still running. */
+          var m = motionOf("drive");
+          return animate([{ type: "wait", delay: m.ms - m.gap }]);
+        }
         /* Peek rather than shift: an option card can park this step
            for a question, and a shifted queue would lose the robot. */
         var p = G.players[G.exec.queue[0]];
@@ -1773,17 +1778,23 @@
         G.exec.queue.shift();
         log(p.name + " " + describePlan(cd, ctx));
         runPlan(p, ctx);
-        return animate([{ type: "sfx", name: "move" }, { type: "render" }, { type: "wait", delay: 300 }]);
+        /* Wait only the GAP, not the whole motion: this robot is still
+           sliding when the next one sets off, which is what makes the
+           priority order visible as a stagger instead of a queue. The
+           last one still needs its full motion, so the step settles
+           below once the queue is empty. */
+        return animate([{ type: "motion", kind: "drive" }, { type: "sfx", name: "move" },
+                        { type: "render" }, { type: "wait", delay: motionOf("drive").gap }]);
       },
 
       /* Each board element gets its own beat, but only if it actually
          moved somebody. A pause for a pusher nobody was standing on is
          five wasted seconds a turn, and the player learns to stop
          watching -- which is the opposite of what the beat is for. */
-      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt"); },
-      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt"); },
-      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove"); },
-      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear"); },
+      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt", "belt"); },
+      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt", "belt"); },
+      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove", "shove"); },
+      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear", "turn"); },
 
       lasers: function () {
         var before = boardSig();
@@ -1923,12 +1934,13 @@
 
   /* Run one board element, and hand back a beat only if the board
      actually did something. */
-  function boardBeat(fn, arg, nextStep, delay, sound) {
+  function boardBeat(fn, arg, nextStep, delay, sound, motion) {
     var before = boardSig();
     if (arg === null) fn(); else fn(arg);
     go("exec", nextStep);
     if (boardSig() === before) return NEXT;
-    return animate([{ type: "sfx", name: sound }, { type: "render" }, { type: "wait", delay: delay }]);
+    return animate([{ type: "motion", kind: motion }, { type: "sfx", name: sound },
+                    { type: "render" }, { type: "wait", delay: delay }]);
   }
 
   /* Where every beam starts and stops this register, for the overlay.
@@ -2995,6 +3007,109 @@
         "a headless run starts on the tile edge, so it meets its neighbour");
     } },
 
+    { name: "every custom property the stylesheet uses is defined", run: function () {
+      /* An undefined custom property does not fall back to anything --
+         it makes the WHOLE declaration invalid at computed-value time.
+         So one typo in one var() silently deletes a rule, and the only
+         symptom is that something stopped moving.
+
+         That is not hypothetical: --pr-ease was used four times and
+         defined never, which removed the robots' movement transition
+         and their turn transition together. They teleported for as
+         long as the vector renderer has existed, and the bug is
+         invisible in the source because every line of it reads
+         correctly. */
+      var css = CSS;                 // already joined where it is declared
+      var used = {}, defined = {}, m, k;
+      /* Only uses with NO fallback. var(--x, something) is fine however
+         undefined --x is; it is the bare var(--x) that takes the whole
+         declaration down with it, which is the thing worth catching. */
+      var useRe = /var\(\s*(--pr-[a-z0-9-]+)\s*\)/g;
+      while ((m = useRe.exec(css))) used[m[1]] = true;
+      var defRe = /(--pr-[a-z0-9-]+)\s*:/g;
+      while ((m = defRe.exec(css))) defined[m[1]] = true;
+      for (k in TOKENS) {
+        defined["--pr-" + k.replace(/[A-Z]/g, function (c) { return "-" + c.toLowerCase(); })] = true;
+      }
+      var missing = [];
+      for (k in used) if (!defined[k]) missing.push(k);
+      assert(missing.length === 0,
+        "used with no fallback and never defined, so every rule mentioning them is " +
+        "dropped: " + missing.join(", "));
+    } },
+
+    { name: "every motion leaves room for the next one to start", run: function () {
+      /* The stagger is not an animation: it is the arithmetic between
+         two numbers. exec.move waits only GAP before releasing the
+         next robot, so a robot is still sliding when its successor
+         sets off, and four robots in one register read as an ordered
+         cascade rather than a queue of separate little films.
+
+         The moment any gap reaches its own ms, that register silently
+         becomes a queue again -- same board, same cards, same log, and
+         nothing to see except that priority stopped being legible. The
+         deal is the same shape: its gap is what makes the hand arrive
+         card after card instead of all at once. The
+         settle beat at the end of the step is ms - gap, so a gap ABOVE
+         ms would also make it negative and drop the tail of the last
+         robot's motion. */
+      var k, m, bad = [];
+      for (k in MOTION) {
+        m = MOTION[k];
+        if (!(m.gap < m.ms)) bad.push(k + " (gap " + m.gap + " >= ms " + m.ms + ")");
+      }
+      assert(bad.length === 0,
+        "these cannot overlap, so whatever they animate -- robots, cards -- goes " +
+        "strictly one at a time: " + bad.join(", "));
+    } },
+
+    { name: "a card's art says what the card does", run: function () {
+      /* The art is not decoration: the chevron count IS the distance
+         and the arc's direction IS the rotation. A Move 3 drawn with
+         two chevrons, or a Rotate L drawn sweeping clockwise, misstates
+         the card to anyone reading the picture rather than the label --
+         which is the whole reason for putting a picture on it. */
+      function chevs(k) { return (cardArt(k).match(/class="pr-cmark"/g) || []).length; }
+      /* The tip of the arrowhead, and its wings, so a card can be asked
+         which way it actually points rather than which primitive drew
+         it -- the shapes have changed three times and the question has
+         not. */
+      function head(k) {
+        var m = /class="pr-cmark" d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)/.exec(cardArt(k));
+        return { wingX: parseFloat(m[1]), wingY: parseFloat(m[2]),
+                 tipX: parseFloat(m[3]), tipY: parseFloat(m[4]) };
+      }
+
+      var k;
+      for (k in CARD_KINDS) {
+        assert(cardArt(k).indexOf("<path") >= 0, "card kind " + k + " draws nothing");
+      }
+      for (k in CARD_KINDS) {
+        var d = CARD_KINDS[k];
+        if (!d.move) continue;
+        assert(chevs(k) === Math.abs(d.move),
+          k + " moves " + Math.abs(d.move) + " but draws " + chevs(k) + " chevron(s)");
+      }
+      /* A rotate card ends pointing the way you will be FACING, so its
+         arrowhead goes sideways -- left for Rotate L, right for
+         Rotate R. Get that backwards and the card tells the player to
+         turn the wrong way. */
+      assert(head("left").tipX < head("left").wingX, "Rotate L must point left");
+      assert(head("right").tipX > head("right").wingX, "Rotate R must point right");
+
+      /* A move card points up the card; backing up and a U-turn come
+         back down, which is the whole content of those two. */
+      assert(head("move1").tipY < head("move1").wingY, "a move card points up the card");
+      assert(head("uturn").tipY > head("uturn").wingY, "a U-turn comes back down; that is what it does");
+      assert(head("back").tipY > head("back").wingY, "and so does backing up");
+
+      /* And the bend clears the arrowhead. Turning the corner inside
+         the chevron makes the two read as one smudge at card size. */
+      var bend = /Q(\d+) \d+ (\d+) /.exec(cardArt("left"));
+      assert(parseFloat(bend[2]) > head("left").wingX + 12,
+        "the rotate shaft must run clear of its own arrowhead before it bends");
+    } },
+
     { name: "the table rejects an element nobody drew", run: function () {
       /* A board can transcribe an element the art does not cover, and
          it renders as bare floor: silent, plausible, and wrong in the
@@ -3199,6 +3314,12 @@
     ".pr-root{" + Object.keys(TOKENS).map(function (k) {
       return "--pr-" + k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); }) + ":" + TOKENS[k];
     }).join(";") + ";",
+    /* Not a colour, so it is not in TOKENS, but it is referenced like
+       one -- and an undefined custom property does not fall back, it
+       voids the whole declaration it appears in. Leaving this out
+       silently removed the robots' movement AND turn transitions: they
+       teleported, and the winding-rotation fix had nothing to animate. */
+    "--pr-ease:cubic-bezier(.25,1,.5,1);",
     "background:var(--pr-bg);color:var(--pr-ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;",
     "display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;box-sizing:border-box;",
     "overflow-x:auto}",
@@ -3221,10 +3342,24 @@
     ".pr-hud-spacer{flex:1 1 auto}",
 
     /* ---- layout ---- */
-    ".pr-main{display:flex;gap:12px;align-items:stretch}",
-    ".pr-side{width:250px;flex:0 0 250px;display:flex;flex-direction:column;gap:8px;min-height:0}",
-    ".pr-side .pr-panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}",
-    "@media (max-width:900px){.pr-main{flex-direction:column;align-items:center}.pr-side{width:100%;flex:none}}",
+    /* overflow:hidden is load-bearing. Without it the side column
+       spills out of the clamped row, re-inflating the document below
+       it -- and "below the row" is exactly what the height budget
+       measures, so the budget ends up measuring its own overflow. */
+    ".pr-main{display:flex;gap:12px;align-items:flex-start;width:100%;justify-content:center;",
+    "overflow:hidden}",
+    /* Wide enough for five registers in a row and the hand under them:
+       five cards plus gaps is what sets this number, not taste. */
+    ".pr-side{width:470px;flex:0 0 470px;display:flex;flex-direction:column;gap:8px;min-height:0}",
+    ".pr-side{overflow-y:auto}",
+    ".pr-side .pr-panel:last-child{flex:1 1 0;display:flex;flex-direction:column;min-height:0}",
+    ".pr-side .pr-program{flex:0 0 auto}",
+    ".pr-side .pr-program{width:100%}",
+    /* Below this the two columns cannot both have their axis, so the
+       board goes back on top and the page scrolls -- which is worse,
+       and still better than a board squeezed to nothing. */
+    "@media (max-width:1180px){.pr-main{flex-direction:column;align-items:center}",
+    ".pr-side{width:100%;max-width:640px;flex:none}}",
 
     /* ---- the board ----
        Three layers, all DOM. The grid of cells IS the board now: it
@@ -3285,8 +3420,10 @@
     ".pr-pit .pr-shaft-2{fill:#20283a}",
     ".pr-pit .pr-void-floor{fill:#000}",
     ".pr-flag .pr-pole{fill:var(--pr-steel)}",
-    ".pr-flag .pr-pennant{fill:var(--pr-warn)}",
-    ".pr-flag .pr-num{fill:var(--pr-bg)}",
+    ".pr-flag .pr-banner{fill:var(--pr-warn);stroke:var(--pr-bg);stroke-width:3}",
+    /* The numeral is the point of the tile, so it is sized off the
+       banner rather than off the other numbers on the board. */
+    ".pr-flag .pr-num{fill:#120c00;font-size:44px;font-weight:700}",
     ".pr-emitter .pr-mount{fill:var(--pr-danger)}",
 
     /* The hazard stripe, shared by everything that will hurt you: the
@@ -3332,15 +3469,29 @@
 
     /* ---- robots ---- */
     ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
+    /* THE SAME SQUARE, TRAVELLED SEVERAL DIFFERENT WAYS.
+       A card drives you and eases out, because you chose it. A belt
+       carries you at constant speed, because the machinery does not
+       accelerate for your benefit. A pusher shoves you, fast and
+       abrupt. The distance is identical, so the timing is the only
+       thing that can say which of them just happened -- and the
+       duration is a property rather than a class so the speed setting
+       can scale it. */
     ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
-    "transition:left .22s var(--pr-ease),top .22s var(--pr-ease),opacity .3s,transform .3s}",
+    "transition:left var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
+    "top var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
+    "opacity .3s,transform .3s}",
     ".pr-piece svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;",
-    "transition:transform .22s var(--pr-ease)}",
+    "transition:transform var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease))}",
     ".pr-piece .pr-hull{fill:var(--livery-dark,var(--pr-bg));stroke:currentColor;stroke-width:6;",
     "stroke-linejoin:round}",
     ".pr-piece .pr-nose{fill:currentColor;stroke:none}",
     ".pr-piece .pr-eye{fill:currentColor;stroke:none;opacity:.55}",
-    ".pr-piece.pr-dead{opacity:0;transform:scale(.4)}",
+    /* Going into a pit or over the edge is a fall, not a fade. */
+    ".pr-piece.pr-dead{opacity:0;transform:scale(.25) rotate(150deg);",
+    "transition:opacity .45s ease-in,transform .45s cubic-bezier(.5,0,1,.6)}",
+    ".pr-piece.pr-hit svg{animation:pr-hit .42s steps(1,end) 3}",
+    "@keyframes pr-hit{0%{filter:brightness(3.4)}50%{filter:none}}",
     ".pr-piece.pr-down .pr-hull{stroke-dasharray:9 7}",
     ".pr-piece.pr-down svg{opacity:.5}",
     ".pr-archive{position:absolute;width:var(--tile);height:var(--tile);",
@@ -3359,20 +3510,95 @@
     ".pr-pip{width:4px;height:10px;background:var(--pr-border)}",
     ".pr-pip.on{background:var(--pr-danger)}",
     ".pr-pip.life{background:var(--pr-accent)}",
-    ".pr-log{flex:1 1 auto;min-height:160px;overflow-y:auto;font-size:11px;line-height:1.45}",
+        /* No floor on the log. It is the one panel with no natural end, so
+       it is the one that should absorb whatever height is left over --
+       generous on a tall screen, a few lines on a short one. Give it a
+       minimum and it stops being the thing that gives, and the column
+       scrolls instead, which hides the cards. */
+    ".pr-log{flex:1 1 0;min-height:0;overflow-y:auto;font-size:11px;line-height:1.45}",
     ".pr-log div{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.04)}",
     ".pr-log .reg{color:var(--pr-accent)}",
 
     /* ---- program bar ---- */
     ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
-    ".pr-regs,.pr-hand{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}",
-    ".pr-card{width:76px;height:48px;display:flex;flex-direction:column;align-items:center;",
-    "justify-content:center;gap:2px;background:var(--pr-plate);border:1px solid var(--pr-border);padding:2px}",
-    ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:12px;letter-spacing:.5px}",
-    ".pr-card span{font-size:10px;opacity:.65}",
-    ".pr-slot{width:76px;height:48px;border:1px dashed var(--pr-border);display:flex;align-items:center;",
-    "justify-content:center;background:transparent;position:relative}",
-    ".pr-slot .pr-n{position:absolute;top:2px;left:4px;font-size:9px;opacity:.5}",
+    ".pr-regs,.pr-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}",
+    ".pr-hand{min-height:76px}",
+    /* One tinted box per section, the grouping PumaTriage uses for
+       staff and tools: set --pr-tint and the hairline, the ground and
+       the heading all follow from it. The two rows hold the same
+       object -- a card -- and a card moves between them, so the box is
+       what says which row you are looking at without having to infer
+       it from whatever happens to be sitting in it. */
+    ".pr-row{--pr-tint:var(--pr-accent);display:flex;flex-direction:column;align-items:center;",
+    "gap:6px;width:100%;box-sizing:border-box;border-radius:6px;padding:6px 10px 8px;",
+    "border:1px solid color-mix(in srgb, var(--pr-tint) 28%, transparent);",
+    "background:color-mix(in srgb, var(--pr-tint) 6%, var(--pr-bg))}",
+    /* Amber for the registers, because amber already means "committed
+       to" on this board -- it is the pushers and the flags. Cyan for
+       the hand, which is everything still open to you. */
+    ".pr-row-regs{--pr-tint:var(--pr-warn)}",
+    ".pr-row-hand{--pr-tint:var(--pr-accent)}",
+    ".pr-row h2{margin:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;",
+    "color:var(--pr-tint);font-weight:normal}",
+
+    /* ---- program cards ----
+       A card is a bordered plate with its kind on the top edge, the
+       card-panel language PumaTriage uses. It has two faces and turns
+       over: what a register holds is secret once it is committed, and
+       the board game says so by putting the card face down. */
+    ".pr-card{width:80px;height:72px;perspective:600px;background:none;border:0;padding:0;",
+    "position:relative;flex:0 0 auto}",
+    ".pr-card .pr-faces{position:absolute;inset:0;transform-style:preserve-3d;",
+    "transition:transform .42s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
+    ".pr-card.pr-down .pr-faces{transform:rotateY(180deg)}",
+    ".pr-face{position:absolute;inset:0;backface-visibility:hidden;",
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;",
+    "border:1px solid var(--pr-border);border-top:3px solid var(--pr-kind,var(--pr-border));",
+    "background:var(--pr-panel-alt)}",
+    ".pr-face.pr-back{transform:rotateY(180deg);border-top-color:var(--pr-border);",
+    "background:repeating-linear-gradient(-45deg,var(--pr-panel) 0 6px,var(--pr-panel-alt) 6px 12px)}",
+    ".pr-face.pr-back::after{content:\"\";width:22px;height:22px;border:2px solid var(--pr-border);",
+    "border-radius:50%;box-shadow:inset 0 0 0 3px var(--pr-panel)}",
+    ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:11px;letter-spacing:.5px;",
+    "line-height:1.1}",
+    ".pr-card span.pr-pri{font-size:9px;color:var(--pr-dim);line-height:1}",
+    /* The art carries the card's kind colour, the same way a tile's
+       art carries its element's. */
+    ".pr-cart{width:34px;height:34px;display:block;color:var(--pr-kind,var(--pr-ink))}",
+    ".pr-cart .pr-cshaft{stroke:currentColor;stroke-width:8;stroke-linecap:round;fill:none}",
+    ".pr-cart .pr-cmark{stroke:currentColor;stroke-width:8;stroke-linecap:round;",
+    "stroke-linejoin:round;fill:none}",
+    /* Each kind keeps one hue everywhere it appears. */
+    ".pr-k-move1,.pr-k-move2,.pr-k-move3{--pr-kind:var(--pr-accent)}",
+    ".pr-k-back{--pr-kind:var(--pr-rust)}",
+    ".pr-k-left,.pr-k-right{--pr-kind:var(--pr-violet)}",
+    ".pr-k-uturn{--pr-kind:var(--pr-warn)}",
+    /* In hand: pickable, and draggable. */
+    ".pr-hand .pr-card{cursor:grab}",
+    ".pr-hand .pr-card:hover .pr-face{border-color:var(--pr-accent)}",
+    ".pr-card.pr-dragging{opacity:.35;cursor:grabbing}",
+    /* Dealt cards arrive one after another rather than all at once:
+       the stagger is what says WHICH cards are new, because a hand
+       that fades in together says only that something changed. The
+       index is set per card, so the delay is positional -- card 0
+       lands first and the rest follow it across the row. */
+    ".pr-card.pr-dealt{animation:pr-deal var(--pr-deal-ms,340ms) var(--pr-ease) both;",
+    "animation-delay:calc(var(--pr-deal-i,0) * var(--pr-deal-gap,55ms))}",
+    "@keyframes pr-deal{0%{opacity:0;transform:translate(-38px,-18px) rotate(-9deg) scale(.88)}",
+    "60%{opacity:1}",
+    "100%{opacity:1;transform:none}}",
+    /* ---- registers ----
+       A slot is a landing place: dashed while empty, solid once it
+       holds something, and lit while a card is over it. */
+    ".pr-slot{width:80px;height:72px;border:1px dashed var(--pr-border-lit);display:flex;",
+    "align-items:center;justify-content:center;background:var(--pr-panel);position:relative;",
+    "padding:0;flex:0 0 auto}",
+    ".pr-slot.pr-filled{border-color:transparent;background:none}",
+    ".pr-slot.pr-over{border-color:var(--pr-accent);border-style:solid;",
+    "box-shadow:0 0 10px color-mix(in srgb,var(--pr-accent) 45%,transparent)}",
+    ".pr-slot .pr-n{position:absolute;top:-13px;left:0;font-size:9px;color:var(--pr-ink);",
+    "letter-spacing:1px;z-index:2}",
+    ".pr-slot.pr-next .pr-n{color:var(--pr-accent)}",
     ".pr-slot.pr-locked{border-style:solid;border-color:var(--pr-danger)}",
     ".pr-slot.pr-locked .pr-n{color:var(--pr-danger);opacity:1}",
     ".pr-slot.pr-next{border-color:var(--pr-accent)}",
@@ -3392,9 +3618,8 @@
     ".pr-banner b{color:var(--pr-text);font-weight:normal}",
 
     ".pr-err{color:var(--pr-danger);white-space:pre-wrap;font-size:12px;max-width:640px}",
-    ".pr-legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;max-width:820px;font-size:10px}",
-    ".pr-leg{display:flex;align-items:center;gap:5px;color:var(--pr-ink);letter-spacing:.5px}",
-    ".pr-leg-art{position:relative;width:20px;height:20px;flex:0 0 20px;display:block;",
+    /* The legend's swatches, now in the help table's first column. */
+    ".pr-leg-art{position:relative;width:24px;height:24px;display:block;",
     "background:var(--pr-floor);box-shadow:inset 0 0 0 1px var(--pr-line)}",
     ".pr-leg-art .pr-pushreg{display:none}",
     ".pr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}",
@@ -3525,6 +3750,10 @@
       }
       var ev = UI.queue.shift();
       if (ev.type === "log") { log(ev.msg); updateLog(); continue; }
+      /* Set BEFORE the render that moves anything: the class picks the
+         transition, and a transition is chosen when the value changes,
+         not afterwards. */
+      if (ev.type === "motion") { setMotion(ev.kind); continue; }
       if (ev.type === "render") { updateAll(); continue; }
       if (ev.type === "sfx") { sfx(ev.name); continue; }
       if (ev.type === "beams") { UI.beams = ev.beams; drawBeams(); continue; }
@@ -3535,6 +3764,55 @@
         return;
       }
     }
+  }
+
+  /* HOW LONG EACH KIND OF MOTION TAKES, and how long before the next
+     robot starts its own.
+
+     A move takes the same time whatever its distance, so a Move 3
+     crosses three squares in the time a Move 1 crosses one -- it is
+     faster, not longer. That is what the card says: the same beat of
+     the turn, further.
+
+     `gap` is the interesting number. Robots resolve strictly in
+     priority order, so playing them end to end would be honest and
+     unreadable -- a queue of separate little films. Making the gap
+     SHORTER than the motion overlaps them: the highest priority starts
+     first and the lowest starts last, all of them are moving at once
+     in the middle, and the order is something you watch rather than
+     something you infer. */
+  var MOTION = {
+    drive: { ms: 620, gap: 260, ease: "var(--pr-ease)" },
+    belt:  { ms: 700, gap: 260, ease: "linear" },
+    shove: { ms: 260, gap: 160, ease: "cubic-bezier(.35,0,.2,1)" },
+    turn:  { ms: 480, gap: 220, ease: "var(--pr-ease)" },
+    /* Not a robot: one card's flight, and the gap before the next card
+       sets off. Same shape and the same invariant -- a gap at or above
+       the duration deals the hand strictly one card at a time, which
+       reads as a queue rather than a deal. */
+    deal:  { ms: 340, gap: 55, ease: "var(--pr-ease)" }
+  };
+
+  function motionOf(kind) { return MOTION[kind || "drive"] || MOTION.drive; }
+
+  function setMotion(kind) {
+    if (!UI.els || !UI.els.pieces) return;
+    var m = motionOf(kind);
+    /* Duration and easing come through custom properties rather than a
+       class per kind, so the speed setting scales them: a slow game
+       wants slow motion, not the same motion with longer gaps. */
+    UI.els.pieces.style.setProperty("--pr-move-ms", delayFor(m.ms) + "ms");
+    UI.els.pieces.style.setProperty("--pr-move-ease", m.ease);
+    UI.els.pieces.className = "pr-pieces pr-m-" + (kind || "drive");
+  }
+
+  /* Same treatment for the deal, and for the same reason: a slow game
+     should deal slowly rather than deal at speed and then wait. */
+  function setDealTiming() {
+    if (!UI.els || !UI.els.hand) return;
+    var m = motionOf("deal");
+    UI.els.hand.style.setProperty("--pr-deal-ms", delayFor(m.ms) + "ms");
+    UI.els.hand.style.setProperty("--pr-deal-gap", delayFor(m.gap) + "ms");
   }
 
   function stopQueue() {
@@ -3643,7 +3921,39 @@
       el.style.setProperty("--livery-dark", LIVERIES[p.livery].d);
       el.style.left = (p.c * tile) + "px";
       el.style.top = (p.r * tile) + "px";
-      el.firstChild.style.transform = "rotate(" + (p.face * 90) + "deg)";
+
+      /* ROTATION WINDS, it does not snap to a compass point.
+
+         Setting rotate(face * 90) looks right and animates wrong: a
+         robot turning right from west to north goes 270deg to 0deg,
+         and CSS interpolates that the short way -- backwards, through
+         three quarters of a turn, in the opposite direction to the
+         card that caused it. The angle has to accumulate, so a right
+         turn is always +90 whatever the robot was facing.
+
+         The step from the last rendered facing is what says which way:
+         +1 is a right turn, -1 a left, 2 a U-turn, and nothing on this
+         board turns a robot further than that in one beat. */
+      var deg;
+      if (UI.pieceFace[id] === undefined) deg = p.face * 90;
+      else {
+        var step = ((p.face - UI.pieceFace[id]) % 4 + 4) % 4;
+        deg = (UI.pieceDeg[id] || 0) + (step === 3 ? -90 : step * 90);
+      }
+      UI.pieceFace[id] = p.face;
+      UI.pieceDeg[id] = deg;
+      el.firstChild.style.transform = "rotate(" + deg + "deg)";
+
+      /* A hit reads as a hit. Damage is a number in the side panel,
+         which is fine for counting and useless for noticing, and the
+         robot it happened to is the thing you are looking at. */
+      if (UI.pieceHurt[id] !== undefined && p.damage > UI.pieceHurt[id]) {
+        el.classList.remove("pr-hit");
+        void el.offsetWidth;                       // restart the animation
+        el.classList.add("pr-hit");
+      }
+      UI.pieceHurt[id] = p.damage;
+
       el.classList.toggle("pr-dead", !p.alive);
       el.classList.toggle("pr-down", !!p.poweredDown);
     }
@@ -3725,19 +4035,135 @@
     host.innerHTML = out.join("");
   }
 
+  /* Newest first. What just happened is the only part of this anyone
+     reads during a turn, so it belongs where the eye already is rather
+     than behind a scroll that has to keep chasing the bottom. Older
+     entries fall away downward, which is also the order of how much
+     they are worth.
+
+     The register markers come out reading as separators BELOW the
+     events they introduced rather than above them. That is inherent to
+     reversing, and it still groups the register correctly -- it just
+     divides from the bottom of the group instead of the top. */
   function updateLog() {
     var host = UI.els.log, out = [], start = Math.max(0, G.log.length - 60), i;
-    for (i = start; i < G.log.length; i++) {
+    /* Pin to the newest only if the reader is already up there. During
+       execution renders come fast, and yanking the view back to the top
+       every time would make older entries unreadable the moment anyone
+       scrolled down to read them. */
+    var pinned = host.scrollTop < 24;
+    for (i = G.log.length - 1; i >= start; i--) {
       var e = G.log[i];
       out.push('<div' + (/^--/.test(e.msg) ? ' class="reg"' : "") + ">" + esc(e.msg) + "</div>");
     }
     host.innerHTML = out.join("");
-    host.scrollTop = host.scrollHeight;
+    if (pinned) host.scrollTop = 0;
+  }
+
+  /* CARD ART, in the board's own vocabulary.
+
+     A chevron already means one square of travel out there: an
+     ordinary conveyor carries one and paints one, an express carries
+     two and paints two. So a Move 2 card carries two chevrons and a
+     Move 3 three, and the card is telling you the same thing the
+     floor does in the same way. Rotation is the gear's arc, for the
+     same reason -- that arc already means "you turn" on this board,
+     and inventing a second symbol for it would be a second thing to
+     learn for no gain.
+
+     Everything is stroked in currentColor, so a card's kind colour
+     drives its art exactly the way an element's does on the board. */
+  function cardArt(kind) {
+    var d = CARD_KINDS[kind], i, out = [];
+    if (d.move) {
+      /* Backing up is the same arrow the other way round, because that
+         is what the move is: the robot does not turn to do it. */
+      var dir = d.move > 0 ? -1 : 1, n = Math.abs(d.move);
+      var tip = 50 + dir * 34, tail = 50 - dir * 30;
+      out.push('<path class="pr-cshaft" d="M50 ' + tail + "L50 " + (tip - dir * 6) + '"/>');
+      for (i = 0; i < n; i++) out.push(chev(50, tip - dir * i * 19, 0, dir, 13, "pr-cmark"));
+    } else if (kind === "uturn") {
+      /* Up, round, and back the way you came.
+
+         A U-turn IS drawn as a half-circle further down, and as an arc
+         it reads as "half a spin" -- true, and not the point. What a
+         U-turn does is reverse you, and the shape that says reverse is
+         one that leaves going up and returns going down. The rotate
+         cards keep the arc; this one keeps the U. */
+      out.push('<path class="pr-cshaft" d="M32 80L32 52A18 18 0 0 1 68 52L68 72"/>');
+      out.push(chev(68, 80, 0, 1, 13, "pr-cmark"));
+    } else {
+      /* A ROTATE CARD SHOWS THE HEADING CHANGING, not a spin.
+
+         Up the card is where the robot is pointing now. The line runs
+         up, turns the corner, and leaves sideways under an arrowhead
+         pointing the way you will be facing -- so the picture is the
+         before and the after, in that order.
+
+         The corner turns only once the line is well clear of the
+         arrowhead's wings. Bending it earlier puts the curve inside
+         the chevron and the two read as one smudge at card size,
+         which is the size that matters.
+
+         An arc was tried first and was worse: a quarter circle says
+         "ninety degrees of something" without saying of what, and
+         both cards came out as the same gesture mirrored rather than
+         as two directions. */
+      var cw = d.turn > 0;
+      var TIP = cw ? 80 : 20, Y = 42;
+      var rise = cw ? 32 : 68;                 // the upright, on the far side
+      var corner = cw ? 46 : 54;               // where the bend finishes
+      var shaftEnd = cw ? 67 : 33;             // the chevron's back
+      out.push('<path class="pr-cshaft" d="M' + rise + " 80L" + rise + " 56Q" + rise + " " + Y +
+        " " + corner + " " + Y + "L" + shaftEnd + " " + Y + '"/>');
+      out.push(chev(TIP, Y, cw ? 1 : -1, 0, 13, "pr-cmark"));
+    }
+    return '<svg class="pr-cart" viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
+           out.join("") + "</svg>";
   }
 
   function cardFace(cd) {
     var k = CARD_KINDS[cd.kind];
-    return "<b>" + esc(k.label.toUpperCase()) + "</b><span>" + cd.pri + "</span>";
+    return '<span class="pr-faces">' +
+      '<span class="pr-face pr-front">' + cardArt(cd.kind) +
+      "<b>" + esc(k.label.toUpperCase()) + "</b>" +
+      '<span class="pr-pri">' + cd.pri + "</span></span>" +
+      '<span class="pr-face pr-back"></span></span>';
+  }
+
+  function cardEl(cd, tag) {
+    var el = document.createElement(tag || "div");
+    el.className = "pr-card pr-k" + "-" + cd.kind;
+    el.innerHTML = cardFace(cd);
+    return el;
+  }
+
+  /* WHEN A REGISTER'S CARD IS FACE UP.
+     You see your own hand while you are choosing from it. The moment
+     you commit, the registers turn over -- that is what committing
+     MEANS in this game, and a row that stayed readable would be
+     quietly lying about it. They come back one at a time as the
+     registers run, and stay up once the turn is over and there is
+     nothing left to hide. */
+  function registerFaceUp(i, programming) {
+    if (programming) return true;
+    if (G.gameOver || G.phase === "cleanup") return true;
+    if (G.phase === "exec") return i <= G.register;
+    return false;
+  }
+
+  /* The register row is BUILT ONCE and patched thereafter. Rebuilding
+     it from innerHTML each render would replace the card elements, and
+     an element that was just created cannot animate a class change --
+     the flip would never be seen, only its result. */
+  function buildRegisters() {
+    var out = [], i;
+    for (i = 0; i < REGISTERS; i++) {
+      out.push('<button class="pr-slot" data-act="slot" data-i="' + i + '" data-slot="' + i + '">' +
+        '<span class="pr-n"></span></button>');
+    }
+    UI.els.regs.innerHTML = out.join("");
+    UI.slotEls = [].slice.call(UI.els.regs.children);
   }
 
   function renderProgram() {
@@ -3745,33 +4171,87 @@
     var mine = me && isHuman(me) && me.alive;
     var programming = inPhase("turn", "program") && mine;
     var open = me ? openRegisters(me.damage) : REGISTERS;
-    var i, out = [];
+    var i;
+
+    if (!UI.slotEls || UI.slotEls.length !== REGISTERS) buildRegisters();
 
     for (i = 0; i < REGISTERS; i++) {
+      var slot = UI.slotEls[i];
       var locked = i >= open;
       var ci = me ? me.registers[i] : null;
       var next = (programming && !locked && ci === null && firstEmpty(me) === i) ||
                  (G.phase === "exec" && G.register === i);
-      out.push(
-        '<button class="pr-slot' + (locked ? " pr-locked" : "") + (next ? " pr-next" : "") +
-        '" data-act="slot" data-i="' + i + '"' + (programming && !locked && ci !== null ? "" : " disabled") +
-        ' aria-label="Register ' + (i + 1) + (locked ? ", locked" : ci !== null ? ", " + CARD_KINDS[card(ci).kind].label : ", empty") + '">' +
-        '<span class="pr-n">' + (i + 1) + (locked ? " LOCK" : "") + "</span>" +
-        (ci === null ? "" : '<span class="pr-card">' + cardFace(card(ci)) + "</span>") +
-        "</button>"
-      );
-    }
-    UI.els.regs.innerHTML = out.join("");
 
-    out = [];
+      slot.classList.toggle("pr-locked", locked);
+      slot.classList.toggle("pr-next", !!next);
+      slot.classList.toggle("pr-filled", ci !== null);
+      slot.disabled = !(programming && !locked && ci !== null);
+      slot.querySelector(".pr-n").textContent = (i + 1) + (locked ? " LOCK" : "");
+
+      /* Replace the card only when it is a DIFFERENT card. Same card,
+         same element -- so a class change flips it instead of
+         redrawing it already flipped. */
+      var have = slot.querySelector(".pr-card");
+      var wantKey = ci === null ? "" : String(ci);
+      if ((have ? have.dataset.card : "") !== wantKey) {
+        if (have) have.remove();
+        if (ci !== null) {
+          var el = cardEl(card(ci));
+          el.dataset.card = wantKey;
+          el.dataset.from = i;
+          el.draggable = false;
+          slot.appendChild(el);
+          have = el;
+        }
+      }
+      if (have) {
+        var up = registerFaceUp(i, programming);
+        have.classList.toggle("pr-down", !up);
+        have.draggable = !!(programming && !locked);
+      }
+      slot.setAttribute("aria-label", "Register " + (i + 1) +
+        (locked ? ", locked" : ci === null ? ", empty"
+          : registerFaceUp(i, programming) ? ", " + CARD_KINDS[card(ci).kind].label
+          : ", face down"));
+    }
+
+    /* The deal animation plays for cards that are NEW to the hand, not
+       for every card on every render. The hand is rebuilt wholesale,
+       so without this the animation restarts each time anything else
+       changes -- and while the queue is running renders come fast
+       enough that the cards sit at the animation's first frame, which
+       is opacity zero. An invisible hand, from an animation that was
+       working perfectly. */
+    var out = [], fresh = {}, dealt = 0;
     if (programming) {
+      /* Held, not in-hand. A card you pull back out of a register was
+         never dealt to you again -- it was yours all along -- so it
+         must not fly in as though it were new. Tracking only the hand
+         made every un-programmed card re-deal itself, which is exactly
+         the signal this animation exists to give and exactly the wrong
+         card to give it about. */
+      var seen = UI.lastHand || {};
+      for (i = 0; i < me.registers.length; i++) {
+        if (me.registers[i] !== null) fresh[me.registers[i]] = 1;
+      }
       for (i = 0; i < me.hand.length; i++) {
         var cd = card(me.hand[i]);
-        out.push('<button class="pr-card" data-act="card" data-i="' + i + '" aria-label="' +
-          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri + '">' + cardFace(cd) + "</button>");
+        var isNew = !seen[me.hand[i]];
+        fresh[me.hand[i]] = 1;
+        /* Positional, and counted over the new cards only: a single
+           card dealt into a hand of eight should land now, not wait
+           out the eight delays it would inherit from its index. */
+        var di = isNew ? ' style="--pr-deal-i:' + dealt++ + '"' : "";
+        out.push('<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '"' + di + ' draggable="true"' +
+          ' data-act="card" data-i="' + i + '" data-hand="' + i + '" aria-label="' +
+          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri +
+          '. Drag to a register, or press Enter to place it in the next one.">' +
+          cardFace(cd) + "</button>");
       }
     }
     UI.els.hand.innerHTML = out.join("");
+    if (dealt) setDealTiming();
+    UI.lastHand = programming ? fresh : null;
 
     var ready = programming && firstEmpty(me) === -1;
     UI.els.run.disabled = !ready;
@@ -3781,8 +4261,9 @@
     UI.els.down.classList.toggle("on", !!(me && me.announceDown));
     UI.els.hint.textContent = G.gameOver ? ""
       : (G.phase === "exec" && G.step === "optionChoice") ? ""
-      : programming ? (ready ? "Registers full. Run, or click a register to take a card back."
-                             : "Click cards to fill registers " + (firstEmpty(me) + 1) + "-" + open + ".")
+      : programming ? (ready ? "Registers full. Run, or take a card back from a register."
+                             : "Drag a card into a register, or click it to fill register " +
+                               (firstEmpty(me) + 1) + " of " + open + ".")
       : inPhase("turn", "program") ? "Waiting for the other robots."
       : "";
   }
@@ -3854,16 +4335,49 @@
     return p && isHuman(p) && p.alive ? p : null;
   }
 
-  function onCardClick(i) {
+  /* ONE MOVE, TWO WAYS IN.
+
+     Dragging and clicking are the same rules move with different
+     gestures, so they share a function rather than each doing the
+     splice themselves. Click is not a fallback for drag: it is faster
+     when you are filling registers in order, it is the only one a
+     keyboard can reach, and drag-and-drop is unreliable on a
+     touchscreen. Both stay. */
+  function placeCard(handIndex, slotIndex) {
     var p = actor();
-    if (!inPhase("turn", "program") || !p || curtainUp()) return;
-    var slot = firstEmpty(p);
-    if (slot < 0 || i < 0 || i >= p.hand.length) return;
+    if (!inPhase("turn", "program") || !p || curtainUp()) return false;
+    if (handIndex < 0 || handIndex >= p.hand.length) return false;
+    if (slotIndex === undefined || slotIndex === null) slotIndex = firstEmpty(p);
+    if (slotIndex < 0 || slotIndex >= openRegisters(p.damage)) return false;
+    /* Dropping onto an occupied register sends its card back to the
+       hand rather than refusing: the gesture plainly means "this one
+       instead", and refusing it would make the player undo first. */
+    if (p.registers[slotIndex] !== null) p.hand.push(p.registers[slotIndex]);
+    p.registers[slotIndex] = p.hand.splice(handIndex, 1)[0];
     sfx("place");
-    p.registers[slot] = p.hand.splice(i, 1)[0];
-    announce("Register " + (slot + 1) + " set.");
+    announce("Register " + (slotIndex + 1) + " set.");
     updateAll();
+    return true;
   }
+
+  /* Dragging a card that is already in a register moves it, and swaps
+     with whatever is in the way. Reordering a program without taking
+     cards back and re-placing them is most of what drag buys here. */
+  function moveRegister(from, to) {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p || curtainUp()) return false;
+    var open = openRegisters(p.damage);
+    if (from === to || from < 0 || to < 0 || from >= open || to >= open) return false;
+    var tmp = p.registers[to];
+    p.registers[to] = p.registers[from];
+    p.registers[from] = tmp;
+    sfx("place");
+    announce("Registers " + (from + 1) + " and " + (to + 1) + " swapped.");
+    updateAll();
+    return true;
+  }
+
+  function onCardClick(i) { placeCard(i, undefined); }
 
   function onSlotClick(i) {
     var p = actor();
@@ -3988,6 +4502,56 @@
     root.addEventListener("click", function (e) {
       var el = e.target.closest("[data-act]");
       if (el && !el.disabled) dispatchAct(el);
+    });
+
+    /* DRAG AND DROP.
+
+       dragstart has to be bound per element, but dragover/drop are
+       delegated like everything else. What is being dragged lives on
+       UI, not in the dataTransfer payload: Safari will not let you
+       READ dataTransfer during dragover, so a drop target that needs
+       to know what is coming has to be told some other way. The
+       payload is still set, because a drag with an empty one is not a
+       drag at all on Firefox. */
+    root.addEventListener("dragstart", function (e) {
+      var el = e.target.closest(".pr-card[draggable=true]");
+      if (!el) { e.preventDefault(); return; }
+      UI.drag = el.dataset.hand !== undefined
+        ? { from: "hand", i: +el.dataset.hand }
+        : { from: "slot", i: +el.dataset.from };
+      el.classList.add("pr-dragging");
+      try {
+        e.dataTransfer.setData("text/plain", "card");
+        e.dataTransfer.effectAllowed = "move";
+      } catch (err) { /* older engines */ }
+    });
+    root.addEventListener("dragend", function () {
+      UI.drag = null;
+      var was = root.querySelectorAll(".pr-dragging,.pr-over");
+      for (var i = 0; i < was.length; i++) was[i].classList.remove("pr-dragging", "pr-over");
+    });
+    root.addEventListener("dragover", function (e) {
+      if (!UI.drag) return;
+      var slot = e.target.closest(".pr-slot");
+      if (!slot) return;
+      e.preventDefault();                       // preventDefault here is what ALLOWS the drop
+      e.dataTransfer.dropEffect = "move";
+      if (!slot.classList.contains("pr-over")) slot.classList.add("pr-over");
+    });
+    root.addEventListener("dragleave", function (e) {
+      var slot = e.target.closest(".pr-slot");
+      if (slot) slot.classList.remove("pr-over");
+    });
+    root.addEventListener("drop", function (e) {
+      if (!UI.drag) return;
+      var slot = e.target.closest(".pr-slot");
+      if (!slot) return;
+      e.preventDefault();
+      slot.classList.remove("pr-over");
+      var to = +slot.dataset.slot;
+      if (UI.drag.from === "hand") placeCard(UI.drag.i, to);
+      else moveRegister(UI.drag.i, to);
+      UI.drag = null;
     });
     root.addEventListener("input", function (e) {
       var el = e.target.closest("[data-act=rule]");
@@ -4347,15 +4911,35 @@
     return out.join("") + "</ol>";
   }
 
+  /* THE LEGEND LIVES HERE NOW.
+
+     It used to be a strip along the bottom of the screen, where it
+     cost the board a row of tiles on every screen in exchange for
+     something you read twice and then never again. In the help it
+     sits next to the sentence explaining what the tile does, which is
+     what you actually wanted when you went looking for it.
+
+     Still rendered rather than written: each swatch is the same
+     tileInner the board calls and each name comes from ELEMENT_DEFS,
+     so a tile that changes shape changes its own entry. */
   function buildBoardHelp() {
-    var out = ["<table><tr><th>Tile</th><th>What it does</th></tr>"];
-    var seen = {};
-    for (var ch in B.ELEMENT_DEFS) {
+    var C = UI.course, edition = (C && C.edition) || "classic";
+    var out = ["<table><tr><th></th><th>Tile</th><th>What it does</th></tr>"];
+    var seen = {}, ch;
+    for (ch in B.ELEMENT_DEFS) {
       var d = B.ELEMENT_DEFS[ch];
-      if (seen[d.name]) continue;
+      if (seen[d.name] || d.name === "floor") continue;
+      if (d.editions && d.editions.indexOf(edition) < 0) continue;
       seen[d.name] = true;
-      out.push("<tr><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
+      out.push("<tr><td>" + legendSwatch(tileInner(probeTile(sampleCode(ch, d)), 0, 0)) +
+        "</td><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
     }
+    /* Flags and lasers are course tokens rather than printed board
+       elements, so they are not in ELEMENT_DEFS and are added here. */
+    out.push("<tr><td>" + legendSwatch(flagSvg(1)) + "</td><td>flag</td><td>" +
+      "Touch them in order. Touching one out of order still moves your archive.</td></tr>");
+    out.push("<tr><td>" + legendSwatch(emitterSvg(S)) + "</td><td>board laser</td><td>" +
+      "Fires along its line every register, at whatever it reaches first.</td></tr>");
     return out.join("") + "</table>";
   }
 
@@ -5008,22 +5592,92 @@
      stops a 12-wide course from filling a wide desktop -- at which
      point you are reading a tile instead of the board.
      ============================================================ */
-  var TILE_MIN = 22, TILE_MAX = 64;
+  var TILE_MIN = 20, TILE_MAX = 64;
 
-  function fitTile(C, width, opts) {
+  /* THE BOARD IS SIZED BY HEIGHT AS WELL AS WIDTH.
+
+     Sizing on width alone is what made the board and the cards
+     unable to share a screen: a twelve-wide course in a wide column
+     picks a big tile, and the sixteen rows that tile implies then run
+     off the bottom. The limit that binds is nearly always the
+     vertical one, so it has to be in the sum. */
+  function fitTile(C, width, height, opts) {
     if (opts.scale) return opts.scale * TILE;
     var cap = opts.maxScale ? opts.maxScale * TILE : TILE_MAX;
-    return Math.max(TILE_MIN, Math.min(cap, Math.floor(width / C.w)));
+    var byW = Math.floor(width / C.w);
+    var byH = height > 0 ? Math.floor(height / C.h) : byW;
+    return Math.max(TILE_MIN, Math.min(cap, byW, byH));
+  }
+
+  /* EVERYTHING ON THE PAGE ABOVE AND BELOW THE GAME ROW.
+
+     Two earlier attempts at this were circular and both failed the
+     same way. Itemising the parts (hud, legend, side) missed the
+     shell's own banner and footer, which are not ours to know about.
+     Measuring the remainder -- document minus the row -- then fed the
+     row's own clamp back into the number that sets the clamp, and the
+     tile spiralled down to its minimum.
+
+     Above and below are independent of how tall the row is, so this
+     one settles in a single pass and cannot chase itself. */
+  function chromeHeight() {
+    if (typeof document === "undefined" || !UI.els || !UI.els.main) return 0;
+    var m = UI.els.main.getBoundingClientRect();
+    var sy = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var mainBottom = m.bottom + sy;
+
+    /* The bottom of the real CONTENT, found by asking the elements.
+       scrollHeight is no use here: a document is always at least as
+       tall as its window, so on a screen taller than the page it grows
+       with the window -- and since it is subtracted, the extra room a
+       taller window gives is cancelled exactly as fast as it appears.
+       That is why the board would not grow past a certain size however
+       tall the screen got. */
+    var bottom = mainBottom, kids = document.body.children, i, r;
+    for (i = 0; i < kids.length; i++) {
+      r = kids[i].getBoundingClientRect();
+      if (r.height) bottom = Math.max(bottom, r.bottom + sy);
+    }
+    return Math.max(0, m.top + sy) + Math.max(0, bottom - mainBottom);
   }
 
   function fitBoard(C, host, opts) {
     var avail = host.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
     var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
     if (cs) avail -= (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-    if (UI.els && UI.els.side && avail > 900) avail -= 262;    // the side panel's column
-    var tile = fitTile(C, avail, opts);
+    var sideW = 0, beside = false;
+    if (UI.els && UI.els.side) {
+      var sr = UI.els.side.getBoundingClientRect();
+      /* Only subtract the column when it really is a column. Below the
+         breakpoint it wraps under the board and costs height instead. */
+      beside = !!(sr.width && sr.width < avail - 100);
+      if (beside) sideW = sr.width + 12;
+    }
+    avail -= sideW;
+
+    /* Measure with any previous clamp lifted: a stale one changes where
+       the row ends, and where the row ends is half the measurement. */
+    UI.els.main.style.maxHeight = "";
+    UI.els.side.style.height = "";
+    var vh = (typeof window !== "undefined" ? window.innerHeight : 0);
+    var availH = vh ? Math.max(0, vh - chromeHeight() - 10) : 0;
+
+    var tile = fitTile(C, avail, availH, opts);
     var w = C.w * tile, h = C.h * tile;
     UI.tile = tile;
+    /* Bound the row and the column, so neither can push the page past
+       the window. What overflows inside the column scrolls: the log is
+       the thing with no natural end, so the log is what gives. */
+    if (availH) {
+      UI.els.main.style.maxHeight = availH + "px";
+      /* A definite HEIGHT, not a maximum, and only while the side is a
+         column. flex:1 1 0 on the log divides whatever is spare, and a
+         max-height leaves the column sized to its content -- so there
+         is never anything spare and the log collapses to its heading
+         however much room the window has. Stacked, it takes its
+         natural height like any other block. */
+      UI.els.side.style.height = beside ? availH + "px" : "";
+    }
     var st = UI.els.stage.style;
     st.width = w + "px"; st.height = h + "px";
     st.setProperty("--tile", tile + "px");
@@ -5113,8 +5767,16 @@
     main.appendChild(stage); main.appendChild(side);
 
     var program = el("div", "pr-program");
+    /* Two named rows rather than two anonymous ones: with cards in both
+       and a card able to move between them, "which row is which" has to
+       be readable without inferring it from what happens to be in
+       them. */
+    var regsWrap = el("div", "pr-row pr-row-regs", '<h2>Registers</h2>');
     var regs = el("div", "pr-regs");
+    regsWrap.appendChild(regs);
+    var handWrap = el("div", "pr-row pr-row-hand", '<h2>Your hand</h2>');
     var hand = el("div", "pr-hand");
+    handWrap.appendChild(hand);
     var controls = el("div", "pr-controls",
       '<button data-act="run">Run registers</button>' +
       '<button data-act="clear">Clear</button>' +
@@ -5123,9 +5785,23 @@
     var choice = el("div", "pr-choice");
     choice.hidden = true;
     var optsRow = el("div", "pr-opts");
-    program.appendChild(regs); program.appendChild(hand);
+    program.appendChild(regsWrap); program.appendChild(handWrap);
     program.appendChild(controls); program.appendChild(choice);
     program.appendChild(optsRow); program.appendChild(hint);
+
+    /* The program goes BESIDE the board, not under it.
+
+       A course is twelve squares wide and sixteen tall counting the
+       docking bay, so stacking the cards beneath it puts one or the
+       other off a laptop screen whatever size the tiles are -- and a
+       player who has to scroll to see the board while choosing cards
+       for it is playing two half-games. The board is tall and the card
+       rows are wide, so they go side by side and each gets the axis it
+       needs.
+
+       It goes in FIRST, above the robots and the log: it is the thing
+       you act on, and the two panels below it are reference. */
+    side.insertBefore(program, side.firstChild);
 
     var banner = el("div", "pr-banner");
     banner.hidden = true;
@@ -5136,10 +5812,8 @@
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "assertive");
 
-    var legend = el("div", "pr-legend", buildLegend(C));
-
     host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
-    host.appendChild(program); host.appendChild(legend); host.appendChild(sr);
+    host.appendChild(sr);
     host.appendChild(overlay); host.appendChild(curtain);
 
     UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, walls: walls,
@@ -5151,12 +5825,29 @@
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
     UI.pieceEls = {};
+    UI.pieceFace = {}; UI.pieceDeg = {}; UI.pieceHurt = {};
+    /* The register row is cached across renders so the flip can
+       animate; a remount throws that DOM away, so the cache has to go
+       with it or renderProgram patches elements nothing can see. */
+    UI.slotEls = null;
+    UI.drag = null;
     UI.course = C;
     UI.mounted = true;
     try { UI.speed = Math.min(2, Math.max(0, parseInt(localStorage.getItem(SPEED_KEY), 10) || 1)); } catch (e) { UI.speed = 1; }
     try { UI.muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) { UI.muted = false; }
 
     fitBoard(C, host, opts);
+    /* And again once the browser has laid the page out. The first call
+       runs while the shell's banner, our legend and the footer are all
+       still finding their heights, so "how much room is below the row"
+       is not yet a real number -- and that number is half the height
+       budget. Measured a frame later it is exact. */
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () { if (UI.mounted) fitBoard(C, host, opts); });
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("load", function () { if (UI.mounted) fitBoard(C, host, opts); });
+    }
     buildGridCells(C);
     setupInput(host);
 
@@ -5258,7 +5949,7 @@
     cardsDealt: cardsDealt,
     validateTables: validateTables,
     buildCourse: function (id) { return B.buildCourse(id); },
-    tileInner: tileInner, tileClasses: tileClasses,
+    tileInner: tileInner, tileClasses: tileClasses, cardArt: cardArt, flagSvg: flagSvg,
     newGame: function (seed, opts) { UI.wallsChecked = false; return newGame(seed, opts); },
     advance: advance,
     runSim: runSim,
