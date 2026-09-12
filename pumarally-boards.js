@@ -609,6 +609,61 @@
       ]
     },
 
+    /* THE SECOND TRANSCRIBED OFFICIAL BOARD.
+
+       A square conveyor ring with a second ring inside it running the
+       other way, and almost nothing else: the outer two columns and
+       rows are bare floor, so the whole board is a racetrack with a
+       hole in the middle you have to cross or go round.
+
+       Six gears, and the arrow colour is the tell -- green arrows
+       turn clockwise, white counter-clockwise, read off the arrow
+       geometry here rather than carried over from Exchange, though it
+       agrees with Exchange. No lasers.
+
+       Eighteen pit squares in six L-shaped holes. The printed art
+       draws each L as one hole spanning three squares, which is worth
+       knowing before you count them: it is three pits, not one.
+
+       Twenty walls, sixteen of them the frame -- columns 3/5/8/10 top
+       and bottom, rows 3/5/8/10 left and right, the same frame
+       Exchange has. Note that the printed perimeter wall straddles
+       the board's rim and is drawn mostly OUTSIDE the playing grid,
+       so a scan that looks only inside the squares finds the bottom
+       row's walls and misses the top row's entirely. */
+    island: {
+      name: "Island", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      notes: "Transcribed from the printed board.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. o. r. b> b> b> b> b> b> r. o. ..|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. .. b^ l. b< b< b< b< l. bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv .. .. o. o. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^|bv b< b< W. o. b^ bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ bv o. .. b> b> b^|bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv o. o. .. .. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ l. b> b> b> b> l. bv .. .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        "|w. o. b< b< b< b< b< b< b< bv o. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: []
+    },
+
     /* The start area. Robots enter the course from here, so it is
        laid out with position 1 nearest the middle and the numbers
        fanning outward, the way the printed bay does.
@@ -676,6 +731,17 @@
       boards: [{ id: "exchange", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[9, 2], [2, 9], [7, 7]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Flags ours, not the printed course -- same reason as Exchange:
+       the course cards have not been photographed. */
+    islandRun: {
+      name: "Island Run",
+      blurb: "Two rings turning against each other, and a hole in the middle.",
+      boards: [{ id: "island", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[4, 4], [0, 5], [6, 7]],
       minPlayers: 2, maxPlayers: 8
     },
 
