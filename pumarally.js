@@ -47,6 +47,7 @@
     panelAlt: "#0d1424",
     floor: "#0e1524",
     border: "#1b2540",
+    borderLit: "#2c3b60",     /* an empty slot: visible without competing */
     line: "#141d33",          /* the grid hairline, a shade under the border */
     accent: "#54f2ff",        /* express conveyors, headings, focus */
     accentDim: "#2b7f92",
@@ -840,6 +841,7 @@
     playing: false,
     timer: null,
     beams: null,
+    drag: null,          /* what is in the hand mid-drag, if anything */
     speed: 1,
     opts: null,
     lastPhase: null,
@@ -1730,7 +1732,19 @@
           if (!isHuman(p)) p.announceDown = botWantsPowerDown(p);
         }
         go("turn", "beginExec");
-        return NEXT;
+        /* Hold here while the registers turn over.
+           Committing is the moment your program stops being yours to
+           change and becomes something the floor will read back to
+           you, and the cards going face down is how the board game
+           says so. Returning NEXT would run straight into register 1,
+           which reveals the first card again before the turn-over had
+           a frame to happen in -- the state would be right and nobody
+           would ever see it. */
+        return animate([
+          { type: "render" },
+          { type: "sfx", name: "place" },
+          { type: "wait", delay: 420 }     // the flip's own duration
+        ]);
       },
 
       beginExec: function () { G.register = 0; go("exec", "reveal"); return NEXT; }
@@ -3365,14 +3379,56 @@
 
     /* ---- program bar ---- */
     ".pr-program{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}",
-    ".pr-regs,.pr-hand{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}",
-    ".pr-card{width:76px;height:48px;display:flex;flex-direction:column;align-items:center;",
-    "justify-content:center;gap:2px;background:var(--pr-plate);border:1px solid var(--pr-border);padding:2px}",
+    ".pr-regs,.pr-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}",
+    ".pr-hand{min-height:62px}",
+    ".pr-row{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}",
+    ".pr-row h2{margin:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;",
+    "color:var(--pr-dim);font-weight:normal}",
+
+    /* ---- program cards ----
+       A card is a bordered plate with its kind on the top edge, the
+       card-panel language PumaTriage uses. It has two faces and turns
+       over: what a register holds is secret once it is committed, and
+       the board game says so by putting the card face down. */
+    ".pr-card{width:82px;height:56px;perspective:520px;background:none;border:0;padding:0;",
+    "position:relative;flex:0 0 auto}",
+    ".pr-card .pr-faces{position:absolute;inset:0;transform-style:preserve-3d;",
+    "transition:transform .42s var(--pr-ease,cubic-bezier(.25,1,.5,1))}",
+    ".pr-card.pr-down .pr-faces{transform:rotateY(180deg)}",
+    ".pr-face{position:absolute;inset:0;backface-visibility:hidden;",
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;",
+    "border:1px solid var(--pr-border);border-top:3px solid var(--pr-kind,var(--pr-border));",
+    "background:var(--pr-panel-alt)}",
+    ".pr-face.pr-back{transform:rotateY(180deg);border-top-color:var(--pr-border);",
+    "background:repeating-linear-gradient(-45deg,var(--pr-panel) 0 6px,var(--pr-panel-alt) 6px 12px)}",
+    ".pr-face.pr-back::after{content:\"\";width:22px;height:22px;border:2px solid var(--pr-border);",
+    "border-radius:50%;box-shadow:inset 0 0 0 3px var(--pr-panel)}",
     ".pr-card b{color:var(--pr-text);font-weight:normal;font-size:12px;letter-spacing:.5px}",
-    ".pr-card span{font-size:10px;opacity:.65}",
-    ".pr-slot{width:76px;height:48px;border:1px dashed var(--pr-border);display:flex;align-items:center;",
-    "justify-content:center;background:transparent;position:relative}",
-    ".pr-slot .pr-n{position:absolute;top:2px;left:4px;font-size:9px;opacity:.5}",
+    ".pr-card span.pr-pri{font-size:10px;color:var(--pr-dim)}",
+    /* Each kind keeps one hue everywhere it appears. */
+    ".pr-k-move1,.pr-k-move2,.pr-k-move3{--pr-kind:var(--pr-accent)}",
+    ".pr-k-back{--pr-kind:var(--pr-rust)}",
+    ".pr-k-left,.pr-k-right{--pr-kind:var(--pr-violet)}",
+    ".pr-k-uturn{--pr-kind:var(--pr-warn)}",
+    /* In hand: pickable, and draggable. */
+    ".pr-hand .pr-card{cursor:grab}",
+    ".pr-hand .pr-card:hover .pr-face{border-color:var(--pr-accent)}",
+    ".pr-card.pr-dragging{opacity:.35;cursor:grabbing}",
+    ".pr-card.pr-dealt{animation:pr-deal .32s var(--pr-ease,cubic-bezier(.25,1,.5,1)) both}",
+    "@keyframes pr-deal{0%{opacity:0;transform:translateY(14px) rotate(1.5deg)}",
+    "100%{opacity:1;transform:none}}",
+    /* ---- registers ----
+       A slot is a landing place: dashed while empty, solid once it
+       holds something, and lit while a card is over it. */
+    ".pr-slot{width:82px;height:56px;border:1px dashed var(--pr-border-lit);display:flex;",
+    "align-items:center;justify-content:center;background:var(--pr-panel);position:relative;",
+    "padding:0;flex:0 0 auto}",
+    ".pr-slot.pr-filled{border-color:transparent;background:none}",
+    ".pr-slot.pr-over{border-color:var(--pr-accent);border-style:solid;",
+    "box-shadow:0 0 10px color-mix(in srgb,var(--pr-accent) 45%,transparent)}",
+    ".pr-slot .pr-n{position:absolute;top:-13px;left:0;font-size:9px;color:var(--pr-ink);",
+    "letter-spacing:1px;z-index:2}",
+    ".pr-slot.pr-next .pr-n{color:var(--pr-accent)}",
     ".pr-slot.pr-locked{border-style:solid;border-color:var(--pr-danger)}",
     ".pr-slot.pr-locked .pr-n{color:var(--pr-danger);opacity:1}",
     ".pr-slot.pr-next{border-color:var(--pr-accent)}",
@@ -3737,7 +3793,45 @@
 
   function cardFace(cd) {
     var k = CARD_KINDS[cd.kind];
-    return "<b>" + esc(k.label.toUpperCase()) + "</b><span>" + cd.pri + "</span>";
+    return '<span class="pr-faces">' +
+      '<span class="pr-face pr-front"><b>' + esc(k.label.toUpperCase()) + "</b>" +
+      '<span class="pr-pri">' + cd.pri + "</span></span>" +
+      '<span class="pr-face pr-back"></span></span>';
+  }
+
+  function cardEl(cd, tag) {
+    var el = document.createElement(tag || "div");
+    el.className = "pr-card pr-k" + "-" + cd.kind;
+    el.innerHTML = cardFace(cd);
+    return el;
+  }
+
+  /* WHEN A REGISTER'S CARD IS FACE UP.
+     You see your own hand while you are choosing from it. The moment
+     you commit, the registers turn over -- that is what committing
+     MEANS in this game, and a row that stayed readable would be
+     quietly lying about it. They come back one at a time as the
+     registers run, and stay up once the turn is over and there is
+     nothing left to hide. */
+  function registerFaceUp(i, programming) {
+    if (programming) return true;
+    if (G.gameOver || G.phase === "cleanup") return true;
+    if (G.phase === "exec") return i <= G.register;
+    return false;
+  }
+
+  /* The register row is BUILT ONCE and patched thereafter. Rebuilding
+     it from innerHTML each render would replace the card elements, and
+     an element that was just created cannot animate a class change --
+     the flip would never be seen, only its result. */
+  function buildRegisters() {
+    var out = [], i;
+    for (i = 0; i < REGISTERS; i++) {
+      out.push('<button class="pr-slot" data-act="slot" data-i="' + i + '" data-slot="' + i + '">' +
+        '<span class="pr-n"></span></button>');
+    }
+    UI.els.regs.innerHTML = out.join("");
+    UI.slotEls = [].slice.call(UI.els.regs.children);
   }
 
   function renderProgram() {
@@ -3745,33 +3839,73 @@
     var mine = me && isHuman(me) && me.alive;
     var programming = inPhase("turn", "program") && mine;
     var open = me ? openRegisters(me.damage) : REGISTERS;
-    var i, out = [];
+    var i;
+
+    if (!UI.slotEls || UI.slotEls.length !== REGISTERS) buildRegisters();
 
     for (i = 0; i < REGISTERS; i++) {
+      var slot = UI.slotEls[i];
       var locked = i >= open;
       var ci = me ? me.registers[i] : null;
       var next = (programming && !locked && ci === null && firstEmpty(me) === i) ||
                  (G.phase === "exec" && G.register === i);
-      out.push(
-        '<button class="pr-slot' + (locked ? " pr-locked" : "") + (next ? " pr-next" : "") +
-        '" data-act="slot" data-i="' + i + '"' + (programming && !locked && ci !== null ? "" : " disabled") +
-        ' aria-label="Register ' + (i + 1) + (locked ? ", locked" : ci !== null ? ", " + CARD_KINDS[card(ci).kind].label : ", empty") + '">' +
-        '<span class="pr-n">' + (i + 1) + (locked ? " LOCK" : "") + "</span>" +
-        (ci === null ? "" : '<span class="pr-card">' + cardFace(card(ci)) + "</span>") +
-        "</button>"
-      );
-    }
-    UI.els.regs.innerHTML = out.join("");
 
-    out = [];
+      slot.classList.toggle("pr-locked", locked);
+      slot.classList.toggle("pr-next", !!next);
+      slot.classList.toggle("pr-filled", ci !== null);
+      slot.disabled = !(programming && !locked && ci !== null);
+      slot.querySelector(".pr-n").textContent = (i + 1) + (locked ? " LOCK" : "");
+
+      /* Replace the card only when it is a DIFFERENT card. Same card,
+         same element -- so a class change flips it instead of
+         redrawing it already flipped. */
+      var have = slot.querySelector(".pr-card");
+      var wantKey = ci === null ? "" : String(ci);
+      if ((have ? have.dataset.card : "") !== wantKey) {
+        if (have) have.remove();
+        if (ci !== null) {
+          var el = cardEl(card(ci));
+          el.dataset.card = wantKey;
+          el.dataset.from = i;
+          el.draggable = false;
+          slot.appendChild(el);
+          have = el;
+        }
+      }
+      if (have) {
+        var up = registerFaceUp(i, programming);
+        have.classList.toggle("pr-down", !up);
+        have.draggable = !!(programming && !locked);
+      }
+      slot.setAttribute("aria-label", "Register " + (i + 1) +
+        (locked ? ", locked" : ci === null ? ", empty"
+          : registerFaceUp(i, programming) ? ", " + CARD_KINDS[card(ci).kind].label
+          : ", face down"));
+    }
+
+    /* The deal animation plays for cards that are NEW to the hand, not
+       for every card on every render. The hand is rebuilt wholesale,
+       so without this the animation restarts each time anything else
+       changes -- and while the queue is running renders come fast
+       enough that the cards sit at the animation's first frame, which
+       is opacity zero. An invisible hand, from an animation that was
+       working perfectly. */
+    var out = [], fresh = {};
     if (programming) {
+      var seen = UI.lastHand || {};
       for (i = 0; i < me.hand.length; i++) {
         var cd = card(me.hand[i]);
-        out.push('<button class="pr-card" data-act="card" data-i="' + i + '" aria-label="' +
-          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri + '">' + cardFace(cd) + "</button>");
+        var isNew = !seen[me.hand[i]];
+        fresh[me.hand[i]] = 1;
+        out.push('<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '" draggable="true"' +
+          ' data-act="card" data-i="' + i + '" data-hand="' + i + '" aria-label="' +
+          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri +
+          '. Drag to a register, or press Enter to place it in the next one.">' +
+          cardFace(cd) + "</button>");
       }
     }
     UI.els.hand.innerHTML = out.join("");
+    UI.lastHand = programming ? fresh : null;
 
     var ready = programming && firstEmpty(me) === -1;
     UI.els.run.disabled = !ready;
@@ -3781,8 +3915,9 @@
     UI.els.down.classList.toggle("on", !!(me && me.announceDown));
     UI.els.hint.textContent = G.gameOver ? ""
       : (G.phase === "exec" && G.step === "optionChoice") ? ""
-      : programming ? (ready ? "Registers full. Run, or click a register to take a card back."
-                             : "Click cards to fill registers " + (firstEmpty(me) + 1) + "-" + open + ".")
+      : programming ? (ready ? "Registers full. Run, or take a card back from a register."
+                             : "Drag a card into a register, or click it to fill register " +
+                               (firstEmpty(me) + 1) + " of " + open + ".")
       : inPhase("turn", "program") ? "Waiting for the other robots."
       : "";
   }
@@ -3854,16 +3989,49 @@
     return p && isHuman(p) && p.alive ? p : null;
   }
 
-  function onCardClick(i) {
+  /* ONE MOVE, TWO WAYS IN.
+
+     Dragging and clicking are the same rules move with different
+     gestures, so they share a function rather than each doing the
+     splice themselves. Click is not a fallback for drag: it is faster
+     when you are filling registers in order, it is the only one a
+     keyboard can reach, and drag-and-drop is unreliable on a
+     touchscreen. Both stay. */
+  function placeCard(handIndex, slotIndex) {
     var p = actor();
-    if (!inPhase("turn", "program") || !p || curtainUp()) return;
-    var slot = firstEmpty(p);
-    if (slot < 0 || i < 0 || i >= p.hand.length) return;
+    if (!inPhase("turn", "program") || !p || curtainUp()) return false;
+    if (handIndex < 0 || handIndex >= p.hand.length) return false;
+    if (slotIndex === undefined || slotIndex === null) slotIndex = firstEmpty(p);
+    if (slotIndex < 0 || slotIndex >= openRegisters(p.damage)) return false;
+    /* Dropping onto an occupied register sends its card back to the
+       hand rather than refusing: the gesture plainly means "this one
+       instead", and refusing it would make the player undo first. */
+    if (p.registers[slotIndex] !== null) p.hand.push(p.registers[slotIndex]);
+    p.registers[slotIndex] = p.hand.splice(handIndex, 1)[0];
     sfx("place");
-    p.registers[slot] = p.hand.splice(i, 1)[0];
-    announce("Register " + (slot + 1) + " set.");
+    announce("Register " + (slotIndex + 1) + " set.");
     updateAll();
+    return true;
   }
+
+  /* Dragging a card that is already in a register moves it, and swaps
+     with whatever is in the way. Reordering a program without taking
+     cards back and re-placing them is most of what drag buys here. */
+  function moveRegister(from, to) {
+    var p = actor();
+    if (!inPhase("turn", "program") || !p || curtainUp()) return false;
+    var open = openRegisters(p.damage);
+    if (from === to || from < 0 || to < 0 || from >= open || to >= open) return false;
+    var tmp = p.registers[to];
+    p.registers[to] = p.registers[from];
+    p.registers[from] = tmp;
+    sfx("place");
+    announce("Registers " + (from + 1) + " and " + (to + 1) + " swapped.");
+    updateAll();
+    return true;
+  }
+
+  function onCardClick(i) { placeCard(i, undefined); }
 
   function onSlotClick(i) {
     var p = actor();
@@ -3988,6 +4156,56 @@
     root.addEventListener("click", function (e) {
       var el = e.target.closest("[data-act]");
       if (el && !el.disabled) dispatchAct(el);
+    });
+
+    /* DRAG AND DROP.
+
+       dragstart has to be bound per element, but dragover/drop are
+       delegated like everything else. What is being dragged lives on
+       UI, not in the dataTransfer payload: Safari will not let you
+       READ dataTransfer during dragover, so a drop target that needs
+       to know what is coming has to be told some other way. The
+       payload is still set, because a drag with an empty one is not a
+       drag at all on Firefox. */
+    root.addEventListener("dragstart", function (e) {
+      var el = e.target.closest(".pr-card[draggable=true]");
+      if (!el) { e.preventDefault(); return; }
+      UI.drag = el.dataset.hand !== undefined
+        ? { from: "hand", i: +el.dataset.hand }
+        : { from: "slot", i: +el.dataset.from };
+      el.classList.add("pr-dragging");
+      try {
+        e.dataTransfer.setData("text/plain", "card");
+        e.dataTransfer.effectAllowed = "move";
+      } catch (err) { /* older engines */ }
+    });
+    root.addEventListener("dragend", function () {
+      UI.drag = null;
+      var was = root.querySelectorAll(".pr-dragging,.pr-over");
+      for (var i = 0; i < was.length; i++) was[i].classList.remove("pr-dragging", "pr-over");
+    });
+    root.addEventListener("dragover", function (e) {
+      if (!UI.drag) return;
+      var slot = e.target.closest(".pr-slot");
+      if (!slot) return;
+      e.preventDefault();                       // preventDefault here is what ALLOWS the drop
+      e.dataTransfer.dropEffect = "move";
+      if (!slot.classList.contains("pr-over")) slot.classList.add("pr-over");
+    });
+    root.addEventListener("dragleave", function (e) {
+      var slot = e.target.closest(".pr-slot");
+      if (slot) slot.classList.remove("pr-over");
+    });
+    root.addEventListener("drop", function (e) {
+      if (!UI.drag) return;
+      var slot = e.target.closest(".pr-slot");
+      if (!slot) return;
+      e.preventDefault();
+      slot.classList.remove("pr-over");
+      var to = +slot.dataset.slot;
+      if (UI.drag.from === "hand") placeCard(UI.drag.i, to);
+      else moveRegister(UI.drag.i, to);
+      UI.drag = null;
     });
     root.addEventListener("input", function (e) {
       var el = e.target.closest("[data-act=rule]");
@@ -5113,8 +5331,16 @@
     main.appendChild(stage); main.appendChild(side);
 
     var program = el("div", "pr-program");
+    /* Two named rows rather than two anonymous ones: with cards in both
+       and a card able to move between them, "which row is which" has to
+       be readable without inferring it from what happens to be in
+       them. */
+    var regsWrap = el("div", "pr-row", '<h2>Registers</h2>');
     var regs = el("div", "pr-regs");
+    regsWrap.appendChild(regs);
+    var handWrap = el("div", "pr-row", '<h2>Your hand</h2>');
     var hand = el("div", "pr-hand");
+    handWrap.appendChild(hand);
     var controls = el("div", "pr-controls",
       '<button data-act="run">Run registers</button>' +
       '<button data-act="clear">Clear</button>' +
@@ -5123,7 +5349,7 @@
     var choice = el("div", "pr-choice");
     choice.hidden = true;
     var optsRow = el("div", "pr-opts");
-    program.appendChild(regs); program.appendChild(hand);
+    program.appendChild(regsWrap); program.appendChild(handWrap);
     program.appendChild(controls); program.appendChild(choice);
     program.appendChild(optsRow); program.appendChild(hint);
 
@@ -5151,6 +5377,11 @@
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
     UI.pieceEls = {};
+    /* The register row is cached across renders so the flip can
+       animate; a remount throws that DOM away, so the cache has to go
+       with it or renderProgram patches elements nothing can see. */
+    UI.slotEls = null;
+    UI.drag = null;
     UI.course = C;
     UI.mounted = true;
     try { UI.speed = Math.min(2, Math.max(0, parseInt(localStorage.getItem(SPEED_KEY), 10) || 1)); } catch (e) { UI.speed = 1; }
