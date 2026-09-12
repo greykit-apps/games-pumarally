@@ -207,22 +207,29 @@
     return "M" + a[0] + " " + a[1] + "Q50 50 " + b[0] + " " + b[1];
   }
 
-  /* The painted arrow: a shaft up the outgoing half of the run and a
-     chevron at the end of it. It sits inside the tile rather than at
-     the edge, because two tiles of belt meeting should read as one
-     continuous belt with two arrows on it, not as a seam. */
-  function paintedArrow(exit, doubled) {
-    var e = EDGE[exit], dc = DC[exit], dr = DR[exit];
-    var tipAt = 76, tail = 30;
-    var tx = 50 + dc * (tipAt - 50) * 2 * 0.5 + dc * 0;
-    tx = 50 + dc * 26; var ty = 50 + dr * 26;
-    var sx = 50 - dc * tail * 0.5, sy = 50 - dr * tail * 0.5;
-    var out = '<path class="pr-mark" d="M' + sx + " " + sy + "L" + tx + " " + ty + '"/>';
-    out += chev(tx, ty, dc, dr, 15);
-    if (doubled) out += chev(tx - dc * 17, ty - dr * 17, dc, dr, 15);
-    return out;
+  /* The painted arrow follows the RUN, not the exit axis.
+
+     That distinction is the whole point: a conveyor curve rotates the
+     robot on it and a straight one does not, so if both tiles carry a
+     straight arrow the board is hiding a rule. It did, until someone
+     looked at the Proving Ground -- which was authored to contain one
+     of everything, five curves and a merge among them -- and could
+     not find a single turn on it.
+
+     A curve gets a curved arrow, and a merge gets one shaft per feed
+     converging on a single head, which is exactly what the printed
+     board draws and exactly what the player needs: two ways in, one
+     way out, and the side feed visibly bending. */
+  function markPath(inDir, exit) {
+    var e = EDGE[B.opposite(inDir)], x = EDGE[exit];
+    var ax = e[0] + DC[inDir] * 15, ay = e[1] + DR[inDir] * 15;
+    var bx = x[0] - DC[exit] * 24, by = x[1] - DR[exit] * 24;
+    if (inDir === exit) return "M" + ax + " " + ay + "L" + bx + " " + by;
+    return "M" + ax + " " + ay + "Q50 50 " + bx + " " + by;
   }
 
+  /* The arrowhead, as a stroked chevron rather than a filled triangle
+     so it keeps the weight of the shaft it terminates. */
   function chev(x, y, hx, hy, size) {
     var bx = x - hx * size, by = y - hy * size;
     var px = -hy * size * 0.78, py = hx * size * 0.78;
@@ -253,14 +260,20 @@
   }
 
   function beltSvg(art) {
-    var runs = art.ins.length ? art.ins : [art.exit], i, rails = "", beds = "";
+    var runs = art.ins.length ? art.ins : [art.exit];
+    var rails = "", beds = "", marks = "", i;
     for (i = 0; i < runs.length; i++) {
       var d = runPath(runs[i], art.exit);
       rails += '<path class="pr-rail" d="' + d + '"/>';
       beds += '<path class="pr-bed" d="' + d + '"/>';
+      marks += '<path class="pr-mark" d="' + markPath(runs[i], art.exit) + '"/>';
     }
-    return svg(rails + beds + paintedArrow(art.exit, art.speed === 2),
-      art.speed === 2 ? "pr-express" : "pr-belt");
+    /* One head, however many feeds: the shafts converge on it. */
+    var x = EDGE[art.exit], dc = DC[art.exit], dr = DR[art.exit];
+    var tx = x[0] - dc * 24, ty = x[1] - dr * 24;
+    marks += chev(tx, ty, dc, dr, 15);
+    if (art.speed === 2) marks += chev(tx - dc * 17, ty - dr * 17, dc, dr, 15);
+    return svg(rails + beds + marks, art.speed === 2 ? "pr-express" : "pr-belt");
   }
 
   /* ------------------------------------------------------------
@@ -2688,6 +2701,45 @@
       delete OPTION_DEFS.__bogus;
       OPTION_ROSTER.transcribed--;
       assert(threw && /unknown hook/.test(threw), "expected an unknown-hook error, got " + threw);
+    } },
+
+    { name: "a conveyor curve is DRAWN as a curve, and a merge as a merge", run: function () {
+      /* A curve rotates the robot on it and a straight belt does not,
+         so a curve drawn with a straight arrow hides a rule. It did:
+         the painted arrow used to run along the exit axis whatever
+         the belt underneath was doing, and the Proving Ground -- five
+         curves and a merge on it -- showed not one turn. */
+      function art(g, c, r) { return beltSvg(beltArt(g, c, r)); }
+      /* Only the PAINTED marks, not the rail and bed underneath them --
+         those bend on a curve too, and counting them was how the first
+         version of this test failed a board that was drawing correctly. */
+      function marks(svgText) {
+        var out = [], re = /class="pr-mark" d="([^"]+)"/g, m;
+        while ((m = re.exec(svgText))) out.push(m[1]);
+        return out;
+      }
+      function shafts(svgText) {
+        return marks(svgText).filter(function (d) { return (d.match(/L/g) || []).length < 2; }).length;
+      }
+      function curves(svgText) {
+        return marks(svgText).filter(function (d) { return d.indexOf("Q") >= 0; }).length;
+      }
+
+      var straight = bench([["b>", "b>", "b>"]]);
+      assert(shafts(art(straight, 1, 0)) === 1, "a straight belt draws one shaft");
+      assert(curves(art(straight, 1, 0)) === 0, "and it must not be drawn curved");
+
+      /* Arrives travelling east, leaves north: a left turn. */
+      var corner = bench([["..", "b^", ".."], ["b>", "b^", ".."]]);
+      assert(curves(art(corner, 1, 1)) === 1, "a curve must be drawn curved");
+
+      /* Two feeds, one straight and one turning, one way out. */
+      var merge = bench([["..", "bv", ".."], ["b>", "bv", ".."]]);
+      var m = art(merge, 1, 1);
+      assert(shafts(m) === 2, "a merge draws one shaft per feed, got " + shafts(m));
+      assert(curves(m) === 1, "and exactly the side feed bends, got " + curves(m));
+      assert(marks(m).length - shafts(m) === 1,
+        "however many feeds, a merge has exactly one arrowhead");
     } },
 
     { name: "the table rejects an element nobody drew", run: function () {
