@@ -1672,6 +1672,24 @@
       },
 
       deal: function () {
+        /* "Each turn begins by reshuffling the cards from the previous
+           turn and then dealing a hand of program cards to each
+           player." The deck is not a draw pile that persists across
+           turns -- every card that is not sitting in a locked register
+           is gathered and shuffled before each deal, so every turn is
+           dealt from the whole 84 minus whatever damage has pinned
+           down. Keeping a persistent pile instead quietly changed the
+           odds: a card discarded this turn was unavailable next turn
+           until the deck happened to run dry, which is not a rule
+           anyone at the table would recognise.
+
+           It also explains why draw()'s deal-short guard has never
+           fired in any simulation. Eight robots at full health need 72
+           of 84, so a deck reshuffled every turn cannot run out -- the
+           guard is defending against a state the real rules make
+           unreachable, and it stays only as a belt-and-braces. */
+        G.deck = shuffle(G.deck.concat(G.discard));
+        G.discard = [];
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
@@ -2710,6 +2728,20 @@
       assert(G.players[0].options.length === 0,
         "manual p.29: a powered-down robot cannot acquire option cards; it took " +
         G.players[0].options.length);
+    } },
+
+    { name: "every turn is dealt from a reshuffled deck", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      G.deck = PROGRAM_DECK.map(function (c) { return c.id; });
+      var parked = G.deck.splice(0, 40);        // last turn's cards, face down
+      G.discard = parked;
+      G.phase = "turn"; G.step = "deal";
+      STEP.turn.deal();
+      assert(G.discard.length === 0,
+        "the previous turn's cards must be shuffled back before the deal, not left " +
+        "in a pile until the deck runs dry -- " + G.discard.length + " were still parked");
+      var pool = G.deck.length + G.players[0].hand.length;
+      assert(pool === 84, "the whole deck should be in play, got " + pool);
     } },
 
     { name: "a powered-down robot is dealt no cards", run: function () {
