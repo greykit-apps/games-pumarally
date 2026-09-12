@@ -2,12 +2,12 @@
 
 **Program five registers, hand control to the factory floor, and hope you
 guessed right.** A faithful port of the RoboRally rules, drawn in original
-pixel art.
+vector art.
 
 Inspired by *RoboRally* (Richard Garfield, Wizards of the Coast). Rules and
 board layouts are reimplemented as functional data; the name, artwork and
 printed boards remain theirs. Nothing here is scanned — the tiles are original
-sprites and the layouts are hand-transcribed tile data.
+drawings and the layouts are hand-transcribed tile data.
 
 > **Status: in development, and playable.** Program five registers and race up
 > to seven robots round the Proving Ground, alone or pass-and-play. The twelve
@@ -285,15 +285,14 @@ your hand while you program, the board while it runs.
 ```bash
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
-node tools/check-rules.js 200     # 32 rule tests + 200 bot-vs-bot games
+node tools/check-rules.js 200     # 58 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
-node tools/gen-sprites.js         # redraw the 32x32 tile art
-node tools/make-icon.js           # regenerate icon.svg from the robot sprite
+node tools/make-icon.js           # regenerate icon.svg from the robot drawing
 node tools/stamp-assets.js        # content-hash the assets index.html loads
 ```
 
-`gen-sprites.js`, `make-icon.js` and `stamp-assets.js` all take `--check`,
-which fails when the shipped output no longer matches its source.
+`make-icon.js` and `stamp-assets.js` both take `--check`, which fails when the
+shipped output no longer matches its source.
 
 `stamp-assets.js` exists because the host serves `index.html` with
 `max-age=60, must-revalidate` but the `.js` files with `max-age=2592000` —
@@ -302,9 +301,7 @@ thirty days, no revalidation. A returning visitor would pick up a fresh
 games in this portfolio are immune by accident, since their whole game *is*
 the HTML; this is the first one split across files, so the split is ours to
 compensate for. Hashing content rather than counting versions means the URL
-changes exactly when the bytes do. Resolution is one constant in
-`gen-sprites.js` — though raising it does not by itself buy detail, since each
-sprite is drawn at real proportions rather than scaled up.
+changes exactly when the bytes do.
 
 All of these run in CI ahead of deploy. `check-rules.js` fails when no simulated
 game is ever *won* — a run reporting only "no crashes" cannot distinguish a
@@ -315,7 +312,7 @@ In the browser console:
 
 ```js
 __PR.runSim(200)        // bot-vs-bot games with the invariants armed
-__PR.ruleTests()        // the 32 scenario tests
+__PR.ruleTests()        // the 58 scenario tests
 __PR.newGame(42)        // a seeded game; the same seed replays exactly
 __PR.assertInvariants() // conservation laws, right now
 __PR.G                  // live state
@@ -327,15 +324,25 @@ __PR.G                  // live state
   dependencies, no build step, no network at play time.
 - The rules engine touches no DOM, so the human, the bots and the simulations
   share one definition of legal — and Node loads the same file CI tests.
-- Tiles are 32x32 and the board takes the largest **whole** multiple that fits
-  its column, up to 2x by default (`data-max-scale` on the mount point raises
-  it). Pixel art only survives integer scaling — at 1.5x some sprite pixels
-  land on two screen pixels and their neighbours on one, so a conveyor's slats
-  come out unevenly spaced. The board would rather scroll than smear.
-- Sprites ship as character grids with per-sprite palettes,
-  pre-rendered once to offscreen canvases, but at 1,024 characters each they
-  are *drawn* by `tools/gen-sprites.js` rather than typed. Rotations are canvas
-  transforms, and the eight robots are one sprite with eight palette maps.
+- **No canvas anywhere.** The board is the grid of cells that used to sit
+  invisible on top of one, carrying the hit targets and the per-square screen
+  reader labels while a canvas underneath drew the same 288 tiles a second
+  time. Deleting the canvas deleted the duplication: the label and the drawing
+  are now generated side by side from the same tile.
+- Tile art is stroked and filled SVG in a 100×100 box, coloured from the
+  palette rather than having the palette baked into it — which is why eight
+  robot liveries cost one drawing and a `color`, not eight sprite sheets. It is
+  also why the board scales to whatever fraction of the column it is given:
+  the old integer-scale rule existed only because pixel art smears at 1.5×.
+- The art is deliberately solid rather than line work. A conveyor is a belt bed
+  with rails down both sides and an arrow painted on it; a wall is a raised,
+  hazard-striped bar casting a shadow onto the square it blocks. Outlines read
+  as a diagram — a player picking a route is reading depth as much as symbol.
+- **The legend is rendered, not written.** Each swatch calls the same
+  `tileInner()` the board calls, and takes its wording from `ELEMENT_DEFS`, so
+  a tile that changes shape changes its own legend entry in the same edit. It
+  used to be a hand-typed string, and the first time the art changed every word
+  of it was wrong while still reading perfectly plausibly.
 - All rule randomness goes through one seeded generator whose entire state is a
   single integer in the save, so a seed replays a game exactly. Bots consume
   none of it — their variety comes from hashing the position, and an invariant
