@@ -817,6 +817,10 @@
        game, not the animation that was mid-flight when it was written. */
     els: null,
     pieceEls: null,
+    /* Per-robot render memory, so a change can be ANIMATED rather than
+       just drawn: which way it was facing, how far it has wound, and
+       how hurt it was last time we looked. */
+    pieceFace: null, pieceDeg: null, pieceHurt: null,
     prevRects: null,
     queue: [],
     playing: false,
@@ -1768,17 +1772,18 @@
         G.exec.queue.shift();
         log(p.name + " " + describePlan(cd, ctx));
         runPlan(p, ctx);
-        return animate([{ type: "sfx", name: "move" }, { type: "render" }, { type: "wait", delay: 300 }]);
+        return animate([{ type: "motion", kind: "" }, { type: "sfx", name: "move" },
+                        { type: "render" }, { type: "wait", delay: 300 }]);
       },
 
       /* Each board element gets its own beat, but only if it actually
          moved somebody. A pause for a pusher nobody was standing on is
          five wasted seconds a turn, and the player learns to stop
          watching -- which is the opposite of what the beat is for. */
-      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt"); },
-      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt"); },
-      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove"); },
-      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear"); },
+      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt", "belt"); },
+      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt", "belt"); },
+      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove", "shove"); },
+      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear", "turn"); },
 
       lasers: function () {
         var before = boardSig();
@@ -1918,12 +1923,13 @@
 
   /* Run one board element, and hand back a beat only if the board
      actually did something. */
-  function boardBeat(fn, arg, nextStep, delay, sound) {
+  function boardBeat(fn, arg, nextStep, delay, sound, motion) {
     var before = boardSig();
     if (arg === null) fn(); else fn(arg);
     go("exec", nextStep);
     if (boardSig() === before) return NEXT;
-    return animate([{ type: "sfx", name: sound }, { type: "render" }, { type: "wait", delay: delay }]);
+    return animate([{ type: "motion", kind: motion }, { type: "sfx", name: sound },
+                    { type: "render" }, { type: "wait", delay: delay }]);
   }
 
   /* Where every beam starts and stops this register, for the overlay.
@@ -2990,6 +2996,33 @@
         "a headless run starts on the tile edge, so it meets its neighbour");
     } },
 
+    { name: "every custom property the stylesheet uses is defined", run: function () {
+      /* An undefined custom property does not fall back to anything --
+         it makes the WHOLE declaration invalid at computed-value time.
+         So one typo in one var() silently deletes a rule, and the only
+         symptom is that something stopped moving.
+
+         That is not hypothetical: --pr-ease was used four times and
+         defined never, which removed the robots' movement transition
+         and their turn transition together. They teleported for as
+         long as the vector renderer has existed, and the bug is
+         invisible in the source because every line of it reads
+         correctly. */
+      var css = CSS;                 // already joined where it is declared
+      var used = {}, defined = {}, m, k;
+      var useRe = /var\(\s*(--pr-[a-z0-9-]+)/g;
+      while ((m = useRe.exec(css))) used[m[1]] = true;
+      var defRe = /(--pr-[a-z0-9-]+)\s*:/g;
+      while ((m = defRe.exec(css))) defined[m[1]] = true;
+      for (k in TOKENS) {
+        defined["--pr-" + k.replace(/[A-Z]/g, function (c) { return "-" + c.toLowerCase(); })] = true;
+      }
+      var missing = [];
+      for (k in used) if (!defined[k]) missing.push(k);
+      assert(missing.length === 0,
+        "used but never defined, so every rule mentioning them is dropped: " + missing.join(", "));
+    } },
+
     { name: "a card's art says what the card does", run: function () {
       /* The art is not decoration: the chevron count IS the distance
          and the arc's direction IS the rotation. A Move 3 drawn with
@@ -3241,6 +3274,12 @@
     ".pr-root{" + Object.keys(TOKENS).map(function (k) {
       return "--pr-" + k.replace(/[A-Z]/g, function (m) { return "-" + m.toLowerCase(); }) + ":" + TOKENS[k];
     }).join(";") + ";",
+    /* Not a colour, so it is not in TOKENS, but it is referenced like
+       one -- and an undefined custom property does not fall back, it
+       voids the whole declaration it appears in. Leaving this out
+       silently removed the robots' movement AND turn transitions: they
+       teleported, and the winding-rotation fix had nothing to animate. */
+    "--pr-ease:cubic-bezier(.25,1,.5,1);",
     "background:var(--pr-bg);color:var(--pr-ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;",
     "display:flex;flex-direction:column;gap:10px;align-items:center;padding:14px;box-sizing:border-box;",
     "overflow-x:auto}",
@@ -3392,13 +3431,26 @@
     ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
     ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
     "transition:left .22s var(--pr-ease),top .22s var(--pr-ease),opacity .3s,transform .3s}",
+    /* THE SAME SQUARE, TRAVELLED THREE DIFFERENT WAYS.
+       A card drives you: it eases out, because you chose it. A belt
+       carries you: constant speed, because the machinery does not
+       accelerate for your benefit. A pusher shoves you: fast and
+       abrupt. The distance is identical, so the timing is the only
+       thing that can say which of the three just happened. */
+    ".pr-pieces.pr-m-belt .pr-piece{transition-duration:.34s;transition-timing-function:linear}",
+    ".pr-pieces.pr-m-shove .pr-piece{transition-duration:.15s;",
+    "transition-timing-function:cubic-bezier(.35,0,.2,1)}",
     ".pr-piece svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;",
     "transition:transform .22s var(--pr-ease)}",
     ".pr-piece .pr-hull{fill:var(--livery-dark,var(--pr-bg));stroke:currentColor;stroke-width:6;",
     "stroke-linejoin:round}",
     ".pr-piece .pr-nose{fill:currentColor;stroke:none}",
     ".pr-piece .pr-eye{fill:currentColor;stroke:none;opacity:.55}",
-    ".pr-piece.pr-dead{opacity:0;transform:scale(.4)}",
+    /* Going into a pit or over the edge is a fall, not a fade. */
+    ".pr-piece.pr-dead{opacity:0;transform:scale(.25) rotate(150deg);",
+    "transition:opacity .45s ease-in,transform .45s cubic-bezier(.5,0,1,.6)}",
+    ".pr-piece.pr-hit svg{animation:pr-hit .42s steps(1,end) 3}",
+    "@keyframes pr-hit{0%{filter:brightness(3.4)}50%{filter:none}}",
     ".pr-piece.pr-down .pr-hull{stroke-dasharray:9 7}",
     ".pr-piece.pr-down svg{opacity:.5}",
     ".pr-archive{position:absolute;width:var(--tile);height:var(--tile);",
@@ -3636,6 +3688,10 @@
       }
       var ev = UI.queue.shift();
       if (ev.type === "log") { log(ev.msg); updateLog(); continue; }
+      /* Set BEFORE the render that moves anything: the class picks the
+         transition, and a transition is chosen when the value changes,
+         not afterwards. */
+      if (ev.type === "motion") { setMotion(ev.kind); continue; }
       if (ev.type === "render") { updateAll(); continue; }
       if (ev.type === "sfx") { sfx(ev.name); continue; }
       if (ev.type === "beams") { UI.beams = ev.beams; drawBeams(); continue; }
@@ -3646,6 +3702,11 @@
         return;
       }
     }
+  }
+
+  function setMotion(kind) {
+    if (!UI.els || !UI.els.pieces) return;
+    UI.els.pieces.className = "pr-pieces" + (kind ? " pr-m-" + kind : "");
   }
 
   function stopQueue() {
@@ -3754,7 +3815,39 @@
       el.style.setProperty("--livery-dark", LIVERIES[p.livery].d);
       el.style.left = (p.c * tile) + "px";
       el.style.top = (p.r * tile) + "px";
-      el.firstChild.style.transform = "rotate(" + (p.face * 90) + "deg)";
+
+      /* ROTATION WINDS, it does not snap to a compass point.
+
+         Setting rotate(face * 90) looks right and animates wrong: a
+         robot turning right from west to north goes 270deg to 0deg,
+         and CSS interpolates that the short way -- backwards, through
+         three quarters of a turn, in the opposite direction to the
+         card that caused it. The angle has to accumulate, so a right
+         turn is always +90 whatever the robot was facing.
+
+         The step from the last rendered facing is what says which way:
+         +1 is a right turn, -1 a left, 2 a U-turn, and nothing on this
+         board turns a robot further than that in one beat. */
+      var deg;
+      if (UI.pieceFace[id] === undefined) deg = p.face * 90;
+      else {
+        var step = ((p.face - UI.pieceFace[id]) % 4 + 4) % 4;
+        deg = (UI.pieceDeg[id] || 0) + (step === 3 ? -90 : step * 90);
+      }
+      UI.pieceFace[id] = p.face;
+      UI.pieceDeg[id] = deg;
+      el.firstChild.style.transform = "rotate(" + deg + "deg)";
+
+      /* A hit reads as a hit. Damage is a number in the side panel,
+         which is fine for counting and useless for noticing, and the
+         robot it happened to is the thing you are looking at. */
+      if (UI.pieceHurt[id] !== undefined && p.damage > UI.pieceHurt[id]) {
+        el.classList.remove("pr-hit");
+        void el.offsetWidth;                       // restart the animation
+        el.classList.add("pr-hit");
+      }
+      UI.pieceHurt[id] = p.damage;
+
       el.classList.toggle("pr-dead", !p.alive);
       el.classList.toggle("pr-down", !!p.poweredDown);
     }
@@ -5597,6 +5690,7 @@
                clear: controls.querySelector("[data-act=clear]"),
                down: controls.querySelector("[data-act=down]") };
     UI.pieceEls = {};
+    UI.pieceFace = {}; UI.pieceDeg = {}; UI.pieceHurt = {};
     /* The register row is cached across renders so the flip can
        animate; a remount throws that DOM away, so the cache has to go
        with it or renderProgram patches elements nothing can see. */
