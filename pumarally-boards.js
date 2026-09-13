@@ -1642,7 +1642,7 @@
     var w = 0, h = 0;
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (var i = 0; i < parts.length; i++) {
-      var p = parts[i], g = rotateGrid(parsePic(p.id, BOARD_SPECS[p.id]), p.rot);
+      var p = parts[i], g = rotateGrid(parsePic(p.id, specOf(p.id)), p.rot);
       w = Math.max(w, p.at[0] + g.w);
       h = Math.max(h, p.at[1] + g.h);
     }
@@ -1691,10 +1691,10 @@
     C.flags = [];
     for (var i = 0; i < spec.boards.length; i++) {
       var p = spec.boards[i];
-      stamp(C, rotateGrid(parsePic(p.id, BOARD_SPECS[p.id]), p.rot), p.at);
+      stamp(C, rotateGrid(parsePic(p.id, specOf(p.id)), p.rot), p.at);
     }
-    if (spec.dock) stamp(C, rotateGrid(parsePic(spec.dock.id, BOARD_SPECS[spec.dock.id]), spec.dock.rot), spec.dock.at);
-    C.edition = BOARD_SPECS[spec.boards[0].id].edition || "classic";
+    if (spec.dock) stamp(C, rotateGrid(parsePic(spec.dock.id, specOf(spec.dock.id)), spec.dock.rot), spec.dock.at);
+    C.edition = specOf(spec.boards[0].id).edition || "classic";
     for (var f = 0; f < spec.flags.length; f++) {
       C.flags.push({ c: spec.flags[f][0], r: spec.flags[f][1], n: f + 1 });
     }
@@ -1716,7 +1716,120 @@
      board carrying one is classic and no argument. A board built only
      out of elements both editions print can be played either way, and
      the menu is allowed to offer it twice. */
-  function playableEditions(id) {
+  /* ============================================================
+     HOUSE BOARDS
+
+     A board the player has edited for this session. It shadows the
+     shipped one everywhere -- courses build from it, thumbnails draw
+     it, the ruleset test reads it -- because a half-applied edit, live
+     in the picture and absent from the edition check, is the kind of
+     wrong that plays for twenty minutes before it shows.
+
+     Overrides are never written into BOARD_SPECS. The shipped data is
+     the thing the photographs were checked against, and losing the
+     ability to say "this is what the cardboard does" would cost more
+     than the convenience is worth.
+     ============================================================ */
+  var OVERRIDES = {};
+
+  function specOf(id) { return OVERRIDES[id] || BOARD_SPECS[id]; }
+
+  function setOverride(id, spec) {
+    if (!BOARD_SPECS[id]) throw new Error("no such board to override: " + id);
+    /* Parsed and validated before it is allowed to shadow anything, so
+       a bad edit is refused at the door rather than at buildCourse. */
+    var g = parsePic(id, spec);
+    validateGrid(id, g, function () {});
+    OVERRIDES[id] = spec;
+  }
+
+  function clearOverride(id) {
+    if (id === undefined) OVERRIDES = {};
+    else delete OVERRIDES[id];
+  }
+
+  function overrideIds() { var out = []; for (var k in OVERRIDES) out.push(k); return out; }
+  function isOverridden(id) { return !!OVERRIDES[id]; }
+
+  /* ============================================================
+     WHICH RULEBOOK CAN READ THIS COURSE
+
+     Every layer counts, not just the picture. Burners and presses left
+     the picture when they became wall-mounted, and for a while after
+     that a board whose only expansion element was a flame jet reported
+     as playable by both rulebooks -- the element was still there, the
+     check had simply stopped looking where it lived.
+     ============================================================ */
+  /* Which editions print each sparse layer. Pushers and lasers are in
+     both boxes; fire, presses and swing doors are Crash and Burn. */
+  var LAYER_EDITIONS = {
+    burners: ["classic"],
+    timers: ["classic"],
+    doors: ["classic"],
+    pushers: ["classic", "modern"],
+    lasers: ["classic", "modern"]
+  };
+  var LAYER_NAMES = { burners: "flame jet", timers: "press", doors: "swing door" };
+
+  /* Every element a course carries, as {name, editions} -- one list so
+     the two questions below cannot disagree about where to look.
+
+     Reads the PARSED grid rather than the picture text. The first
+     version scanned the source strings and reported a swing door on
+     every board with a docking bay, because "s1" carries a digit and
+     so does a door. Parsing costs a millisecond in a menu and cannot
+     make that mistake. */
+  function courseElements(id) {
+    var spec = COURSES[id], out = [];
+    var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
+    for (var i = 0; i < parts.length; i++) {
+      var bs = specOf(parts[i].id);
+      if (!bs) continue;
+      var g;
+      try { g = parsePic(parts[i].id, bs); } catch (e) { continue; }
+      for (var r = 0; r < g.h; r++) {
+        for (var c = 0; c < g.w; c++) {
+          var def = elemOf(codeAt(g, c, r));
+          if (def && def.editions) out.push({ name: def.name, editions: def.editions });
+        }
+      }
+      var k;
+      for (k = 0; k < g.doorN.length; k++) {
+        if (g.doorN[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
+      }
+      for (k = 0; k < g.doorW.length; k++) {
+        if (g.doorW[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
+      }
+      for (var layer in LAYER_EDITIONS) {
+        if (layer === "doors") continue;
+        if (g[layer] && g[layer].length) {
+          out.push({ name: LAYER_NAMES[layer] || layer, editions: LAYER_EDITIONS[layer] });
+        }
+      }
+    }
+    return out;
+  }
+
+  function playableEditionsNew(id) {
+    var out = [], e;
+    for (e in EDITIONS) out.push(e);
+    var els = courseElements(id);
+    for (var i = 0; i < els.length; i++) {
+      var ed = els[i].editions;
+      out = out.filter(function (x) { return ed.indexOf(x) >= 0; });
+    }
+    return out;
+  }
+
+  function editionBlockerNew(id, edition) {
+    var els = courseElements(id);
+    for (var i = 0; i < els.length; i++) {
+      if (els[i].editions.indexOf(edition) < 0) return els[i].name;
+    }
+    return null;
+  }
+
+  function playableEditionsOld(id) {
     var spec = COURSES[id];
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     var out = [];
@@ -1736,9 +1849,7 @@
     return out;
   }
 
-  /* Why a course is shut out of an edition, for a menu that has to say
-     so rather than just greying a button. */
-  function editionBlocker(id, edition) {
+  function editionBlockerOld(id, edition) {
     var spec = COURSES[id];
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (var i = 0; i < parts.length; i++) {
@@ -1772,7 +1883,7 @@
     var edition = null;
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (i = 0; i < parts.length; i++) {
-      var be = BOARD_SPECS[parts[i].id].edition || "classic";
+      var be = specOf(parts[i].id).edition || "classic";
       if (edition === null) edition = be;
       else if (be !== edition) {
         E_('mixes the ' + EDITIONS[edition].name + " and " + EDITIONS[be].name +
@@ -1861,6 +1972,9 @@
     doorOpen: doorOpen, blockedAt: blockedAt,
     buildCourse: buildCourse, isVoid: isVoid,
     validateGrid: validateGrid, validateCourse: validateCourse,
-    playableEditions: playableEditions, editionBlocker: editionBlocker, validateAll: validateAll
+    playableEditions: playableEditionsNew, editionBlocker: editionBlockerNew,
+    courseElements: courseElements, validateAll: validateAll,
+    specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
+    overrideIds: overrideIds, isOverridden: isOverridden
   };
 });
