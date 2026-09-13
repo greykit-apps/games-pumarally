@@ -3324,6 +3324,44 @@
       assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
     } },
 
+    { name: "every setting declares a control that can draw it", run: function () {
+      /* The control is part of the setting's definition now, so the two
+         can disagree: a segment whose labels run out halfway, a toggle
+         with five values, a kind nothing knows how to render. Each of
+         those draws something plausible and wrong. */
+      var KNOWN = { segment: 1, toggle: 1, slider: 1 };
+      for (var k in SLIDER_DEFS) {
+        var d = SLIDER_DEFS[k];
+        assert(d.control, k + " declares no control");
+        assert(KNOWN[d.control], k + ' asks for control "' + d.control + '", which nothing draws');
+        assert(d.min <= d.def && d.def <= d.max, k + "'s default is outside its own range");
+        if (d.labels) {
+          assert(d.labels.length === d.max - d.min + 1,
+            k + " spans " + (d.max - d.min + 1) + " values but names " + d.labels.length);
+          for (var i = 0; i < d.labels.length; i++) {
+            assert(d.labels[i], k + " leaves value " + (d.min + i) + " unnamed");
+          }
+        }
+        if (d.control === "toggle") {
+          assert(d.min === 0 && d.max === 1, k + " is drawn as a switch but has more than two values");
+        }
+        if (d.maxFrom) {
+          assert(SLIDER_DEFS[d.maxFrom], k + ' is capped by "' + d.maxFrom + '", which is not a setting');
+        }
+        /* And it must actually render something for every value it
+           claims -- the check that would have caught a labels array
+           one short. */
+        for (var v = d.min; v <= d.max; v++) {
+          var html = ruleControl(k, d, v);
+          assert(html.indexOf("<") === 0 && html.length > 40, k + " draws nothing at value " + v);
+          if (d.control === "segment") {
+            assert(html.indexOf('aria-checked="true"') > 0,
+              k + " draws no selected option at value " + v);
+          }
+        }
+      }
+    } },
+
     { name: "every palette colour clears its contrast floor", run: function () {
       /* Contrast is arithmetic, so it can be checked rather than
          eyeballed -- and it drifts the moment somebody nudges a colour
@@ -5330,6 +5368,28 @@
     ".pr-steps b{color:var(--pr-text);font-weight:normal}",
     ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px;align-items:center}",
     ".pr-set-label{font-size:10px;opacity:.6;width:100%;margin-top:4px}",
+
+    /* A SEGMENTED CONTROL, not a row of loose buttons. One outline
+       around the set says these are alternatives; the hairlines
+       between say where each one ends. */
+    ".pr-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--pr-border);",
+    "border-radius:3px;overflow:hidden;margin:2px 0}",
+    ".pr-seg-b{border:0!important;border-left:1px solid var(--pr-border)!important;",
+    "border-radius:0!important;background:var(--pr-panel);padding:5px 11px;min-width:34px}",
+    ".pr-seg-b:first-child{border-left:0!important}",
+    ".pr-seg-b.on{background:var(--pr-accent);color:var(--pr-bg)}",
+    ".pr-seg-b:disabled{opacity:.3;cursor:default}",
+    ".pr-seg-b:not(.on):not(:disabled):hover{background:var(--pr-panel-alt)}",
+
+    /* A switch reads as a state, not as a press: the dot is where the
+       setting IS, and it slides rather than blinking. */
+    ".pr-switch{display:inline-flex;align-items:center;gap:8px;padding:5px 11px 5px 6px}",
+    ".pr-switch .pr-switch-dot{width:26px;height:14px;border-radius:8px;flex:0 0 26px;",
+    "background:var(--pr-border-lit);position:relative;transition:background .18s}",
+    ".pr-switch .pr-switch-dot::after{content:\'\';position:absolute;top:2px;left:2px;",
+    "width:10px;height:10px;border-radius:50%;background:var(--pr-ink);transition:transform .18s,background .18s}",
+    ".pr-switch.on .pr-switch-dot{background:var(--pr-accent)}",
+    ".pr-switch.on .pr-switch-dot::after{transform:translateX(12px);background:var(--pr-bg)}",
     ".pr-livery{display:inline-flex;align-items:center;gap:5px}",
     ".pr-livery .pr-swatch{width:10px;height:10px;flex:0 0 10px;border:1px solid var(--pr-border)}",
     ".pr-tabs .on,.pr-presets .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
@@ -6329,6 +6389,15 @@
       }
       saveRules(); showSetup(); return;
     }
+    if (a === "rule" && el.dataset.v !== undefined) {
+      houseRules[el.dataset.k] = clampRule(el.dataset.k, +el.dataset.v);
+      /* Fewer robots than seats is not a game, so the dependent
+         setting follows rather than being silently clamped at start. */
+      if (el.dataset.k === "players" && houseRules.humans > houseRules.players) {
+        houseRules.humans = houseRules.players;
+      }
+      saveRules(); showSetup(); return;
+    }
     if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showSetup(); return; }
     if (a === "bay") { houseRules.bay = +el.dataset.n; saveRules(); showSetup(); return; }
     if (a === "editmap") {
@@ -6451,6 +6520,7 @@
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (modalOpen()) {
+        if (segmentKey(e)) return;
         trapFocus(e);
         if (e.key === "Escape" && UI.modalDismissable) { e.preventDefault(); closeModal(); }
         return;
@@ -6535,13 +6605,30 @@
      turns the flat values into what newGame actually reads -- so a
      new rule is one row here and nothing else.
      ============================================================ */
+  /* A SLIDER IS FOR A RANGE YOU DO NOT NEED TO HIT EXACTLY.
+
+     None of these is that. The widest is seven values and every one of
+     them means something specific -- six robots is a decision, not a
+     point on a continuum -- so a slider made the player drag for a
+     number they could have pressed, and hid the named values behind a
+     position. Each def now says which control it wants; `slider`
+     remains implemented for the first setting that genuinely has a
+     wide range, and nothing currently uses it.
+
+       segment  discrete values, drawn as a radio group. `labels`
+                names them; without it they draw as numbers.
+       toggle   a boolean, drawn as a switch.
+       slider   a range. Unused today, kept working.
+  */
   var SLIDER_DEFS = {
-    players: { label: "Robots", min: 2, max: 8, def: 4, desc: "How many robots are in the race." },
-    humans: { label: "Humans", min: 1, max: 8, def: 1, desc: "Seats played at this keyboard. More than one turns on pass-and-play." },
-    skill: { label: "Rival skill", min: 0, max: 2, def: 1, harder: true,
+    players: { label: "Robots", control: "segment", min: 2, max: 8, def: 4,
+               desc: "How many robots are in the race." },
+    humans: { label: "Humans", control: "segment", min: 1, max: 8, def: 1, maxFrom: "players",
+              desc: "Seats played at this keyboard. More than one turns on pass-and-play." },
+    skill: { label: "Rival skill", control: "segment", min: 0, max: 2, def: 1, harder: true,
              labels: ["Scrapyard", "Circuit", "Grand Prix"],
              desc: "How far ahead the bots look when they program." },
-    startOptions: { label: "Starting options", min: 0, max: 3, def: 0,
+    startOptions: { label: "Starting options", control: "segment", min: 0, max: 3, def: 0,
                     desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." },
 
     /* HOUSE RULES: variants, not game size. Kept in the same table so
@@ -6554,7 +6641,7 @@
        a checkpoint if it crosses it OR stays on it. Rather than pick a
        winner between two printings of the same game, the strict reading
        is the default and the other is offered by name. */
-    flagTouch: { label: "Touching a flag", min: 0, max: 1, def: 0, group: "house",
+    flagTouch: { label: "Touching a flag", control: "segment", min: 0, max: 1, def: 0, group: "house",
                  labels: ["Must end a register on it", "Crossing it counts"],
                  desc: "The English manual wants you to stop on a flag. The German Crash and Burn book counts crossing it. Euro style is the looser one." }
   };
@@ -6707,6 +6794,49 @@
     };
   }
 
+  /* ONE SETTING, DRAWN AS WHATEVER IT ACTUALLY IS.
+
+     A radio group is a group: it needs a role, a label, and arrow keys
+     that move between its options rather than out of them. The browser
+     gives all three to <input type=radio> and none of them to a row of
+     buttons, so a row of buttons has to say so itself. */
+  function ruleControl(k, d, v) {
+    var ctl = d.control || "slider";
+    var shown = d.labels ? d.labels[v] : v;
+    var head = '<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
+      '<span class="pr-rule-val">' + esc(String(shown)) +
+      (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>";
+    var foot = '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>";
+    var body, i;
+
+    if (ctl === "toggle") {
+      body = '<button class="pr-switch' + (v ? " on" : "") + '" data-act="rule" data-k="' + k +
+        '" data-v="' + (v ? 0 : 1) + '" role="switch" aria-checked="' + (v ? "true" : "false") +
+        '"><i class="pr-switch-dot"></i>' + esc(d.labels ? d.labels[v] : (v ? "On" : "Off")) + "</button>";
+      return head + body + foot;
+    }
+
+    if (ctl === "segment") {
+      /* An option above another setting's value is shown and DISABLED
+         rather than hidden: "six humans needs six robots" is a thing
+         worth seeing, and a row that changes length as you move a
+         different setting is a row you cannot aim at. */
+      var cap = d.maxFrom ? Math.min(d.max, houseRules[d.maxFrom]) : d.max;
+      body = '<div class="pr-seg" role="radiogroup" aria-label="' + esc(d.label) + '">';
+      for (i = d.min; i <= d.max; i++) {
+        var on = v === i, off = i > cap;
+        body += '<button class="pr-seg-b' + (on ? " on" : "") + '" data-act="rule" data-k="' + k +
+          '" data-v="' + i + '" role="radio" aria-checked="' + (on ? "true" : "false") + '"' +
+          (off ? " disabled" : "") + ' tabindex="' + (on ? "0" : "-1") + '">' +
+          esc(String(d.labels ? d.labels[i] : i)) + "</button>";
+      }
+      return head + body + "</div>" + foot;
+    }
+
+    return head + '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min +
+      '" max="' + d.max + '" value="' + v + '" aria-label="' + esc(d.label) + '">' + foot;
+  }
+
   function currentPreset() {
     for (var name in DIFFICULTY_PRESETS) {
       var p = DIFFICULTY_PRESETS[name], match = true;
@@ -6845,6 +6975,32 @@
   }
 
   function modalOpen() { return UI.els && UI.els.overlay && !UI.els.overlay.hidden; }
+
+  /* The WAI-ARIA radiogroup pattern: arrows move WITHIN the group and
+     select as they go, so the group is one tab stop and the options
+     are reached with the keys that look like they should reach them.
+     Without this, Tab walked through every option of every setting --
+     twenty-six stops to cross the setup screen. */
+  function segmentKey(e) {
+    var cur = document.activeElement;
+    if (!cur || !cur.parentNode || cur.getAttribute("role") !== "radio") return false;
+    var step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1
+             : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!step) return false;
+    e.preventDefault();
+    var opts = [].slice.call(cur.parentNode.querySelectorAll('[role="radio"]'))
+                 .filter(function (b) { return !b.disabled; });
+    var at = opts.indexOf(cur);
+    if (at < 0) return true;
+    var next = opts[(at + step + opts.length) % opts.length];
+    if (next && next !== cur) {
+      /* Re-rendered by the dispatch, so focus is restored by value
+         rather than by element -- the element is about to be gone. */
+      UI.refocusRule = { k: next.dataset.k, v: next.dataset.v };
+      next.click();
+    }
+    return true;
+  }
 
   function trapFocus(e) {
     if (!modalOpen() || e.key !== "Tab") return;
@@ -7022,12 +7178,7 @@
     for (var k in SLIDER_DEFS) {
       var d = SLIDER_DEFS[k], v = houseRules[k];
       if ((d.group || "setup") !== gname) continue;
-      var shown = d.labels ? d.labels[v] : v;
-      out.push('<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
-        '<span class="pr-rule-val">' + esc(String(shown)) + (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>" +
-        '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max +
-        '" value="' + v + '" aria-label="' + esc(d.label) + '">' +
-        '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>");
+      out.push(ruleControl(k, d, v));
     }
     }
     var cfg = resolveConfig(houseRules);
@@ -7036,6 +7187,15 @@
     out.push('<div class="pr-modal-foot"><button data-act="start">Start</button>' +
       '<button data-act="closemodal">Cancel</button></div>');
     openModal(out.join(""));
+    /* Arrowing through a radio group re-renders the screen under the
+       key, so the focus is put back by VALUE. Restoring by element
+       would reach for one that no longer exists. */
+    if (UI.refocusRule) {
+      var back = UI.els.overlay.querySelector('[data-act="rule"][data-k="' + UI.refocusRule.k +
+        '"][data-v="' + UI.refocusRule.v + '"]');
+      UI.refocusRule = null;
+      if (back) back.focus();
+    }
   }
 
   function helpTabs() {
