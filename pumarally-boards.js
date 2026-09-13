@@ -1595,12 +1595,30 @@
     }
   }
 
+  /* A COURSE IS A SPEC, NOT A NAME.
+
+     Everything here took a key into COURSES, which is fine while every
+     course ships with the game and impossible the moment a player
+     builds one. A composed course has no key -- it has boards,
+     rotations, offsets and flags, and that object IS the course. So
+     every entry point takes either: a string is looked up, an object
+     is used as it stands.
+
+     The shipped table is untouched by this. It is still the list of
+     courses the box prints; it is simply no longer the only place a
+     course can come from. */
+  function courseSpec(x) {
+    if (x && typeof x === "object") return x;
+    var spec = COURSES[x];
+    if (!spec) throw new Error("no such course: " + x);
+    return spec;
+  }
+
   function buildCourse(id) {
-    var spec = COURSES[id];
-    if (!spec) throw new Error("no such course: " + id);
+    var spec = courseSpec(id);
     var b = courseBounds(spec);
     var C = blankGrid(b.w, b.h);
-    C.id = id;
+    C.id = typeof id === "string" ? id : (spec.id || "composed");
     C.name = spec.name;
     C.flags = [];
     for (var i = 0; i < spec.boards.length; i++) {
@@ -1614,6 +1632,107 @@
     }
     C.docks.sort(function (a, z) { return a.n - z.n; });
     return C;
+  }
+
+  /* ============================================================
+     COMPOSING A COURSE FROM A LAYOUT
+
+     A layout is a grid of board slots plus where the dock sits along
+     the base. Every board is 12x12 and the dock is 12x4, so a slot at
+     (col,row) lands at (col*12, row*12) and nothing needs to be
+     fitted -- boards snap because there is nowhere else they could go.
+
+     Flags cannot be chosen until the course exists, because "a legal
+     square" is a question about the assembled board. So this builds a
+     scratch course with no flags, picks on that, and returns a spec
+     that carries them -- one object, reproducible, and safe to put in
+     a save.
+     ============================================================ */
+  function composeCourse(layout, flagCount, rnd) {
+    var boards = [], r, c;
+    for (r = 0; r < layout.rows; r++) {
+      for (c = 0; c < layout.cols; c++) {
+        var cell = layout.cells[r * layout.cols + c];
+        if (!cell || !cell.id) continue;
+        boards.push({ id: cell.id, rot: cell.rot || 0, at: [c * 12, r * 12] });
+      }
+    }
+    if (!boards.length) throw new Error("a course needs at least one board");
+    var spec = {
+      id: layout.id || "composed",
+      name: layout.name || "Your course",
+      blurb: layout.blurb || "",
+      boards: boards,
+      dock: { id: layout.dockId || "dockingBay", rot: 0,
+              at: [(layout.dockCol || 0) * 12, layout.rows * 12] },
+      flags: [],
+      minPlayers: 2, maxPlayers: 8
+    };
+    if (layout.flags) {
+      spec.flags = layout.flags;
+    } else {
+      var scratch = buildCourse(spec);
+      var dk = spec.dock;
+      spec.flags = autoFlags(scratch, flagCount || 3, rnd, dk ? {
+        x0: dk.at[0], x1: dk.at[0] + 11,
+        y0: dk.at[1], y1: dk.at[1] + 3
+      } : null);
+    }
+    return spec;
+  }
+
+  /* SOMEWHERE LEGAL, AND SPREAD OUT, AND NOT IN THE DOCK.
+
+     A flag on a conveyor is carried off it, a flag in a pit cannot be
+     touched, three flags in one corner is a race to one corner -- and
+     a flag on the DOCK is one somebody starts on top of. The first
+     version had no dock rule and duly put flag one at the bottom of
+     the docking bay, because "furthest from the start" had been
+     written as "largest row" and the dock is at the bottom.
+
+     Distance is measured from the dock itself now, so the first flag
+     is the furthest square from where the robots come in, whichever
+     edge that happens to be. Each flag after it goes as far as
+     possible from the ones already placed.
+
+     `rnd` is accepted and used only to break a tie, so a caller that
+     wants variety can have it without the default being unstable.  */
+  function autoFlags(C, n, rnd, dockBox) {
+    var cand = [], c, r;
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        if (dockBox && c >= dockBox.x0 && c <= dockBox.x1 &&
+            r >= dockBox.y0 && r <= dockBox.y1) continue;
+        var code = codeAt(C, c, r);
+        if (!code || isVoid(C, c, r)) continue;
+        var el = elemOf(code);
+        if (!el || el.name !== "floor") continue;      // not a belt, pit, gear or bay
+        cand.push({ c: c, r: r });
+      }
+    }
+    if (!cand.length) return [];
+    var dc = dockBox ? (dockBox.x0 + dockBox.x1) / 2 : C.w / 2;
+    var dr = dockBox ? (dockBox.y0 + dockBox.y1) / 2 : C.h;
+    var out = [];
+    while (out.length < n && cand.length) {
+      var best = 0, bestD = -1;
+      for (var i = 0; i < cand.length; i++) {
+        var d;
+        if (!out.length) {
+          d = Math.abs(cand[i].c - dc) + Math.abs(cand[i].r - dr);
+        } else {
+          d = Infinity;
+          for (var j = 0; j < out.length; j++) {
+            var dd = Math.abs(cand[i].c - out[j][0]) + Math.abs(cand[i].r - out[j][1]);
+            if (dd < d) d = dd;
+          }
+        }
+        if (d > bestD || (d === bestD && rnd && rnd() < 0.5)) { bestD = d; best = i; }
+      }
+      out.push([cand[best].c, cand[best].r]);
+      cand.splice(best, 1);
+    }
+    return out;
   }
 
   /* A tile outside every stamped board is void — the same effect
@@ -1694,7 +1813,7 @@
      so does a door. Parsing costs a millisecond in a menu and cannot
      make that mistake. */
   function courseElements(id) {
-    var spec = COURSES[id], out = [];
+    var spec = courseSpec(id), out = [];
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (var i = 0; i < parts.length; i++) {
       var bs = specOf(parts[i].id);
@@ -1781,7 +1900,7 @@
   }
 
   function validateCourse(id, warn) {
-    var spec = COURSES[id];
+    var spec = courseSpec(id);
     var E_ = function (m) { throw new Error("course " + id + ": " + m); };
     var i;
     for (i = 0; i < spec.boards.length; i++) {
@@ -1887,6 +2006,7 @@
     buildCourse: buildCourse, isVoid: isVoid,
     validateGrid: validateGrid, validateCourse: validateCourse,
     playableEditions: playableEditionsNew, editionBlocker: editionBlockerNew,
+    courseSpec: courseSpec, composeCourse: composeCourse, autoFlags: autoFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
     overrideIds: overrideIds, isOverridden: isOverridden
