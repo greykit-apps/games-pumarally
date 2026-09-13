@@ -119,10 +119,36 @@ out: **exit without saving**, **save to library**, or **save and play**.
 ## Setting up a race
 
 Two screens and then the workshop. **Settings** picks the ruleset, the number of
-robots and the house rules; **Course** is where a printed course is loaded, one
-is laid out three-by-three by hand, or one is taken off your **library**; and
-`Next` opens the whole thing in the workshop, where the flags go on and the race
-is started.
+robots and the house rules; **Course** is where a course is picked, one is laid
+out three-by-three by hand, or one is taken off your **library**; and `Next`
+opens the whole thing in the workshop, where the flags go on and the race is
+started.
+
+The course shelf holds two kinds, grouped by what a course *is* rather than by
+which box its first board came out of:
+
+- **Quick games** — one board with its flags already down, one per transcribed
+  board, named after the board. The shortest distance between wanting a game
+  and having one.
+- **Race tracks** — two boards or more with a flag on each, so the path has to
+  cross every seam. Laid out here, following the rulebook's own guidance for
+  building them: 1×2, 2×2 and 1×3 configurations, two to four flags whatever
+  the size, and Northrup's Rule holding between consecutive flags.
+
+**The book's own sample race tracks are not among them, and cannot be yet.**
+Every one of them lays down two to four boards, five of the twelve classic
+boards are transcribed, and identifying an untranscribed board from a halftone
+reproduction and then counting flag squares off it is exactly the eyeballed
+guess this project does not ship. They land when their boards do.
+
+Every flag on every shipped course is checked against the placement rules —
+plain floor, never the starting block, nothing wall-mounted standing on it,
+never the very corner, within Northrup's twelve of the flag before it, and no
+two on one square. That check found three real defects when it was first run:
+Board H had a flag standing on a **conveyor**, which is not somewhere to stand
+at all because the belt carries the robot off it at the end of every register,
+and Cross Town had one on a repair site and a third flag sixteen columns from
+the second.
 
 The library is `localStorage`, one entry per named course, holding the boards
 and their rotations together with the workshop's picture and its flags. Saving
@@ -220,11 +246,12 @@ Faithfulness is a claim about data, so the data says where it came from.
 | Shunt Yard | **Authored** | Not from any box either. Exists so that multi-board assembly and rotation are exercised before an official board depends on them. |
 | Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. To be replaced with a transcription. |
 
-Four courses ship: *Proving Run* and *Shunt Run* (one board each), *Cross Town*
-(two boards side by side, so the seam between them is under test) and
-*Sidelong* (one board turned a quarter over, so `rotateGrid` is exercised by a
-real course and not only by a unit test). Every printed course uses both of
-those mechanics; none of them had been built until now.
+Fourteen courses ship: ten quick games, one per transcribed board plus the
+Shunt Yard turned a quarter over (so `rotateGrid` is exercised by a real course
+and not only by a unit test), and four race tracks — *Cross Town* and
+*Crosscut* at 1×2, *The Long Haul* at 1×3 with the starting block under the
+middle board, and *Four Quarters* at 2×2. The seam between boards and the
+rotation are both under test by a course that is actually played.
 
 The twelve original boards are transcribed from reference images, one merge
 request each, against a frozen engine. None have landed yet. A board is never

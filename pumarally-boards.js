@@ -1420,13 +1420,46 @@
 
   /* ============================================================
      COURSES
+
      A course is which boards, rotated how, laid out where, and
-     where the flags go. Flags are tokens, not printed elements —
+     where the flags go. Flags are tokens, not printed elements --
      keeping them here is what lets one board serve many courses.
+
+     TWO KINDS, and the menu is grouped by them rather than by which
+     box the boards came out of.
+
+     `quick` is ONE BOARD with its flags already down: the shortest
+     distance between wanting a game and having one. There is exactly
+     one per transcribed board, named after the board, because that is
+     what it is -- the menu used to dress these up as named courses,
+     which implied a provenance they do not have.
+
+     `track` is the larger thing: two, three or four boards, with a
+     path that crosses the seams. The rulebook's own Sample Race
+     Tracks section (pp.44-47) is where the idea comes from and its
+     guidance is followed -- 1x2, 2x2 and 1x3 configurations, two or
+     three flags whatever the size, and Northrup's Rule holding
+     between consecutive flags.
+
+     THE PRINTED SAMPLE TRACKS THEMSELVES ARE NOT HERE, and cannot be
+     until the boards they use are. Five of the twelve classic boards
+     are transcribed; every sample track in the book lays down two to
+     four, and identifying an untranscribed board from a halftone
+     reproduction and then counting flag squares off it is exactly the
+     eyeballed guess this project does not ship. These layouts are
+     ours, over transcribed boards, and say so -- the same standing as
+     exchangeRun. The printed ones land when their boards do.
+
+     Every flag below was CHOSEN FROM THE DATA rather than off a
+     picture: plain floor, never the starting block, never the outer
+     ring of a board, nothing wall-mounted standing on it, seven
+     squares clear of every other flag, and within Northrup's twelve
+     of the flag before it.
      ============================================================ */
   var COURSES = {
     provingRun: {
-      name: "Proving Run",
+      name: "Proving Ground",
+      kind: "quick",
       blurb: "One of everything, and nothing to be ashamed of losing to.",
       intro: true,
       boards: [{ id: "provingGround", rot: 0, at: [0, 0] }],
@@ -1436,7 +1469,8 @@
     },
 
     shuntRun: {
-      name: "Shunt Run",
+      name: "Shunt Yard",
+      kind: "quick",
       blurb: "One express loop, and everything you own is on it.",
       boards: [{ id: "shuntYard", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
@@ -1454,7 +1488,8 @@
        authored layout over a transcribed board, and says so. The
        official courses land when the cards do. */
     exchangeRun: {
-      name: "Exchange Run",
+      name: "Exchange",
+      kind: "quick",
       blurb: "Everything moves. The walls are the only place to stand.",
       boards: [{ id: "exchange", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
@@ -1463,21 +1498,27 @@
     },
 
     /* Flags ours, not the printed course -- same reason as Exchange:
-       the course cards have not been photographed. */
+       the course cards have not been photographed. Flag 2 used to
+       stand on column zero and all three sat within four squares of
+       each other, which is a lap of the middle rather than a race. */
     islandRun: {
-      name: "Island Run",
+      name: "Island",
+      kind: "quick",
       blurb: "Two rings turning against each other, and a hole in the middle.",
       boards: [{ id: "island", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[4, 4], [0, 5], [6, 7]],
+      flags: [[4, 4], [10, 3], [3, 10]],
       minPlayers: 2, maxPlayers: 8
     },
 
-    /* Flags ours, not the printed course. Only fifteen squares on this
-       board are plain floor, so they go on three of those rather than
-       on a belt that would carry the robot straight off them. */
+    /* Flags ours, not the printed course. Every flag here is on the
+       board's outer ring, against the usual preference, because this
+       board has NO plain floor anywhere else: thirty-one floor squares
+       and all thirty-one are on the rim. The alternative is a flag on
+       a belt that carries the robot straight off it. */
     maelstromRun: {
-      name: "Maelstrom Run",
+      name: "Maelstrom",
+      kind: "quick",
       blurb: "Everything spirals inward, and the middle is a hole.",
       boards: [{ id: "maelstrom", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
@@ -1489,7 +1530,8 @@
        clear of the spills, so reaching one is not a matter of luck with
        an oil slide. */
     boardGRun: {
-      name: "Board G Run",
+      name: "Board G",
+      kind: "quick",
       blurb: "Portals, flamethrowers and four spills of oil.",
       boards: [{ id: "boardG", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
@@ -1498,11 +1540,13 @@
     },
 
     pitMazeRun: {
-      name: "Pit Maze Run",
+      name: "Pit Maze",
+      kind: "quick",
       blurb: "Twenty-six holes and the belts that run between them.",
       boards: [{ id: "pitMaze", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[8, 2], [2, 7], [11, 10]],
+      /* Flag 3 was on column eleven with a clear inner square beside it. */
+      flags: [[8, 2], [2, 7], [10, 9]],
       minPlayers: 2, maxPlayers: 8
     },
 
@@ -1512,18 +1556,24 @@
 
     /* Flags ours, not the printed course -- the course cards have not been
        photographed. All three on plain floor and clear of a burner's square,
-       because on this board "somewhere safe to stand" is the scarce thing. */
+       because on this board "somewhere safe to stand" is the scarce thing.
+
+       Flag 2 used to stand on a CONVEYOR, which is not somewhere to
+       stand at all -- the belt moves the robot off it at the end of
+       every register. Flag 1 was on the top rim. */
     boardHRun: {
-      name: "Board H Run",
+      name: "Board H",
+      kind: "quick",
       blurb: "Sixteen flamethrowers and a conveyor under half the rams.",
       boards: [{ id: "boardH", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[2, 0], [11, 6], [5, 9]],
+      flags: [[2, 2], [10, 7], [5, 9]],
       minPlayers: 2, maxPlayers: 8
     },
 
     crossRun: {
-      name: "Cross Run",
+      name: "Cross",
+      kind: "quick",
       blurb: "Four belt lanes meet, and the junction is a hole.",
       boards: [{ id: "cross", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
@@ -1536,6 +1586,7 @@
        off one board has to meet whatever is on the other. */
     crossTown: {
       name: "Cross Town",
+      kind: "track",
       blurb: "Two factory floors and the gap between them.",
       boards: [
         { id: "provingGround", rot: 0, at: [0, 0] },
@@ -1546,16 +1597,67 @@
          assembler no longer expresses, and a course it cannot express
          drops off its menu silently. */
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[9, 2], [17, 6], [1, 10]],
+      /* Flag 2 used to stand on a REPAIR SITE -- not a clear square,
+         and a checkpoint that also mends you is two rules on one
+         tile -- and flag 3 was sixteen columns from it, outside
+         Northrup's twelve. */
+      flags: [[9, 2], [16, 6], [5, 10]],
       minPlayers: 2, maxPlayers: 8
     },
 
     /* The same board a quarter-turn over, which is how the printed
        courses use them and the only thing that exercises rotateGrid
        against a real course rather than a unit test. */
+    /* ---- RACE TRACKS: larger courses, following the rulebook's own
+       guidance for building them. Each lays one flag per board so the
+       path has to cross every seam, which is the whole reason to put
+       more than one board down. ---- */
+
+    /* 1x2. The Pit Maze comes in upside down, so the two belt systems
+       run into each other at the seam rather than alongside. */
+    bigCross: {
+      name: "Crosscut",
+      kind: "track",
+      blurb: "Four belt lanes on one side, twenty-six holes on the other.",
+      boards: [{ id: "cross", rot: 0, at: [0, 0] }, { id: "pitMaze", rot: 2, at: [12, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[3, 2], [15, 2], [3, 9]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* 1x3, the long one: out along the top, across the middle, and
+       back down the far end. The block sits under the MIDDLE board, so
+       the first flag is a genuine choice of direction rather than a
+       queue. */
+    longHaul: {
+      name: "The Long Haul",
+      kind: "track",
+      blurb: "Three floors end to end, and the starting block in the middle of them.",
+      boards: [{ id: "provingGround", rot: 0, at: [0, 0] },
+               { id: "exchange", rot: 1, at: [12, 0] },
+               { id: "shuntYard", rot: 2, at: [24, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [12, 12] },
+      flags: [[4, 2], [16, 9], [28, 3]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* 2x2, and the flags go round it: one per quarter, in an order
+       that crosses the middle twice. */
+    fourQuarters: {
+      name: "Four Quarters",
+      kind: "track",
+      blurb: "Two by two, one flag in each, and the crossing is the hard part.",
+      boards: [{ id: "exchange", rot: 0, at: [0, 0] }, { id: "cross", rot: 1, at: [12, 0] },
+               { id: "pitMaze", rot: 0, at: [0, 12] }, { id: "island", rot: 3, at: [12, 12] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 24] },
+      flags: [[8, 4], [19, 16], [7, 21], [19, 9]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     sidelong: {
-      name: "Sidelong",
-      blurb: "The Shunt Yard, turned on its side.",
+      name: "Shunt Yard, sideways",
+      kind: "quick",
+      blurb: "The same board a quarter-turn over, which plays nothing like it.",
       boards: [{ id: "shuntYard", rot: 1, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[10, 5], [1, 1], [6, 8]],
