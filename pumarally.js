@@ -5556,10 +5556,11 @@
       var rots = {};
       for (var k = 0; k < spec.boards.length; k++) rots[spec.boards[k].id] = spec.boards[k].rot;
       assert(rots.island === 1, "the course lost a board's rotation");
-      /* Two flags a board, floored at four: a two-board course is a
-         four-flag race. */
-      assert(C.flags.length === 4, "a two-board course should carry four flags, has " + C.flags.length);
       assert(C.docks.length >= 8, "a composed course should carry eight bays, has " + C.docks.length);
+      /* The preview carries a nominal flag so the course validates --
+         real flags are placed in the workshop -- and even that one is
+         never dropped on the start area. */
+      assert(C.flags.length === 1, "the preview should carry one flag, has " + C.flags.length);
       for (var i = 0; i < C.flags.length; i++) {
         assert(C.flags[i].r < C.h - 4, "flag " + (i + 1) + " was placed inside the docking bay");
       }
@@ -5801,23 +5802,35 @@
       assert(!UI.layout.edit, "moving the block kept the old picture");
     } },
 
-    { name: "flags put down in the workshop are the flags raced", run: function () {
-      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
+    { name: "the flags raced are the flags put down in the workshop", run: function () {
+      /* There is nowhere else they can come from. Two placements used
+         to generate them from rules, and both produced courses that
+         were legal and dull -- a flag is a decision about a particular
+         square, and no rule this game knows how to state gets that
+         right. */
+      UI.layout = { v: 3, dockCol: 0,
+                    cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"],
                          flags: [[3, 3], [7, 7], [2, 9], [8, 1]] };
-      UI.layout.pick = { mode: "manual" };
       var pick = flagPick();
-      assert(pick.mode === "manual", "the workshop's answer was not kept");
-      /* However many were put down is how many the race is run to --
-         the count follows the workshop rather than the board count. */
       assert(pick.n === 4, "a four-flag workshop course is a " + pick.n + "-flag race");
       assert(JSON.stringify(flagsResolved()) === JSON.stringify(UI.layout.edit.flags),
         "the race is not run to the flags that were put down: " + JSON.stringify(flagsResolved()));
-      /* And with no flags on it, the mode is not offered at all --
-         a placement style that places nothing is not a style. */
+      /* In the order they were placed, because that is the order they
+         are raced in. */
+      UI.layout.edit.flags = [[8, 1], [3, 3]];
+      assert(JSON.stringify(flagsResolved()) === "[[8,1],[3,3]]", "the order came back changed");
+      /* And a course with none is not a course to race -- said in its
+         own words, pointing at the room where they are placed. */
       UI.layout.edit.flags = [];
-      UI.layout.pick.mode = "manual";
-      assert(flagPick().mode !== "manual", "an empty workshop course was offered as a placement");
+      var why = flagProblem();
+      assert(why && /workshop/.test(why), "an empty course was refused without saying why: " + why);
+      assert(flagPick().n === 0, "an empty course reports " + flagPick().n + " flags");
+      /* Nothing generates them. A course with no workshop edit at all
+         has no flags either, rather than inventing some. */
+      UI.layout.edit = null;
+      assert(flagsResolved().length === 0, "flags appeared from somewhere with no workshop edit");
+      assert(flagProblem(), "a course with no flags at all was allowed to race");
     } },
 
     { name: "a saved workshop course survives a reload", run: function () {
@@ -5861,193 +5874,6 @@
       L.cells[6].rot = 0;
       L.cells[7] = { id: "island", rot: 0 };
       assert(!B.defaultFlagsFor(L), "two boards must not claim a one-board course's flags");
-    } },
-
-    { name: "no generated flag is further than a board's width from the one before", run: function () {
-      /* The rule the two GENERATED placements obey. A race whose flags
-         are further apart than a board is a set of separate journeys
-         rather than a course, and the rule is checked on the ANSWER
-         rather than trusted from whatever produced it.
-
-         Flags placed by hand are exempt, and that exemption is
-         asserted below rather than left as an absence: a rule of thumb
-         enforced against somebody drawing on purpose is an obstacle
-         rather than a rule. */
-      assert(B.FLAG_REACH === 12, "the reach is " + B.FLAG_REACH + " squares, not a board's width");
-      assert(B.flagStep([0, 0], [12, 0]) === 12, "twelve squares across is not being measured as twelve");
-      assert(B.flagStep([0, 0], [9, 9]) === 9, "a diagonal is being measured as its sum, not its side");
-      assert(!B.flagChainProblem([[0, 0], [12, 12], [24, 0]]), "a chain within reach was refused");
-      assert(!B.flagChainProblem([[5, 5]]), "one flag on its own cannot break a chain");
-      assert(!B.flagChainProblem([]), "no flags at all cannot break a chain");
-      var why = B.flagChainProblem([[0, 0], [13, 0]]);
-      assert(why, "a thirteen-square stride was allowed");
-      assert(/flag 2/.test(why) && /13/.test(why),
-        "the refusal does not say which flag or how far: " + why);
-      /* It is the PAIR that matters, not the spread: a long course is
-         allowed as long as every stride is short. */
-      assert(!B.flagChainProblem([[0, 0], [10, 0], [20, 0], [30, 0], [40, 0]]),
-        "a long course of short strides was refused");
-
-      /* And the workshop is exempt. A course whose flags are scattered
-         across it is refused when a mode generated them and accepted
-         when a person placed them. */
-      UI.layout = { v: 3, dockCol: 0, cells: [
-        null, null, null, null, null, null,
-        { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null] };
-      var far = [[1, 1], [22, 10]];
-      assert(B.flagStep(far[0], far[1]) > B.FLAG_REACH, "fixture: these two are within reach");
-      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], voids: true, flags: far };
-      UI.layout.pick = { mode: "manual" };
-      assert(flagPick().mode === "manual", "the workshop's flags were not kept");
-      assert(JSON.stringify(flagsResolved()) === JSON.stringify(far),
-        "the workshop's flags came back changed");
-      var said = flagProblem();
-      assert(!said || said.indexOf("reach") < 0,
-        "flags placed by hand were refused for reach: " + said);
-    } },
-
-    { name: "Rally puts three flags on each board, board by board", run: function () {
-      /* The point of the mode: everybody is fighting over one board at
-         a time. Flags that wandered between boards would be the other
-         mode wearing this one's name. */
-      var L = { v: 3, dockCol: 0, cells: [
-        null, null, null,
-        { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null,
-        { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
-      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
-      var got = B.rallyFlags(C, spec), boxes = B.boardBoxes(spec), i, j;
-      /* Three, said as a number: asserting the count against the same
-         constant the placement reads would hold however that constant
-         changed, which is a test of nothing. */
-      assert(B.RALLY_PER_BOARD === 3, "rally puts " + B.RALLY_PER_BOARD + " flags on a board, not three");
-      assert(got.length === 4 * B.RALLY_PER_BOARD,
-        "four boards should carry " + (4 * B.RALLY_PER_BOARD) + " flags, carried " + got.length);
-      assert(!B.flagChainProblem(got), "rally broke the reach rule: " + B.flagChainProblem(got));
-      function whichBoard(f) {
-        for (var k = 0; k < boxes.length; k++) {
-          if (f[0] >= boxes[k].x0 && f[0] <= boxes[k].x1 &&
-              f[1] >= boxes[k].y0 && f[1] <= boxes[k].y1) return k;
-        }
-        return -1;
-      }
-      var order = [], seen = {}, per = {};
-      for (i = 0; i < got.length; i++) {
-        var b = whichBoard(got[i]);
-        assert(b >= 0, "flag " + (i + 1) + " landed on no board at all");
-        per[b] = (per[b] || 0) + 1;
-        if (!order.length || order[order.length - 1] !== b) {
-          assert(!seen[b], "the race came back to board " + b + " after leaving it");
-          order.push(b); seen[b] = 1;
-        }
-      }
-      assert(order.length === 4, "a four-board rally visited " + order.length + " boards");
-      for (j = 0; j < 4; j++) {
-        assert(per[j] === B.RALLY_PER_BOARD,
-          "board " + j + " got " + per[j] + " flags, not " + B.RALLY_PER_BOARD);
-      }
-      /* And spread across the board rather than huddled in one corner
-         of it -- three flags a robot can touch on one program is not
-         three flags. */
-      for (j = 0; j < boxes.length; j++) {
-        var mine = [];
-        for (i = 0; i < got.length; i++) if (whichBoard(got[i]) === j) mine.push(got[i]);
-        var near = Infinity;
-        for (i = 0; i < mine.length; i++) {
-          for (var k2 = 0; k2 < i; k2++) {
-            var d2 = Math.abs(mine[i][0] - mine[k2][0]) + Math.abs(mine[i][1] - mine[k2][1]);
-            if (d2 < near) near = d2;
-          }
-        }
-        assert(near >= 6, "two of board " + j + "'s flags are " + near + " squares apart");
-      }
-      /* And it starts by the docking bay rather than at the far end. */
-      var dock = B.dockBoxOf(spec), dc = (dock.x0 + dock.x1) / 2, dr = (dock.y0 + dock.y1) / 2;
-      var first = boxes[order[0]], last = boxes[order[order.length - 1]];
-      assert(Math.abs(first.cx - dc) + Math.abs(first.cy - dr) <
-             Math.abs(last.cx - dc) + Math.abs(last.cy - dr),
-        "the rally started at the board furthest from the start area");
-    } },
-
-    { name: "Race strides out and comes back", run: function () {
-      /* Eight to twelve squares a stride, so the course is a journey
-         rather than a cluster; away from the start for the first half
-         and back toward it for the second, which is what makes it a
-         lap rather than a line. */
-      var L = { v: 3, dockCol: 0, cells: [
-        null, null, null,
-        { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null,
-        { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
-      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
-      var got = B.raceFlags(C, 8, spec), i;
-      assert(got.length === 8, "asked for eight flags, got " + got.length);
-      assert(!B.flagChainProblem(got), "race broke the reach rule: " + B.flagChainProblem(got));
-      var strides = [];
-      for (i = 1; i < got.length; i++) strides.push(B.flagStep(got[i - 1], got[i]));
-      for (i = 0; i < strides.length; i++) {
-        assert(strides[i] <= B.FLAG_REACH, "stride " + (i + 1) + " is " + strides[i] + " squares");
-      }
-      /* On a course this size every stride should make the minimum --
-         the relaxation exists for courses too small to stride across,
-         and a four-board course is not one. */
-      var short1 = 0;
-      for (i = 0; i < strides.length; i++) if (strides[i] < B.RACE_MIN) short1++;
-      assert(short1 === 0, short1 + " of " + strides.length + " strides fell under " + B.RACE_MIN +
-        ": " + strides.join(","));
-
-      /* Out, then back. The furthest flag from the start area is in
-         the middle of the race rather than at the end of it. */
-      var dock = B.dockBoxOf(spec), dc = (dock.x0 + dock.x1) / 2, dr = (dock.y0 + dock.y1) / 2;
-      function away(f) { return Math.abs(f[0] - dc) + Math.abs(f[1] - dr); }
-      var far = 0;
-      for (i = 1; i < got.length; i++) if (away(got[i]) > away(got[far])) far = i;
-      assert(far > 0 && far < got.length - 1,
-        "the furthest flag is number " + (far + 1) + " of " + got.length + ", so the race does not come back");
-      /* The HALVES, not just the extreme. A course that runs outward
-         the whole way still hits a far corner and is forced back by
-         the edge, so "the last flag is not the furthest" can be true
-         of a race that never turned. The second half has to average
-         nearer the start than the first. */
-      var half = Math.ceil(got.length / 2), sumOut = 0, sumBack = 0;
-      for (i = 0; i < half; i++) sumOut += away(got[i]);
-      for (i = half; i < got.length; i++) sumBack += away(got[i]);
-      var avgOut = sumOut / half, avgBack = sumBack / (got.length - half);
-      assert(avgBack < avgOut,
-        "the way back averages " + avgBack.toFixed(1) + " from the start against " +
-        avgOut.toFixed(1) + " on the way out, so the race never turns for home");
-      /* And it begins near the start rather than at the far end. */
-      assert(away(got[0]) < away(got[far]), "the race begins at its own far end");
-    } },
-
-    { name: "every mode keeps flags on floor, off the block and in reach", run: function () {
-      /* Said once, of all of them, because "in all cases" is the rule
-         and a mode that quietly exempts itself is the failure worth
-         catching. */
-      var L = { v: 3, dockCol: 1, cells: [
-        null, null, null,
-        null, { id: "boardG", rot: 1 }, { id: "cross", rot: 0 },
-        { id: "island", rot: 0 }, { id: "pitMaze", rot: 2 }, null] };
-      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
-      var box = B.dockBoxOf(spec);
-      var sets = { rally: B.rallyFlags(C, spec), race: B.raceFlags(C, 6, spec) };
-      for (var mode in sets) {
-        var got = sets[mode], seen = {}, i;
-        assert(got.length, mode + " placed no flags at all");
-        assert(!B.flagChainProblem(got), mode + " broke the reach rule: " + B.flagChainProblem(got));
-        for (i = 0; i < got.length; i++) {
-          /* Checked against the BOARD rather than against the function
-             that chose the square: asking flagCandidates whether its
-             own answer is legal is a question with one answer. */
-          var el = B.elemOf(B.codeAt(C, got[i][0], got[i][1]));
-          assert(el && el.name === "floor",
-            mode + " put flag " + (i + 1) + " on " + (el ? el.name : "nothing"));
-          assert(!(got[i][0] >= box.x0 && got[i][0] <= box.x1 &&
-                   got[i][1] >= box.y0 && got[i][1] <= box.y1),
-            mode + " put flag " + (i + 1) + " on the starting block at " + got[i]);
-          var k = got[i].join(",");
-          assert(!seen[k], mode + " put two flags on " + k);
-          seen[k] = 1;
-        }
-      }
     } },
 
     { name: "a flag may only sit on plain floor outside the dock", run: function () {
@@ -6100,96 +5926,6 @@
       assert(/grid-auto-rows:var\(--tile\)/.test(rule[0]),
         "the overlay's rows are free to size themselves, so a marked row drifts: " + rule[0]);
     } },
-
-    { name: "a flag is not boxed into a corner made of walls", run: function () {
-      /* The printed rule, and a different objection from the map's own
-         corners: a flag with two walls round it can be approached from
-         one direction only. */
-      /* Interior squares on both counts, so the answer is about the
-         WALLS: an edge square is already rank 1 whatever is round it,
-         and testing the one-wall case there passes on a build that has
-         stopped counting walls at all. */
-      var row = ["..", "..", "..", "..", ".."];
-      var g = bench([row, row, row, row, row], ["1,1,E", "1,1,S"]);
-      assert(B.flagRank(g, 1, 1) === 2,
-        "a square with two walls is rank " + B.flagRank(g, 1, 1) + ", not a walled corner");
-      /* A wall belongs to both squares it separates, so the far side
-         of one carries it too. */
-      assert(B.flagRank(g, 2, 1) === 1,
-        "the far side of a wall should be second best, is " + B.flagRank(g, 2, 1));
-      assert(B.flagRank(g, 1, 2) === 1,
-        "the square under a wall should be second best, is " + B.flagRank(g, 1, 2));
-      assert(B.flagRank(g, 2, 2) === 0,
-        "an open interior square should be best, is " + B.flagRank(g, 2, 2));
-      assert(B.flagRank(g, 0, 0) === 2, "the corner of the course is still a corner");
-      /* Proving Ground has walled squares and open interior both, so
-         the automatic placements must take the open ones. */
-      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null], flags: [] }, 0);
-      var C = B.buildCourse(spec), boxed = 0, c, r, d, n;
-      for (r = 0; r < 12; r++) for (c = 0; c < 12; c++) {
-        n = 0;
-        for (d = 0; d < 4; d++) if (B.wallAt(C, c, r, d)) n++;
-        if (n >= 2) boxed++;
-      }
-      assert(boxed > 0, "this board has no walled corners, so this proves nothing");
-      var sets = [B.rallyFlags(C, spec), B.raceFlags(C, 3, spec)];
-      for (var s = 0; s < sets.length; s++) {
-        for (var i = 0; i < sets[s].length; i++) {
-          n = 0;
-          for (d = 0; d < 4; d++) if (B.wallAt(C, sets[s][i][0], sets[s][i][1], d)) n++;
-          assert(n < 2, "a flag was boxed in at (" + sets[s][i] + ") behind " + n + " walls");
-        }
-      }
-    } },
-
-    { name: "the flags are shared out over the boards, remainder first", run: function () {
-      assert(JSON.stringify(B.shareOut(8, 4)) === "[2,2,2,2]", "eight over four is not even");
-      assert(JSON.stringify(B.shareOut(9, 4)) === "[3,2,2,2]", "the odd flag went to the wrong board");
-      assert(JSON.stringify(B.shareOut(3, 4)) === "[1,1,1,0]",
-        "three flags over four boards left the wrong board out");
-      assert(JSON.stringify(B.shareOut(3, 1)) === "[3]", "one board should take all three");
-    } },
-
-    { name: "each mode answers the flag count its own way", run: function () {
-      /* Rally answers it itself -- three a board -- and the stepper is
-         not a control there, because the number IS the mode. Race is a
-         lap, and a lap wants more than a board count. */
-      UI.layout = { v: 3, dockCol: 0,
-                    cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
-      UI.layout.pick = { mode: "rally" };
-      assert(flagPick().n === B.RALLY_PER_BOARD,
-        "one board of rally should be " + B.RALLY_PER_BOARD + " flags, got " + flagPick().n);
-      UI.layout.cells[7] = { id: "cross", rot: 0 };
-      assert(flagPick().n === 2 * B.RALLY_PER_BOARD,
-        "two boards of rally should be six flags, got " + flagPick().n);
-      /* And it is not a number anybody can set: setting it is choosing
-         a different mode. */
-      var rp = flagPick();
-      rp.chosen = true; rp.n = 99;
-      assert(flagPick().n === 2 * B.RALLY_PER_BOARD, "a rally count was overridden by hand");
-
-      UI.layout.pick = { mode: "race" };
-      assert(flagPick().n === 4, "two boards of race should be four flags, got " + flagPick().n);
-      UI.layout.cells[3] = { id: "pitMaze", rot: 0 };
-      UI.layout.cells[4] = { id: "shuntYard", rot: 0 };
-      assert(flagPick().n === 8, "four boards of race should be eight flags, got " + flagPick().n);
-      assert(flagsMost(4) === 16, "the ceiling is not four a board");
-      /* Once set by hand it stays set, even as the course changes --
-         the number is then a decision rather than a default. */
-      /* Chosen first and then set, on ONE reference: flagPick() is
-         what decides whether the count is still a default, so setting
-         the number through a second call hands it back to the default
-         that call has just recomputed. */
-      var pk = flagPick();
-      pk.chosen = true; pk.n = 5;
-      UI.layout.cells[4] = null;
-      assert(flagPick().n === 5, "a chosen count was overwritten when the course changed");
-      /* But never outside what the course can hold. */
-      pk = flagPick(); pk.n = 999; pk.forBoards = -1;
-      assert(flagPick().n <= flagsMost(layoutBoardCount()), "a chosen count escaped the ceiling");
-    } },
-
-    // ---- the bumpers house rule ------------------------------------
 
     { name: "off, the edge of the course is still a fall", run: function () {
       /* The control case, and it has to be here: a bumpers test suite
@@ -8166,7 +7902,21 @@
     if (a === "wnext") {
       var at = UI.wizStep || 0;
       if (wizBlocker(at)) { showWizard(); return; }
-      if (at < WIZARD.length - 2) { saveRules(); saveLayout(); wizGo(at + 1); return; }
+      if (at < WIZARD.length - 2) {
+        saveRules(); saveLayout();
+        /* STRAIGHT INTO THE WORKSHOP. Flags are placed by hand, so the
+           step after the boards is the workshop itself the first time
+           through -- showing a screen whose only control is a button
+           to the workshop would be a door with a door in front of it.
+           Coming back, or arriving by the rail, shows the screen. */
+        if (WIZARD[at + 1].id === "flags" && !flagsResolved().length && !layoutProblem()) {
+          closeModal();
+          root.location.hash = "#edit=course&from=setup";
+          edMountCourse(UI.els.host);
+          return;
+        }
+        wizGo(at + 1); return;
+      }
       saveRules(); saveLayout(); closeModal();
       var flags = flagsResolved(), spec = layoutCourse(flags), named = layoutIsCourse();
       /* A layout that is a shipped course, raced with that course's
@@ -8285,27 +8035,10 @@
       UI.heldAt = null;
       saveLayout(); showWizard(); return;
     }
-    if (a === "fn") {
-      var pk = flagPick();
-      pk.n = Math.max(1, Math.min(flagsMost(layoutBoardCount()), +el.dataset.n));
-      pk.chosen = true;
+    if (a === "fclearall") {
+      var Lf = layoutNow();
+      if (Lf.edit) Lf.edit.flags = [];
       saveLayout(); showWizard(); return;
-    }
-    if (a === "fmode") {
-      var want = el.dataset.m;
-      flagPick().mode = want;
-      saveLayout();
-      /* By hand IS the workshop. Offering the mode and then making the
-         player find the door would be two steps for one decision. */
-      if (want === "manual" && !(layoutNow().edit && layoutNow().edit.flags &&
-                                 layoutNow().edit.flags.length)) {
-        if (layoutProblem()) { showWizard(); return; }
-        closeModal();
-        root.location.hash = "#edit=course&from=setup";
-        edMountCourse(UI.els.host);
-        return;
-      }
-      showWizard(); return;
     }
     if (a === "editmap") {
       closeModal();
@@ -9357,16 +9090,17 @@
     return true;
   }
 
-  function layoutBoardCount() {
-    var sp = B.laySpan(layoutNow().cells);
-    return sp ? sp.n : 0;
-  }
-
   function layoutCourse(flags) {
     /* Composed fresh each time so the preview is the course that would
-       actually be raced, not an approximation of it. */
-    var pick = flagPick(), L = layoutNow();
-    var spec = B.composeCourse(B.withFlags(L, flags || null), pick.n);
+       actually be raced, not an approximation of it.
+
+       With no flags given it composes with ONE, which is a placeholder
+       rather than a placement: a course with none at all fails
+       validateCourse, and the boards step needs a buildable course to
+       ask its own questions of long before anybody has opened the
+       workshop. The real flags always arrive as the argument. */
+    var L = layoutNow();
+    var spec = B.composeCourse(B.withFlags(L, flags || null), 1);
     /* A course the workshop has been through is raced from ITS
        picture, not from the boards under it -- otherwise every edit
        would be thrown away the moment the course was rebuilt. */
@@ -9569,10 +9303,12 @@
        the wizard's line to write, beside the button it disables --
        said in both places it was said twice. */
     if (!layoutProblem()) {
-      var prev = layoutCourse(), pc = B.buildCourse(prev);
+      /* No flag count here: flags belong to the next step, and the
+         one this composes is a placeholder so the course validates. */
+      var prev = layoutCourse([]), pc = B.buildCourse(prev);
       out.push('<div class="pr-ed-ok">' + pc.w + " by " + pc.h + " squares, " +
         prev.boards.length + " board" + (prev.boards.length > 1 ? "s" : "") + ", " +
-        pc.docks.length + " bays, " + pc.flags.length + " flags.</div>");
+        pc.docks.length + " bays.</div>");
     }
 
     return out.join("");
@@ -9780,93 +9516,25 @@
      the by-hand route cannot put a flag somewhere the automatic one
      would have refused.
      ============================================================ */
-  /* HOW MANY FLAGS.
+  /* WHERE THE FLAGS GO IS A DRAWING, NOT A SETTING.
 
-     The book's own guidance, now that it has been read: usually one
-     checkpoint per tile. So the default is one a board -- with a floor
-     of three, because a one-board race to a single flag is over before
-     anybody has programmed a bad turn, and the courses this game ships
-     print three on one board.
+     Two placements used to generate a course from rules -- three to a
+     board, or a lap in strides -- and both produced courses that were
+     legal and dull. A flag is a decision about a particular square on
+     a particular board: which approach it favours, which wall it sits
+     behind, whether the belt beside it helps or hurts. No rule this
+     game knows how to state gets that right, and the ones it can state
+     produce flags that are merely far enough apart.
 
-     The ceiling is three a board, which is where a longer, denser race
-     lives. The stepper spans the whole range; nothing here is a rule,
-     and the note under it says what the book suggests. */
-  function flagsWanted(boards) { return Math.max(3, boards); }
-  function flagsMost(boards) { return Math.max(4, boards * 3); }
-
-  /* THREE WAYS TO ANSWER ONE QUESTION, and they are three different
-     questions.
-
-       rally   three flags on each board, finished in order before the
-               race moves to the next -- everybody fighting over twelve
-               squares at a time, which is the closest racing this game
-               produces
-       race    one lap out and back in strides of eight to twelve,
-               favouring the outer half of each board -- a longer
-               course with more board between the flags
-       manual  the whole course in the workshop, flags placed by hand
-
-     Every one of them obeys the same two rules: a flag sits on plain
-     floor outside the starting block, and no flag is more than twelve
-     squares from the one before it. */
-  var FLAG_MODES = [
-    { id: "rally", label: "Rally",
-      blurb: "Three flags on each board, in order, before the race moves to the next one. " +
-             "Everybody is fighting over the same twelve squares at a time." },
-    { id: "race", label: "Race",
-      blurb: "A lap out and back in strides of eight to twelve squares, keeping to the outer " +
-             "half of each board. A longer course with more board between the flags." },
-    { id: "manual", label: "By hand",
-      blurb: "The whole course in the workshop, with the flags placed square by square." }
-  ];
-
-  function flagModeOf(pick) {
-    for (var i = 0; i < FLAG_MODES.length; i++) if (FLAG_MODES[i].id === pick.mode) return FLAG_MODES[i];
-    return FLAG_MODES[1];
-  }
-
-  /* HOW MANY FLAGS.
-
-     Rally answers it itself: three a board, and the stepper is not
-     shown because the number is the mode. Race is a lap, and a lap
-     wants more than a board count -- two a board, never fewer than
-     four -- with the stepper there to lengthen or shorten it. */
-  function flagsWanted(boards) { return Math.max(4, boards * 2); }
-  function flagsMost(boards) { return Math.max(6, boards * 4); }
-
+     So the flags step hands the whole course to the workshop and the
+     player puts them where they want them. A course that already
+     carries flags -- built earlier, or loaded -- shows them here and
+     the workshop is optional. */
   function flagPick() {
     var L = layoutNow();
-    if (!L.pick) L.pick = { mode: "race" };
-    /* Modes that no longer exist -- printed flags, the lap, Northrup,
-       the scatter, the old by-hand picker -- land on the nearest thing
-       that does rather than on nothing at all. */
-    if (L.pick.mode === "hand" || L.pick.mode === "workshop") L.pick.mode = "manual";
-    if (!flagModeOf(L.pick) || L.pick.mode !== flagModeOf(L.pick).id) L.pick.mode = "race";
-    if (L.pick.mode === "manual" && !(L.edit && L.edit.flags && L.edit.flags.length)) {
-      /* Nothing has been placed by hand yet, so there is nothing for
-         this mode to show. It becomes the mode the moment the workshop
-         hands some flags back. */
-      L.pick.mode = "race";
-    }
-    var boards = layoutBoardCount();
-    if (L.pick.mode === "rally") {
-      L.pick.n = boards * B.RALLY_PER_BOARD;
-      L.pick.forBoards = boards;
-      return L.pick;
-    }
-    if (L.pick.mode === "manual") {
-      L.pick.n = L.edit.flags.length;
-      L.pick.forBoards = boards;
-      return L.pick;
-    }
-    /* The count follows the course until the player sets one. Growing
-       a one-board layout into four and racing to four flags is not a
-       choice anybody made; it is the old number surviving. */
-    if (!L.pick.chosen || L.pick.forBoards !== boards) {
-      if (!L.pick.chosen) L.pick.n = flagsWanted(boards);
-      L.pick.n = Math.max(1, Math.min(flagsMost(boards), L.pick.n));
-      L.pick.forBoards = boards;
-    }
+    if (!L.pick) L.pick = {};
+    L.pick.mode = "manual";
+    L.pick.n = (L.edit && L.edit.flags) ? L.edit.flags.length : 0;
     return L.pick;
   }
 
@@ -9877,104 +9545,58 @@
   }
 
   function flagsResolved() {
-    var pick = flagPick(), L = layoutNow();
-    if (pick.mode === "manual") return (L.edit && L.edit.flags ? L.edit.flags : []).slice();
-    var spec0 = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec0);
-    if (pick.mode === "rally") return B.rallyFlags(C, spec0);
-    return B.raceFlags(C, pick.n, spec0);
+    var L = layoutNow();
+    return (L.edit && L.edit.flags ? L.edit.flags : []).slice();
   }
 
   function flagProblem() {
-    var pick = flagPick(), have = flagsResolved();
-    if (!have.length) {
-      return pick.mode === "manual"
-        ? "No flags have been placed in the workshop yet."
-        : "No square on this course can hold a flag.";
-    }
-    if (pick.mode !== "manual" && have.length < pick.n) {
-      return "This course has room for only " + have.length + " flag" +
-        (have.length === 1 ? "" : "s") + " under these rules.";
-    }
-    /* The reach rule is a property of the two GENERATED placements,
-       checked on the answer rather than trusted from the thing that
-       produced it. Flags placed by hand in the workshop are exempt:
-       that room is where somebody is deciding, and a rule of thumb
-       enforced against a person drawing on purpose is an obstacle
-       rather than a rule. */
-    if (pick.mode !== "manual") {
-      var chain = B.flagChainProblem(have);
-      if (chain) return "This course breaks the reach rule: " + chain + ".";
-    }
+    var have = flagsResolved();
+    if (!have.length) return "No flags on this course yet. Put them down in the workshop.";
     try { B.validateCourse(layoutCourse(have), function () {}); }
     catch (e) { return e.message; }
     return null;
   }
 
   function flagsBody() {
-    var pick = flagPick(), C, i;
+    var C, i;
     try { C = flagScratch(); }
     catch (e) { return null; }
 
     var have = flagsResolved();
     /* Drawn with the flags on it, because the answer to "is that where
        I want flag two" is the picture and nothing else. */
+    /* An EMPTY list rather than none at all: layoutCourse with no
+       flags composes a placeholder so the course validates, and a
+       placeholder drawn on the picture is a flag the player did not
+       put there. */
     var shown = B.buildCourse(layoutCourse(have));
     var px = Math.max(8, Math.min(30, Math.floor(700 / C.w)));
     var marks = {};
     for (i = 0; i < have.length; i++) marks[have[i][0] + "," + have[i][1]] = i + 1;
 
-    var boards = layoutBoardCount(), out = [];
-
-    out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
-      ' aria-label="How the flags are placed">');
-    for (i = 0; i < FLAG_MODES.length; i++) {
-      var m = FLAG_MODES[i], on = pick.mode === m.id;
-      out.push('<button class="pr-seg-b' + (on ? " on" : "") + '" data-act="fmode" data-m="' +
-        m.id + '" role="radio" aria-checked="' + (on ? "true" : "false") +
-        '" tabindex="' + (on ? "0" : "-1") + '">' + esc(m.label) + "</button>");
-    }
-    out.push("</div>");
-    if (pick.mode === "manual") {
-      out.push('<button data-act="editcourse">Open the workshop\u2026</button>');
-    }
-    out.push("</div>");
-
-    /* The count is a control only where it is a choice. Rally answers
-       it itself -- three a board -- and a stepper that cannot be
-       stepped is worse than no stepper. */
-    if (pick.mode === "race") {
-      out.push('<div class="pr-ed-row"><span>Flags</span>' +
-        '<button data-act="fn" data-n="' + (pick.n - 1) + '"' + (pick.n <= 1 ? " disabled" : "") +
-          ' aria-label="one flag fewer">&minus;</button>' +
-        '<b class="pr-flag-n" aria-live="polite">' + pick.n + "</b>" +
-        '<button data-act="fn" data-n="' + (pick.n + 1) + '"' +
-          (pick.n >= flagsMost(boards) ? " disabled" : "") + ' aria-label="one flag more">+</button>' +
-        '<span class="pr-ed-note">' + (pick.n / Math.max(1, boards)).toFixed(1).replace(/\.0$/, "") +
-          " per board</span></div>");
-    } else {
-      out.push('<div class="pr-ed-row"><span>Flags</span><b class="pr-flag-n">' + have.length +
-        "</b><span class=\"pr-ed-note\">" +
-        (pick.mode === "rally"
-          ? B.RALLY_PER_BOARD + " on each of " + boards + " board" + (boards === 1 ? "" : "s")
-          : "placed by hand in the workshop") + "</span></div>");
-    }
-
-    out.push('<div class="pr-rule-desc">' + esc(flagModeOf(pick).blurb) + "</div>");
+    var out = [];
     out.push('<div class="pr-rule-desc">' +
-      (pick.mode === "manual"
-        ? "Flags placed by hand go wherever you put them \u2014 the reach rule is a guide for the " +
-          "two generated courses, not a fence around yours."
-        : "A flag sits on plain floor outside the starting block, and no flag is more than " +
-          B.FLAG_REACH + " squares from the one before it.") + "</div>");
+      (have.length
+        ? "These are the flags on this course, in order. Open the workshop to move them, " +
+          "add more, or take some off."
+        : "Flags are placed by hand, on the assembled course. Open the workshop and put them " +
+          "where you want them \u2014 the order you place them in is the order they are raced.") +
+      "</div>");
+
+    out.push('<div class="pr-ed-row">' +
+      '<button data-act="editcourse">' +
+        (have.length ? "Open the workshop\u2026" : "Place the flags\u2026") + "</button>" +
+      (have.length ? '<button data-act="fclearall">Take them all off</button>' : "") +
+      "</div>");
 
     out.push('<div class="pr-flag-stage">' +
-      gridThumb(shown, px, { act: null, legal: null, marks: marks }) + "</div>");
+      gridThumb(shown, px, have.length ? { act: null, legal: null, marks: marks } : null) +
+      "</div>");
 
     out.push('<div class="pr-flag-list">');
     for (i = 0; i < have.length; i++) {
-      var gap = i ? " <i>+" + B.flagStep(have[i - 1], have[i]) + "</i>" : "";
       out.push("<span><b>" + (i + 1) + "</b> column " + (have[i][0] + 1) +
-        " row " + (have[i][1] + 1) + gap + "</span>");
+        " row " + (have[i][1] + 1) + "</span>");
     }
     if (!have.length) out.push("<span>No flags yet.</span>");
     out.push("</div>");
@@ -10954,13 +10576,19 @@
      placed on a course, which is exactly what this is. */
   function edMountCourse(host) {
     var L = layoutNow();
-    var spec = B.composeCourse(B.withFlags(L, (L.edit && L.edit.flags) || []), 0);
+    /* A layout that IS a shipped course opens with that course's own
+       flags already on it. They are transcribed rather than invented,
+       so throwing them away and asking somebody to place them again
+       would be losing data to make a point about where flags come
+       from. Move them, add to them, or take them off. */
+    var start = (L.edit && L.edit.flags) || B.defaultFlagsFor(L) || [];
+    var spec = B.composeCourse(B.withFlags(L, start), 0);
     var grid;
     if (L.edit) grid = B.parsePic("course", L.edit);   // L.edit carries voids:true
     else grid = B.buildCourse(spec);
     grid.name = (L.edit && L.edit.name) || (layoutIsCourse() ? B.COURSES[layoutIsCourse()].name : "Your course");
     grid.origin = "authored";
-    grid.flags = ((L.edit && L.edit.flags) || []).map(function (f) { return { c: f[0], r: f[1] }; });
+    grid.flags = start.map(function (f) { return { c: f[0], r: f[1] }; });
     edMount(host, null, true, { grid: grid, boards: spec.boards, dock: spec.dock });
   }
 
