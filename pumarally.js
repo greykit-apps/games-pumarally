@@ -3284,6 +3284,71 @@
       assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
     } },
 
+    { name: "an expansion tile turns its ruleset on", run: function () {
+      /* The rule the map editor has to obey: drop a flame jet on a map
+         and that map is a Crash and Burn map. Board F is classic-only
+         for its tool plates, so strip those first -- otherwise the
+         test would pass without the jet doing anything. */
+      var f = JSON.parse(JSON.stringify(B.BOARD_SPECS.boardF));
+      f.pic = f.pic.map(function (r) { return r.replace(/[wW]\./g, ".."); });
+      try {
+        B.setOverride("boardF", f);
+        assert(B.playableEditions("boardFRun").length === 2,
+          "with no expansion square left, both rulebooks can read it");
+        f.burners = [{ c: 0, r: 2, d: "E", regs: [1] }];   // mounts on the rim wall
+        B.setOverride("boardF", f);
+        assert(B.playableEditions("boardFRun").join(",") === "classic",
+          "one flame jet makes it classic only");
+        assert(B.editionBlocker("boardFRun", "modern") === "flame jet",
+          "and the menu can say which square did it");
+      } finally { B.clearOverride(); }
+      assert(B.playableEditions("boardFRun").join(",") === "classic",
+        "clearing the override puts the shipped board back");
+    } },
+
+    { name: "the edition check reads every layer, not just the picture", run: function () {
+      /* Burners and presses left the picture when they became
+         wall-mounted. For a while after that a board whose only
+         expansion element was a jet reported as playable by both
+         rulebooks -- the element was still there, the check had simply
+         stopped looking where it lived. */
+      var names = B.courseElements("boardHRun").map(function (e) { return e.name; });
+      assert(names.indexOf("flame jet") >= 0, "board H's jets must be counted, got " + names.join("/"));
+      var g = B.parsePic("boardH", B.BOARD_SPECS.boardH);
+      assert(B.BOARD_SPECS.boardH.pic.join("").indexOf("F.") < 0,
+        "and they are NOT in the picture, which is the point");
+      assert(g.burners.length === 16, "sixteen of them");
+    } },
+
+    { name: "a house board shadows the shipped one everywhere", run: function () {
+      /* Half-applied is the failure to avoid: live in the picture the
+         player sees and absent from the course the engine builds. */
+      var before = B.buildCourse("islandRun");
+      assert(B.codeAt(before, 0, 0) === "..", "fixture: island (0,0) is plain floor");
+      var isl = JSON.parse(JSON.stringify(B.BOARD_SPECS.island));
+      isl.pic[1] = "|o." + isl.pic[1].slice(3);
+      try {
+        B.setOverride("island", isl);
+        assert(B.isOverridden("island"), "the override is registered");
+        var after = B.buildCourse("islandRun");
+        assert(B.isPit(B.codeAt(after, 0, 0)), "the course must build from the edited board");
+        assert(B.codeAt(B.parsePic("island", B.specOf("island")), 0, 0) === "o.",
+          "and specOf must hand back the edit, not the shipped board");
+        assert(B.BOARD_SPECS.island.pic[1].slice(0, 3) !== "|o.",
+          "while BOARD_SPECS itself is untouched -- that is the photographed data");
+      } finally { B.clearOverride(); }
+      assert(!B.isPit(B.codeAt(B.buildCourse("islandRun"), 0, 0)), "and clearing restores it");
+    } },
+
+    { name: "a house board that does not validate is refused", run: function () {
+      var bad = JSON.parse(JSON.stringify(B.BOARD_SPECS.island));
+      bad.burners = [{ c: 5, r: 5, d: "E", regs: [1] }];   // a jet bolted to nothing
+      var refused = false;
+      try { B.setOverride("island", bad); } catch (e) { refused = true; }
+      B.clearOverride();
+      assert(refused, "an edit that will not build must be refused before it shadows anything");
+    } },
+
     { name: "a board laser is not drawn as a robot shot", run: function () {
       /* Board beams are printed on the cardboard and lit by a separate
          layer that is always there. Drawing them twice would put a
@@ -5089,6 +5154,8 @@
     ".pr-ed-panel{display:flex;flex-direction:column;gap:6px;width:100%;max-width:1000px}",
     ".pr-ed-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:11px}",
     ".pr-ed-row span{opacity:.7}",
+    ".pr-setup-edit{margin-top:6px;flex-wrap:wrap}",
+    ".pr-ed-note{font-size:10px;opacity:.55;width:100%}",
     ".pr-ed-row .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
     ".pr-ed-row input[type=text]{background:var(--pr-panel);border:1px solid var(--pr-border);",
     "color:var(--pr-text);font:inherit;padding:3px 6px}",
@@ -5988,6 +6055,20 @@
       }
       saveRules(); showSetup(); return;
     }
+    if (a === "editmap") {
+      closeModal();
+      root.location.hash = "#edit=" + el.dataset.b + "&from=setup";
+      edMount(UI.els.host, el.dataset.b, true);
+      return;
+    }
+    if (a === "resetmaps") {
+      B.clearOverride();
+      saveHouseBoards();
+      syncRulesetToCourse();
+      saveRules();
+      showSetup();
+      return;
+    }
     if (a === "start") {
       /* Belt and braces over the disabled buttons: the menu can be
          driven from the keyboard and from a restored localStorage that
@@ -6200,6 +6281,28 @@
 
   function rulesetOf(h) { return RULESETS[h && h.ruleset] ? h.ruleset : "classic"; }
 
+  /* AN EXPANSION TILE TURNS ITS RULESET ON.
+
+     Drop a flame jet on a map and that map is a Crash and Burn map;
+     there is no coherent third option. The alternative -- refusing the
+     edit, or letting it sit there inert -- both end with the board
+     showing something the rules do not do, which is the one thing the
+     edition check exists to prevent.
+
+     Returns the ruleset it moved to, or null if nothing had to change. */
+  function syncRulesetToCourse() {
+    var cur = rulesetOf(houseRules);
+    if (courseAllowed(houseRules.course, cur)) return null;
+    var ok = B.playableEditions(houseRules.course);
+    for (var i = 0; i < ok.length; i++) {
+      if (RULESETS[ok[i]] && RULESETS[ok[i]].built) {
+        houseRules.ruleset = ok[i];
+        return ok[i];
+      }
+    }
+    return null;
+  }
+
   /* A course is offerable under a ruleset when the ruleset exists, is
      built, and every square on the course is printed by that edition. */
   function courseAllowed(courseId, ruleset) {
@@ -6209,6 +6312,37 @@
   }
 
   var RULES_KEY = "pumarally_rules_v1";
+  /* Edited boards, kept apart from the rules because they are a
+     different kind of thing and a corrupt one must not take the rules
+     down with it. */
+  var HOUSE_KEY = "pumarally_house_boards_v1";
+
+  function saveHouseBoards() {
+    try {
+      var out = {}, ids = B.overrideIds();
+      for (var i = 0; i < ids.length; i++) out[ids[i]] = B.specOf(ids[i]);
+      if (ids.length) localStorage.setItem(HOUSE_KEY, JSON.stringify(out));
+      else localStorage.removeItem(HOUSE_KEY);
+    } catch (e) {}
+  }
+
+  /* A house board that no longer parses -- the shipped board it edits
+     was corrected under it, say -- is DROPPED, not repaired and not
+     fatal. Refusing to start because of a stale scribble would be the
+     wrong trade; playing the shipped board and saying so is right. */
+  function loadHouseBoards() {
+    var dropped = [];
+    try {
+      var raw = JSON.parse(localStorage.getItem(HOUSE_KEY) || "null");
+      if (!raw) return dropped;
+      for (var id in raw) {
+        try { B.setOverride(id, raw[id]); }
+        catch (e) { dropped.push(id); }
+      }
+    } catch (e) {}
+    if (dropped.length) saveHouseBoards();
+    return dropped;
+  }
   var houseRules = {};
 
   function defaultRules() {
@@ -6508,6 +6642,25 @@
           (why ? '<i class="pr-c-no">needs ' + esc(why) + "</i>" : "") + "</button>");
       }
     }
+    /* EDIT THIS MAP, from the menu rather than from a URL. The editor
+       was reachable only at #edit=<board>, which is fine for
+       transcribing a board and useless for "move that pit before we
+       start". Editing here shadows the shipped board for this session
+       and comes straight back to this screen. */
+    var edBoards = B.COURSES[houseRules.course].boards;
+    out.push('<div class="pr-ed-row pr-setup-edit"><span>This map</span>');
+    for (var eb = 0; eb < edBoards.length; eb++) {
+      var ebid = edBoards[eb].id;
+      out.push('<button data-act="editmap" data-b="' + esc(ebid) + '">Edit ' +
+        esc(edBoards.length > 1 ? B.BOARD_SPECS[ebid].name : "map") +
+        (B.isOverridden(ebid) ? " *" : "") + "</button>");
+    }
+    if (B.overrideIds().length) {
+      out.push('<button data-act="resetmaps">Undo all map edits</button>');
+      out.push('<span class="pr-ed-note">* edited for this session; the shipped board is untouched</span>');
+    }
+    out.push("</div>");
+
     out.push("</div><div class='pr-rule-desc'>" +
       esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
 
@@ -7113,12 +7266,23 @@
       '<span>(hold Ctrl to flip)</span>' +
       '<button data-act="edclearimg">Remove</button></div>');
 
-    out.push('<div class="pr-ed-row"><span>Board</span>' +
-      '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
-      '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
-      '<button data-act="edexport">Export</button>' +
-      '<button data-act="edplay">Test play</button>' +
-      '<button data-act="edquit">Leave editor</button></div>');
+    if (ED.fromSetup) {
+      /* One way out that keeps the edit and one that throws it away.
+         "Leave editor" on its own would be ambiguous here, and an
+         ambiguous exit from twenty minutes of editing is cruel. */
+      out.push('<div class="pr-ed-row"><span>Board</span>' +
+        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
+        '<button data-act="edapply">Use this map</button>' +
+        '<button data-act="edrevert">Discard changes</button>' +
+        '<button data-act="edexport">Export source</button></div>');
+    } else {
+      out.push('<div class="pr-ed-row"><span>Board</span>' +
+        '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
+        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
+        '<button data-act="edexport">Export</button>' +
+        '<button data-act="edplay">Test play</button>' +
+        '<button data-act="edquit">Leave editor</button></div>');
+    }
 
     var msg = "";
     if (ED.errors.length) {
@@ -7197,7 +7361,7 @@
     edRender();
   }
 
-  function edMount(host, bootId) {
+  function edMount(host, bootId, fromSetup) {
     injectCSS();
     host.classList.add("pr-root", "pr-editing");
     host.innerHTML = "";
@@ -7212,11 +7376,17 @@
     if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
     else if (restored) ED = restored;
     else ED = edState(edNew(12, 12), "newBoard");
+    /* Opened from the race menu, not from a URL: the edit belongs to
+       the game about to start, so it goes back there rather than out
+       to a blank page. */
+    ED.fromSetup = !!fromSetup;
     ED.uScale = ED.uScale || 1;
 
     var hud = el("div", "pr-hud",
       '<h1 class="pr-title">BOARD WORKSHOP</h1>' +
-      '<span class="pr-phase">Trace a photograph, export the source.</span>');
+      '<span class="pr-phase">' + (fromSetup
+        ? "Change this map for the race you are about to start."
+        : "Trace a photograph, export the source.") + "</span>");
     var stage = el("div", "pr-ed-stage");
     var panel = el("div", "pr-ed-panel");
     var overlay = el("div", "pr-overlay");
@@ -7334,8 +7504,66 @@
       if (ta) { ta.select(); try { document.execCommand("copy"); announce("Copied."); } catch (err) {} }
     }
     else if (a === "edplay") edTestPlay();
+    else if (a === "edapply") edApply();
+    else if (a === "edrevert") edLeaveToSetup();
     else if (a === "edquit") { root.location.hash = ""; root.location.reload(); }
     else if (a === "closemodal") closeModal();
+  }
+
+  /* Hand the edit to the race that is about to start. The board is
+     parsed and validated by setOverride before it shadows anything, so
+     an unfinished edit is refused here rather than at buildCourse --
+     where the message would be about a belt and not about the thing
+     you just drew. */
+  function edApply() {
+    edValidate();
+    if (ED.errors.length) { announce("Fix the map first: " + ED.errors[0]); edRenderPanel(); return; }
+    var spec = edSpec();
+    try { B.setOverride(ED.id, spec); }
+    catch (e) { announce("That map will not build: " + e.message); return; }
+    saveHouseBoards();
+    UI.edApplied = ED.id;
+    edLeaveToSetup();
+  }
+
+  /* The spec the editor exports, in the shape BOARD_SPECS uses. One
+     function so applying an edit and exporting the source cannot
+     produce two different boards. */
+  function edSpec() {
+    var ship = B.BOARD_SPECS[ED.id] || {};
+    return {
+      w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid),
+      name: ED.grid.name, edition: ship.edition || "classic",
+      set: ship.set || "authored", origin: ED.grid.origin || "transcribed",
+      lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+      pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+      burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
+      timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; })
+    };
+  }
+
+  function edLeaveToSetup() {
+    root.location.hash = "";
+    document.removeEventListener("keydown", edKey);
+    document.removeEventListener("keyup", edKeyUp);
+    root.removeEventListener("blur", edBlur);
+    var applied = UI.edApplied;
+    ED = null;
+    var host = UI.els.host;
+    host.classList.remove("pr-editing");
+    host.innerHTML = "";
+    UI.mounted = false;
+    mount(host, {});
+    /* An expansion tile turns its ruleset on. Said out loud, because a
+       silently switched rulebook is a different game. */
+    var moved = syncRulesetToCourse();
+    saveRules();
+    showSetup();
+    if (applied) {
+      announce(moved
+        ? "Map updated. It uses " + RULESETS[moved].name + " squares, so that ruleset is now on."
+        : "Map updated for this race.");
+    }
   }
 
   /* Play the board being edited without shipping it: a temporary
@@ -7522,6 +7750,13 @@
     UI.opts = opts;
 
     houseRules = loadRules();
+    /* House boards come back before anything builds a course, or the
+       first render would draw the shipped board and the edit would
+       show only after the next reload. */
+    var lostBoards = loadHouseBoards();
+    if (lostBoards.length) {
+      log("Map edits to " + lostBoards.join(", ") + " no longer fit those boards and were dropped");
+    }
     var courseId = chosenCourse(opts);
     var C;
     try {
@@ -7725,8 +7960,9 @@
 
   function boot() {
     var nodes = document.querySelectorAll("[data-pumarally]");
-    var edit = /[#&]edit(?:=([A-Za-z0-9_]+))?/.exec(root.location ? root.location.hash : "");
-    if (edit && nodes.length) { edMount(nodes[0], edit[1]); return; }
+    var hash = root.location ? root.location.hash : "";
+    var edit = /[#&]edit(?:=([A-Za-z0-9_]+))?/.exec(hash);
+    if (edit && nodes.length) { edMount(nodes[0], edit[1], /[#&]from=setup/.test(hash)); return; }
     for (var i = 0; i < nodes.length; i++) {
       mount(nodes[i], {
         course: nodes[i].getAttribute("data-course") || undefined,
