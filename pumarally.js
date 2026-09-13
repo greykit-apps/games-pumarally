@@ -6077,7 +6077,7 @@
       assert(edKeyTool("g") === "l", "G on the CW gear did not come back round");
       /* A letter no tool answers to picks nothing, so the key is left
          alone for whatever else wants it. */
-      assert(edKeyTool("z") === null, "Z picked a tool");
+      assert(edKeyTool("y") === null, "Y picked a tool");
       /* And on a board there is no flag to press F for. */
       ED.isCourse = false;
       assert(edKeyTool("f") === null, "F picks a flag on a board, where flags are not a thing");
@@ -6893,6 +6893,160 @@
         "nothing clips the label, so anything it ever says can reach outside the box");
       assert(/align-items\s*:\s*center/.test(typed) && /display\s*:\s*flex/.test(typed),
         "the label is not centred in the box it is given");
+    } },
+
+    { name: "the board takes its turn in the printed order, presses between the gears and the lasers", run: function () {
+      /* The order is printed, numbered, in the factory-floor reference:
+         express belts, conveyors, pushers, gears, PRESSES, lasers,
+         burners, then checkpoints. Nothing checked it, and the press
+         was the step most likely to be put in the wrong place -- it
+         was the last one added, and where it sits decides whether a
+         robot carried onto a crusher by a belt is crushed this
+         register or next.
+
+         Read off the machine itself, by walking the chain each step
+         hands to, rather than from a list written beside it. */
+      var want = ["express", "belts", "pushers", "gears", "presses", "lasers", "burners", "touch"];
+      var src = {}, k;
+      for (k in STEP.exec) src[k] = STEP.exec[k].toString();
+      for (var i = 0; i < want.length; i++) {
+        assert(STEP.exec[want[i]], "there is no exec step called " + want[i]);
+        if (i + 1 < want.length) {
+          assert(src[want[i]].indexOf('"' + want[i + 1] + '"') >= 0,
+            want[i] + " does not hand on to " + want[i + 1] + ", so the board's order is not the printed one");
+        }
+      }
+      /* And the step before them all is the robots moving. */
+      assert(src.move.indexOf('"express"') >= 0, "movement does not hand on to the express belts");
+
+      /* THE INTERACTION THE ORDER EXISTS FOR: a belt carries a robot
+         onto a crusher, and the crusher comes down the same register.
+         Every press on Cannery Row stands on a conveyor, so this is
+         that board's whole character. */
+      var g = bench([["b>", ".."]], [], [], [{ c: 1, r: 0, regs: [1] }]);
+      benchGame(g, [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 0;
+      beltPass(1);
+      assert(p.c === 1, "the belt did not carry the robot onto the crusher's square");
+      pressPass();
+      assert(!p.alive, "the belt delivered it under an active crusher and it survived");
+    } },
+
+    { name: "a crusher destroys, and only where and when it is printed", run: function () {
+      /* Destroyed, not damaged: the glossary lists a crusher beside a
+         pit as one of the three ways a robot is destroyed outright. */
+      var g = bench([["..", ".."]], [], [], [{ c: 0, r: 0, regs: [2, 4] }]);
+      benchGame(g, [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+      var under = G.players[0], beside = G.players[1];
+      var lives = under.lives;
+      G.register = 0; pressPass();
+      assert(under.alive, "register 1 is not in {2,4}");
+      G.register = 1; pressPass();
+      assert(!under.alive, "register 2 is printed on it");
+      assert(under.damage === 0, "a crusher destroys rather than damaging, so no damage should be taken");
+      assert(under.lives === lives - 1, "being crushed costs a life");
+      assert(beside.alive, "the robot on the next square was crushed by a press that is not there");
+    } },
+
+    { name: "the workshop can put a crusher down, move it, and say when it may not", run: function () {
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.pressRegs = [1, 5];
+      edSetCell(3, 3, "b>");
+      edSetCell(5, 5, "o.");
+
+      /* On a conveyor, which is the case it exists for. */
+      assert(edPut("press", 3, 3, {}), "a crusher would not go down on a conveyor");
+      assert(B.timerAt(ED.grid, 3, 3), "the crusher is not on the square");
+      assert(B.beltSpeed(B.codeAt(ED.grid, 3, 3)) === 1, "putting a crusher down took the conveyor with it");
+      assert(B.timerAt(ED.grid, 3, 3).regs.join() === "1,5", "it did not take the registers in hand");
+      /* Not in a pit: there is no floor to flatten anything against. */
+      assert(!edPut("press", 5, 5, {}), "a crusher went into a pit");
+      /* Clicking it again picks it up. */
+      assert(edPut("press", 3, 3, {}), "clicking a crusher did not take it off");
+      assert(!B.timerAt(ED.grid, 3, 3), "the crusher is still there");
+
+      /* It is a part of the square, with its registers editable, and it
+         is the ONLY trap that has no facing. */
+      edPut("press", 3, 3, {});
+      var parts = edParts(3, 3), press = null, i;
+      for (i = 0; i < parts.length; i++) if (parts[i].kind === "press") press = parts[i];
+      assert(press, "the square does not list the crusher standing on it: " +
+        parts.map(function (q) { return q.id; }).join(" "));
+      assert(!press.dir, "a crusher is being offered a facing, and it faces nowhere");
+      assert(edPartObj(press) === B.timerAt(ED.grid, 3, 3), "the panel is pointing at the wrong crusher");
+      ED.sel = { c: 3, r: 3, part: press.id };
+      edSelEdit("reg", 3, press.id);
+      assert(B.timerAt(ED.grid, 3, 3).regs.join() === "1,3,5", "adding register 3 did not take");
+
+      /* Carried to another square, keeping its registers. */
+      assert(edMovePart(edParts(3, 3).filter(function (q) { return q.kind === "press"; })[0], 6, 1),
+        "the crusher would not move");
+      assert(!B.timerAt(ED.grid, 3, 3) && B.timerAt(ED.grid, 6, 1), "it did not land where it was dropped");
+      assert(B.timerAt(ED.grid, 6, 1).regs.join() === "1,3,5", "it lost its registers on the way");
+      assert(B.beltSpeed(B.codeAt(ED.grid, 3, 3)) === 1, "moving it away took the conveyor with it");
+
+      /* The rail draws one, and it is the tool with no compass. */
+      ED.pick = "press";
+      var view = edToolView(edToolByKey("press"), null);
+      assert(view && view.timers.length === 1, "the rail's crusher draws no crusher");
+      var t = edToolByKey("press");
+      assert(!t.dir, "the crusher tool carries a facing");
+      assert(t.regs === "press", "the crusher tool has no register set of its own");
+      var set = edToolSettings(t);
+      assert(set.indexOf("edpressreg") >= 0, "its registers cannot be set");
+      assert(set.indexOf("edcompass") < 0 && set.indexOf("pr-ed-compass") < 0,
+        "the crusher is offered a compass");
+      ED = keep;
+    } },
+
+    { name: "the reference photo panel does not shut under your hand", run: function () {
+      /* It was a <details>, and the inspector is rebuilt on every
+         render -- so the first touch of Fade, Size or Nudge redrew the
+         panel, put a fresh <details> in its place, and the thing shut
+         mid-drag. Open or shut is state now, and the three controls
+         that only move the photograph do not redraw the panel at all. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.underlay = "x";
+      ED.refOpen = true;
+      var open = edRefPanel();
+      assert(open.indexOf("<details") < 0, "still a <details>, which the next render replaces");
+      assert(open.indexOf("edop") >= 0 && open.indexOf("edscale") >= 0 && open.indexOf("ednudge") >= 0,
+        "the open panel is missing fade, size or nudge");
+      ED.refOpen = false;
+      var shut = edRefPanel();
+      assert(shut.indexOf("edop") < 0, "the shut panel still draws its controls");
+      assert(shut.indexOf("edreftoggle") >= 0, "the shut panel cannot be opened again");
+      /* And the open state survives a redraw of the inspector, which is
+         the whole point. */
+      ED.refOpen = true;
+      assert(edRefPanel().indexOf("edop") >= 0, "the panel did not stay open across a rebuild");
+
+      /* The three controls move the photograph and nothing else: none
+         of them goes through the render that rebuilds them. */
+      /* Bounded on purpose. An unbounded match runs past this branch
+         into the next one and finds ITS call, which is how the first
+         version of this passed against a fade that still redrew
+         everything. */
+      var src = edDispatch.toString();
+      assert(/"edop"[\s\S]{0,80}edUnderlayPaint/.test(src),
+        "fade still redraws the whole editor, which is what pulled the slider out from under the pointer");
+      assert(/"edscale"[\s\S]{0,80}edUnderlayPaint/.test(src), "size still redraws the whole editor");
+      assert(/"ednudge"[\s\S]{0,200}edUnderlayPaint/.test(src), "nudge still redraws the whole editor");
+
+      /* AND WITH NO PHOTOGRAPH LOADED AT ALL, which is most people the
+         first time they touch these: there is nothing to move, so
+         nothing happens. This fell through to the same redraw and the
+         panel shut anyway. */
+      ED.underlay = null;
+      assert(edUnderlayPaint() === "none", "with no photograph the controls still redraw the editor");
+      ED.underlay = "x";
+      assert(edUnderlayPaint() !== "none", "with a photograph loaded the controls do nothing at all");
+      ED = keep;
     } },
 
     { name: "the workshop can step back, and not over nothing", run: function () {
@@ -8319,9 +8473,8 @@
     ".pr-ed-flag-go b{color:var(--pr-accent);margin-right:4px}",
     ".pr-ed-flag.on .pr-ed-flag-go{border-color:var(--pr-accent)}",
     ".pr-ed-ref{margin-top:8px;border-top:1px solid var(--pr-border);padding-top:6px}",
-    ".pr-ed-ref summary{cursor:pointer;list-style:none}",
-    ".pr-ed-ref summary::before{content:'\\25B8';margin-right:4px}",
-    ".pr-ed-ref[open] summary::before{content:'\\25BE'}",
+    ".pr-root .pr-ed-ref-head{display:block;width:100%;text-align:left;padding:0;margin:0 0 4px;",
+    "min-height:0;border:0;background:none;cursor:pointer}",
     /* THE SQUARE, LARGE, WITH ITS WALLS ON IT. A wall lives on an
        EDGE, and the only place an edge is unambiguous is the picture
        -- four labelled buttons make you translate "north" into "the
@@ -11805,7 +11958,13 @@
     { key: "wall", label: "Wall", kind: "wall", dir: true, hot: "b", group: "Walls" },
     { key: "laser", label: "Laser", kind: "laser", dir: true, damage: true, drag: true, hot: "l", group: "Walls" },
     { key: "pusher", label: "Ram", kind: "pusher", dir: true, regs: "push", drag: true, hot: "m", group: "Walls" },
-    { key: "burner", label: "Flame jet", kind: "burner", dir: true, regs: "burn", reach: true, drag: true, hot: "j", group: "Walls" }
+    { key: "burner", label: "Flame jet", kind: "burner", dir: true, regs: "burn", reach: true, drag: true, hot: "j", group: "Walls" },
+    /* A CRUSHER COMES DOWN FROM ABOVE, which is the whole reason it is
+       in a group of its own: it needs no wall to bolt to and it does
+       not face anywhere, so it is the one trap that can stand on any
+       square at all -- including a conveyor, which is what every one
+       of them on Cannery Row does. */
+    { key: "press", label: "Crusher", kind: "press", regs: "press", drag: true, hot: "z", group: "Ceiling" }
   ];
 
   /* The keys that steer rather than pick, which no tool may answer to:
@@ -11880,6 +12039,10 @@
          flamethrower. */
       burnRegs: [2, 4],
       burnLen: 1,
+      /* A crusher's registers. The printed ones come in sets like 1/5,
+         2/4 and 3 -- Cannery Row runs those five down each of its two
+         lanes -- so this is its own set and not a parity. */
+      pressRegs: [1, 5],
       mode: "tile",              // tile | wall | laser | pusher | burner
       underlay: null,            // an object URL, never exported
       opacity: 0.5,
@@ -12333,6 +12496,8 @@
     } else if (t.kind === "laser") {
       g.lasers.push({ c: 0, r: 0, d: ED.dir, n: ED.laserN });
       B.setWall(g, 0, 0, B.opposite(ED.dir), true);
+    } else if (t.kind === "press") {
+      g.timers.push({ c: 0, r: 0, regs: ED.pressRegs.slice() });
     } else if (t.kind === "flag") {
       g.flags = [{ c: 0, r: 0, n: edFlagSlot() }];
     } else {
@@ -12362,6 +12527,7 @@
     if (!obj) return null;
     if (part.kind === "flag") { g.flags = [{ c: 0, r: 0, n: part.i + 1 }]; return g; }
     var copy = { c: 0, r: 0, d: obj.d };
+    if (part.kind === "press") { g.timers.push({ c: 0, r: 0, regs: obj.regs.slice() }); return g; }
     if (part.kind === "laser") { copy.n = obj.n; g.lasers.push(copy); }
     else if (part.kind === "pusher") { copy.regs = obj.regs.slice(); g.pushers.push(copy); }
     else if (part.kind === "burner") { copy.regs = obj.regs.slice(); copy.len = 1; g.burners.push(copy); }
@@ -12390,6 +12556,12 @@
       }
       var el0 = B.elemOf(code);
       return !el0 || el0.name !== "floor" || edInDock(c, r) ? "no" : "put";
+    }
+    if (kind === "press") {
+      for (i = 0; i < (g.timers || []).length; i++) {
+        if (g.timers[i].c === c && g.timers[i].r === r) return "take";
+      }
+      return B.isPit(code) ? "no" : "put";
     }
     var list = kind === "laser" ? g.lasers : kind === "pusher" ? g.pushers
              : kind === "burner" ? g.burners : null;
@@ -12643,6 +12815,11 @@
         out.push({ id: "burner:" + i, kind: "burner", i: i, label: "Flame jet", dir: true });
       }
     }
+    for (i = 0; i < (g.timers || []).length; i++) {
+      if (g.timers[i].c === c && g.timers[i].r === r) {
+        out.push({ id: "press:" + i, kind: "press", i: i, label: "Crusher", dir: false });
+      }
+    }
     for (i = 0; i < (g.flags || []).length; i++) {
       if (g.flags[i].c === c && g.flags[i].r === r) {
         out.push({ id: "flag:" + i, kind: "flag", i: i, label: "Flag " + (i + 1), dir: false });
@@ -12666,6 +12843,7 @@
     if (part.kind === "laser") return g.lasers[part.i];
     if (part.kind === "pusher") return g.pushers[part.i];
     if (part.kind === "burner") return g.burners[part.i];
+    if (part.kind === "press") return (g.timers || [])[part.i];
     if (part.kind === "flag") return (g.flags || [])[part.i];
     return null;
   }
@@ -12746,6 +12924,11 @@
                              d: g.lasers[i].d, n: g.lasers[i].n });
           break;
         }
+      }
+    }
+    for (i = 0; i < (g.timers || []).length; i++) {
+      if (g.timers[i].c === sel.c && g.timers[i].r === sel.r) {
+        view.timers.push({ c: 0, r: 0, regs: g.timers[i].regs.slice() });
       }
     }
     for (i = 0; i < (g.flags || []).length; i++) {
@@ -12846,12 +13029,21 @@
         '">Take it off</button></div>');
       return out.join("");
     }
+    if (p.kind === "press") {
+      out.push('<div class="pr-ed-note">A crusher comes down from above, so it needs no wall and ' +
+        "faces nowhere. Anything standing under it in one of its registers is destroyed, not " +
+        "damaged \u2014 and the square beneath it can be a conveyor.</div>");
+      out.push(edRegRow("Comes down in", "edselreg", obj.regs, p.id));
+      out.push('<div class="pr-ed-row"><button data-act="edselremove" data-p="' + esc(p.id) +
+        '">Take it off</button></div>');
+      return out.join("");
+    }
     out.push(edCompass("edseldir", edPartDir(p), '" data-p="' + p.id));
     out.push('<div class="pr-ed-note">Bolted to the wall on its ' +
       esc(B.dirName(edMountFace(obj))) + " side. Turning it takes the wall with it.</div>");
     if (p.kind === "laser") out.push(edNumberRow("Damage", "edselnum", obj.n, 1, 3, p.id));
-    if (p.kind === "pusher" || p.kind === "burner") {
-      out.push(edRegRow("Fires in", "edselreg", obj.regs, p.id));
+    if (p.kind === "pusher" || p.kind === "burner" || p.kind === "press") {
+      out.push(edRegRow(p.kind === "press" ? "Comes down in" : "Fires in", "edselreg", obj.regs, p.id));
     }
     if (p.kind === "burner") out.push(edNumberRow("Reaches", "edselnum", obj.len, 1, 2, p.id));
     out.push('<div class="pr-ed-row"><button data-act="edselremove" data-p="' + esc(p.id) +
@@ -12870,6 +13062,14 @@
         '<button data-act="edpreset" data-p="even">2/4</button></div>');
     }
     if (t.regs === "burn") out.push(edRegRow("Fires in", "edbreg", ED.burnRegs));
+    if (t.regs === "press") {
+      out.push(edRegRow("Comes down in", "edpressreg", ED.pressRegs));
+      out.push('<div class="pr-ed-row"><button data-act="edpresspreset" data-p="15">1/5</button>' +
+        '<button data-act="edpresspreset" data-p="24">2/4</button>' +
+        '<button data-act="edpresspreset" data-p="3">3</button></div>');
+      out.push('<div class="pr-ed-note">Needs no wall and faces nowhere. It destroys what is under ' +
+        "it rather than damaging it, and the square beneath it can be a conveyor.</div>");
+    }
     if (t.reach) out.push(edNumberRow("Reaches", "edblen", ED.burnLen, 1, 2));
     if (t.number) {
       out.push(edNumberRow("Next flag", "edflagnum", edFlagSlot(), 1, (ED.grid.flags || []).length + 1));
@@ -12912,8 +13112,20 @@
 
   /* THE REFERENCE PHOTOGRAPH, for a board being traced. A course is
      not traced from anything, so a course workshop has none of this. */
+  /* OPEN OR SHUT IS STATE, NOT MARKUP.
+
+     This was a <details>, and the inspector is rebuilt on every render
+     -- so the first touch of Fade, Size or Nudge redrew the panel, put
+     a fresh <details> in its place, and the thing shut under your hand
+     mid-drag. A browser's own open/shut lives on the element, and this
+     element does not survive. It lives on ED now, where it does. */
   function edRefPanel() {
-    return '<details class="pr-ed-ref"' + (ED.underlay ? " open" : "") + '><summary class="pr-ed-h">Reference photo</summary>' +
+    var open = ED.refOpen === undefined ? !!ED.underlay : ED.refOpen;
+    var head = '<div class="pr-ed-ref"><button class="pr-ed-ref-head pr-ed-h" data-act="edreftoggle"' +
+      ' aria-expanded="' + (open ? "true" : "false") + '">' + (open ? "\u25be" : "\u25b8") +
+      " Reference photo</button>";
+    if (!open) return head + "</div>";
+    return head +
       '<div class="pr-ed-note">Drop a photograph behind the grid and trace it. It stays on this ' +
       "machine and is never exported.</div>" +
       '<div class="pr-ed-row"><input type="file" accept="image/*" data-act="edimg"></div>' +
@@ -12929,7 +13141,32 @@
       '<div class="pr-ed-row"><button data-act="edsolo"' + (ED.soloLatch ? ' class="on"' : "") +
         '>Photo only</button><span>hold Ctrl to flip</span>' +
       '<button data-act="edclearimg"' + (ED.underlay ? "" : " disabled") + ">Remove</button></div>" +
-      "</details>";
+      "</div>";
+  }
+
+  /* THE PHOTO MOVES; THE BOARD DOES NOT.
+
+     Fade, Size and Nudge change one image and nothing else, so they
+     must not go through edRender -- which rebuilds the stage, the
+     panel and the controls you are currently dragging. Sliding the
+     fade used to redraw the slider out from under the pointer, which
+     ends the drag. */
+  function edUnderlayPaint() {
+    /* WITH NO PHOTOGRAPH THERE IS NOTHING TO MOVE, and the redraw this
+       used to fall through to is the same redraw that pulled the panel
+       shut -- so the bug was still there for anybody who touched the
+       controls BEFORE loading a photo, which is most people the first
+       time. Says what it did, so a test can ask. */
+    if (!ED.underlay) return "none";
+    var host = UI.els && UI.els.edBoard;
+    if (!host) return "noscreen";              // the rule tests, which have none
+    var img = host.querySelector(".pr-ed-under");
+    if (!img) { edRender(); return "drew"; }   // loaded but not on the stage yet
+    img.style.opacity = edSolo() ? 1 : ED.opacity;
+    img.style.left = ED.offX + "px";
+    img.style.top = ED.offY + "px";
+    img.style.width = (ED.grid.w * TILE * ED.uScale) + "px";
+    return "painted";
   }
   function edExport() {
     edValidate();
@@ -13068,6 +13305,20 @@
       B.setWall(g, c, r, edMountFace(g.burners[g.burners.length - 1]), true);
       return true;
     }
+    if (kind === "press") {
+      g.timers = g.timers || [];
+      for (i = 0; i < g.timers.length; i++) {
+        if (g.timers[i].c === c && g.timers[i].r === r) { g.timers.splice(i, 1); return true; }
+      }
+      if (opt.erase) return false;
+      if (!ED.pressRegs.length) { announce("Pick at least one register for the crusher first."); return false; }
+      /* A pit has no floor to flatten anything against, and the
+         validator refuses it -- said here instead, where it is about
+         the square you just clicked. */
+      if (B.isPit(B.codeAt(g, c, r))) { announce("A crusher needs a floor under it, not a pit."); return false; }
+      g.timers.push({ c: c, r: r, regs: ED.pressRegs.slice().sort() });
+      return true;
+    }
     if (kind === "flag") {
       g.flags = g.flags || [];
       for (i = 0; i < g.flags.length; i++) {
@@ -13168,6 +13419,7 @@
   function edLastPart(kind) {
     var list = kind === "laser" ? ED.grid.lasers
              : kind === "pusher" ? ED.grid.pushers
+             : kind === "press" ? ED.grid.timers
              : kind === "burner" ? ED.grid.burners : null;
     return list && list.length ? kind + ":" + (list.length - 1) : "tile";
   }
@@ -13684,6 +13936,7 @@
       else if (part.kind === "laser") g.lasers.splice(part.i, 1);
       else if (part.kind === "pusher") g.pushers.splice(part.i, 1);
       else if (part.kind === "burner") g.burners.splice(part.i, 1);
+      else if (part.kind === "press") g.timers.splice(part.i, 1);
       else { edKeep(before); return; }
       ED.sel.part = "tile";
     } else if (what === "clear") {
@@ -13771,6 +14024,16 @@
       obj.c = c; obj.r = r;
       return true;
     }
+    if (part.kind === "press") {
+      if (B.isPit(code)) { announce("A crusher needs a floor under it, not a pit."); return false; }
+      for (i = 0; i < g.timers.length; i++) {
+        if (g.timers[i] !== obj && g.timers[i].c === c && g.timers[i].r === r) {
+          announce("There is already a crusher there."); return false;
+        }
+      }
+      obj.c = c; obj.r = r;
+      return true;
+    }
     var list = part.kind === "laser" ? g.lasers : part.kind === "pusher" ? g.pushers
              : part.kind === "burner" ? g.burners : null;
     if (!list) return false;
@@ -13794,7 +14057,8 @@
     for (i = parts.length - 1; i >= 0; i--) {
       var p = parts[i];
       if (p.kind === "flag" && (kind === "flag" || kind === "select")) return p;
-      if (kind === "select" && (p.kind === "laser" || p.kind === "pusher" || p.kind === "burner")) return p;
+      if (kind === "select" && (p.kind === "laser" || p.kind === "pusher" ||
+          p.kind === "burner" || p.kind === "press")) return p;
     }
     return null;
   }
@@ -13974,6 +14238,16 @@
       edRenderPanel();
     }
     else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edpressreg") {
+      var pn = parseInt(b.dataset.n, 10), pat = ED.pressRegs.indexOf(pn);
+      if (pat >= 0) ED.pressRegs.splice(pat, 1); else ED.pressRegs.push(pn);
+      ED.pressRegs.sort();
+      edRenderPanel();
+    }
+    else if (a === "edpresspreset") {
+      ED.pressRegs = b.dataset.p === "15" ? [1, 5] : b.dataset.p === "24" ? [2, 4] : [3];
+      edRenderPanel();
+    }
     /* ---- the inspector, which edits the thing rather than the thing
        about to be placed ---- */
     else if (a === "edseldir") edSelEdit("dir", parseInt(b.dataset.d, 10), b.dataset.p);
@@ -13995,9 +14269,16 @@
     }
     /* ---- the reference photograph ---- */
     else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
-    else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
-    else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
-    else if (a === "ednudge") { ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10); edRender(); }
+    else if (a === "edreftoggle") {
+      ED.refOpen = !(ED.refOpen === undefined ? !!ED.underlay : ED.refOpen);
+      edRenderDetail();
+    }
+    else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edUnderlayPaint(); }
+    else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edUnderlayPaint(); }
+    else if (a === "ednudge") {
+      ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10);
+      edUnderlayPaint();
+    }
     else if (a === "edclearimg") { ED.underlay = null; edRender(); }
     /* ---- the session ---- */
     else if (a === "edid") { ED.id = b.value.replace(/[^A-Za-z0-9_]/g, "") || "newBoard"; edSave(); }
