@@ -5884,6 +5884,58 @@
       ED = keep;
     } },
 
+    { name: "the large tile carries everything standing on the square", run: function () {
+      /* The panel's picture is a one-square view, and the tile art
+         reads the traps out of the grid's sparse LISTS rather than out
+         of the cell -- so a view built from the cell alone draws the
+         belt and nothing standing on it, which is the one case this
+         panel exists for. The square with a conveyor AND a ram on it
+         is the case the workshop was asked for by name. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.isCourse = true;
+      ED.pushRegs = [1, 3, 5]; ED.burnRegs = [2, 4];
+      edSetCell(4, 4, "b>");
+      ED.dir = N;
+      edPut("pusher", 4, 4, {});
+      edPut("laser", 4, 4, {});
+      /* Two flags, so the number on the picture has to be looked up
+         rather than assumed: the one on this square is the second. */
+      ED.grid.flags.push({ c: 1, r: 1 });
+      ED.grid.flags.push({ c: 4, r: 4 });
+      assert(B.wallAt(ED.grid, 4, 4, S), "fixture: the mounts brought no wall with them");
+
+      var big = edBigTile({ c: 4, r: 4, part: "tile" });
+      assert(big.indexOf("pr-t-belt") >= 0, "the large tile lost the conveyor under the traps");
+      assert(big.indexOf("pr-t-pusher") >= 0, "the large tile does not draw the ram on the square");
+      assert(big.indexOf("pr-emitter") >= 0, "the large tile does not draw the laser on the square");
+      assert(big.indexOf("pr-beam") >= 0, "the large tile fires no beam from the laser on it");
+      assert(big.indexOf("pr-flag") >= 0, "the large tile does not draw the flag on the square");
+      assert(big.indexOf(">2<") >= 0, "the large tile numbered the flag something other than 2");
+      assert(big.indexOf('class="pr-wall"') >= 0, "the large tile shows none of the square's walls");
+      /* And only THIS square's: the flag next door is not on it. */
+      assert(big.indexOf(">1<") < 0, "the large tile brought a flag from another square with it");
+
+      /* A jet reaches past its own square, and the square it scorches
+         is not the nozzle -- so the far square draws fire and no
+         nozzle, which the view has to carry across as well. */
+      ED.dir = N;
+      ED.burnLen = 2;
+      edPut("burner", 4, 6, {});
+      var far = edBigTile({ c: 4, r: 5, part: "tile" });
+      assert(far.indexOf("pr-t-burner") >= 0, "the large tile misses the jet playing over the square");
+      assert(far.indexOf("pr-jet-mount") < 0, "the large tile put a nozzle on the square the jet only reaches");
+
+      /* A beam crosses squares it is not bolted to, for the same
+         reason and with the same consequence: a square drawn without
+         it looks safe. */
+      var lit = edBigTile({ c: 4, r: 3, part: "tile" });
+      assert(lit.indexOf("pr-beam") >= 0, "the large tile misses the beam crossing the square");
+      assert(lit.indexOf("pr-emitter") < 0, "the large tile put an emitter on a square the beam only crosses");
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -7215,12 +7267,17 @@
     "border:1px solid var(--pr-border);line-height:0}",
     ".pr-ed-void{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;",
     "font-size:10px;line-height:1.4;color:var(--pr-dim);text-align:center}",
+    /* The buttons are hit areas over the picture, not a second drawing
+       of it: the wall itself is drawn by the board's own renderer
+       underneath, and a button that painted its own concrete on top
+       would be a copy that could disagree with it. Empty when the wall
+       is there, a hint of accent when it is not, and a warning on
+       hover when clicking would take one down. */
     ".pr-ed-wall{position:absolute;padding:0;min-height:0!important;border:0!important;",
     "background:color-mix(in srgb,var(--pr-accent) 10%,transparent);cursor:pointer;z-index:3}",
     ".pr-ed-wall:hover{background:color-mix(in srgb,var(--pr-accent) 40%,transparent)}",
-    ".pr-ed-wall.on{background:var(--pr-concrete-h);",
-    "box-shadow:inset 0 0 0 1px var(--pr-concrete-edge)}",
-    ".pr-ed-wall.on:hover{background:var(--pr-danger)}",
+    ".pr-ed-wall.on{background:none}",
+    ".pr-ed-wall.on:hover{background:color-mix(in srgb,var(--pr-danger) 55%,transparent)}",
     ".pr-ed-wall:focus-visible{outline:2px solid var(--pr-accent);outline-offset:-2px;z-index:4}",
     ".pr-w0{left:0;right:0;top:0;height:var(--wt)}",
     ".pr-w2{left:0;right:0;bottom:0;height:var(--wt)}",
@@ -11018,6 +11075,18 @@
       (def ? " \u2014 " + def.name : "");
   }
 
+  /* Where a wall-mounted thing that reaches `len` squares would sit in
+     a one-square view of `sel`, or null if it never reaches it. The
+     answer can be off the view's grid, and is meant to be. */
+  function edReachOff(m, len, sel) {
+    for (var k = 0; k < len; k++) {
+      if (m.c + DC[m.d] * k === sel.c && m.r + DR[m.d] * k === sel.r) {
+        return { c: -DC[m.d] * k, r: -DR[m.d] * k };
+      }
+    }
+    return null;
+  }
+
   /* THE SQUARE, LARGE, WITH ITS WALLS ON IT.
 
      Drawn by the board's own renderer at a size you can aim at, with
@@ -11026,17 +11095,66 @@
      labelled buttons makes you translate "north" into "the top" every
      time you use it. */
   function edBigTile(sel) {
-    var g = ED.grid, px = 132, wt = 15, d;
+    var g = ED.grid, px = 132, wt = 15, d, i;
+    /* EVERYTHING ON THE SQUARE, not just the square.
+
+       The tile art reads the mounts out of the grid's sparse lists, so
+       a one-square view built from the cell alone draws the belt and
+       none of the traps standing on it -- which is exactly the case
+       this panel exists for. Copy them across, remapped to the one
+       square the view has. */
     var view = B.blankGrid(1, 1);
     view.flags = [];
     view.cell[0] = B.codeAt(g, sel.c, sel.r);
+    for (i = 0; i < g.pushers.length; i++) {
+      if (g.pushers[i].c === sel.c && g.pushers[i].r === sel.r) {
+        view.pushers.push({ c: 0, r: 0, d: g.pushers[i].d, regs: g.pushers[i].regs.slice() });
+      }
+    }
+    /* A jet and a beam both reach PAST the square they are bolted to,
+       and the far square is drawn as fire, or as a beam, with no
+       nozzle and no emitter on it. So what gets copied across is not
+       "the ones standing here" but "the ones that reach here", each
+       kept at its own offset -- a nozzle one square south of this one
+       lands at (0,1) in a view one square wide, which is off the grid,
+       which is exactly right: the art reads the lists rather than the
+       bounds, and .pr-thumb clips what hangs over the edge. */
+    for (i = 0; i < g.burners.length; i++) {
+      var bo = edReachOff(g.burners[i], g.burners[i].len || 1, sel);
+      if (bo) {
+        view.burners.push({ c: bo.c, r: bo.r, d: g.burners[i].d,
+                            regs: g.burners[i].regs.slice(), len: g.burners[i].len });
+      }
+    }
+    for (i = 0; i < g.lasers.length; i++) {
+      var path = B.laserPath(g, g.lasers[i]), k;
+      for (k = 0; k < path.length; k++) {
+        if (path[k].c === sel.c && path[k].r === sel.r) {
+          view.lasers.push({ c: -DC[g.lasers[i].d] * k, r: -DR[g.lasers[i].d] * k,
+                             d: g.lasers[i].d, n: g.lasers[i].n });
+          break;
+        }
+      }
+    }
+    for (i = 0; i < (g.flags || []).length; i++) {
+      if (g.flags[i].c === sel.c && g.flags[i].r === sel.r) {
+        view.flags.push({ c: 0, r: 0, n: i + 1 });
+      }
+    }
+    /* And the square's own walls, so the big picture is the square as
+       the board draws it rather than the square with its edges stated
+       separately. The buttons sit over these. */
+    for (d = 0; d < 4; d++) if (B.wallAt(g, sel.c, sel.r, d)) B.setWall(view, 0, 0, d, true);
+
     var out = ['<div class="pr-ed-big" style="--tile:' + px + "px;--wt:" + wt + 'px;width:' +
       px + "px;height:" + px + 'px">'];
     if (view.cell[0]) {
       out.push('<span class="pr-thumb" style="--tile:' + px + "px;--wt:" + wt + 'px;width:' +
         px + "px;height:" + px + 'px"><span class="pr-thumb-grid" style="grid-template-columns:' +
         px + 'px"><i class="' + tileClasses(view, 0, 0).join(" ") + '">' +
-        tileInner(view, 0, 0) + "</i></span></span>");
+        tileInner(view, 0, 0) + "</i></span>" +
+        (view.lasers.length ? '<span class="pr-thumb-beams">' + beamSpans(view) + "</span>" : "") +
+        '<span class="pr-thumb-walls">' + wallSpans(view) + "</span></span>");
     } else {
       out.push('<span class="pr-ed-void">off the<br>course</span>');
     }
