@@ -5936,6 +5936,249 @@
       ED = keep;
     } },
 
+    { name: "the course workshop opens with the flag tool in hand, and every tool answers to a key", run: function () {
+      /* The one thing every course has to have done to it in the
+         workshop is flags, so it opens ready to lay them rather than
+         with a conveyor nobody asked for. And the second time you
+         want the ram you press M rather than going back to the rail:
+         every tool has a letter, printed on it, and none of the
+         letters is one of the six that steer. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      edOpenCourse({ boards: [], dock: null });
+      assert(ED.pick === "flag", "a course opened with " + ED.pick + " in hand, not the flag");
+      assert(ED.isCourse, "opening a course did not make it a course");
+      var i, seen = {};
+      for (i = 0; i < ED_TOOLS.length; i++) {
+        var t = ED_TOOLS[i];
+        assert(t.hot && /^[a-z]$/.test(t.hot), t.key + " has no letter to press");
+        assert(ED_STEER_KEYS.indexOf(t.hot) < 0, t.key + " answers to " + t.hot + ", which steers");
+        assert(t.group, t.key + " sits under no heading in the rail");
+        seen[t.hot] = (seen[t.hot] || 0) + 1;
+      }
+      /* One letter reaches every tool on the course. */
+      var lib = edLibrary();
+      for (i = 0; i < lib.length; i++) {
+        ED.pick = "sel";
+        var got = null, n;
+        for (n = 0; n < 4 && got !== lib[i].key; n++) { got = edKeyTool(lib[i].hot); ED.pick = got; }
+        assert(got === lib[i].key, lib[i].hot + " never reaches " + lib[i].key + ", it stops at " + got);
+      }
+      /* A shared letter walks between its tools rather than sticking
+         on the first. */
+      ED.pick = "sel";
+      assert(edKeyTool("g") === "l", "G from nowhere picked " + edKeyTool("g"));
+      ED.pick = "l";
+      assert(edKeyTool("g") === "r", "G on the CCW gear picked " + edKeyTool("g") + " rather than the CW one");
+      ED.pick = "r";
+      assert(edKeyTool("g") === "l", "G on the CW gear did not come back round");
+      /* A letter no tool answers to picks nothing, so the key is left
+         alone for whatever else wants it. */
+      assert(edKeyTool("z") === null, "Z picked a tool");
+      /* And on a board there is no flag to press F for. */
+      ED.isCourse = false;
+      assert(edKeyTool("f") === null, "F picks a flag on a board, where flags are not a thing");
+      ED = keep;
+    } },
+
+    { name: "zoom keeps the point under the pointer where it was, and fit shows the whole map", run: function () {
+      /* Zooming about the corner is how the thing you were looking at
+         leaves the screen. The scroll that keeps a content point under
+         the pointer is arithmetic, so it is checked as arithmetic. */
+      var cases = [[1, 2, 0, 0, 100, 100], [2.5, 0.7, 300, 900, 17, 420], [0.5, 4, 8, 8, 0, 0]];
+      for (var i = 0; i < cases.length; i++) {
+        var k = cases[i], to = edZoomScroll(k[0], k[1], k[2], k[3], k[4], k[5]);
+        var was = (k[2] + k[4] - ED_PAD) / k[0], now = (to.x + k[4] - ED_PAD) / k[1];
+        assert(Math.abs(was - now) < 1e-9, "case " + i + ": the point under the pointer moved from " + was + " to " + now);
+        var wasY = (k[3] + k[5] - ED_PAD) / k[0], nowY = (to.y + k[5] - ED_PAD) / k[1];
+        assert(Math.abs(wasY - nowY) < 1e-9, "case " + i + ": the point under the pointer moved vertically");
+      }
+      /* Fit: the whole map, as large as the box allows, with its
+         margin -- and it is the SHORT side that decides. */
+      var z = edFitZoom(12, 16, 1000, 600);
+      assert(16 * TILE * z + ED_PAD * 2 <= 600 + 1e-9, "a fitted 16-row map is taller than the box");
+      assert(16 * TILE * z + ED_PAD * 2 > 599, "the fitted map leaves room it could have used");
+      assert(12 * TILE * z + ED_PAD * 2 <= 1000, "a fitted map is wider than the box");
+      assert(edFitZoom(1, 1, 9000, 9000) === ED_ZOOM_MAX, "fitting one square to a wall zooms past the cap");
+      assert(edFitZoom(40, 40, 50, 50) === ED_ZOOM_MIN, "fitting a huge map to a thumbnail zooms under the floor");
+      assert(edClampZoom(99) === ED_ZOOM_MAX && edClampZoom(0) === ED_ZOOM_MIN, "the clamp does not clamp");
+    } },
+
+    { name: "a dragged flag keeps its number, and a dragged trap takes its wall with it", run: function () {
+      /* Moving flag 2 is not taking flag 2 off and putting a new last
+         flag down. A trap keeps its facing and its settings, and its
+         wall comes with it -- up on the new square, down on the old
+         one unless something else there still needs it. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.isCourse = true;
+      ED.grid.flags = [{ c: 1, r: 1 }, { c: 2, r: 2 }, { c: 3, r: 3 }];
+      ED.dock = { at: [0, 6] };
+      edSetCell(5, 5, "o.");
+      assert(edMovePart(edPartById2("flag:1"), 4, 4), "flag 2 would not move to an empty floor square");
+      assert(ED.grid.flags[1].c === 4 && ED.grid.flags[1].r === 4, "flag 2 did not land where it was dropped");
+      assert(ED.grid.flags.length === 3 && ED.grid.flags[0].c === 1 && ED.grid.flags[2].c === 3,
+        "moving flag 2 disturbed the others");
+      assert(!edMovePart(edPartById2("flag:1"), 5, 5), "a flag was dropped into a pit");
+      assert(!edMovePart(edPartById2("flag:1"), 2, 7), "a flag was dropped on the starting block");
+      assert(!edMovePart(edPartById2("flag:1"), 3, 3), "a flag was dropped on top of flag 3");
+      assert(!edMovePart(edPartById2("flag:1"), 4, 4), "dropping a flag where it already is counted as a move");
+      assert(ED.grid.flags[1].c === 4 && ED.grid.flags[1].r === 4, "a refused move moved it anyway");
+
+      /* A ram facing north is bolted to the south wall. */
+      ED.grid.pushers.push({ c: 2, r: 2, d: N, regs: [1, 3, 5] });
+      B.setWall(ED.grid, 2, 2, S, true);
+      assert(edMovePart(edPartById2("pusher:0"), 6, 1), "the ram would not move");
+      assert(ED.grid.pushers[0].c === 6 && ED.grid.pushers[0].r === 1, "the ram did not land where it was dropped");
+      assert(ED.grid.pushers[0].d === N && ED.grid.pushers[0].regs.join() === "1,3,5",
+        "the ram lost its facing or its registers on the way");
+      assert(B.wallAt(ED.grid, 6, 1, S), "the moved ram has no wall to be bolted to");
+      assert(!B.wallAt(ED.grid, 2, 2, S), "the ram left its wall behind");
+      /* Unless something else is still bolted to it. */
+      ED.grid.lasers.push({ c: 6, r: 1, d: N, n: 1 });
+      assert(edMovePart(edPartById2("pusher:0"), 6, 4), "the ram would not move a second time");
+      assert(B.wallAt(ED.grid, 6, 1, S), "the ram took a wall the laser is still bolted to");
+      /* Two of a kind cannot share a square. */
+      ED.grid.pushers.push({ c: 0, r: 0, d: E, regs: [2, 4] });
+      assert(!edMovePart(edPartById2("pusher:1"), 6, 4), "a second ram was dropped on the first");
+      ED = keep;
+
+      function edPartById2(id) {
+        var g = ED.grid, m = /^(\w+):(\d+)$/.exec(id);
+        return { id: id, kind: m[1], i: +m[2] };
+      }
+    } },
+
+    { name: "the ghost says what a click would do before it lands", run: function () {
+      /* A refusal after the click is the workshop being clunky: the
+         answer belongs on the pointer, before. The ghost shows what
+         would go down, hides when the click would pick something up,
+         and greys out when it would be refused. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.isCourse = true;
+      ED.grid.flags = [{ c: 1, r: 1 }];
+      ED.dock = { at: [0, 6] };
+      edSetCell(5, 5, "o.");
+      ED.grid.pushers.push({ c: 3, r: 3, d: N, regs: [1, 3, 5] });
+      assert(edClickWould("flag", { c: 2, r: 2 }) === "put", "a flag on floor is not a put");
+      assert(edClickWould("flag", { c: 1, r: 1 }) === "take", "a flag on a flag is not a take");
+      assert(edClickWould("flag", { c: 5, r: 5 }) === "no", "a flag in a pit is not refused");
+      assert(edClickWould("flag", { c: 4, r: 7 }) === "no", "a flag on the starting block is not refused");
+      assert(edClickWould("pusher", { c: 3, r: 3 }) === "take", "a ram on a ram is not a take");
+      assert(edClickWould("pusher", { c: 2, r: 2 }) === "put", "a ram on floor is not a put");
+      assert(edClickWould("tile", { c: 5, r: 5 }) === "put", "a tile over a pit is not a put");
+      /* Off the course there is nothing to do anything to. */
+      ED.grid.cell[7 * 8 + 7] = "";
+      assert(edClickWould("tile", { c: 7, r: 7 }) === "no", "a click off the course is not refused");
+
+      /* And the picture is the thing a click would lay: a belt turned
+         to join the run beside it, a wall on the edge the pointer is
+         nearest, whatever the compass says. */
+      ED.dir = N;
+      edSetCell(1, 3, "b>");
+      var belt = edToolView(edToolByKey("b"), { c: 2, r: 3, edge: null });
+      assert(belt.cell[0] === "b>", "the belt ghost shows " + belt.cell[0] + " beside a run heading east");
+      var wall = edToolView(edToolByKey("wall"), { c: 2, r: 3, edge: E });
+      assert(B.wallAt(wall, 0, 0, E) && !B.wallAt(wall, 0, 0, N), "the wall ghost is not on the edge under the pointer");
+      var mid = edToolView(edToolByKey("wall"), { c: 2, r: 3, edge: null });
+      assert(B.wallAt(mid, 0, 0, N), "the wall ghost in the middle of a square ignores the compass");
+      assert(edToolView(edToolByKey("sel"), { c: 2, r: 3 }) === null, "the select tool has a ghost");
+      assert(edToolView(edToolByKey("pan"), { c: 2, r: 3 }) === null, "the hand has a ghost");
+      ED = keep;
+    } },
+
+    { name: "the flag list is the race, and its verbs move it", run: function () {
+      /* Earlier and later are moves in the order, each one step of
+         history; taking one off closes the gap. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.isCourse = true;
+      ED.grid.flags = [{ c: 1, r: 1 }, { c: 2, r: 2 }, { c: 3, r: 3 }];
+      ED.undo = [];
+      ED.sel = { c: 2, r: 2, part: "flag:1" };
+      edFlagShift(1, 1);
+      assert(ED.grid.flags[2].c === 2 && ED.grid.flags[1].c === 3, "flag 2 did not become flag 3");
+      assert(ED.sel.part === "flag:2", "the selection did not follow the flag down the order");
+      assert(ED.undo.length === 1, "moving a flag in the order cost " + ED.undo.length + " steps");
+      edFlagShift(0, -1);
+      assert(ED.undo.length === 1 && ED.grid.flags[0].c === 1, "moving the first flag earlier did something");
+      edFlagDrop(0);
+      assert(ED.grid.flags.length === 2 && ED.grid.flags[0].c === 3, "taking flag 1 off did not close the gap");
+      assert(ED.undo.length === 2, "taking a flag off is not a step of history");
+      ED.flagNum = 9;
+      edFlagDrop(5);
+      assert(ED.undo.length === 2, "taking off a flag that is not there cost a step");
+      ED = keep;
+    } },
+
+    { name: "delete takes off what is in focus, and escape steps outward", run: function () {
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.undo = [];
+      edSetCell(2, 2, "b>");
+      ED.grid.pushers.push({ c: 2, r: 2, d: N, regs: [1, 3, 5] });
+      B.setWall(ED.grid, 2, 2, S, true);
+      ED.sel = { c: 2, r: 2, part: "pusher:0" };
+      edDeleteFocused();
+      assert(!ED.grid.pushers.length, "delete on the ram did not take the ram off");
+      assert(B.codeAt(ED.grid, 2, 2) === "b>", "delete on the ram took the belt under it as well");
+      assert(edPart().id === "tile", "the focus did not fall back to the square");
+      edDeleteFocused();
+      assert(B.codeAt(ED.grid, 2, 2) === "..", "delete on the belt did not make it floor");
+      var n = ED.undo.length;
+      edDeleteFocused();
+      assert(ED.undo.length === n, "delete on bare floor cost a step of history");
+      /* Escape lets go of the selection first, and only then puts the
+         select tool in hand. */
+      ED.pick = "b";
+      edEscape();
+      assert(!ED.sel && ED.pick === "b", "the first escape did not merely deselect");
+      edEscape();
+      assert(ED.pick === "sel", "the second escape did not reach for the select tool");
+      ED = keep;
+    } },
+
+    { name: "a quick stroke lays every square it skipped", run: function () {
+      /* At a small zoom one pointer move can cross four squares. A
+         stroke that only laid the squares it was told about left gaps
+         in a run whenever the mouse moved at speed. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.pick = "b"; ED.mode = "tile"; ED.tool = "b"; ED.dir = N;
+      ED.undo = [];
+      ED.stroke = { before: edMark(), last: { c: 1, r: 1 }, n: 1 };
+      edSetCell(1, 1, "b^");
+      assert(edStrokeTo(5, 1), "a jump along the row laid nothing");
+      var c;
+      for (c = 1; c <= 5; c++) {
+        assert(B.codeAt(ED.grid, c, 1) === "b>", "square " + c + " in the run is " + B.codeAt(ED.grid, c, 1));
+      }
+      assert(ED.stroke.last.c === 5 && ED.stroke.last.r === 1, "the stroke did not end where the pointer is");
+      /* Down a column, and the corner square turns to follow. */
+      edStrokeTo(5, 3);
+      assert(B.codeAt(ED.grid, 5, 1) === "bv" && B.codeAt(ED.grid, 5, 2) === "bv" && B.codeAt(ED.grid, 5, 3) === "bv",
+        "the run did not turn the corner and carry on down");
+      /* A diagonal jump is an L: along the row first, then down. */
+      edStrokeTo(2, 5);
+      assert(B.codeAt(ED.grid, 4, 3) === "b<" && B.codeAt(ED.grid, 2, 3) === "bv" && B.codeAt(ED.grid, 2, 5) === "bv",
+        "a diagonal jump did not lay an L: " + B.codeAt(ED.grid, 4, 3) + " " + B.codeAt(ED.grid, 2, 3) + " " + B.codeAt(ED.grid, 2, 5));
+      assert(!edStrokeTo(2, 5), "staying put counted as a step");
+      /* Squares off the course are stepped over, not painted into. */
+      ED.grid.cell[5 * 8 + 0] = "";
+      edStrokeTo(0, 5);
+      assert(B.codeAt(ED.grid, 1, 5) === "b<", "the square before the hole was not laid");
+      assert(!B.codeAt(ED.grid, 0, 5), "the stroke painted a belt into a hole in the course");
+      /* All of it one step of history. */
+      edKeep(ED.stroke.before);
+      ED.stroke = null;
+      assert(ED.undo.length === 1, "one stroke cost " + ED.undo.length + " steps");
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -7213,8 +7456,88 @@
     "flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}",
     ".pr-curtain h2{color:var(--pr-accent);letter-spacing:2px;font-size:16px;margin:0}",
     ".pr-curtained .pr-main,.pr-curtained .pr-program{filter:blur(10px)}",
-    /* editor */
-    ".pr-ed-panel{display:flex;flex-direction:column;gap:6px;width:100%;max-width:1000px}",
+    /* ---- the workshop ----
+       FIVE REGIONS ON A FULL SCREEN. The map used to sit in a column
+       with the library beside it and the exits in a footer under
+       both, at a fixed tile size, and on a wide screen it filled a
+       corner. Now the page IS the workshop: a bar across the top, a
+       rail of tools down the left, the map filling whatever is left,
+       the inspector on the right and a status line underneath. */
+    ".pr-root.pr-editing{display:grid;height:100vh;height:100dvh;padding:0;gap:0;overflow:hidden;",
+    "grid-template-columns:auto minmax(0,1fr) 268px;grid-template-rows:auto minmax(0,1fr) auto;",
+    "grid-template-areas:'top top top' 'rail view side' 'status status status';align-items:stretch;",
+    "justify-items:stretch}",
+    ".pr-ed-top{grid-area:top;display:flex;align-items:center;gap:6px;padding:5px 10px;",
+    "border-bottom:1px solid var(--pr-border);background:var(--pr-panel);flex-wrap:wrap;font-size:11px}",
+    ".pr-ed-title{color:var(--pr-accent);letter-spacing:2px;font-size:12px;margin-right:4px;white-space:nowrap}",
+    ".pr-ed-gap{flex:1 1 auto}",
+    ".pr-ed-name{background:var(--pr-bg);border:1px solid var(--pr-border);color:var(--pr-text);",
+    "font:inherit;padding:3px 6px;min-width:0}",
+    ".pr-ed-zoom{display:inline-flex}",
+    ".pr-ed-zoom button{padding:4px 8px;min-width:30px}",
+    ".pr-ed-zoom button+button{margin-left:-1px}",
+    ".pr-ed-zoom [data-ed=zoom]{min-width:52px}",
+    ".pr-ed-go{border-color:var(--pr-accent)!important;color:var(--pr-accent)!important}",
+    ".pr-ed-go:hover:not(:disabled){background:var(--pr-panel-alt)}",
+    ".pr-ed-rail{grid-area:rail;display:flex;flex-direction:column;gap:2px;padding:6px;width:172px;",
+    "border-right:1px solid var(--pr-border);background:var(--pr-panel);overflow-y:auto;overflow-x:hidden}",
+    ".pr-ed-gh{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--pr-dim);",
+    "margin:6px 0 2px 4px}",
+    ".pr-ed-gh:first-child{margin-top:0}",
+    ".pr-ed-item{display:flex;align-items:center;gap:6px;padding:3px 5px;min-height:0!important;",
+    "font-size:10px;text-align:left;cursor:grab;border-color:transparent;background:none}",
+    ".pr-ed-item:hover:not(:disabled){background:var(--pr-panel-alt)}",
+    ".pr-ed-item.on{border-color:var(--pr-accent);color:var(--pr-accent);",
+    "background:var(--pr-panel-alt)}",
+    ".pr-ed-item-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".pr-ed-item-icon{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;",
+    "color:var(--pr-accent)}",
+    ".pr-ed-key{font:9px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--pr-dim);",
+    "border:1px solid var(--pr-border);border-radius:3px;padding:1px 3px;min-width:14px;text-align:center}",
+    ".pr-ed-item.on .pr-ed-key{color:var(--pr-accent);border-color:var(--pr-accent)}",
+    /* THE MAP is a scroll box, so panning is scrolling and the browser
+       does the work; the stage is drawn once at the game's tile size
+       and scaled, so zooming rebuilds nothing. The flex-and-margin
+       pair centres a map smaller than the box without clipping one
+       that is larger, which justify-content:center would. */
+    ".pr-ed-view{grid-area:view;position:relative;display:flex;overflow:auto;background:var(--pr-bg);",
+    "touch-action:none;cursor:crosshair;overscroll-behavior:contain}",
+    ".pr-ed-canvas{position:relative;margin:auto;flex:0 0 auto}",
+    ".pr-ed-stage{position:absolute;left:16px;top:16px;transform-origin:0 0;border:1px solid var(--pr-border)}",
+    ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams,.pr-ed-stage .pr-walls{position:absolute;left:0;top:0}",
+    ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
+    ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
+    /* Photo-only: the traced layers go, the hit grid stays, so you can
+       still click squares while looking at the thing you are copying. */
+    ".pr-ed-solo .pr-grid,.pr-ed-solo .pr-beams,.pr-ed-solo .pr-walls{visibility:hidden}",
+    ".pr-ed-solo{outline:2px solid var(--pr-accent);outline-offset:2px}",
+    ".pr-ed-cell{border:1px solid rgba(84,242,255,.12)}",
+    ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
+    ".pr-ed-cell.pr-over{background:color-mix(in srgb,var(--pr-accent) 35%,transparent)}",
+    /* The square being looked at, so the inspector and the map agree
+       about which one that is. */
+    ".pr-ed-cell.pr-sel{outline:2px solid var(--pr-accent);outline-offset:-2px;",
+    "background:color-mix(in srgb,var(--pr-accent) 16%,transparent)}",
+    /* THE GHOST of the thing in hand, on the square under the pointer,
+       above the hit grid and through it -- it must never catch the
+       click it is previewing. */
+    ".pr-ed-ghost{position:absolute;z-index:3;pointer-events:none;opacity:.72;",
+    "outline:1px solid var(--pr-accent);animation:pr-ghost .9s ease-in-out infinite alternate}",
+    ".pr-ed-ghost .pr-thumb{border:0}",
+    ".pr-ed-ghost-no{outline-color:var(--pr-danger);filter:grayscale(1);animation:none;opacity:.35}",
+    "@keyframes pr-ghost{from{opacity:.55}to{opacity:.85}}",
+    ".pr-ed-panning .pr-ed-view,.pr-ed-space .pr-ed-view{cursor:grabbing}",
+    ".pr-ed-space:not(.pr-ed-panning) .pr-ed-view{cursor:grab}",
+    ".pr-ed-dragging .pr-ed-view{cursor:move}",
+    ".pr-ed-dragging .pr-ed-cell:hover{background:color-mix(in srgb,var(--pr-accent) 30%,transparent)}",
+    ".pr-ed-side{grid-area:side;overflow-y:auto;padding:8px;border-left:1px solid var(--pr-border);",
+    "background:var(--pr-panel);font-size:11px}",
+    ".pr-ed-status{grid-area:status;display:flex;gap:14px;align-items:center;padding:4px 10px;",
+    "border-top:1px solid var(--pr-border);background:var(--pr-panel);font-size:11px;min-height:26px}",
+    ".pr-ed-st-hover{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;",
+    "color:var(--pr-ink)}",
+    ".pr-ed-ok{color:var(--pr-accent);font-size:11px;white-space:nowrap}",
+    ".pr-ed-bad{color:var(--pr-danger);font-size:11px}",
     ".pr-ed-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:11px}",
     ".pr-ed-row span{opacity:.7}",
     ".pr-setup-edit{margin-top:6px;flex-wrap:wrap}",
@@ -7226,39 +7549,23 @@
     ".pr-ed-row .on:not(.pr-seg-b){border-color:var(--pr-accent);color:var(--pr-accent)}",
     ".pr-ed-row input[type=text]{background:var(--pr-panel);border:1px solid var(--pr-border);",
     "color:var(--pr-text);font:inherit;padding:3px 6px}",
-    ".pr-ed-row input[type=range]{width:90px;accent-color:var(--pr-accent)}",
-    ".pr-ed-stage{position:relative;border:1px solid var(--pr-border);flex:0 0 auto}",
-    ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams,.pr-ed-stage .pr-walls{position:absolute;left:0;top:0}",
-    ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
-    ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
-    /* Photo-only: the traced layers go, the hit grid stays, so you can
-       still click squares while looking at the thing you are copying. */
-    ".pr-ed-solo .pr-ed-stage .pr-grid,.pr-ed-solo .pr-ed-stage .pr-beams,",
-    ".pr-ed-solo .pr-ed-stage .pr-walls{visibility:hidden}",
-    ".pr-ed-solo .pr-ed-stage{outline:2px solid var(--pr-accent);outline-offset:2px}",
-    ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
-    ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
-    ".pr-ed-cell.pr-over{background:color-mix(in srgb,var(--pr-accent) 35%,transparent)}",
-    /* The square being looked at, so the panel on the right and the
-       map agree about which one that is. */
-    ".pr-ed-cell.pr-sel{outline:2px solid var(--pr-accent);outline-offset:-2px;",
-    "background:color-mix(in srgb,var(--pr-accent) 16%,transparent)}",
-    /* The workshop, side by side: map on the left, library and detail
-       on the right, footer underneath. */
-    ".pr-ed-work{display:flex;gap:10px;align-items:flex-start;width:100%;max-width:1200px}",
-    ".pr-ed-side{flex:0 0 236px;display:flex;flex-direction:column;gap:8px;",
-    "max-height:70vh;overflow-y:auto}",
+    ".pr-ed-row input[type=range]{width:80px;accent-color:var(--pr-accent)}",
     ".pr-ed-h{margin:0 0 4px;font-size:11px;letter-spacing:1px;color:var(--pr-accent);",
-    "font-weight:normal;text-transform:uppercase}",
-    ".pr-ed-lib{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}",
-    ".pr-ed-item{display:flex;align-items:center;gap:5px;padding:3px 5px;min-height:0!important;",
-    "font-size:10px;text-align:left;cursor:grab}",
-    ".pr-ed-item.on{border-color:var(--pr-accent);color:var(--pr-accent);",
-    "background:var(--pr-panel-alt)}",
-    ".pr-ed-item-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-    ".pr-ed-detail{border-top:1px solid var(--pr-border);padding-top:6px}",
-    ".pr-ed-detail .pr-ed-row{margin-bottom:4px}",
-    ".pr-ed-detail .pr-ed-note{opacity:.6}",
+    "font-weight:normal;text-transform:uppercase;display:flex;align-items:center;gap:6px}",
+    ".pr-ed-h .pr-ed-x{margin-left:auto;padding:0 6px;min-height:0!important;line-height:1.4}",
+    ".pr-ed-side .pr-ed-row{margin-bottom:4px}",
+    ".pr-ed-side .pr-ed-note{opacity:.6;margin-bottom:4px}",
+    /* THE FLAGS, as the race, on top of everything else. */
+    ".pr-ed-flags{border-bottom:1px solid var(--pr-border);padding-bottom:6px;margin-bottom:8px}",
+    ".pr-ed-flag{display:flex;gap:2px;align-items:stretch;margin-bottom:2px}",
+    ".pr-ed-flag button{padding:2px 6px;min-height:0!important;font-size:10px}",
+    ".pr-ed-flag-go{flex:1 1 auto;text-align:left}",
+    ".pr-ed-flag-go b{color:var(--pr-accent);margin-right:4px}",
+    ".pr-ed-flag.on .pr-ed-flag-go{border-color:var(--pr-accent)}",
+    ".pr-ed-ref{margin-top:8px;border-top:1px solid var(--pr-border);padding-top:6px}",
+    ".pr-ed-ref summary{cursor:pointer;list-style:none}",
+    ".pr-ed-ref summary::before{content:'\\25B8';margin-right:4px}",
+    ".pr-ed-ref[open] summary::before{content:'\\25BE'}",
     /* THE SQUARE, LARGE, WITH ITS WALLS ON IT. A wall lives on an
        EDGE, and the only place an edge is unambiguous is the picture
        -- four labelled buttons make you translate "north" into "the
@@ -7302,10 +7609,20 @@
     "min-height:0!important;border:0!important;background:none;font-size:10px;",
     "letter-spacing:1px;text-transform:uppercase;color:var(--pr-ink)}",
     ".pr-ed-part.on .pr-ed-part-h{color:var(--pr-accent)}",
-    ".pr-ed-ok{color:var(--pr-accent);font-size:11px}",
-    ".pr-ed-bad{color:var(--pr-danger);font-size:11px}",
     ".pr-ed-out{width:100%;background:var(--pr-bg);color:var(--pr-ink);border:1px solid var(--pr-border);",
     "font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px}",
+    /* Narrow: the rail lies across the top and the inspector becomes a
+       drawer under the map, so the map keeps the middle of the screen. */
+    "@media (max-width:900px){",
+    ".pr-root.pr-editing{grid-template-columns:minmax(0,1fr);",
+    "grid-template-rows:auto auto minmax(0,1fr) auto auto;grid-template-areas:'top' 'rail' 'view' 'side' 'status'}",
+    ".pr-ed-rail{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;border-right:0;",
+    "border-bottom:1px solid var(--pr-border);padding:4px}",
+    ".pr-ed-gh{display:none}",
+    ".pr-ed-item{flex:0 0 auto}",
+    ".pr-ed-item-name{display:none}",
+    ".pr-ed-side{max-height:36vh;border-left:0;border-top:1px solid var(--pr-border)}",
+    "}",
     "@media (prefers-reduced-motion:reduce){.pr-root *{animation:none!important;transition:none!important}}"
   ].join("");
 
@@ -10570,24 +10887,43 @@
 
      `paint` marks the ones a drag lays a run of. `dir`, `regs`, `reach`
      and `digit` say which settings that kind has, which is what the
-     detail panel draws when there is nothing selected. */
+     inspector draws when there is nothing selected. `hot` is the key
+     that picks it up, and two entries may share one -- both gears
+     answer to G -- so a key is a place in the rail rather than one
+     tool. `group` is the heading it sits under. */
   var ED_TOOLS = [
-    { key: "sel", label: "Select", kind: "select", solo: true },
-    { key: "..", label: "Floor", kind: "tile" },
-    { key: "b", label: "Conveyor", kind: "tile", dir: true, paint: true },
-    { key: "B", label: "Express", kind: "tile", dir: true, paint: true },
-    { key: "l", label: "Gear CCW", kind: "tile" },
-    { key: "r", label: "Gear CW", kind: "tile" },
-    { key: "o", label: "Pit", kind: "tile" },
-    { key: "w", label: "Repair", kind: "tile" },
-    { key: "W", label: "Upgrade", kind: "tile" },
-    { key: "s", label: "Docking bay", kind: "tile", digit: true },
-    { key: "wall", label: "Wall", kind: "wall", dir: true },
-    { key: "laser", label: "Laser", kind: "laser", dir: true, damage: true, drag: true },
-    { key: "pusher", label: "Ram", kind: "pusher", dir: true, regs: "push", drag: true },
-    { key: "burner", label: "Flame jet", kind: "burner", dir: true, regs: "burn", reach: true, drag: true },
-    { key: "flag", label: "Flag", kind: "flag", course: true, number: true, drag: true }
+    { key: "sel", label: "Select", kind: "select", solo: true, hot: "v", group: "Hand" },
+    { key: "pan", label: "Pan", kind: "pan", hot: "h", group: "Hand" },
+    { key: "flag", label: "Flag", kind: "flag", course: true, number: true, drag: true, hot: "f", group: "Flags" },
+    { key: "..", label: "Floor", kind: "tile", hot: "x", group: "Floor" },
+    { key: "b", label: "Conveyor", kind: "tile", dir: true, paint: true, hot: "c", group: "Floor" },
+    { key: "B", label: "Express", kind: "tile", dir: true, paint: true, hot: "t", group: "Floor" },
+    { key: "l", label: "Gear CCW", kind: "tile", hot: "g", group: "Floor" },
+    { key: "r", label: "Gear CW", kind: "tile", hot: "g", group: "Floor" },
+    { key: "o", label: "Pit", kind: "tile", hot: "p", group: "Floor" },
+    { key: "w", label: "Repair", kind: "tile", hot: "r", group: "Floor" },
+    { key: "W", label: "Upgrade", kind: "tile", hot: "u", group: "Floor" },
+    { key: "s", label: "Docking bay", kind: "tile", digit: true, hot: "k", group: "Floor" },
+    { key: "wall", label: "Wall", kind: "wall", dir: true, hot: "b", group: "Walls" },
+    { key: "laser", label: "Laser", kind: "laser", dir: true, damage: true, drag: true, hot: "l", group: "Walls" },
+    { key: "pusher", label: "Ram", kind: "pusher", dir: true, regs: "push", drag: true, hot: "m", group: "Walls" },
+    { key: "burner", label: "Flame jet", kind: "burner", dir: true, regs: "burn", reach: true, drag: true, hot: "j", group: "Walls" }
   ];
+
+  /* The keys that steer rather than pick, which no tool may answer to:
+     W A S D are the four facings and Q E the quarter turns. */
+  var ED_STEER_KEYS = "wasdqe";
+
+  /* The tool a letter picks up: the first of those answering to it, or
+     the one after the one in hand when that already answers, so a key
+     shared by two entries walks between them. Null for a letter that
+     picks nothing, so the caller can leave the key alone. */
+  function edKeyTool(ch) {
+    var lib = edLibrary(), hits = [], i;
+    for (i = 0; i < lib.length; i++) if (lib[i].hot === ch) hits.push(lib[i].key);
+    if (!hits.length) return null;
+    return hits[(hits.indexOf(ED.pick) + 1) % hits.length];
+  }
 
   function edToolByKey(k) {
     for (var i = 0; i < ED_TOOLS.length; i++) if (ED_TOOLS[i].key === k) return ED_TOOLS[i];
@@ -10814,13 +11150,86 @@
     return t.key + ".";
   }
 
+  /* THE MAP IS DRAWN ONCE AND SCALED.
+
+     Zooming used to be a re-render at a bigger tile, which rebuilt the
+     thousand-odd cells of a three-by-three course for every notch of
+     the wheel. The art is vector, so the stage is drawn at the game's
+     own tile size and scaled with a transform: the hit test reads
+     getBoundingClientRect, which is post-transform, so nothing that
+     aims at a square has to know the zoom at all. */
+  var ED_ZOOM_MIN = 0.4, ED_ZOOM_MAX = 4, ED_PAD = 16;
+
+  function edClampZoom(z) { return Math.max(ED_ZOOM_MIN, Math.min(ED_ZOOM_MAX, z)); }
+
+  /* The zoom at which the whole grid fits the viewport with a margin. */
+  function edFitZoom(gw, gh, vw, vh) {
+    var pad = ED_PAD * 2;
+    return edClampZoom(Math.min((vw - pad) / (gw * TILE), (vh - pad) / (gh * TILE)));
+  }
+
+  /* Where the viewport has to scroll to so that the point under the
+     pointer stays under the pointer as the zoom goes from one value to
+     another. The scaled thing sits ED_PAD inside the scrolled content,
+     and the pad does not scale, so it is taken out before and put back
+     after. */
+  function edZoomScroll(from, to, sx, sy, px, py) {
+    var k = to / from;
+    return { x: (sx + px - ED_PAD) * k + ED_PAD - px,
+             y: (sy + py - ED_PAD) * k + ED_PAD - py };
+  }
+
+  function edApplyZoom() {
+    if (!UI.els || !UI.els.edBoard) return;
+    var C = ED.grid, z = ED.zoom;
+    UI.els.edBoard.style.transform = "scale(" + z + ")";
+    UI.els.edCanvas.style.width = Math.round(C.w * TILE * z + ED_PAD * 2) + "px";
+    UI.els.edCanvas.style.height = Math.round(C.h * TILE * z + ED_PAD * 2) + "px";
+    var say = UI.els.host.querySelector("[data-ed=zoom]");
+    if (say) say.textContent = Math.round(z * 100) + "%";
+  }
+
+  /* Zoom to `z` keeping the viewport point (px,py) where it is -- the
+     middle of the viewport when no point is given, which is what the
+     buttons and the keys mean. */
+  function edZoomTo(z, px, py) {
+    z = edClampZoom(z);
+    if (!UI.els || !UI.els.edView) { ED.zoom = z; return; }
+    var view = UI.els.edView, from = ED.zoom;
+    if (px === undefined) { px = view.clientWidth / 2; py = view.clientHeight / 2; }
+    var to = edZoomScroll(from, z, view.scrollLeft, view.scrollTop, px, py);
+    ED.zoom = z;
+    edApplyZoom();
+    view.scrollLeft = to.x;
+    view.scrollTop = to.y;
+  }
+
+  function edZoomFit() {
+    if (!UI.els || !UI.els.edView) return;
+    var view = UI.els.edView;
+    ED.zoom = edFitZoom(ED.grid.w, ED.grid.h, view.clientWidth, view.clientHeight);
+    edApplyZoom();
+    view.scrollLeft = 0;
+    view.scrollTop = 0;
+  }
+
+  /* Bring a square to the middle of the viewport. */
+  function edScrollTo(c, r) {
+    if (!UI.els || !UI.els.edView) return;
+    var view = UI.els.edView, z = ED.zoom;
+    var left = (c + 0.5) * TILE * z + ED_PAD - view.clientWidth / 2;
+    var top = (r + 0.5) * TILE * z + ED_PAD - view.clientHeight / 2;
+    try { view.scrollTo({ left: left, top: top, behavior: "smooth" }); }
+    catch (e) { view.scrollLeft = left; view.scrollTop = top; }
+  }
+
   function edRender() {
     /* The rule tests drive ED directly, with no workshop on screen --
        what has to be right is the grid, not the picture of it. */
     if (!UI.els || !UI.els.edBoard) return;
     var host = UI.els.edBoard;
     var C = edCourseView();
-    var tile = Math.round(TILE * ED.zoom);
+    var tile = TILE;
     var w = C.w * tile, h = C.h * tile;
     var out = [], c, r;
 
@@ -10830,7 +11239,7 @@
     host.style.setProperty("--tile", tile + "px");
     host.style.setProperty("--cols", C.w);
 
-    /* The board being traced, drawn exactly the way the game draws it
+    /* The board being edited, drawn exactly the way the game draws it
        -- same tileClasses, same tileInner. That is the whole point of
        the workshop being WYSIWYG: there is no second renderer to
        drift from the first. */
@@ -10880,15 +11289,18 @@
       for (c = 0; c < C.w; c++) {
         var selHere = ED.sel && ED.sel.c === c && ED.sel.r === r;
         out.push('<div class="pr-ed-cell' + (selHere ? " pr-sel" : "") +
-          '" data-c="' + c + '" data-r="' + r + '" title="' + c + "," + r + '"></div>');
+          '" data-c="' + c + '" data-r="' + r + '"></div>');
       }
     }
     hits.innerHTML = out.join("");
     host.appendChild(hits);
+    /* The ghost of the thing in hand went with the old stage; the
+       next pointer move puts it back. */
+    ED.ghostHTML = null;
     host.classList.toggle("pr-ed-solo", edSolo());
+    edApplyZoom();
     edRenderPanel();
   }
-
   /* Map or photo, never a blend. Control flips whichever way you are
      currently looking, so it reads the same held down as latched. */
   function edSolo() { return !!ED && (ED.soloLatch !== ED.soloHold) && !!ED.underlay; }
@@ -10914,47 +11326,81 @@
     return ED.grid;
   }
 
-  /* THE SIDEBAR: what you can pick up, and what the thing in your hand
-     -- or the thing you have selected -- is made of. */
+  /* THE FIVE REGIONS: the bar across the top, the rail of tools down
+     the left, the map in the middle, the inspector on the right and
+     the status line underneath. Everything about the SESSION is in
+     the bar; everything about a SQUARE, or about the thing in hand,
+     is in the inspector; what is under the pointer is on the line. */
   function edRenderPanel() {
     if (!UI.els || !UI.els.edLib) return;
+    edRenderTop();
     edRenderLib();
     edRenderDetail();
-    edRenderFoot();
+    edRenderStatus();
   }
 
+  /* THE RAIL: one column of tools, grouped, each with the key that
+     picks it up printed on it -- so the second time you want the ram
+     you press M rather than going back to the rail for it. */
   function edRenderLib() {
-    var lib = edLibrary(), out = ['<h3 class="pr-ed-h">Library</h3><div class="pr-ed-lib">'], i;
+    if (!UI.els || !UI.els.edLib) return;
+    var lib = edLibrary(), out = [], i, group = null;
     for (i = 0; i < lib.length; i++) {
       var t = lib[i], on = ED.pick === t.key;
+      if (t.group !== group) {
+        group = t.group;
+        out.push('<div class="pr-ed-gh">' + esc(group) + "</div>");
+      }
       out.push('<button class="pr-ed-item' + (on ? " on" : "") + '"' +
         (t.drag ? ' draggable="true"' : "") +
         ' data-act="edpick" data-k="' + esc(t.key) + '"' +
-        ' aria-pressed="' + (on ? "true" : "false") + '">' +
+        ' aria-pressed="' + (on ? "true" : "false") + '"' +
+        ' title="' + esc(t.label) + (t.hot ? " (" + t.hot.toUpperCase() + ")" : "") + '">' +
         edToolThumb(t) +
-        '<span class="pr-ed-item-name">' + esc(t.label) + "</span></button>");
+        '<span class="pr-ed-item-name">' + esc(t.label) + "</span>" +
+        (t.hot ? '<kbd class="pr-ed-key">' + esc(t.hot.toUpperCase()) + "</kbd>" : "") +
+        "</button>");
     }
-    out.push("</div>");
     UI.els.edLib.innerHTML = out.join("");
   }
 
-  /* EVERY ENTRY IS A PICTURE OF WHAT IT PUTS DOWN, drawn by the
-     board's own renderer at library size -- and it turns as the
-     compass turns, so the belt, the wall and the trap in hand all show
-     the way they are about to go rather than making you read a word
-     and hold the direction in your head.
+  var ED_SELECT_SVG = '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">' +
+    '<path d="M5 3l10 8-4 1 3 5-2 1-3-5-4 3z" fill="currentColor"/></svg>';
+  var ED_HAND_SVG = '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">' +
+    '<path d="M8 18c-2-1-4-4-5-7-.3-1 1-1.6 1.6-.6L6 12V5.5a1 1 0 0 1 2 0V10h1V3.5a1 1 0 0 1 2 ' +
+    '0V10h1V4.5a1 1 0 0 1 2 0V10h1V6.5a1 1 0 0 1 2 0V13c0 3-2 5-5 5z" fill="currentColor"/></svg>';
 
-     A wall-mounted trap draws with its wall, because that is what goes
-     down: the mount and the wall behind it are one placement. */
-  function edToolThumb(t) {
-    var px = 20, g = B.blankGrid(1, 1);
+  /* ONE SQUARE, DRAWN BY THE BOARD'S OWN RENDERER, at any size. The
+     rail's icons, the ghost under the pointer and the big tile in the
+     inspector are all this, so none of them can drift from the map. */
+  function edThumbHTML(g, px, wt) {
+    return '<span class="pr-thumb" style="--tile:' + px + "px;--wt:" + wt + "px;width:" + px +
+      "px;height:" + px + 'px"><span class="pr-thumb-grid" style="grid-template-columns:' + px +
+      'px"><i class="' + tileClasses(g, 0, 0).join(" ") + '">' + tileInner(g, 0, 0) +
+      "</i></span>" +
+      (g.lasers.length ? '<span class="pr-thumb-beams">' + beamSpans(g) + "</span>" : "") +
+      '<span class="pr-thumb-walls">' + wallSpans(g) + "</span></span>";
+  }
+
+  /* THE SQUARE A TOOL WOULD LAY, turned the way it is about to go.
+
+     `hit` says where, for the two that depend on it: a belt joins the
+     run it lands beside, and a wall goes on the edge the pointer is
+     nearest. Without a hit -- the rail's icon -- both take the facing
+     in hand. A wall-mounted trap draws with its wall, because that is
+     what goes down: the mount and the wall behind it are one
+     placement. Null for a tool that lays nothing. */
+  function edToolView(t, hit) {
+    var g = B.blankGrid(1, 1);
     g.flags = [];
     g.cell[0] = "..";
     if (t.kind === "tile") {
-      g.cell[0] = t.dir ? t.key + B.DIR_CHARS.charAt(ED.dir)
+      g.cell[0] = t.paint && hit ? edPaintCode(hit.c, hit.r)
+                : t.dir ? t.key + B.DIR_CHARS.charAt(ED.dir)
                 : t.digit ? t.key + ED.digit : t.key + ".";
     } else if (t.kind === "wall") {
-      B.setWall(g, 0, 0, ED.dir, true);
+      var edge = hit && hit.edge !== null && hit.edge !== undefined ? hit.edge : ED.dir;
+      B.setWall(g, 0, 0, edge, true);
     } else if (t.kind === "pusher") {
       g.pushers.push({ c: 0, r: 0, d: ED.dir, regs: ED.pushRegs.slice() });
       B.setWall(g, 0, 0, B.opposite(ED.dir), true);
@@ -10967,38 +11413,263 @@
     } else if (t.kind === "flag") {
       g.flags = [{ c: 0, r: 0, n: edFlagSlot() }];
     } else {
-      return '<span class="pr-ed-item-icon">&#9099;</span>';
+      return null;
     }
-    return '<span class="pr-thumb" style="--tile:' + px + "px;--wt:8px;width:" + px +
-      "px;height:" + px + 'px"><span class="pr-thumb-grid" style="grid-template-columns:' + px +
-      'px"><i class="' + tileClasses(g, 0, 0).join(" ") + '">' + tileInner(g, 0, 0) +
-      "</i></span>" +
-      (g.lasers.length ? '<span class="pr-thumb-beams">' + beamSpans(g) + "</span>" : "") +
-      '<span class="pr-thumb-walls">' + wallSpans(g) + "</span></span>";
+    return g;
   }
 
-  /* THE DETAIL PANEL.
+  /* EVERY RAIL ENTRY IS A PICTURE OF WHAT IT PUTS DOWN, and it turns
+     as the compass turns, so the belt, the wall and the trap in hand
+     all show the way they are about to go rather than making you read
+     a word and hold the direction in your head. */
+  function edToolThumb(t) {
+    var g = edToolView(t, null);
+    if (!g) {
+      return '<span class="pr-ed-item-icon">' + (t.kind === "pan" ? ED_HAND_SVG : ED_SELECT_SVG) + "</span>";
+    }
+    return edThumbHTML(g, 20, 8);
+  }
+
+  /* A thing already on the map, as a one-square view -- what the
+     ghost shows while it is being carried somewhere else. */
+  function edPartView(part) {
+    var g = B.blankGrid(1, 1), obj = edPartObj(part);
+    g.flags = [];
+    g.cell[0] = "..";
+    if (!obj) return null;
+    if (part.kind === "flag") { g.flags = [{ c: 0, r: 0, n: part.i + 1 }]; return g; }
+    var copy = { c: 0, r: 0, d: obj.d };
+    if (part.kind === "laser") { copy.n = obj.n; g.lasers.push(copy); }
+    else if (part.kind === "pusher") { copy.regs = obj.regs.slice(); g.pushers.push(copy); }
+    else if (part.kind === "burner") { copy.regs = obj.regs.slice(); copy.len = 1; g.burners.push(copy); }
+    else return null;
+    B.setWall(g, 0, 0, B.opposite(obj.d), true);
+    return g;
+  }
+
+  /* THE GHOST: the thing in hand, drawn on the square under the
+     pointer the way a click would lay it -- the belt already turned
+     to join its run, the wall on the edge the pointer is nearest, the
+     flag with its number on. What you see is what you are about to
+     get, before you have committed to it. While something is being
+     dragged it is that thing instead. */
+  /* WHAT A CLICK HERE WOULD DO with the thing in hand: put it down,
+     take one up, or be refused -- "put", "take" or "no". The ghost
+     shows the first, hides for the second and greys out for the
+     third, so the answer arrives before the click rather than as a
+     refusal after it. `kind` is a tool's or a carried part's. */
+  function edClickWould(kind, hit) {
+    var g = ED.grid, c = hit.c, r = hit.r, code = B.codeAt(g, c, r), i;
+    if (!code) return "no";
+    if (kind === "flag") {
+      for (i = 0; i < (g.flags || []).length; i++) {
+        if (g.flags[i].c === c && g.flags[i].r === r) return "take";
+      }
+      var el0 = B.elemOf(code);
+      return !el0 || el0.name !== "floor" || edInDock(c, r) ? "no" : "put";
+    }
+    var list = kind === "laser" ? g.lasers : kind === "pusher" ? g.pushers
+             : kind === "burner" ? g.burners : null;
+    if (list) {
+      for (i = 0; i < list.length; i++) if (list[i].c === c && list[i].r === r) return "take";
+    }
+    return "put";
+  }
+
+  function edGhostView(hit) {
+    if (!hit || ED.pan || ED.pinch) return null;
+    if (ED.drag) return ED.drag.moved ? edPartView(ED.drag.part) : null;
+    if (ED.stroke) return null;
+    if (!B.codeAt(ED.grid, hit.c, hit.r)) return null;
+    return edToolView(edTool(), hit);
+  }
+
+  function edGhostPaint() {
+    var host = UI.els && UI.els.edBoard;
+    if (!host) return;
+    var ghost = host.querySelector(".pr-ed-ghost");
+    var hit = ED.hover, g = edGhostView(hit);
+    var would = g ? edClickWould(ED.drag ? ED.drag.part.kind : edTool().kind, hit) : "take";
+    if (would === "take") {
+      if (ghost) ghost.hidden = true;
+      ED.ghostHTML = null;
+      return;
+    }
+    if (!ghost) { ghost = el("div", "pr-ed-ghost"); host.appendChild(ghost); }
+    var html = edThumbHTML(g, TILE, Math.round(TILE * 0.19));
+    if (html !== ED.ghostHTML) { ghost.innerHTML = html; ED.ghostHTML = html; }
+    ghost.classList.toggle("pr-ed-ghost-no", would === "no");
+    ghost.style.left = hit.c * TILE + "px";
+    ghost.style.top = hit.r * TILE + "px";
+    ghost.hidden = false;
+  }
+
+  /* Called on every pointer move over the map, so it does the least
+     it can: the ghost and the status line move only when the square
+     or the edge under the pointer has changed. */
+  function edHover(e) {
+    var hit = e ? edHit(e) : null, was = ED.hover;
+    var same = (!hit && !was) || (hit && was && hit.c === was.c && hit.r === was.r && hit.edge === was.edge);
+    ED.hover = hit;
+    if (same) return;
+    edGhostPaint();
+    edRenderStatus();
+  }
+
+  /* What is on a square, in a line: "Column 5, row 3 -- Conveyor
+     east + Ram north + Flag 2". */
+  function edSquareText(c, r) {
+    if (!B.inGrid(ED.grid, c, r)) return "";
+    var where = "Column " + (c + 1) + ", row " + (r + 1);
+    var code = B.codeAt(ED.grid, c, r);
+    if (!code) return where + " — off the course";
+    var parts = edParts(c, r), bits = [], i;
+    for (i = 0; i < parts.length; i++) {
+      var p = parts[i], s = p.label;
+      if (p.kind === "tile" && p.dir) s += " " + B.dirName(B.dirOf(code));
+      else if (p.kind !== "tile" && p.kind !== "flag") s += " " + B.dirName(edPartObj(p).d);
+      bits.push(s);
+    }
+    return where + " — " + bits.join(" + ");
+  }
+
+  /* One line about the tool in hand, for when the pointer is off the
+     map. */
+  function edHint() {
+    var t = edTool();
+    if (t.kind === "select") return "Click a square to see what is on it. Drag a flag or a trap to move it.";
+    if (t.kind === "pan") return "Drag to move around the map. Ctrl-wheel or pinch to zoom.";
+    if (t.kind === "flag") return "Click a floor square to put flag " + edFlagSlot() + " down. Drag a flag to move it; click one to pick it up.";
+    if (t.kind === "wall") return "Click near the edge of a square to put a wall up or take one down.";
+    if (t.paint) return "Click, or drag to lay a run. Right-click rubs out.";
+    if (t.kind === "tile") return "Click a square. Right-click rubs out.";
+    return "Click a square to bolt it on, facing " + B.dirName(ED.dir) + ". Click again to take it off.";
+  }
+
+  function edRenderStatus() {
+    if (!UI.els || !UI.els.edStatus) return;
+    var out = [];
+    var hov = ED.hover ? edSquareText(ED.hover.c, ED.hover.r) : "";
+    out.push('<span class="pr-ed-st-hover">' + esc(hov || edHint()) + "</span>");
+    if (ED.errors.length) {
+      out.push('<span class="pr-ed-bad" title="' + esc(ED.errors.join("\n")) + '">' + ED.errors.length +
+        " problem" + (ED.errors.length > 1 ? "s" : "") + ": " + esc(ED.errors[0]) + "</span>");
+    } else {
+      out.push('<span class="pr-ed-ok">' + (ED.isCourse ? "Valid course." : "Valid board.") +
+        (ED.warnings.length ? " " + esc(ED.warnings[0]) : "") + "</span>");
+    }
+    UI.els.edStatus.innerHTML = out.join("");
+  }
+
+  /* THE BAR: the name, the way back, the zoom and the ways out.
+     Everything about the session rather than about a square. */
+  function edRenderTop() {
+    if (!UI.els || !UI.els.edTop) return;
+    var top = UI.els.edTop;
+    /* Never redraw under a hand that is typing the name. */
+    var ae = document.activeElement;
+    if (ae && ae.tagName === "INPUT" && top.contains(ae)) return;
+    var out = [], nU = (ED.undo && ED.undo.length) || 0, nF = (ED.grid.flags || []).length;
+    out.push('<span class="pr-ed-title">' + (ED.isCourse ? "COURSE WORKSHOP" : "BOARD WORKSHOP") + "</span>");
+    if (!ED.isCourse && !ED.fromSetup) {
+      out.push('<input type="text" class="pr-ed-name" data-act="edid" value="' + esc(ED.id) +
+        '" size="12" aria-label="board id" title="Board id">');
+    }
+    out.push('<input type="text" class="pr-ed-name" data-act="edname" value="' + esc(ED.grid.name) +
+      '" size="20" aria-label="' + (ED.isCourse ? "course" : "board") + ' name" title="Name">');
+    out.push('<span class="pr-ed-gap"></span>');
+    out.push('<button data-act="edundo"' + (nU ? "" : " disabled") + ' title="Undo (Ctrl-Z)">&#8617; Undo' +
+      (nU ? " (" + nU + ")" : "") + "</button>");
+    out.push('<span class="pr-ed-zoom" role="group" aria-label="Zoom">' +
+      '<button data-act="edzoom" data-z="out" title="Zoom out (-)" aria-label="Zoom out">&minus;</button>' +
+      '<button data-act="edzoom" data-z="fit" data-ed="zoom" title="Fit the whole map (0)">' +
+        Math.round(ED.zoom * 100) + "%</button>" +
+      '<button data-act="edzoom" data-z="in" title="Zoom in (+)" aria-label="Zoom in">+</button></span>');
+    out.push('<span class="pr-ed-gap"></span>');
+    if (ED.isCourse) {
+      /* Three ways out, because a course is finished by three
+         different people: one who wants none of it, one who wants to
+         go on through the wizard, and one who has placed the flags
+         here and wants to race. */
+      out.push('<button data-act="edcdrop">Discard changes</button>');
+      out.push('<button data-act="edcsave">Save and go on</button>');
+      out.push('<button class="pr-ed-go" data-act="edcplay"' + (nF ? "" : " disabled") +
+        ' title="' + (nF ? "Race this course now" : "Put at least one flag down first") + '">' +
+        "Race now" + (nF ? " (" + nF + " flag" + (nF === 1 ? "" : "s") + ")" : "") + "</button>");
+    } else if (ED.fromSetup) {
+      out.push('<button data-act="edrevert">Discard changes</button>' +
+        '<button data-act="edexport">Export source</button>' +
+        '<button class="pr-ed-go" data-act="edapply">Use this map</button>');
+    } else {
+      out.push('<button data-act="edquit">Leave editor</button>' +
+        '<button data-act="edexport">Export</button>' +
+        '<button class="pr-ed-go" data-act="edplay">Test play</button>');
+    }
+    top.innerHTML = out.join("");
+  }
+
+  /* THE FLAGS, AS THE RACE: a numbered list in the order they are
+     touched, each one a row you can go to, move up or down the order,
+     or take off. Always shown on a course, whatever is in hand,
+     because the flags are what the course workshop is for. */
+  function edFlagPanel() {
+    var flags = ED.grid.flags || [], out = [], i;
+    out.push('<div class="pr-ed-flags"><h3 class="pr-ed-h">Flags' +
+      (flags.length ? " (" + flags.length + ")" : "") + "</h3>");
+    if (!flags.length) {
+      out.push('<div class="pr-ed-note">None yet. With the flag tool in hand, click a floor square.</div>');
+    }
+    for (i = 0; i < flags.length; i++) {
+      var f = flags[i], on = ED.sel && ED.sel.c === f.c && ED.sel.r === f.r;
+      out.push('<div class="pr-ed-flag' + (on ? " on" : "") + '">' +
+        '<button class="pr-ed-flag-go" data-act="edflaggo" data-i="' + i +
+          '" title="Go to flag ' + (i + 1) + '"><b>' + (i + 1) + "</b> col " + (f.c + 1) + ", row " + (f.r + 1) + "</button>" +
+        '<button data-act="edflagshift" data-i="' + i + '" data-w="-1"' + (i ? "" : " disabled") +
+          ' title="Earlier in the race" aria-label="Move flag ' + (i + 1) + ' earlier">&#9650;</button>' +
+        '<button data-act="edflagshift" data-i="' + i + '" data-w="1"' + (i < flags.length - 1 ? "" : " disabled") +
+          ' title="Later in the race" aria-label="Move flag ' + (i + 1) + ' later">&#9660;</button>' +
+        '<button data-act="edflagdrop" data-i="' + i + '" title="Take it off" aria-label="Take flag ' +
+          (i + 1) + ' off">&times;</button></div>');
+    }
+    if (ED.pick !== "flag") {
+      out.push('<div class="pr-ed-row"><button data-act="edpick" data-k="flag">Place a flag <kbd class="pr-ed-key">F</kbd></button></div>');
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
+  /* THE INSPECTOR.
 
      One place that answers "what is this and what can I change about
      it". With something selected it edits that thing; with nothing
      selected it sets what the tool in hand will lay down next. The two
      read the same because they are the same questions -- which way it
-     faces, which registers it fires on, how far it reaches. */
+     faces, which registers it fires on, how far it reaches. On a
+     course the flags come first, whatever else is going on. */
   function edRenderDetail() {
+    if (!UI.els || !UI.els.edDetail) return;
     var sel = ED.sel;
     var t = edTool(), out = [];
-    if (sel) out.push('<h3 class="pr-ed-h">' + esc(edSelName(sel)) + "</h3>");
-    else out.push('<h3 class="pr-ed-h">' + esc(t.label) + "</h3>");
-
-    if (sel) out.push(edDetailFor(sel));
-    else if (t.kind === "select") {
-      out.push('<div class="pr-ed-note">Click anything on the course to see what it is and ' +
-        "change it. Pick something from the library to put one down instead.</div>");
-    } else out.push(edToolSettings(t));
-
+    if (ED.isCourse) out.push(edFlagPanel());
+    if (sel) {
+      out.push('<h3 class="pr-ed-h">' + esc(edSelName(sel)) +
+        '<button class="pr-ed-x" data-act="eddesel" title="Deselect (Esc)" aria-label="Deselect">&times;</button></h3>');
+      out.push(edDetailFor(sel));
+    } else {
+      out.push('<h3 class="pr-ed-h">' + esc(t.label) + "</h3>");
+      if (t.kind === "select") {
+        out.push('<div class="pr-ed-note">Click anything on the map to see what it is and change it. ' +
+          "Drag a flag or a trap to move it. Delete takes the selected thing off.</div>");
+      } else if (t.kind === "pan") {
+        out.push('<div class="pr-ed-note">Drag the map to move around it. With any tool, hold Space and ' +
+          "drag, or drag with the middle button. Ctrl-wheel or pinch to zoom; 0 fits the whole map.</div>");
+      } else {
+        out.push(edToolSettings(t));
+      }
+    }
+    if (!ED.isCourse) out.push(edRefPanel());
     UI.els.edDetail.innerHTML = out.join("");
   }
-
   /* WHAT IS ON THIS SQUARE, as a list of things that can be edited.
 
      A square is not one thing. Board H prints a conveyor with a ram
@@ -11261,28 +11932,21 @@
     if (t.reach) out.push(edNumberRow("Reaches", "edblen", ED.burnLen, 1, 2));
     if (t.number) {
       out.push(edNumberRow("Next flag", "edflagnum", edFlagSlot(), 1, (ED.grid.flags || []).length + 1));
-      out.push('<div class="pr-ed-note">Q and E move the number. Flags do not turn, so those keys ' +
-        "count instead. Clicking a flag already down picks it up and gives you its number back.</div>");
+      out.push('<div class="pr-ed-note">Each click lays the next number. Keys 1 to 9, or Q and E, ' +
+        "change the number in hand. Clicking a flag already down picks it up.</div>");
     }
     if (t.paint) {
-      out.push('<div class="pr-ed-note">Drag to lay a run: each square turns to point at the next ' +
-        "one. A belt dropped beside one that points at it carries on in the same direction.</div>");
-    }
-    if (t.kind === "wall") {
-      out.push('<div class="pr-ed-note">Click near the edge of a square to raise or lower the wall ' +
-        "on that side, or select a square and click the edges of the big one.</div>");
+      out.push('<div class="pr-ed-note">Drag to lay a run: each square turns to point at the next. ' +
+        "A belt dropped beside one that points at it carries on the same way.</div>");
     }
     if (t.regs || t.damage) {
-      out.push('<div class="pr-ed-note">It bolts to the wall behind it, and the wall goes up with ' +
-        "it \u2014 a trap with nothing to mount on is not a thing the board can print.</div>");
+      out.push('<div class="pr-ed-note">It bolts to the wall behind it, and the wall goes up with it.</div>');
     }
     if (t.dir) {
-      out.push('<div class="pr-ed-note">W A S D face it north, west, south and east. Q and E turn ' +
-        "it a quarter each way.</div>");
+      out.push('<div class="pr-ed-note">W A S D face it; Q and E turn it a quarter each way.</div>');
     }
     return out.join("");
   }
-
   function edNumberRow(label, act, cur, lo, hi, part) {
     var pa = part ? '" data-p="' + esc(part) : "";
     var out = ['<div class="pr-ed-row"><span>' + esc(label) + "</span>"];
@@ -11305,79 +11969,27 @@
     return out.join("");
   }
 
-  /* The footer: the photograph being traced, the way out, and what is
-     wrong with the map. Everything that is about the SESSION rather
-     than about a square. */
-  function edRenderFoot() {
-    var out = [];
-    out.push('<div class="pr-ed-row"><span>Reference</span>' +
-      '<input type="file" accept="image/*" data-act="edimg">' +
-      '<span>Fade</span><input type="range" min="0" max="100" value="' + Math.round(ED.opacity * 100) +
-      '" data-act="edop" aria-label="Reference image fade">' +
+  /* THE REFERENCE PHOTOGRAPH, for a board being traced. A course is
+     not traced from anything, so a course workshop has none of this. */
+  function edRefPanel() {
+    return '<details class="pr-ed-ref"' + (ED.underlay ? " open" : "") + '><summary class="pr-ed-h">Reference photo</summary>' +
+      '<div class="pr-ed-note">Drop a photograph behind the grid and trace it. It stays on this ' +
+      "machine and is never exported.</div>" +
+      '<div class="pr-ed-row"><input type="file" accept="image/*" data-act="edimg"></div>' +
+      '<div class="pr-ed-row"><span>Fade</span><input type="range" min="0" max="100" value="' +
+        Math.round(ED.opacity * 100) + '" data-act="edop" aria-label="Reference image fade">' +
       '<span>Size</span><input type="range" min="50" max="200" value="' + Math.round(ED.uScale * 100) +
-      '" data-act="edscale" aria-label="Reference image size">' +
-      '<button data-act="ednudge" data-dx="-4" data-dy="0">&larr;</button>' +
-      '<button data-act="ednudge" data-dx="4" data-dy="0">&rarr;</button>' +
-      '<button data-act="ednudge" data-dx="0" data-dy="-4">&uarr;</button>' +
-      '<button data-act="ednudge" data-dx="0" data-dy="4">&darr;</button>' +
-      '<button data-act="edsolo"' + (ED.soloLatch ? ' class="on"' : "") + '>Photo only</button>' +
-      '<span>(hold Ctrl to flip)</span>' +
-      '<button data-act="edclearimg">Remove</button></div>');
-
-    out.push(edUndoRow());
-
-    if (ED.isCourse) {
-      /* Three ways out, because a course is finished by three
-         different people: one who wants to go on and place flags, one
-         who has already placed them here and wants to race, and one
-         who wants none of it. */
-      var nF = (ED.grid.flags || []).length;
-      out.push('<div class="pr-ed-row"><span>Course</span>' +
-        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) +
-          '" size="18" aria-label="course name">' +
-        '<button data-act="edcsave">Save and go on</button>' +
-        '<button data-act="edcplay"' + (nF ? "" : " disabled") +
-          ' title="' + (nF ? "Race this course now" : "Put at least one flag down first") + '">' +
-          "Race now" + (nF ? " (" + nF + " flag" + (nF === 1 ? "" : "s") + ")" : "") + "</button>" +
-        '<button data-act="edcdrop">Discard changes</button></div>');
-    } else if (ED.fromSetup) {
-      /* One way out that keeps the edit and one that throws it away.
-         "Leave editor" on its own would be ambiguous here, and an
-         ambiguous exit from twenty minutes of editing is cruel. */
-      out.push('<div class="pr-ed-row"><span>Board</span>' +
-        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
-        '<button data-act="edapply">Use this map</button>' +
-        '<button data-act="edrevert">Discard changes</button>' +
-        '<button data-act="edexport">Export source</button></div>');
-    } else {
-      out.push('<div class="pr-ed-row"><span>Board</span>' +
-        '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
-        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
-        '<button data-act="edexport">Export</button>' +
-        '<button data-act="edplay">Test play</button>' +
-        '<button data-act="edquit">Leave editor</button></div>');
-    }
-
-    if (ED.errors.length) {
-      out.push('<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" +
-        (ED.errors.length > 1 ? "s" : "") + (ED.isCourse ? " with this course" : "") + "</b><br>" +
-        ED.errors.map(esc).join("<br>") + "</div>");
-    } else {
-      out.push('<div class="pr-ed-ok">' + (ED.isCourse ? "Valid course." : "Valid board.") +
-        (ED.warnings.length ? " " + ED.warnings.length + " warning: " + esc(ED.warnings[0]) : "") +
-        "</div>");
-    }
-    UI.els.edPanel.innerHTML = out.join("");
+        '" data-act="edscale" aria-label="Reference image size"></div>' +
+      '<div class="pr-ed-row"><span>Nudge</span>' +
+      '<button data-act="ednudge" data-dx="-4" data-dy="0" aria-label="Nudge left">&larr;</button>' +
+      '<button data-act="ednudge" data-dx="4" data-dy="0" aria-label="Nudge right">&rarr;</button>' +
+      '<button data-act="ednudge" data-dx="0" data-dy="-4" aria-label="Nudge up">&uarr;</button>' +
+      '<button data-act="ednudge" data-dx="0" data-dy="4" aria-label="Nudge down">&darr;</button></div>' +
+      '<div class="pr-ed-row"><button data-act="edsolo"' + (ED.soloLatch ? ' class="on"' : "") +
+        '>Photo only</button><span>hold Ctrl to flip</span>' +
+      '<button data-act="edclearimg"' + (ED.underlay ? "" : " disabled") + ">Remove</button></div>" +
+      "</details>";
   }
-
-  function edUndoRow() {
-    var n = (ED.undo && ED.undo.length) || 0;
-    return '<div class="pr-ed-row"><button data-act="edundo"' + (n ? "" : " disabled") +
-      ' title="Ctrl-Z">&#8617; Undo</button>' +
-      '<span class="pr-ed-note">' + (n ? n + " step" + (n === 1 ? "" : "s") + " back" : "nothing to undo") +
-      "</span></div>";
-  }
-
   function edExport() {
     edValidate();
     var text = B.formatBoard(ED.id, ED.grid,
@@ -11544,9 +12156,13 @@
   }
 
   function edClick(e, erase) {
+    /* A drag that moved something, or a two-finger gesture, ends in a
+       click the browser still delivers. It has been dealt with. */
+    if (ED.swallowClick) { ED.swallowClick = false; return; }
     var hit = edHit(e);
     if (!hit) return;
     var kind = edTool().kind;
+    if (kind === "pan") return;
     /* A PAINT TOOL BELONGS TO THE POINTER, WHOLE.
 
        Pressing and releasing without moving is a stroke of one square,
@@ -11558,8 +12174,8 @@
     if (!erase && kind === "tile" && edTool().paint) return;
 
     /* SELECT looks rather than places. Everything about the thing
-       under the pointer then lives in one panel on the right, which is
-       where changing it lives too. */
+       under the pointer then lives in the inspector, which is where
+       changing it lives too. */
     if (kind === "select") {
       edSelect(hit.c, hit.r);
       return;
@@ -11575,10 +12191,6 @@
         ? edPut("tile", hit.c, hit.r, { code: erase ? ".." : edPaintCode(hit.c, hit.r) })
         : edPut(kind, hit.c, hit.r, { erase: erase });
     if (!did) { edKeep(before); return; }
-    /* What was just put down is what you are looking at, so the panel
-       is about it without a second click -- EXCEPT a flag. Flags are
-       laid in runs, and the thing you want to keep steering between
-       clicks is the number in hand, not the one already down. */
     /* What was just put down is what you are looking at, and the panel
        points its keys at it -- EXCEPT a flag. Flags are laid in runs,
        and the thing you want to keep steering between clicks is the
@@ -11588,7 +12200,6 @@
     edKeep(before);
     edAfterEdit();
   }
-
   /* The code a tile tool lays HERE, which for a belt is the run it is
      joining rather than the facing in the toolbar. */
   function edPaintCode(c, r) {
@@ -11638,7 +12249,7 @@
     var t = edTool();
     if (!t.paint || ED.mode !== "tile") return;
     var hit = edHit(e);
-    if (!hit) return;
+    if (!hit || !B.codeAt(ED.grid, hit.c, hit.r)) return;
     ED.stroke = { before: edMark(), last: { c: hit.c, r: hit.r }, n: 1 };
     edPut("tile", hit.c, hit.r, { code: edPaintCode(hit.c, hit.r) });
     ED.sel = null;
@@ -11650,21 +12261,32 @@
     if (!ED.stroke) return;
     var hit = edHit(e);
     if (!hit) return;
-    var last = ED.stroke.last;
-    if (hit.c === last.c && hit.r === last.r) return;
-    var dc = hit.c - last.c, dr = hit.r - last.r;
-    /* Only orthogonal steps: a diagonal drag would have to guess which
-       way round the corner went, and guessing is how a run ends up
-       pointing into a wall. */
-    if (Math.abs(dc) + Math.abs(dr) !== 1) { ED.stroke.last = { c: hit.c, r: hit.r }; return; }
-    var d = dc === 1 ? E : dc === -1 ? W : dr === 1 ? S : N;
-    var t = edTool();
-    edSetCell(last.c, last.r, t.key + B.DIR_CHARS.charAt(d));
-    edSetCell(hit.c, hit.r, t.key + B.DIR_CHARS.charAt(d));
-    ED.stroke.last = { c: hit.c, r: hit.r };
-    ED.stroke.n++;
-    edValidate();
-    edRender();
+    if (edStrokeTo(hit.c, hit.r)) { edValidate(); edRender(); }
+  }
+
+  /* CARRY THE STROKE ON to a square, laying every square between.
+
+     A quick hand skips squares -- at a small zoom a single pointer
+     move can cross four of them -- and a stroke that only laid the
+     squares it happened to be told about left gaps in a run whenever
+     the mouse was moved at speed. So the gap is walked one step at a
+     time, along the row first and then the column: a diagonal jump
+     lays an L rather than guessing at a corner nobody drew. Each
+     square is turned to point at the next, which is what a run is.
+     Squares off the course are stepped over, not painted into. */
+  function edStrokeTo(c, r) {
+    var st = ED.stroke, at = { c: st.last.c, r: st.last.r }, t = edTool(), did = false;
+    if (at.c === c && at.r === r) return false;
+    while (at.c !== c || at.r !== r) {
+      var d = at.c !== c ? (c > at.c ? E : W) : (r > at.r ? S : N);
+      var nx = B.step(at.c, at.r, d), code = t.key + B.DIR_CHARS.charAt(d);
+      if (B.codeAt(ED.grid, at.c, at.r)) { edSetCell(at.c, at.r, code); did = true; }
+      if (B.codeAt(ED.grid, nx.c, nx.r)) { edSetCell(nx.c, nx.r, code); did = true; }
+      at = nx;
+      st.n++;
+    }
+    st.last = { c: c, r: r };
+    return did;
   }
 
   function edPaintEnd() {
@@ -11705,6 +12327,20 @@
     edMount(host, null, true, { grid: grid, boards: spec.boards, dock: spec.dock });
   }
 
+  /* A course arriving in the workshop: its boards and block kept for
+     the validator, the next flag numbered after the ones already on
+     it, and THE FLAG TOOL IN HAND -- the one thing every course has
+     to have done to it here is flags, so the workshop opens ready to
+     lay them rather than with a conveyor nobody asked for. */
+  function edOpenCourse(course) {
+    ED.isCourse = true;
+    ED.boards = course.boards;
+    ED.dock = course.dock;
+    ED.flagNum = (ED.grid.flags || []).length + 1;
+    ED.pick = "flag";
+    ED.mode = "flag";
+  }
+
   function edMount(host, bootId, fromSetup, course) {
     injectCSS();
     host.classList.add("pr-root", "pr-editing");
@@ -11721,71 +12357,102 @@
     else if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
     else if (restored) ED = restored;
     else ED = edState(edNew(12, 12), "newBoard");
-    if (course) {
-      ED.isCourse = true;
-      ED.boards = course.boards;
-      ED.dock = course.dock;
-      /* The next flag follows the ones already on the course rather
-         than starting at one and shoving them all down the order. */
-      ED.flagNum = (ED.grid.flags || []).length + 1;
-      /* A course is two boards wide before anybody adds a second row,
-         so it opens further out than a single board does. */
-      ED.zoom = 1;
-    }
+    if (course) edOpenCourse(course);
     /* Opened from the race menu, not from a URL: the edit belongs to
        the game about to start, so it goes back there rather than out
        to a blank page. */
     ED.fromSetup = !!fromSetup;
     ED.uScale = ED.uScale || 1;
 
-    var hud = el("div", "pr-hud",
-      '<h1 class="pr-title">' + (course ? "COURSE WORKSHOP" : "BOARD WORKSHOP") + "</h1>" +
-      '<span class="pr-phase">' + (course
-        ? "Adjust the course, put the flags where you want them, then race it."
-        : fromSetup
-          ? "Change this map for the race you are about to start."
-          : "Trace a photograph, export the source.") + "</span>");
-    /* THE MAP ON THE LEFT, THE SIDEBAR ON THE RIGHT. What you can pick
-       up and what the thing in your hand is made of belong beside the
-       thing you are drawing on, not stacked above it where choosing a
-       register scrolls the board off the screen. */
-    var work = el("div", "pr-ed-work");
+    /* FIVE REGIONS ON A FULL SCREEN: the bar, the rail, the map, the
+       inspector, the status line. The map is a scroll box with the
+       stage inside it, so panning is scrolling and the browser does
+       the work. */
+    var top = el("div", "pr-ed-top");
+    var rail = el("div", "pr-ed-rail");
+    rail.setAttribute("role", "toolbar");
+    rail.setAttribute("aria-label", "Tools");
+    var view = el("div", "pr-ed-view");
+    var canvas = el("div", "pr-ed-canvas");
     var stage = el("div", "pr-ed-stage");
     var side = el("div", "pr-ed-side");
-    var lib = el("div", "pr-ed-libwrap");
-    var detail = el("div", "pr-ed-detail");
-    var panel = el("div", "pr-ed-panel");
+    var status = el("div", "pr-ed-status");
     var overlay = el("div", "pr-overlay");
     overlay.hidden = true;
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "polite");
 
-    side.appendChild(lib);
-    side.appendChild(detail);
-    work.appendChild(stage);
-    work.appendChild(side);
-
-    host.appendChild(hud);
-    host.appendChild(work);
-    host.appendChild(panel);
+    canvas.appendChild(stage);
+    view.appendChild(canvas);
+    host.appendChild(top);
+    host.appendChild(rail);
+    host.appendChild(view);
+    host.appendChild(side);
+    host.appendChild(status);
     host.appendChild(overlay);
     host.appendChild(sr);
 
-    UI.els = { host: host, edBoard: stage, edPanel: panel, edLib: lib, edDetail: detail,
-               overlay: overlay, sr: sr };
+    UI.els = { host: host, edBoard: stage, edCanvas: canvas, edView: view, edTop: top,
+               edLib: rail, edDetail: side, edStatus: status, overlay: overlay, sr: sr };
     UI.mounted = false;                 // there is no game here to render
 
     stage.addEventListener("click", function (e) { edClick(e, false); });
     stage.addEventListener("contextmenu", function (e) { e.preventDefault(); edClick(e, true); });
 
-    /* PAINTING A RUN, and dropping a hazard out of the library. Both
-       are pointer gestures over the hit grid, so both live here. */
-    stage.addEventListener("pointerdown", function (e) {
+    /* EVERY POINTER GESTURE OVER THE MAP starts here and is one of
+       four things: a pan, a pinch, a drag of something already down,
+       or a stroke of the tool in hand. */
+    view.addEventListener("pointerdown", function (e) {
+      if (modalOpen()) return;
+      if (e.pointerType === "touch" && edTouchDown(e)) return;
+      var pan = e.button === 1 || (e.button === 0 && (ED.spaceHeld || edTool().kind === "pan"));
+      if (pan) { e.preventDefault(); edPanStart(e); return; }
       if (e.button !== 0) return;
+      var hit = edHit(e);
+      if (!hit) return;
+      var mov = edMovable(hit);
+      if (mov) { ED.drag = { part: mov, from: hit, x: e.clientX, y: e.clientY, moved: false }; return; }
       edPaintStart(e);
     });
-    stage.addEventListener("pointermove", function (e) { edPaintOver(e); });
-    document.addEventListener("pointerup", function () { if (ED) edPaintEnd(); });
+    view.addEventListener("pointermove", function (e) {
+      if (e.pointerType === "touch" && edTouchMove(e)) return;
+      if (ED.pan) { edPanMove(e); return; }
+      if (ED.drag) { edDragMove(e); return; }
+      if (ED.stroke) { edPaintOver(e); return; }
+      edHover(e);
+    });
+    view.addEventListener("pointerleave", function () { if (ED && !ED.pan && !ED.drag) edHover(null); });
+    document.addEventListener("pointerup", function (e) {
+      if (!ED) return;
+      if (e.pointerType === "touch") edTouchUp(e);
+      if (ED.pan) edPanEnd();
+      else if (ED.drag) edDragEnd();
+      else edPaintEnd();
+    });
+    document.addEventListener("pointercancel", function (e) {
+      if (!ED) return;
+      if (e.pointerType === "touch") edTouchUp(e);
+      if (ED.pan) edPanEnd();
+      if (ED.drag) { ED.drag = null; host.classList.remove("pr-ed-dragging"); }
+      if (ED.stroke) edPaintEnd();
+    });
+    /* Ctrl-wheel -- which is also what a trackpad pinch arrives as --
+       zooms about the pointer. A plain wheel scrolls, as it does in
+       every other scroll box. */
+    view.addEventListener("wheel", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      var box = view.getBoundingClientRect();
+      var f = Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.01);
+      edZoomTo(ED.zoom * f, e.clientX - box.left, e.clientY - box.top);
+    }, { passive: false });
+    view.addEventListener("dblclick", function (e) {
+      if (edTool().kind !== "pan") return;
+      var box = view.getBoundingClientRect();
+      edZoomTo(ED.zoom * 1.5, e.clientX - box.left, e.clientY - box.top);
+    });
+
+    /* Dropping a hazard out of the rail. */
     stage.addEventListener("dragover", function (e) {
       if (!ED || !ED.dragTool) return;
       var cell = e.target.closest(".pr-ed-cell");
@@ -11822,7 +12489,7 @@
          for the reason the assembler's boards do: Safari will not let
          a dragover handler read the payload. */
       ED.dragTool = item.dataset.k;
-      /* The SIDEBAR redraws, the map does not. A drag begins on an
+      /* The RAIL redraws, the map does not. A drag begins on an
          element and rebuilding the map under the pointer is how the
          board assembler's drags were cancelled; the hit grid the
          pointer is about to travel over must survive the gesture. */
@@ -11854,6 +12521,8 @@
 
     edValidate();
     edRender();
+    /* Open on the whole map, as large as the screen allows. */
+    edZoomFit();
     edRenderPanel();
   }
 
@@ -11875,9 +12544,35 @@
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    /* Typing into the board name must not steer the tool. */
+    /* Typing into the name must not steer the tool; Escape puts the
+       keys back on the map. */
     var ae = document.activeElement;
-    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) {
+      if (e.key === "Escape") ae.blur();
+      return;
+    }
+    var k = e.key;
+    if (k === " ") {
+      /* Space held turns the pointer into the hand, whatever is in it. */
+      if (!ED.spaceHeld) { ED.spaceHeld = true; UI.els.host.classList.add("pr-ed-space"); }
+      e.preventDefault();
+      return;
+    }
+    if (k === "Escape") { e.preventDefault(); edEscape(); return; }
+    if (k === "Delete" || k === "Backspace") { e.preventDefault(); edDeleteFocused(); return; }
+    if (k === "+" || k === "=") { e.preventDefault(); edZoomTo(ED.zoom * 1.25); return; }
+    if (k === "-" || k === "_") { e.preventDefault(); edZoomTo(ED.zoom / 1.25); return; }
+    if (k === "0") { e.preventDefault(); edZoomFit(); return; }
+    /* A digit with the flag tool in hand is the number the next flag
+       takes, clamped to one past the last -- there is no flag 7 on a
+       course with three. */
+    if (/^[1-9]$/.test(k) && !ED.sel && edTool().number) {
+      e.preventDefault();
+      ED.flagNum = Math.min(parseInt(k, 10), (ED.grid.flags || []).length + 1);
+      edRenderPanel();
+      announce("Next flag is number " + ED.flagNum + ".");
+      return;
+    }
 
     /* THE HAND STAYS ON THE MOUSE.
 
@@ -11890,16 +12585,26 @@
        A flag has no facing to turn, so on a flag Q and E count the
        number instead -- the same two keys, the same "one less, one
        more", applied to the only thing a flag has. */
-    var face = { w: N, a: W, s: S, d: E }[e.key.toLowerCase()];
+    var face = { w: N, a: W, s: S, d: E }[k.toLowerCase()];
     if (face !== undefined) {
       e.preventDefault();
       edFace(face);
       return;
     }
-    if (e.key === "q" || e.key === "Q") { e.preventDefault(); edSpin(-1); }
-    else if (e.key === "e" || e.key === "E") { e.preventDefault(); edSpin(1); }
-  }
+    if (k === "q" || k === "Q") { e.preventDefault(); edSpin(-1); return; }
+    if (k === "e" || k === "E") { e.preventDefault(); edSpin(1); return; }
 
+    /* Any other letter is a tool, if a tool answers to it. */
+    if (k.length === 1) {
+      var pick = edKeyTool(k.toLowerCase());
+      if (pick) {
+        e.preventDefault();
+        edPickTool(pick);
+        announce(edTool().label + " in hand.");
+        edGhostPaint();
+      }
+    }
+  }
   /* Both keys act on the SELECTION when there is one and on the tool
      in hand when there is not, because those are the same decision
      asked of two different things. */
@@ -11934,20 +12639,31 @@
   }
 
   function edKeyUp(e) {
-    if (!ED || e.key !== "Control") return;
+    if (!ED) return;
+    if (e.key === " ") {
+      ED.spaceHeld = false;
+      if (UI.els && UI.els.host) UI.els.host.classList.remove("pr-ed-space");
+      return;
+    }
+    if (e.key !== "Control") return;
     ED.soloHold = false;
     edSoloPaint();
   }
 
   /* Alt-tabbing away mid-hold never delivers the keyup, which would
-     leave the photo stuck over the board with no way back short of
-     pressing and releasing Control again. */
+     leave the photo stuck over the board -- or the hand stuck on
+     Space -- with no way back short of pressing and releasing the key
+     again. */
   function edBlur() {
-    if (!ED || !ED.soloHold) return;
+    if (!ED) return;
+    if (ED.spaceHeld) {
+      ED.spaceHeld = false;
+      if (UI.els && UI.els.host) UI.els.host.classList.remove("pr-ed-space");
+    }
+    if (!ED.soloHold) return;
     ED.soloHold = false;
     edSoloPaint();
   }
-
   function edLoadImage(file) {
     if (!file) return;
     if (ED.underlay) { try { URL.revokeObjectURL(ED.underlay); } catch (e) {} }
@@ -12059,6 +12775,213 @@
     return null;
   }
 
+  /* The starting block is not a place for a flag: a flag there is
+     touched before the race begins. */
+  function edInDock(c, r) {
+    var dk = ED.dock;
+    return !!dk && c >= dk.at[0] && c <= dk.at[0] + 11 && r >= dk.at[1] && r <= dk.at[1] + 3;
+  }
+
+  /* MOVING A THING THAT IS ALREADY DOWN, by dragging it.
+
+     A flag keeps its number: moving flag 2 is not taking flag 2 off
+     and putting a new last flag down. A mount keeps its facing and its
+     settings, and its wall comes with it -- up on the new square, and
+     down on the old one unless something else there is still bolted
+     to it. */
+  function edMovePart(part, c, r) {
+    var g = ED.grid, obj = edPartObj(part), i;
+    if (!obj || !B.inGrid(g, c, r)) return false;
+    if (obj.c === c && obj.r === r) return false;
+    var code = B.codeAt(g, c, r);
+    if (!code) { announce("That square is off the course."); return false; }
+    if (part.kind === "flag") {
+      var el0 = B.elemOf(code);
+      if (!el0 || el0.name !== "floor") { announce("A flag can only sit on plain floor."); return false; }
+      if (edInDock(c, r)) { announce("That is the starting block. A flag there is touched before the race begins."); return false; }
+      for (i = 0; i < g.flags.length; i++) {
+        if (g.flags[i] !== obj && g.flags[i].c === c && g.flags[i].r === r) {
+          announce("Flag " + (i + 1) + " is already there."); return false;
+        }
+      }
+      obj.c = c; obj.r = r;
+      return true;
+    }
+    var list = part.kind === "laser" ? g.lasers : part.kind === "pusher" ? g.pushers
+             : part.kind === "burner" ? g.burners : null;
+    if (!list) return false;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] !== obj && list[i].c === c && list[i].r === r) {
+        announce("There is already one of those there."); return false;
+      }
+    }
+    var face = edMountFace(obj), oc = obj.c, or = obj.r;
+    obj.c = c; obj.r = r;
+    B.setWall(g, c, r, face, true);
+    if (!edWallNeeded(oc, or, face)) B.setWall(g, oc, or, face, false);
+    return true;
+  }
+
+  /* Which thing on this square a press would pick up and carry: a
+     flag under the flag tool or the select tool, a trap under the
+     select tool. Anything else is a click or a stroke. */
+  function edMovable(hit) {
+    var kind = edTool().kind, parts = edParts(hit.c, hit.r), i;
+    for (i = parts.length - 1; i >= 0; i--) {
+      var p = parts[i];
+      if (p.kind === "flag" && (kind === "flag" || kind === "select")) return p;
+      if (kind === "select" && (p.kind === "laser" || p.kind === "pusher" || p.kind === "burner")) return p;
+    }
+    return null;
+  }
+
+  function edDragMove(e) {
+    var d = ED.drag;
+    if (!d.moved) {
+      /* A press is a press until the hand has clearly gone somewhere:
+         a twitch on the way to a click must not carry a flag off. */
+      if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+      d.moved = true;
+      UI.els.host.classList.add("pr-ed-dragging");
+      ED.ghostHTML = null;
+    }
+    edHover(e);
+  }
+
+  function edDragEnd() {
+    var d = ED.drag;
+    ED.drag = null;
+    UI.els.host.classList.remove("pr-ed-dragging");
+    if (!d.moved) return;                  // a click; the click event does the rest
+    ED.swallowClick = true;
+    ED.ghostHTML = null;
+    var to = ED.hover;
+    if (!to) { edGhostPaint(); return; }
+    var before = edMark();
+    if (!edMovePart(d.part, to.c, to.r)) { edKeep(before); edGhostPaint(); return; }
+    edSelect(to.c, to.r, d.part.id, true);
+    edKeep(before);
+    edAfterEdit();
+  }
+
+  /* PANNING: the hand tool, Space held with any tool, or the middle
+     button. The viewport is an ordinary scroll box, so panning is
+     scrolling it. */
+  function edPanStart(e) {
+    var view = UI.els.edView;
+    ED.pan = { x: e.clientX, y: e.clientY, sx: view.scrollLeft, sy: view.scrollTop, id: e.pointerId };
+    UI.els.host.classList.add("pr-ed-panning");
+    try { view.setPointerCapture(e.pointerId); } catch (err) {}
+    edGhostPaint();
+  }
+
+  function edPanMove(e) {
+    var view = UI.els.edView, p = ED.pan;
+    view.scrollLeft = p.sx - (e.clientX - p.x);
+    view.scrollTop = p.sy - (e.clientY - p.y);
+  }
+
+  function edPanEnd() {
+    var p = ED.pan;
+    ED.pan = null;
+    UI.els.host.classList.remove("pr-ed-panning");
+    if (p) { try { UI.els.edView.releasePointerCapture(p.id); } catch (err) {} }
+  }
+
+  /* TWO FINGERS pan and zoom, whatever one finger was doing. */
+  function edTouchDown(e) {
+    ED.touches = ED.touches || {};
+    ED.touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ED.touches);
+    if (ids.length !== 2) return false;
+    if (ED.stroke) edPaintEnd();
+    if (ED.drag) { ED.drag = null; UI.els.host.classList.remove("pr-ed-dragging"); }
+    var a = ED.touches[ids[0]], b = ED.touches[ids[1]], view = UI.els.edView;
+    var dx = a.x - b.x, dy = a.y - b.y;
+    ED.pinch = { d0: Math.max(1, Math.sqrt(dx * dx + dy * dy)), z0: ED.zoom,
+                 cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, sx: view.scrollLeft, sy: view.scrollTop };
+    ED.swallowClick = true;
+    edGhostPaint();
+    return true;
+  }
+
+  function edTouchMove(e) {
+    if (!ED.touches || !ED.touches[e.pointerId]) return false;
+    ED.touches[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (!ED.pinch) return false;
+    var ids = Object.keys(ED.touches), a = ED.touches[ids[0]], b = ED.touches[ids[1]];
+    if (!a || !b) return true;
+    var view = UI.els.edView, box = view.getBoundingClientRect(), P = ED.pinch;
+    var dx = a.x - b.x, dy = a.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+    var cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    /* Zoom about where the fingers landed, then pan by how far they
+       have travelled since. */
+    var z = edClampZoom(P.z0 * d / P.d0);
+    var to = edZoomScroll(P.z0, z, P.sx, P.sy, P.cx - box.left, P.cy - box.top);
+    ED.zoom = z;
+    edApplyZoom();
+    view.scrollLeft = to.x - (cx - P.cx);
+    view.scrollTop = to.y - (cy - P.cy);
+    return true;
+  }
+
+  function edTouchUp(e) {
+    if (!ED.touches) return;
+    delete ED.touches[e.pointerId];
+    if (Object.keys(ED.touches).length < 2) ED.pinch = null;
+  }
+
+  /* THE FLAG LIST'S THREE VERBS. */
+  function edFlagGo(i) {
+    var f = (ED.grid.flags || [])[i];
+    if (!f) return;
+    edSelect(f.c, f.r, "flag:" + i);
+    edScrollTo(f.c, f.r);
+  }
+
+  /* Earlier or later in the race: the list IS the order, so this is
+     a move in the list and the others shuffle round it. */
+  function edFlagShift(i, way) {
+    var flags = ED.grid.flags || [], to = i + way;
+    if (!flags[i] || to < 0 || to >= flags.length) return;
+    var before = edMark();
+    var f = flags.splice(i, 1)[0];
+    flags.splice(to, 0, f);
+    if (ED.sel && ED.sel.part === "flag:" + i) ED.sel.part = "flag:" + to;
+    edKeep(before);
+    edAfterEdit();
+  }
+
+  function edFlagDrop(i) {
+    var flags = ED.grid.flags || [];
+    if (!flags[i]) return;
+    var before = edMark();
+    flags.splice(i, 1);
+    if (ED.sel && /^flag:/.test(ED.sel.part)) ED.sel.part = "tile";
+    ED.flagNum = Math.min(ED.flagNum, flags.length + 1);
+    edKeep(before);
+    edAfterEdit();
+  }
+
+  /* Escape steps outward: a selection is let go of first, and with
+     nothing selected the hand goes back to the select tool. */
+  function edEscape() {
+    if (ED.sel) { ED.sel = null; edRender(); edRenderPanel(); return; }
+    if (ED.pick !== "sel") edPickTool("sel");
+  }
+
+  /* Delete takes off whichever part the keys are pointed at: the trap
+     or flag in focus, or -- when that is the square itself -- whatever
+     the square is, which leaves floor. */
+  function edDeleteFocused() {
+    var part = ED.sel && edPart();
+    if (!part) { announce("Nothing selected."); return; }
+    if (part.kind !== "tile") { edSelEdit("remove", 0, part.id); return; }
+    var code = B.codeAt(ED.grid, ED.sel.c, ED.sel.r);
+    if (!code || code === "..") { announce("Nothing to take off this square."); return; }
+    edSelEdit("clear");
+  }
+
   function edDispatch(b, e) {
     var a = b.dataset.act;
     if (a === "edpick") { edPickTool(b.dataset.k); }
@@ -12083,8 +13006,8 @@
       edRenderPanel();
     }
     else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); edRenderPanel(); }
-    /* ---- the detail panel, which edits the thing rather than the
-       thing about to be placed ---- */
+    /* ---- the inspector, which edits the thing rather than the thing
+       about to be placed ---- */
     else if (a === "edseldir") edSelEdit("dir", parseInt(b.dataset.d, 10), b.dataset.p);
     else if (a === "edselnum") edSelEdit("num", parseInt(b.dataset.n, 10), b.dataset.p);
     else if (a === "edselreg") edSelEdit("reg", parseInt(b.dataset.n, 10), b.dataset.p);
@@ -12092,11 +13015,23 @@
     else if (a === "edselremove") edSelEdit("remove", 0, b.dataset.p);
     else if (a === "edselclear") edSelEdit("clear");
     else if (a === "edselpart") { ED.sel.part = b.dataset.p; edRenderDetail(); }
+    else if (a === "eddesel") { ED.sel = null; edRender(); edRenderPanel(); }
+    /* ---- the flag list ---- */
+    else if (a === "edflaggo") edFlagGo(parseInt(b.dataset.i, 10));
+    else if (a === "edflagshift") edFlagShift(parseInt(b.dataset.i, 10), parseInt(b.dataset.w, 10));
+    else if (a === "edflagdrop") edFlagDrop(parseInt(b.dataset.i, 10));
+    /* ---- the map ---- */
+    else if (a === "edzoom") {
+      if (b.dataset.z === "fit") edZoomFit();
+      else edZoomTo(ED.zoom * (b.dataset.z === "in" ? 1.25 : 1 / 1.25));
+    }
+    /* ---- the reference photograph ---- */
     else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
     else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "ednudge") { ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10); edRender(); }
     else if (a === "edclearimg") { ED.underlay = null; edRender(); }
+    /* ---- the session ---- */
     else if (a === "edid") { ED.id = b.value.replace(/[^A-Za-z0-9_]/g, "") || "newBoard"; edSave(); }
     else if (a === "edname") { ED.grid.name = b.value; edSave(); }
     else if (a === "edexport") edExport();
@@ -12114,7 +13049,6 @@
     else if (a === "edquit") { root.location.hash = ""; root.location.reload(); }
     else if (a === "closemodal") closeModal();
   }
-
   /* Hand the edit to the race that is about to start. The board is
      parsed and validated by setOverride before it shadows anything, so
      an unfinished edit is refused here rather than at buildCourse --
