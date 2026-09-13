@@ -1434,12 +1434,16 @@
      what it is -- the menu used to dress these up as named courses,
      which implied a provenance they do not have.
 
-     `track` is the larger thing: two, three or four boards, with a
-     path that crosses the seams. The rulebook's own Sample Race
-     Tracks section (pp.44-47) is where the idea comes from and its
-     guidance is followed -- 1x2, 2x2 and 1x3 configurations, two or
-     three flags whatever the size, and Northrup's Rule holding
-     between consecutive flags.
+     `track` is the larger thing: two, three or four boards. The
+     rulebook's own Sample Race Tracks section (pp.44-47) is where the
+     idea comes from, and its standard configurations -- 1x2, 2x2,
+     1x3 -- are what these are built on.
+
+     WHERE THE FLAGS GO IS EACH TRACK'S OWN BUSINESS. A track is
+     copied from a manual or built by hand, and both put flags where
+     the track puts them; nothing here says how many land on each
+     board. What a flag may sit ON is a different question and is
+     checked: see below.
 
      THE PRINTED SAMPLE TRACKS THEMSELVES ARE NOT HERE, and cannot be
      until the boards they use are. Five of the twelve classic boards
@@ -1608,10 +1612,8 @@
     /* The same board a quarter-turn over, which is how the printed
        courses use them and the only thing that exercises rotateGrid
        against a real course rather than a unit test. */
-    /* ---- RACE TRACKS: larger courses, following the rulebook's own
-       guidance for building them. Each lays one flag per board so the
-       path has to cross every seam, which is the whole reason to put
-       more than one board down. ---- */
+    /* ---- RACE TRACKS: larger courses, on the configurations the
+       rulebook builds its own on. ---- */
 
     /* 1x2. The Pit Maze comes in upside down, so the two belt systems
        run into each other at the seam rather than alongside. */
@@ -1641,12 +1643,12 @@
       minPlayers: 2, maxPlayers: 8
     },
 
-    /* 2x2, and the flags go round it: one per quarter, in an order
-       that crosses the middle twice. */
+    /* 2x2, and the flags go round it in an order that crosses the
+       middle twice. */
     fourQuarters: {
       name: "Four Quarters",
       kind: "track",
-      blurb: "Two by two, one flag in each, and the crossing is the hard part.",
+      blurb: "Two by two, and the crossing is the hard part.",
       boards: [{ id: "exchange", rot: 0, at: [0, 0] }, { id: "cross", rot: 1, at: [12, 0] },
                { id: "pitMaze", rot: 0, at: [0, 12] }, { id: "island", rot: 3, at: [12, 12] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 24] },
