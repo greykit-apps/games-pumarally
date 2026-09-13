@@ -1672,11 +1672,7 @@
       spec.flags = layout.flags;
     } else {
       var scratch = buildCourse(spec);
-      var dk = spec.dock;
-      spec.flags = autoFlags(scratch, flagCount || 3, rnd, dk ? {
-        x0: dk.at[0], x1: dk.at[0] + 11,
-        y0: dk.at[1], y1: dk.at[1] + 3
-      } : null);
+      spec.flags = autoFlags(scratch, flagCount || 3, rnd, dockBoxOf(spec));
     }
     return spec;
   }
@@ -1697,12 +1693,96 @@
 
      `rnd` is accepted and used only to break a tie, so a caller that
      wants variety can have it without the default being unstable.  */
-  function autoFlags(C, n, rnd, dockBox) {
+  /* THE PRINTED FLAGS, WHEN THERE ARE ANY.
+
+     A layout that is exactly one shipped course's boards, turned the
+     same way, with the dock in the same place, IS that course -- so
+     its default flags are the ones that course ships with rather than
+     whatever autoFlags would invent. Anything else falls through to
+     autoFlags, which is every multi-board layout and every board
+     turned off its printed orientation. */
+  /* A layout with a different flag list, without touching the one the
+     caller passed in -- the layout is the player's live state and a
+     question about it must not edit it. */
+  function withFlags(layout, flags) {
+    var out = { cols: layout.cols, rows: layout.rows, dockCol: layout.dockCol,
+                cells: layout.cells, flags: flags };
+    if (layout.id) out.id = layout.id;
+    if (layout.name) out.name = layout.name;
+    if (layout.dockId) out.dockId = layout.dockId;
+    return out;
+  }
+
+  function defaultFlagsFor(layout) {
+    var spec;
+    try { spec = composeCourse(withFlags(layout, []), 0); }
+    catch (e) { return null; }
+    for (var id in COURSES) {
+      if (id.charAt(0) === "_") continue;
+      var C = COURSES[id];
+      if (C.boards.length !== spec.boards.length) continue;
+      var same = true, i;
+      for (i = 0; i < C.boards.length && same; i++) {
+        var a = C.boards[i], found = false;
+        for (var j = 0; j < spec.boards.length; j++) {
+          var b = spec.boards[j];
+          if (a.id === b.id && (a.rot || 0) === (b.rot || 0) &&
+              a.at[0] === b.at[0] && a.at[1] === b.at[1]) { found = true; break; }
+        }
+        if (!found) same = false;
+      }
+      if (!same) continue;
+      if (!C.dock !== !spec.dock) continue;
+      if (C.dock && (C.dock.at[0] !== spec.dock.at[0] || C.dock.at[1] !== spec.dock.at[1])) continue;
+      return C.flags.map(function (f) { return [f[0], f[1]]; });
+    }
+    return null;
+  }
+
+  /* SOMEWHERE LEGAL, AND SCATTERED.
+
+     autoFlags spreads flags as far apart as the course allows, which
+     is the right default and the same answer every time. Asking for
+     a RANDOM course wants the other thing: anywhere legal, subject
+     only to not landing on top of each other. The separation floor
+     relaxes rather than fails, because a small course may not have
+     room for the spacing a large one does. */
+  function randomFlags(C, n, rnd, dockBox) {
+    var cand = flagCandidates(C, dockBox);
+    if (!cand.length) return [];
+    /* Random still means anywhere legal -- but the corners and the
+       outer ring are the worst squares on the course, so they are held
+       back and only drawn from when the interior cannot supply the
+       whole race. */
+    var inner = [], i;
+    for (i = 0; i < cand.length; i++) if (flagRank(C, cand[i].c, cand[i].r) === 0) inner.push(cand[i]);
+    if (inner.length >= n) cand = inner;
+    var pick = rnd || Math.random;
+    var gap = Math.max(2, Math.round(Math.min(C.w, C.h) / 3));
+    var out = [], guard = 0;
+    while (out.length < n && guard++ < 4000) {
+      var t = cand[Math.floor(pick() * cand.length) % cand.length], ok = true;
+      for (var i = 0; i < out.length; i++) {
+        if (Math.abs(t.c - out[i][0]) + Math.abs(t.r - out[i][1]) < gap) ok = false;
+      }
+      if (ok) out.push([t.c, t.r]);
+      /* Relax rather than spin: a 12x16 course asked for six flags
+         cannot hold them four apart, and returning four flags for a
+         six-flag race would be the silent half of that failure. */
+      else if (guard % 400 === 0 && gap > 1) gap--;
+    }
+    return out;
+  }
+
+  /* One definition of "a square a flag may sit on", so autoFlags,
+     randomFlags and the by-hand check cannot disagree about it. */
+  function flagCandidates(C, dockBox, box) {
     var cand = [], c, r;
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
         if (dockBox && c >= dockBox.x0 && c <= dockBox.x1 &&
             r >= dockBox.y0 && r <= dockBox.y1) continue;
+        if (box && (c < box.x0 || c > box.x1 || r < box.y0 || r > box.y1)) continue;
         var code = codeAt(C, c, r);
         if (!code || isVoid(C, c, r)) continue;
         var el = elemOf(code);
@@ -1710,6 +1790,160 @@
         cand.push({ c: c, r: r });
       }
     }
+    return cand;
+  }
+
+  /* WHERE ON THE COURSE, AS A PREFERENCE RATHER THAN A RULE.
+
+     A flag in the very corner of the play area is reachable from two
+     directions and interesting from none; a flag in the outer ring is
+     nearly as bad. Neither is illegal -- a small course may have
+     nothing else left -- so this is a rank the pickers sort by and
+     relax through, not a filter they apply.
+
+       0  inside the course
+       1  on the outer row or column
+       2  in a corner of it */
+  function flagRank(C, c, r) {
+    var edgeC = (c === 0 || c === C.w - 1), edgeR = (r === 0 || r === C.h - 1);
+    if (edgeC && edgeR) return 2;
+    return edgeC || edgeR ? 1 : 0;
+  }
+
+  /* The board boxes of a composed spec, in the order they were laid
+     out. Flags are assigned per board by both printed styles, so
+     "which board is this square on" has to be answerable. */
+  function boardBoxes(spec) {
+    var out = [];
+    for (var i = 0; i < spec.boards.length; i++) {
+      var b = spec.boards[i], g = specOf(b.id);
+      var w = (b.rot % 2) ? g.h : g.w, h = (b.rot % 2) ? g.w : g.h;
+      out.push({ id: b.id, x0: b.at[0], y0: b.at[1], x1: b.at[0] + w - 1, y1: b.at[1] + h - 1,
+                 cx: b.at[0] + (w - 1) / 2, cy: b.at[1] + (h - 1) / 2 });
+    }
+    return out;
+  }
+
+  /* n flags shared out over k boards as evenly as the count allows,
+     the remainder going to the boards that come first in the tour --
+     so an odd flag is one you meet early rather than a board that
+     silently gets none. */
+  function shareOut(n, k) {
+    var out = [], base = Math.floor(n / k), extra = n % k;
+    for (var i = 0; i < k; i++) out.push(base + (i < extra ? 1 : 0));
+    return out;
+  }
+
+  function bestBy(cand, score) {
+    var best = -1, bestS = -Infinity;
+    for (var i = 0; i < cand.length; i++) {
+      var sc = score(cand[i]);
+      if (sc > bestS) { bestS = sc; best = i; }
+    }
+    return best;
+  }
+
+  /* RALLY: every flag on one board before the next one.
+
+     The tour starts at the board nearest the docking bay and moves
+     away from it, so the race leads outward rather than doubling back
+     over the start. Within a board the flags are spread, which is what
+     stops "all of board one" meaning "three squares in one corner". */
+  function rallyFlags(C, n, spec) {
+    var boxes = boardBoxes(spec), dock = dockBoxOf(spec);
+    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
+    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
+    boxes.sort(function (a, b) {
+      var da = Math.abs(a.cx - dc) + Math.abs(a.cy - dr);
+      var db = Math.abs(b.cx - dc) + Math.abs(b.cy - dr);
+      return da - db || a.y0 - b.y0 || a.x0 - b.x0;
+    });
+    return fillBoards(C, n, spec, boxes, false);
+  }
+
+  /* ARENA: a lap of the play area, calling at every board.
+
+     The boards are toured by angle around the centre of the course
+     rather than by distance from the dock, so the flags describe a
+     ring; and within a board they alternate between the thick of it
+     and its edge, which is what makes the ring a path rather than a
+     list of destinations. */
+  function arenaFlags(C, n, spec) {
+    var boxes = boardBoxes(spec), dock = dockBoxOf(spec);
+    var mx = (C.w - 1) / 2, my = (C.h - 1) / 2;
+    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
+    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
+    var start = Math.atan2((dock ? dr : C.h) - my, dc - mx);
+    boxes.sort(function (a, b) {
+      /* Angles measured from the dock and wrapped into one turn, so
+         the lap begins at the board over the start area. */
+      var aa = (Math.atan2(a.cy - my, a.cx - mx) - start + Math.PI * 4) % (Math.PI * 2);
+      var bb = (Math.atan2(b.cy - my, b.cx - mx) - start + Math.PI * 4) % (Math.PI * 2);
+      return aa - bb || a.y0 - b.y0 || a.x0 - b.x0;
+    });
+    return fillBoards(C, n, spec, boxes, true);
+  }
+
+  function fillBoards(C, n, spec, boxes, alternate) {
+    var dock = dockBoxOf(spec), out = [], quota = shareOut(n, boxes.length);
+    for (var bi = 0; bi < boxes.length; bi++) {
+      var box = boxes[bi];
+      var cand = flagCandidates(C, dock, box);
+      var placed = 0;
+      while (placed < quota[bi] && cand.length) {
+        /* Rank first, always: a corner is only taken when the board
+           has nothing else left. */
+        var bestRank = 3, i;
+        for (i = 0; i < cand.length; i++) {
+          var rk = flagRank(C, cand[i].c, cand[i].r);
+          if (rk < bestRank) bestRank = rk;
+        }
+        var pool = [];
+        for (i = 0; i < cand.length; i++) {
+          if (flagRank(C, cand[i].c, cand[i].r) === bestRank) pool.push(cand[i]);
+        }
+        var want = alternate && (placed % 2 === 1) ? "edge" : alternate ? "thick" : "spread";
+        var k = bestBy(pool, function (t) {
+          if (want === "thick") return -(Math.abs(t.c - box.cx) + Math.abs(t.r - box.cy));
+          if (want === "edge") return Math.abs(t.c - box.cx) + Math.abs(t.r - box.cy);
+          /* Spread: as far as possible from every flag already down
+             anywhere on the course, so a board boundary does not
+             become a place two flags crowd against. */
+          var d = Infinity;
+          for (var j = 0; j < out.length; j++) {
+            var dd = Math.abs(t.c - out[j][0]) + Math.abs(t.r - out[j][1]);
+            if (dd < d) d = dd;
+          }
+          return d === Infinity ? 0 : d;
+        });
+        var got = pool[k];
+        out.push([got.c, got.r]);
+        placed++;
+        for (i = 0; i < cand.length; i++) {
+          if (cand[i].c === got.c && cand[i].r === got.r) { cand.splice(i, 1); break; }
+        }
+      }
+    }
+    return out;
+  }
+
+  function flagLegal(C, c, r, dockBox) {
+    var cand = flagCandidates(C, dockBox);
+
+    for (var i = 0; i < cand.length; i++) if (cand[i].c === c && cand[i].r === r) return true;
+    return false;
+  }
+
+  /* Where the dock sits, as a box, for every caller that has to keep
+     flags out of it. */
+  function dockBoxOf(spec) {
+    var dk = spec && spec.dock;
+    if (!dk) return null;
+    return { x0: dk.at[0], x1: dk.at[0] + 11, y0: dk.at[1], y1: dk.at[1] + 3 };
+  }
+
+  function autoFlags(C, n, rnd, dockBox) {
+    var cand = flagCandidates(C, dockBox);
     if (!cand.length) return [];
     var dc = dockBox ? (dockBox.x0 + dockBox.x1) / 2 : C.w / 2;
     var dr = dockBox ? (dockBox.y0 + dockBox.y1) / 2 : C.h;
@@ -2007,6 +2241,10 @@
     validateGrid: validateGrid, validateCourse: validateCourse,
     playableEditions: playableEditionsNew, editionBlocker: editionBlockerNew,
     courseSpec: courseSpec, composeCourse: composeCourse, autoFlags: autoFlags,
+    randomFlags: randomFlags, defaultFlagsFor: defaultFlagsFor,
+    flagCandidates: flagCandidates, flagLegal: flagLegal, dockBoxOf: dockBoxOf,
+    withFlags: withFlags, flagRank: flagRank, boardBoxes: boardBoxes, shareOut: shareOut,
+    rallyFlags: rallyFlags, arenaFlags: arenaFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
     overrideIds: overrideIds, isOverridden: isOverridden

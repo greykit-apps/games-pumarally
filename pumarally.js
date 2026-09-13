@@ -3173,6 +3173,28 @@
   }
 
   function assert(cond, msg) { if (!cond) throw new Error(msg); }
+
+  /* Squares on the current UI.layout that a flag may legally sit on,
+     and one that it may not. Written out rather than named as
+     coordinates because which square is a pit is board data, and a
+     test that hard-codes it fails the day the board is re-read. */
+  function benchFlagSquares() {
+    var spec = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    return B.flagCandidates(B.buildCourse(spec), B.dockBoxOf(spec));
+  }
+
+  function benchBadSquare() {
+    var spec = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    var C = B.buildCourse(spec), c, r;
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        var el = B.elemOf(B.codeAt(C, c, r));
+        if (el && el.name === "pit") return { c: c, r: r, what: "pit" };
+        if (el && /conveyor|express/.test(el.name)) return { c: c, r: r, what: el.name };
+      }
+    }
+    return null;
+  }
   function at(p) { return "(" + p.c + "," + p.r + ")"; }
   function firstCard(kind) {
     for (var i = 0; i < PROGRAM_DECK.length; i++) if (PROGRAM_DECK[i].kind === kind) return PROGRAM_DECK[i];
@@ -5273,11 +5295,297 @@
       assert(spec.boards.length === 2, "the course lost a board: " + spec.boards.length);
       assert(C.w === 24 && C.h === 16, "a 2 by 1 grid with a dock should be 24 by 16, is " + C.w + " by " + C.h);
       assert(spec.boards[0].rot === 1, "the course lost a board's rotation");
-      assert(C.flags.length === 3, "a composed course should carry three flags, has " + C.flags.length);
+      /* Two boards, so the house default is four flags. */
+      assert(C.flags.length === 4, "a two-board course should carry four flags, has " + C.flags.length);
       assert(C.docks.length >= 8, "a composed course should carry eight bays, has " + C.docks.length);
       for (var i = 0; i < C.flags.length; i++) {
         assert(C.flags[i].r < C.h - 4, "flag " + (i + 1) + " was placed inside the docking bay");
       }
+    } },
+
+    // ---- where the flags go ----------------------------------------
+    /* Legal squares differ from board to board, so the by-hand tests
+       ask the course which ones they are rather than naming
+       coordinates that a re-transcription could turn into a pit. */
+
+    { name: "a layout that is a shipped course keeps that course's flags", run: function () {
+      /* Proving Run is one board, unturned, dock under column one. A
+         layout of exactly that IS Proving Run, so its default flags
+         are the ones it ships with rather than whatever the automatic
+         placement would invent. */
+      var L = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+      var got = B.defaultFlagsFor(L), want = B.COURSES.provingRun.flags;
+      assert(got, "the layout matched no shipped course");
+      assert(JSON.stringify(got) === JSON.stringify(want),
+        "got " + JSON.stringify(got) + ", the course ships " + JSON.stringify(want));
+      /* Turned off its printed orientation it is a different course. */
+      L.cells[0].rot = 1;
+      assert(!B.defaultFlagsFor(L), "a turned board must not claim the printed flags");
+      L.cells[0].rot = 0;
+      L.cols = 2; L.cells.push({ id: "island", rot: 0 });
+      assert(!B.defaultFlagsFor(L), "two boards must not claim a one-board course's flags");
+    } },
+
+    { name: "a flag may only sit on plain floor outside the dock", run: function () {
+      var spec = B.composeCourse({ cols: 1, rows: 1, dockCol: 0,
+                                   cells: [{ id: "provingGround", rot: 0 }], flags: [] }, 0);
+      var C = B.buildCourse(spec), box = B.dockBoxOf(spec);
+      var cand = B.flagCandidates(C, box), i;
+      assert(cand.length > 10, "no square on this course can hold a flag");
+      for (i = 0; i < cand.length; i++) {
+        var el = B.elemOf(B.codeAt(C, cand[i].c, cand[i].r));
+        assert(el && el.name === "floor",
+          "(" + cand[i].c + "," + cand[i].r + ") is a " + (el ? el.name : "void"));
+        assert(!(cand[i].r >= box.y0 && cand[i].r <= box.y1),
+          "(" + cand[i].c + "," + cand[i].r + ") is inside the docking bay");
+      }
+      /* And the by-hand check agrees with the list, because both ask
+         the same function. */
+      assert(B.flagLegal(C, cand[0].c, cand[0].r, box), "a listed square was refused by hand");
+      assert(!B.flagLegal(C, box.x0, box.y0, box), "a square in the dock was allowed by hand");
+    } },
+
+    { name: "a random placement is legal, distinct and the right length", run: function () {
+      var spec = B.composeCourse({ cols: 1, rows: 1, dockCol: 0,
+                                   cells: [{ id: "provingGround", rot: 0 }], flags: [] }, 0);
+      var C = B.buildCourse(spec), box = B.dockBoxOf(spec);
+      /* Seeded, so a failure here is reproducible rather than a story
+         about one unlucky afternoon. */
+      var seed = 7, roll = function () {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+      /* A SCRIPTED draw, because chance is a poor way to test a
+         guard against chance: sixty seeded trials produced no repeat
+         at all on a build with the no-duplicates check removed, so
+         they were asserting nothing. This hands the picker the same
+         square three times and then three others, and the flags that
+         come back say whether it noticed. */
+      var script = [5, 5, 5, 40, 70, 90], at = 0;
+      var scripted = function () {
+        var i = script[at % script.length];
+        at++;
+        return (i + 0.5) / B.flagCandidates(C, box).length;
+      };
+      var strict = B.randomFlags(C, 4, scripted, box);
+      assert(strict.length === 4, "the scripted draw returned " + strict.length + " flags");
+      var keys = {};
+      for (var q = 0; q < strict.length; q++) {
+        var kk = strict[q][0] + "," + strict[q][1];
+        assert(!keys[kk], "the same square was handed out twice: " + kk);
+        keys[kk] = 1;
+      }
+
+      for (var trial = 0; trial < 60; trial++) {
+        var got = B.randomFlags(C, 4, roll, box), seen = {}, i;
+        assert(got.length === 4, "asked for four flags, got " + got.length);
+        for (i = 0; i < got.length; i++) {
+          assert(B.flagLegal(C, got[i][0], got[i][1], box),
+            "flag " + (i + 1) + " landed somewhere illegal");
+          var k = got[i][0] + "," + got[i][1];
+          assert(!seen[k], "two flags landed on the same square");
+          seen[k] = 1;
+        }
+      }
+      /* Asked for more than the spacing allows, it relaxes rather than
+         returning short -- a four-flag race handed three flags is the
+         silent half of this failure. */
+      assert(B.randomFlags(C, 6, roll, box).length === 6, "a crowded course returned short");
+    } },
+
+    { name: "placing flags by hand keeps the order they were clicked", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+      var pick = flagPick();
+      pick.mode = "hand"; pick.n = 3; pick.chosen = true; pick.hand = [];
+      var ok = benchFlagSquares();
+      flagPlace(ok[0].c, ok[0].r); flagPlace(ok[1].c, ok[1].r); flagPlace(ok[2].c, ok[2].r);
+      var want = [[ok[0].c, ok[0].r], [ok[1].c, ok[1].r], [ok[2].c, ok[2].r]];
+      assert(JSON.stringify(flagsResolved()) === JSON.stringify(want),
+        "the flags came back in a different order: " + JSON.stringify(flagsResolved()));
+      /* A fourth click with three down is not a fourth flag. */
+      flagPlace(ok[3].c, ok[3].r);
+      assert(pick.hand.length === 3, "a fourth flag went down in a three-flag race");
+      /* But clicking one already down takes it back, WITH the hand
+         full -- which is exactly when a misplaced flag one needs
+         fixing, and the only moment the first version refused. */
+      flagPlace(ok[1].c, ok[1].r);
+      assert(JSON.stringify(pick.hand) === JSON.stringify([want[0], want[2]]),
+        "taking a flag back left " + JSON.stringify(pick.hand));
+      /* And a square no flag may sit on is refused by the model, not
+         only greyed out by the picker. */
+      var bad = benchBadSquare();
+      if (bad) {
+        flagPlace(bad.c, bad.r);
+        assert(pick.hand.length === 2, "a flag went down on a " + bad.what);
+      }
+    } },
+
+    { name: "a race is refused until every flag is down", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+      var pick = flagPick();
+      pick.mode = "hand"; pick.n = 3; pick.chosen = true; pick.hand = [];
+      assert(/Place 3 more/.test(flagProblem() || ""),
+        "an empty hand was not counted: " + flagProblem());
+      var ok = benchFlagSquares();
+      flagPlace(ok[0].c, ok[0].r); flagPlace(ok[1].c, ok[1].r);
+      assert(/Place 1 more flag\./.test(flagProblem() || ""),
+        "one short was not counted: " + flagProblem());
+      flagPlace(ok[2].c, ok[2].r);
+      assert(!flagProblem(), "a full hand was still refused: " + flagProblem());
+    } },
+
+    { name: "shortening a race keeps the flags already placed", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+      var pick = flagPick();
+      pick.mode = "hand"; pick.n = 4; pick.chosen = true; pick.hand = [];
+      var ok = benchFlagSquares();
+      for (var i = 0; i < 4; i++) flagPlace(ok[i].c, ok[i].r);
+      pick.n = 2;
+      if (pick.hand.length > pick.n) pick.hand.length = pick.n;
+      assert(JSON.stringify(flagsResolved()) ===
+             JSON.stringify([[ok[0].c, ok[0].r], [ok[1].c, ok[1].r]]),
+        "cutting the race to two kept " + JSON.stringify(flagsResolved()));
+    } },
+
+    { name: "the course that starts is the course the flags were placed on", run: function () {
+      UI.layout = { cols: 2, rows: 1, dockCol: 1,
+                    cells: [{ id: "island", rot: 1 }, { id: "cross", rot: 0 }] };
+      var pick = flagPick();
+      pick.mode = "hand"; pick.n = 2; pick.chosen = true; pick.hand = [];
+      var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+      var C0 = B.buildCourse(spec0), cand = B.flagCandidates(C0, B.dockBoxOf(spec0));
+      flagPlace(cand[0].c, cand[0].r);
+      flagPlace(cand[cand.length - 1].c, cand[cand.length - 1].r);
+      var spec = layoutCourse(flagsResolved()), C = B.buildCourse(spec);
+      assert(C.flags.length === 2, "the race started with " + C.flags.length + " flags");
+      assert(C.flags[0].c === cand[0].c && C.flags[0].r === cand[0].r,
+        "flag one is not where it was put");
+      assert(C.flags[0].n === 1 && C.flags[1].n === 2, "the flags were renumbered");
+      assert(C.w === 24 && C.h === 16, "the course changed shape between the two screens");
+    } },
+
+    { name: "asking about a layout does not edit it", run: function () {
+      /* withFlags exists because every one of these questions used to
+         be asked by handing the player's live layout to a function
+         that put its answer back into it. */
+      var L = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+      var before = JSON.stringify(L);
+      B.defaultFlagsFor(L);
+      B.composeCourse(B.withFlags(L, null), 3);
+      B.composeCourse(B.withFlags(L, [[1, 1]]), 1);
+      assert(JSON.stringify(L) === before, "the layout came back changed: " + JSON.stringify(L));
+    } },
+
+    { name: "Rally finishes one board before it starts the next", run: function () {
+      /* The point of the style: everyone is fighting over the same
+         board early. Flags that interleave between boards would be a
+         lap, which is the OTHER style, and the two would be
+         indistinguishable from the picture. */
+      var L = { cols: 2, rows: 2, dockCol: 0, cells: [
+        { id: "island", rot: 0 }, { id: "cross", rot: 0 },
+        { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }] };
+      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
+      var got = B.rallyFlags(C, 8, spec), boxes = B.boardBoxes(spec), i;
+      assert(got.length === 8, "asked for eight flags, got " + got.length);
+      function whichBoard(f) {
+        for (var j = 0; j < boxes.length; j++) {
+          if (f[0] >= boxes[j].x0 && f[0] <= boxes[j].x1 &&
+              f[1] >= boxes[j].y0 && f[1] <= boxes[j].y1) return j;
+        }
+        return -1;
+      }
+      var order = [], seen = {};
+      for (i = 0; i < got.length; i++) {
+        var b = whichBoard(got[i]);
+        assert(b >= 0, "flag " + (i + 1) + " landed on no board at all");
+        if (!order.length || order[order.length - 1] !== b) {
+          assert(!seen[b], "the race came back to board " + b + " after leaving it");
+          order.push(b); seen[b] = 1;
+        }
+      }
+      assert(order.length === 4, "a four-board rally visited " + order.length + " boards");
+      /* And it starts by the docking bay rather than at the far end. */
+      var dock = B.dockBoxOf(spec), dc = (dock.x0 + dock.x1) / 2, dr = (dock.y0 + dock.y1) / 2;
+      var first = boxes[order[0]], last = boxes[order[order.length - 1]];
+      assert(Math.abs(first.cx - dc) + Math.abs(first.cy - dr) <
+             Math.abs(last.cx - dc) + Math.abs(last.cy - dr),
+        "the rally started at the board furthest from the start area");
+    } },
+
+    { name: "Arena calls at every board and leads out to the edges", run: function () {
+      var L = { cols: 2, rows: 2, dockCol: 0, cells: [
+        { id: "island", rot: 0 }, { id: "cross", rot: 0 },
+        { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }] };
+      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
+      var got = B.arenaFlags(C, 8, spec), boxes = B.boardBoxes(spec), i, j;
+      assert(got.length === 8, "asked for eight flags, got " + got.length);
+      var per = [0, 0, 0, 0];
+      for (i = 0; i < got.length; i++) {
+        for (j = 0; j < boxes.length; j++) {
+          if (got[i][0] >= boxes[j].x0 && got[i][0] <= boxes[j].x1 &&
+              got[i][1] >= boxes[j].y0 && got[i][1] <= boxes[j].y1) per[j]++;
+        }
+      }
+      for (j = 0; j < 4; j++) assert(per[j] === 2, "board " + j + " got " + per[j] + " of the eight flags");
+      /* One in the thick of each board and one out toward its edge:
+         the two flags on a board must not be the same distance from
+         its middle, or the lap has no shape. */
+      for (j = 0; j < boxes.length; j++) {
+        var ds = [];
+        for (i = 0; i < got.length; i++) {
+          if (got[i][0] >= boxes[j].x0 && got[i][0] <= boxes[j].x1 &&
+              got[i][1] >= boxes[j].y0 && got[i][1] <= boxes[j].y1) {
+            ds.push(Math.abs(got[i][0] - boxes[j].cx) + Math.abs(got[i][1] - boxes[j].cy));
+          }
+        }
+        assert(ds[1] > ds[0], "board " + j + "'s two flags are both " + ds[0] + " from its middle");
+      }
+    } },
+
+    { name: "no flag takes a corner while the course has anywhere else", run: function () {
+      /* A corner is reachable from two directions and interesting from
+         none. It is not illegal -- a tiny course may have nothing else
+         -- so the pickers rank rather than filter, and the assertion
+         is that the rank is actually consulted. */
+      var L = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
+      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
+      assert(B.flagRank(C, 0, 0) === 2, "the top-left square is not being read as a corner");
+      assert(B.flagRank(C, 5, 0) === 1, "the top row is not being read as an edge");
+      assert(B.flagRank(C, 5, 5) === 0, "the middle of the course is being read as an edge");
+      var sets = [B.rallyFlags(C, 3, spec), B.arenaFlags(C, 3, spec),
+                  B.randomFlags(C, 3, null, B.dockBoxOf(spec))];
+      for (var s = 0; s < sets.length; s++) {
+        for (var i = 0; i < sets[s].length; i++) {
+          assert(B.flagRank(C, sets[s][i][0], sets[s][i][1]) === 0,
+            "a flag took (" + sets[s][i] + "), rank " +
+            B.flagRank(C, sets[s][i][0], sets[s][i][1]) + ", on a course with interior to spare");
+        }
+      }
+    } },
+
+    { name: "the flags are shared out over the boards, remainder first", run: function () {
+      assert(JSON.stringify(B.shareOut(8, 4)) === "[2,2,2,2]", "eight over four is not even");
+      assert(JSON.stringify(B.shareOut(9, 4)) === "[3,2,2,2]", "the odd flag went to the wrong board");
+      assert(JSON.stringify(B.shareOut(3, 4)) === "[1,1,1,0]",
+        "three flags over four boards left the wrong board out");
+      assert(JSON.stringify(B.shareOut(3, 1)) === "[3]", "one board should take all three");
+    } },
+
+    { name: "the flag count follows the course until somebody sets one", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
+      assert(flagPick().n === 3, "one board should be a three-flag race, got " + flagPick().n);
+      UI.layout.cols = 2; UI.layout.cells.push({ id: "cross", rot: 0 });
+      assert(flagPick().n === 4, "two boards should be a four-flag race, got " + flagPick().n);
+      UI.layout.cols = 4;
+      UI.layout.cells.push({ id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 });
+      assert(flagPick().n === 8, "four boards should be an eight-flag race, got " + flagPick().n);
+      /* Two to three a board, so four boards tops out at twelve. */
+      assert(flagsMost(4) === 12, "the ceiling is not three a board");
+      /* Once set by hand it stays set, even as the course changes --
+         the number is then a decision rather than a default. */
+      flagPick().n = 5; flagPick().chosen = true;
+      UI.layout.cells[3] = null;
+      assert(flagPick().n === 5, "a chosen count was overwritten when the course changed");
     } },
 
     { name: "destroying a robot returns all of its cards to the discard", run: function () {
@@ -5535,6 +5843,19 @@
     /* The tile art is sized off --tile, so a thumbnail cell needs no
        rules of its own beyond losing the board's hover affordances. */
     ".pr-thumb .pr-cell{cursor:default}",
+    ".pr-thumb-hits{position:absolute;inset:0;display:grid}",
+    ".pr-thumb-hit{padding:0;min-height:0!important;border:0!important;background:none;",
+    "border-radius:0;cursor:crosshair}",
+    ".pr-thumb-hit:disabled{cursor:default}",
+    ".pr-thumb-hit:not(:disabled):hover{background:color-mix(in srgb,var(--pr-accent) 35%,transparent)}",
+    ".pr-thumb-hit:focus-visible{outline:2px solid var(--pr-accent);outline-offset:-2px}",
+    ".pr-thumb-pick{cursor:crosshair}",
+    ".pr-flag-stage{overflow:auto;max-width:100%;max-height:46vh;padding:4px;",
+    "border:1px solid var(--pr-border);background:var(--pr-bg);margin:4px 0}",
+    ".pr-flag-list{display:flex;flex-wrap:wrap;gap:4px;font-size:10px;color:var(--pr-ink);margin:2px 0}",
+    ".pr-flag-list span{border:1px solid var(--pr-border);padding:1px 5px;white-space:nowrap}",
+    ".pr-flag-list b{color:var(--pr-accent);font-weight:400;margin-right:4px}",
+    ".pr-flag-n{min-width:22px;text-align:center;color:var(--pr-accent);font-weight:400}",
     ".pr-c-both{font-size:9px;letter-spacing:.5px;color:var(--pr-good);font-style:normal}",
     ".pr-c-no{font-size:9px;letter-spacing:.5px;color:var(--pr-dim);font-style:normal}",
     ".pr-rs-years{font-size:9px;color:var(--pr-dim);font-style:normal;margin-left:4px}",
@@ -6986,7 +7307,25 @@
     if (a === "ldock") { UI.layout.dockCol = +el.dataset.c; saveLayout(); showLayout(); return; }
     if (a === "lrace") {
       if (layoutProblem()) { showLayout(); return; }
-      var spec = layoutCourse();
+      saveLayout(); showFlags(); return;
+    }
+    if (a === "fn") {
+      var pk = flagPick();
+      pk.n = Math.max(1, Math.min(flagsMost(layoutBoardCount()), +el.dataset.n));
+      pk.chosen = true;
+      /* A shorter race keeps the flags already placed; a longer one
+         asks for the rest rather than starting again. */
+      if (pk.hand.length > pk.n) pk.hand.length = pk.n;
+      saveLayout(); showFlags(); return;
+    }
+    if (a === "fmode") { flagPick().mode = el.dataset.m; saveLayout(); showFlags(); return; }
+    if (a === "froll") { flagRoll(); saveLayout(); showFlags(); return; }
+    if (a === "fundo") { flagPick().hand.pop(); saveLayout(); showFlags(); return; }
+    if (a === "fclear") { flagPick().hand = []; saveLayout(); showFlags(); return; }
+    if (a === "fput") { flagPlace(+el.dataset.c, +el.dataset.r); saveLayout(); showFlags(); return; }
+    if (a === "frace") {
+      if (flagProblem()) { showFlags(); return; }
+      var spec = layoutCourse(flagsResolved());
       saveLayout();
       closeModal();
       startComposed(spec);
@@ -7711,13 +8050,11 @@
      what the assembler needs to show. Cached on id, rotation and
      scale, because nine boards times four rotations is a lot of DOM
      to rebuild on every drag. */
-  function boardThumb(id, rot, px) {
-    UI.bthumbs = UI.bthumbs || {};
-    var key = id + ":" + rot + ":" + px;
-    if (UI.bthumbs[key]) return UI.bthumbs[key];
-    var g;
-    try { g = B.rotateGrid(B.parsePic(id, B.specOf(id)), rot || 0); }
-    catch (e) { return ""; }
+  /* One picture renderer for anything grid-shaped -- a single board in
+     the palette, or a whole assembled course on the flag screen. It is
+     the game's own tileClasses and tileInner at a smaller tile, so
+     there is no second drawing of a board to drift from the first. */
+  function gridThumb(g, px, pick) {
     /* tileInner walks flags and lasers; a bare grid has lasers and no
        flags, so it is given the empty list the renderer expects. */
     g.flags = g.flags || [];
@@ -7727,15 +8064,41 @@
         cells.push('<i class="' + tileClasses(g, c, r).join(" ") + '">' + tileInner(g, c, r) + "</i>");
       }
     }
-    var html =
-      '<span class="pr-thumb" style="--tile:' + px + "px;--wt:" + Math.max(2, Math.round(px / 2.5)) +
+    var hits = "";
+    if (pick) {
+      /* A separate layer of real buttons rather than making the tiles
+         themselves clickable: the tiles are the game's renderer and
+         must stay exactly what the board looks like. */
+      hits = ['<span class="pr-thumb-hits" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">'];
+      for (r = 0; r < g.h; r++) {
+        for (c = 0; c < g.w; c++) {
+          var can = pick.legal[r * g.w + c];
+          hits.push('<button class="pr-thumb-hit' + (can ? "" : " no") + '" data-act="' + pick.act +
+            '" data-c="' + c + '" data-r="' + r + '"' + (can ? "" : " disabled") +
+            ' aria-label="' + esc(describeTile(g, c, r)) + '"></button>');
+        }
+      }
+      hits.push("</span>");
+      hits = hits.join("");
+    }
+    return '<span class="pr-thumb' + (pick ? " pr-thumb-pick" : "") +
+        '" style="--tile:' + px + "px;--wt:" + Math.max(2, Math.round(px / 2.5)) +
         "px;width:" + (g.w * px) + "px;height:" + (g.h * px) + 'px">' +
         '<span class="pr-thumb-grid" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">' +
           cells.join("") + "</span>" +
-        '<span class="pr-thumb-walls">' + wallSpans(g) + "</span>" +
+        '<span class="pr-thumb-walls">' + wallSpans(g) + "</span>" + hits +
       "</span>";
-    UI.bthumbs[key] = html;
-    return html;
+  }
+
+  function boardThumb(id, rot, px) {
+    UI.bthumbs = UI.bthumbs || {};
+    var key = id + ":" + rot + ":" + px;
+    if (UI.bthumbs[key]) return UI.bthumbs[key];
+    var g;
+    try { g = B.rotateGrid(B.parsePic(id, B.specOf(id)), rot || 0); }
+    catch (e) { return ""; }
+    UI.bthumbs[key] = gridThumb(g, px, null);
+    return UI.bthumbs[key];
   }
 
   /* ============================================================
@@ -7826,10 +8189,11 @@
     if (cell) cell.rot = (cell.rot + 1) % 4;
   }
 
-  function layoutCourse() {
+  function layoutCourse(flags) {
     /* Composed fresh each time so the preview is the course that would
        actually be raced, not an approximation of it. */
-    return B.composeCourse(UI.layout, 3);
+    var pick = flagPick();
+    return B.composeCourse(B.withFlags(UI.layout, flags || null), pick.n);
   }
 
   function layoutProblem() {
@@ -7925,8 +8289,206 @@
     }
 
     out.push('<div class="pr-modal-foot">' +
-      '<button data-act="lrace"' + (problem ? " disabled" : "") + ">Race on this</button>" +
+      '<button data-act="lrace"' + (problem ? " disabled" : "") + ">Place the flags\u2026</button>" +
       '<button data-act="setup">Back</button></div>');
+    openModal(out.join(""));
+  }
+
+  /* ============================================================
+     WHERE THE FLAGS GO
+
+     The last thing between an assembled course and a race. Three ways
+     to answer it, because they are three different questions:
+
+       default  what this course is normally raced with -- the printed
+                flags when the layout IS a shipped course, and the
+                spread-out automatic placement otherwise
+       random   anywhere legal, scattered
+       by hand  click the squares, in order, with an undo
+
+     A flag may only sit on plain floor outside the docking bay. That
+     is one definition in the board module, shared by all three, so
+     the by-hand route cannot put a flag somewhere the automatic one
+     would have refused.
+     ============================================================ */
+  /* HOW MANY FLAGS.
+
+     The printed courses do not agree on one number and their own
+     guidance has not been transcribed, so this is a house default
+     rather than a rule: two per board, never fewer than three. One
+     board is the shipped three-flag race; four boards is eight, which
+     is a long evening and still inside the two-to-three-a-board band.
+     The stepper goes up to three a board, which is the top of it. */
+  function flagsWanted(boards) { return Math.max(3, boards * 2); }
+  function flagsMost(boards) { return Math.max(4, boards * 3); }
+
+  function layoutBoardCount() {
+    var L = UI.layout, n = 0;
+    for (var i = 0; i < L.cells.length; i++) if (L.cells[i] && L.cells[i].id) n++;
+    return n;
+  }
+
+  function flagPick() {
+    if (!UI.layout) UI.layout = loadLayout();
+    var L = UI.layout;
+    if (!L.pick) L.pick = { mode: "default", hand: [] };
+    if (!L.pick.hand) L.pick.hand = [];
+    /* The count follows the course until the player sets one. Growing
+       a one-board layout into four and racing to three flags is not a
+       choice anybody made; it is the old number surviving. */
+    var boards = layoutBoardCount();
+    if (!L.pick.chosen && L.pick.forBoards !== boards) {
+      L.pick.n = flagsWanted(boards);
+      L.pick.forBoards = boards;
+      if (L.pick.hand.length > L.pick.n) L.pick.hand.length = L.pick.n;
+    }
+    if (L.pick.mode === "default" && !B.defaultFlagsFor(L)) L.pick.mode = "arena";
+    return L.pick;
+  }
+
+  function flagScratch() {
+    /* The course with NO flags on it: what "is this square legal" is a
+       question about, and what the by-hand picker draws onto. */
+    return B.buildCourse(B.composeCourse(B.withFlags(UI.layout, []), 0));
+  }
+
+  function flagsResolved() {
+    var pick = flagPick();
+    if (pick.mode === "hand") return pick.hand.slice(0, pick.n);
+    if (pick.mode === "random") {
+      if (!pick.rolled || pick.rolledN !== pick.n) flagRoll();
+      return pick.rolled.slice(0, pick.n);
+    }
+    var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    if (pick.mode === "rally") return B.rallyFlags(B.buildCourse(spec0), pick.n, spec0);
+    if (pick.mode === "arena") return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
+    var printed = B.defaultFlagsFor(UI.layout);
+    if (printed && printed.length >= pick.n) return printed.slice(0, pick.n);
+    /* A shipped course asked for more flags than it prints falls back
+       to the lap, rather than to a shorter race nobody asked for. */
+    return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
+  }
+
+  function flagRoll() {
+    /* Math.random and NOT the game's rnd(): the seed exists so a game
+       replays, and the course is an INPUT to that game rather than a
+       part of it. Rolling flags off G.rngState would advance the
+       previous game's stream from the setup screen -- and before the
+       first game there is no G to advance. */
+    var pick = flagPick(), C = flagScratch();
+    pick.rolled = B.randomFlags(C, pick.n, null, B.dockBoxOf(B.composeCourse(B.withFlags(UI.layout, []), 0)));
+    pick.rolledN = pick.n;
+  }
+
+  function flagProblem() {
+    var pick = flagPick(), have = flagsResolved();
+    if (have.length < pick.n) {
+      return pick.mode === "hand"
+        ? "Place " + (pick.n - have.length) + " more flag" + (pick.n - have.length > 1 ? "s" : "") + "."
+        : "This course has room for only " + have.length + " flag" + (have.length === 1 ? "" : "s") + ".";
+    }
+    try { B.validateCourse(layoutCourse(have), function () {}); }
+    catch (e) { return e.message; }
+    return null;
+  }
+
+  function flagPlace(c, r) {
+    var pick = flagPick();
+    if (pick.mode !== "hand") return;
+    var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    /* The picker greys the squares a flag cannot sit on, but the model
+       must refuse them too -- a disabled button is a courtesy, not a
+       rule, and this is the only place the rule lives for by-hand. */
+    if (!B.flagLegal(B.buildCourse(spec0), c, r, B.dockBoxOf(spec0))) return;
+    /* Take-back is checked BEFORE the count, not after: the moment you
+       most want to move a flag is when all of them are down, and a
+       full hand that refuses every click leaves Undo as the only way
+       to fix the first one. */
+    for (var i = 0; i < pick.hand.length; i++) {
+      if (pick.hand[i][0] === c && pick.hand[i][1] === r) { pick.hand.splice(i, 1); return; }
+    }
+    if (pick.hand.length >= pick.n) return;
+    pick.hand.push([c, r]);
+  }
+
+  function showFlags() {
+    var pick = flagPick(), C, i;
+    var printedFlags = B.defaultFlagsFor(UI.layout);
+    try { C = flagScratch(); }
+    catch (e) { showLayout(); return; }
+
+    var have = flagsResolved();
+    /* Drawn with the flags on it, because the answer to "is that where
+       I want flag two" is the picture and nothing else. */
+    var shown = B.buildCourse(layoutCourse(have));
+    var legal = [], dockBox = B.dockBoxOf(B.composeCourse(B.withFlags(UI.layout, []), 0));
+    var cand = B.flagCandidates(C, dockBox), c, r;
+    for (i = 0; i < C.w * C.h; i++) legal.push(false);
+    for (i = 0; i < cand.length; i++) legal[cand[i].r * C.w + cand[i].c] = true;
+
+    var px = Math.max(9, Math.min(22, Math.floor(640 / C.w)));
+    var out = ['<h2>WHERE THE FLAGS GO</h2>'];
+
+    /* A stepper rather than a row of radios: the range is one to three
+       a board, which on a nine-board course is twenty-seven buttons. */
+    var boards = layoutBoardCount(), most = flagsMost(boards);
+    out.push('<div class="pr-ed-row"><span>Flags</span>' +
+      '<button data-act="fn" data-n="' + (pick.n - 1) + '"' + (pick.n <= 1 ? " disabled" : "") +
+        ' aria-label="one flag fewer">&minus;</button>' +
+      '<b class="pr-flag-n" aria-live="polite">' + pick.n + "</b>" +
+      '<button data-act="fn" data-n="' + (pick.n + 1) + '"' + (pick.n >= most ? " disabled" : "") +
+        ' aria-label="one flag more">+</button>' +
+      '<span class="pr-ed-note">' + (pick.n / boards).toFixed(1).replace(/\.0$/, "") +
+        " per board; two to three is the usual</span></div>");
+
+    var modes = [["rally", "Rally"], ["arena", "Arena"], ["random", "Random"], ["hand", "By hand"]];
+    if (printedFlags) modes.unshift(["default", "Printed"]);
+    out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
+      ' aria-label="How the flags are placed">');
+    for (i = 0; i < modes.length; i++) {
+      out.push('<button class="pr-seg-b' + (pick.mode === modes[i][0] ? " on" : "") +
+        '" data-act="fmode" data-m="' + modes[i][0] + '" role="radio" aria-checked="' +
+        (pick.mode === modes[i][0] ? "true" : "false") + '" tabindex="' +
+        (pick.mode === modes[i][0] ? "0" : "-1") + '">' + modes[i][1] + "</button>");
+    }
+    out.push("</div>");
+    if (pick.mode === "random") out.push('<button data-act="froll">Roll again</button>');
+    if (pick.mode === "hand") {
+      out.push('<button data-act="fundo"' + (pick.hand.length ? "" : " disabled") + ">Undo</button>");
+      out.push('<button data-act="fclear"' + (pick.hand.length ? "" : " disabled") + ">Start over</button>");
+    }
+    out.push("</div>");
+
+    var blurbs = {
+      hand: "Click the squares in order. Flag one first. Click a flag again to take it back.",
+      random: "Anywhere legal, scattered. Roll again for a different course.",
+      rally: "Every flag on one board before the next, starting by the docking bay. " +
+             "Everyone is in the same place early, and it shows.",
+      arena: "A lap of the play area, calling at every board \u2014 one flag in the thick of " +
+             "each, one out toward its edge.",
+      "default": "The flags this course is normally raced with."
+    };
+    out.push('<div class="pr-rule-desc">' + esc(blurbs[pick.mode] || blurbs.arena) + "</div>");
+
+    out.push('<div class="pr-flag-stage">' +
+      gridThumb(shown, px, pick.mode === "hand" ? { act: "fput", legal: legal } : null) + "</div>");
+
+    out.push('<div class="pr-flag-list">');
+    for (i = 0; i < have.length; i++) {
+      out.push("<span><b>" + (i + 1) + "</b> column " + (have[i][0] + 1) + " row " + (have[i][1] + 1) + "</span>");
+    }
+    if (!have.length) out.push("<span>No flags yet.</span>");
+    out.push("</div>");
+
+    var problem = flagProblem();
+    out.push(problem
+      ? '<div class="pr-ed-bad">' + esc(problem) + "</div>"
+      : '<div class="pr-ed-ok">' + shown.w + " by " + shown.h + " squares, " + have.length +
+        " flag" + (have.length === 1 ? "" : "s") + ", " + shown.docks.length + " bays.</div>");
+
+    out.push('<div class="pr-modal-foot">' +
+      '<button data-act="frace"' + (problem ? " disabled" : "") + ">Start the race</button>" +
+      '<button data-act="layout">Back to the boards</button></div>');
     openModal(out.join(""));
   }
 
