@@ -914,6 +914,29 @@
       if (!used[HOOKS[hi]]) throw new Error('hook "' + HOOKS[hi] + '" is declared but no option card uses it');
     }
 
+    /* EVERY CARD HAS A PICTURE, and no picture is left behind by a
+       card that was removed. A missing glyph throws nowhere --
+       optionArt returns an empty svg and the card draws as a name
+       over a hole -- so nothing but this would notice.
+
+       It runs AFTER the hook checks on purpose. Put first, it was the
+       error a test got back when it injected a card to prove the
+       unknown-hook message, because a card built to be broken in one
+       way has no art either. The specific check has to reach its own
+       fault first. */
+    for (var oa = 0; oa < optionIds.length; oa++) {
+      var oart = OPTION_ART[optionIds[oa]];
+      if (!oart || oart.indexOf("<") < 0) {
+        throw new Error("option card " + optionIds[oa] + " has no art, so it would draw as an empty plate");
+      }
+    }
+    var artIds = Object.keys(OPTION_ART);
+    for (var ob = 0; ob < artIds.length; ob++) {
+      if (!OPTION_DEFS[artIds[ob]]) {
+        throw new Error("OPTION_ART draws " + artIds[ob] + ", which is not a card in the deck");
+      }
+    }
+
     /* Every step the help describes has to be a step the machine
        actually runs. Rename a step and this is the only thing that
        will notice the help now lies. */
@@ -1300,6 +1323,85 @@
      thing someone has to remember.
      ------------------------------------------------------------ */
   var OPTION_ROSTER = { printed: 26, transcribed: 16 };
+
+  /* ============================================================
+     OPTION CARD ART
+
+     A name in a box is a label, not a card. These are drawn in the
+     same language as the program cards -- one stroked glyph on a
+     100x100 box, inheriting its colour from the card -- so that an
+     option reads as a thing you hold rather than as a status line.
+
+     Kept in their own table rather than as a field on each def
+     because the validator can then check the two tables key for key,
+     which is what stops a card being added with no picture and
+     shipping as a blank plate. A glyph says what the card DOES, not
+     what it is called: a tractor beam pulls a block toward the mount
+     and a pressor beam shoves one away, and those two have to be
+     tellable apart at 26 pixels.
+     ============================================================ */
+  var OPTION_ART = {
+    /* Armour: three shells, the outer one taking the hit. */
+    ablativeCoat: '<path d="M14 60a36 36 0 0 1 72 0"/><path d="M28 74a22 22 0 0 1 44 0"/>' +
+      '<path d="M44 86a6 6 0 0 1 12 0"/>',
+    /* A move running into something that stops it. */
+    brakes: '<path d="M16 50h34"/><path d="M40 38l12 12-12 12"/><path d="M72 22v56"/>',
+    /* Sideways both ways, while still facing up. */
+    crabLegs: '<path d="M20 60h60"/><path d="M32 48L20 60l12 12"/><path d="M68 48l12 12-12 12"/>' +
+      '<path d="M50 40V20"/><path d="M42 28l8-8 8 8"/>',
+    /* One mount, two beams. */
+    doubleBarreledLaser: '<path d="M20 24v52"/><path d="M20 36h58"/><path d="M20 64h58"/>',
+    /* A chip with one more cell than it had. */
+    extraMemory: '<path d="M24 26h52v48H24z"/><path d="M50 38v24"/><path d="M38 50h24"/>',
+    /* Rings about an axis, and the weight at the centre. */
+    gyroscopicStabilizer: '<circle cx="50" cy="50" r="30"/><path d="M22 42a34 20 0 0 0 56 0"/>' +
+      '<circle class="pr-ofill" cx="50" cy="50" r="6"/>',
+    /* One beam, and what it does at the far end. */
+    highPowerLaser: '<path d="M16 26v48"/><path d="M16 50h42"/><path d="M68 50h16"/>' +
+      '<path d="M68 34l6 10-6 10"/>',
+    /* A jointed arm, reaching the square next door. Drawn as post,
+       elbow, forearm and the square at the end of it: the first
+       attempt was a bare zigzag with a dot, which reads as a graph. */
+    mechanicalArm: '<path d="M16 84V54"/><path d="M16 54l26-16"/><path d="M42 38h14"/>' +
+      '<path d="M60 26h24v24H60z"/>',
+    /* The power symbol, behind a shield. */
+    powerDownShield: '<path d="M50 14l32 12v24c0 22-16 32-32 36-16-4-32-14-32-36V26z"/>' +
+      '<path d="M50 36v16"/><path d="M39 43a14 14 0 1 0 22 0"/>',
+    /* Beam, then a block shoved away from the mount. */
+    pressorBeam: '<path d="M14 30v40"/><path d="M14 50h28"/><path d="M58 36h26v28H58z"/>' +
+      '<path class="pr-ofill" d="M44 42l12 8-12 8z"/>',
+    /* A bumper, and the shove landing. */
+    rammingGear: '<path d="M22 24v52"/><path d="M22 50h26"/><path d="M56 36l12 14-12 14"/>' +
+      '<path d="M76 40l8 10-8 10"/>',
+    /* Facing up, shooting backwards. */
+    rearFiringLaser: '<path d="M26 24h48"/><path d="M50 32v46"/><path d="M38 66l12 12 12-12"/>',
+    /* Throw it away and go round again. */
+    recompile: '<path d="M78 50a28 28 0 1 1-11-22"/><path d="M80 20v20H60"/>',
+    /* Two paths crossing, neither going where it meant to. */
+    scrambler: '<path d="M20 36h42"/><path d="M52 26l10 10-10 10"/><path d="M80 64H38"/>' +
+      '<path d="M48 54L38 64l10 10"/>',
+    /* Back out of the box you were filed in. */
+    superiorArchive: '<path d="M22 58v22h56V58"/><path d="M50 66V24"/><path d="M34 40l16-16 16 16"/>',
+    /* Beam, then a block dragged toward the mount. */
+    tractorBeam: '<path d="M86 30v40"/><path d="M86 50H58"/><path d="M16 36h26v28H16z"/>' +
+      '<path class="pr-ofill" d="M56 42l-12 8 12 8z"/>'
+  };
+
+  function optionArt(id) {
+    return '<svg class="pr-oart" viewBox="0 0 100 100" aria-hidden="true">' +
+      (OPTION_ART[id] || "") + "</svg>";
+  }
+
+  /* One option card: art over a name, with the printed effect on the
+     hover and on the accessible name, so it is reachable without a
+     pointer as well as with one. */
+  function optionCardHtml(id) {
+    var def = OPTION_DEFS[id];
+    if (!def) return "";
+    return '<span class="pr-opt" tabindex="0" role="img" title="' + esc(def.text) +
+      '" aria-label="' + esc(def.name + ". " + def.text) + '">' +
+      optionArt(id) + "<b>" + esc(def.name) + "</b></span>";
+  }
 
   var OPTION_DEFS = {
     ablativeCoat: {
@@ -4147,6 +4249,30 @@
       assert(p.damage === 6, "announcing must not repair anything by itself");
       STEP.turn.powerStart();
       assert(p.damage === 0, "damage clears at the start of the powered-down turn");
+    } },
+
+    { name: "every option card draws as a card, with its effect on the hover", run: function () {
+      /* A name in a box is a label. The card has to carry a picture and
+         the printed effect, and the effect has to be reachable without a
+         pointer as well as with one -- a title attribute alone is
+         invisible to a keyboard and to a touch screen. */
+      var ids = Object.keys(OPTION_DEFS);
+      assert(ids.length > 1, "the sweep found " + ids.length + " option cards, so it proves little");
+      for (var i = 0; i < ids.length; i++) {
+        var def = OPTION_DEFS[ids[i]], html = optionCardHtml(ids[i]);
+        /* The name has to be ON THE CARD, not merely somewhere in the
+           markup. Looking for it anywhere passed a card whose visible
+           label had been emptied, because the name still sat in the
+           title and the aria-label. */
+        assert(html.indexOf("<b>" + esc(def.name) + "</b>") >= 0,
+          ids[i] + " does not put its name on the face of the card");
+        assert(/<svg[^>]*class="pr-oart"/.test(html), ids[i] + " has no art on the card");
+        assert(/<(path|circle)\b/.test(html), ids[i] + " draws an empty picture");
+        assert(html.indexOf('title="' + esc(def.text) + '"') >= 0,
+          ids[i] + " does not show its effect on the hover");
+        assert(html.indexOf('aria-label="' + esc(def.name + ". " + def.text) + '"') >= 0,
+          ids[i] + " does not say what it does to anything but a pointer");
+      }
     } },
 
     /* THE TWO DECISIONS THAT DECIDE WHETHER CARDS ARE DEALT AT ALL.
@@ -8520,7 +8646,32 @@
     ".pr-choice b{color:var(--pr-warn);font-weight:normal}",
     ".pr-choice span{color:var(--pr-text)}",
     ".pr-opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;font-size:11px}",
-    ".pr-opt{border:1px solid var(--pr-border);background:var(--pr-panel);padding:2px 8px;color:var(--pr-warn);cursor:help}",
+    /* An option is a CARD, cut from the same plate as a program card:
+       a coloured top edge, art over a name. Narrower and shorter,
+       because a robot can hold several and they share the column with
+       the hand. */
+    ".pr-opt{width:74px;height:72px;box-sizing:border-box;display:flex;flex-direction:column;",
+    "align-items:center;justify-content:center;gap:3px;padding:3px 3px;text-align:center;",
+    "overflow:hidden;",
+    "border:1px solid var(--pr-border);border-top:3px solid var(--pr-warn);",
+    "background:var(--pr-panel-alt);color:var(--pr-text);cursor:help}",
+    ".pr-opt:hover,.pr-opt:focus{border-color:var(--pr-warn);outline:none}",
+    /* THE NAME WRAPS INSIDE THE CARD.
+       In a centred flex column the label takes its max-content width
+       and hangs out over both edges -- twelve of the sixteen names did,
+       because a printed card name is longer than a glyph is wide. It
+       needs the card's width to wrap against, and somewhere to break
+       a name that has no space in it. */
+    /* white-space is INHERITED, and something upstream sets nowrap --
+       which is why width:100% alone still drew one long line and
+       clipped it. The card has to say normal for itself. */
+    ".pr-opt b{width:100%;font-weight:normal;font-size:8.5px;line-height:1.12;",
+    "letter-spacing:.2px;white-space:normal;overflow-wrap:anywhere;hyphens:auto}",
+    ".pr-oart{width:26px;height:26px;display:block;color:var(--pr-warn);flex:0 0 auto}",
+    ".pr-oart path,.pr-oart circle{stroke:currentColor;stroke-width:8;stroke-linecap:round;",
+    "stroke-linejoin:round;fill:none}",
+    ".pr-oart .pr-ofill{fill:currentColor;stroke:none}",
+    ".pr-optcell{width:86px}",
 
     /* ---- banner ---- */
     ".pr-banner{width:100%;text-align:center;padding:10px;border:1px solid var(--pr-warn);",
@@ -9760,10 +9911,7 @@
   function renderOptions() {
     var me = humanSeat(), out = [];
     if (me) {
-      for (var i = 0; i < me.options.length; i++) {
-        var def = OPTION_DEFS[me.options[i].id];
-        out.push('<span class="pr-opt" title="' + esc(def.text) + '">' + esc(def.name) + "</span>");
-      }
+      for (var i = 0; i < me.options.length; i++) out.push(optionCardHtml(me.options[i].id));
     }
     UI.els.opts.innerHTML = out.join("");
   }
@@ -12071,7 +12219,8 @@
       OPTION_ROSTER.printed + " are in this build; the rest are not guessed at, because a card that does " +
       "nearly the right thing is worse than one that is missing.</p><table><tr><th>Card</th><th>Effect</th></tr>"];
     for (var i = 0; i < ids.length; i++) {
-      out.push("<tr><td>" + esc(OPTION_DEFS[ids[i]].name) + "</td><td>" + esc(OPTION_DEFS[ids[i]].text) + "</td></tr>");
+      out.push('<tr><td class="pr-optcell">' + optionCardHtml(ids[i]) + "</td><td>" +
+        esc(OPTION_DEFS[ids[i]].text) + "</td></tr>");
     }
     return out.join("") + "</table>";
   }
