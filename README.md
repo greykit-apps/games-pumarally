@@ -96,8 +96,24 @@ trace it, and paste the export straight back** into `pumarally-boards.js`.
   `URL.createObjectURL`, nothing uploaded. The repo holds original art and
   transcribed layout data, nothing scanned.
 
-Left/click stamps, right-click erases, `R` rotates the current tool, `W`
-toggles wall mode. Work autosaves, so a long transcription survives a reload.
+The workshop takes the whole screen: a rail of tools down the left, each with
+the letter that picks it up printed on it, the map in the middle, an inspector
+on the right and a status line underneath that names whatever is under the
+pointer. A ghost of the tool in hand follows the pointer, already turned the way
+it will be laid, and greys out where a click would be refused. Left-click lays,
+right-click rubs out, dragging a conveyor tool lays a run; `W A S D` face the
+thing in hand (or the thing selected) and `Q E` turn it a quarter. Ctrl-wheel or
+pinch zooms about the pointer, `+ - 0` zoom and fit, and the map pans with the
+hand tool, Space-drag, the middle button or two fingers. `Delete` takes the
+selected thing off and `Esc` steps back to the select tool. Work autosaves, so a
+long transcription survives a reload.
+
+The **course workshop** is the same editor opened on an assembled course from
+the race set-up, and it opens with the flag tool in hand: click a floor square
+for flag 1, again for flag 2, and so on; keys `1`–`9` pick the number in hand.
+The inspector keeps the flags as a numbered list in race order, each with go-to,
+earlier, later and take-off, and a placed flag or trap can be dragged to a new
+square without losing its number, facing or wall.
 
 ## Option cards
 
