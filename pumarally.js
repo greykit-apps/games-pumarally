@@ -5632,6 +5632,117 @@
 
     // ---- the course workshop ---------------------------------------
 
+    { name: "a belt presumes it is a continuation", run: function () {
+      /* Laying a long run one square at a time and setting the facing
+         for each is the tedious half of transcribing a board. A belt
+         dropped next to one that points AT it takes that direction, so
+         only the corners need saying. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.pick = "b"; ED.mode = "tile"; ED.tool = "b";
+      ED.dir = N;                                   // deliberately NOT the run's direction
+      edSetCell(1, 3, "b>");
+      assert(edPaintCode(2, 3) === "b>",
+        "a belt beside one pointing at it laid " + edPaintCode(2, 3) + " instead of carrying on");
+      /* A square nothing feeds takes the facing in hand. */
+      assert(edPaintCode(6, 6) === "b^",
+        "a belt with nothing feeding it should take the tool's facing, took " + edPaintCode(6, 6));
+      /* It is the belt POINTING AT the square that counts, not merely
+         a belt beside it -- one running past is not a run to join. */
+      edSetCell(5, 0, "b^");
+      assert(edPaintCode(6, 0) === "b^",
+        "a belt running past was treated as feeding the square beside it");
+      /* And speed is part of it: an express run does not continue a
+         slow one, because they are different belts. */
+      ED.pick = "B"; ED.tool = "B";
+      assert(edPaintCode(2, 3) === "B^",
+        "an express belt continued a slow one: " + edPaintCode(2, 3));
+      ED = keep;
+    } },
+
+    { name: "a paint stroke is one step of history", run: function () {
+      /* Undoing a twelve-square run twelve times is not undoing it. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.pick = "b"; ED.mode = "tile"; ED.tool = "b"; ED.dir = E;
+      ED.undo = [];
+      var before = edMark();
+      ED.stroke = { before: before, last: { c: 1, r: 1 }, n: 1 };
+      edSetCell(1, 1, "b>");
+      var c;
+      for (c = 2; c <= 5; c++) {
+        edSetCell(c - 1, 1, "b>");
+        edSetCell(c, 1, "b>");
+        ED.stroke.last = { c: c, r: 1 };
+        ED.stroke.n++;
+      }
+      edKeep(before);
+      ED.stroke = null;
+      assert(ED.undo.length === 1, "a five-square run cost " + ED.undo.length + " steps");
+      for (c = 1; c <= 5; c++) {
+        assert(B.beltSpeed(B.codeAt(ED.grid, c, 1)) === 1, "square " + c + " is not a belt");
+      }
+      edRestoreSnap(ED.undo.pop());
+      for (c = 1; c <= 5; c++) {
+        assert(!B.beltSpeed(B.codeAt(ED.grid, c, 1)), "square " + c + " survived the undo");
+      }
+      ED = keep;
+    } },
+
+    { name: "the library offers flags on a course and never on a board", run: function () {
+      /* Flags are placed on a COURSE. They are not printed on a board,
+         so a board workshop that offered them would be offering to
+         write something into board data that no board carries. */
+      var keep = ED;
+      ED = edState(edNew(12, 12), "bench");
+      ED.isCourse = false;
+      var board = edLibrary().map(function (t) { return t.key; });
+      assert(board.indexOf("flag") < 0, "the board workshop offers a flag tool");
+      assert(board.indexOf("b") >= 0 && board.indexOf("wall") >= 0 && board.indexOf("pusher") >= 0,
+        "the board workshop lost its own tools: " + board.join(" "));
+      ED.isCourse = true;
+      var course = edLibrary().map(function (t) { return t.key; });
+      assert(course.indexOf("flag") >= 0, "the course workshop has no flag tool");
+      assert(course.length === board.length + 1,
+        "the two libraries differ by more than the flag: " + course.length + " against " + board.length);
+      /* Every entry says what kind it is, because the mode follows from
+         the entry rather than being chosen separately. */
+      for (var i = 0; i < ED_TOOLS.length; i++) {
+        assert(ED_TOOLS[i].kind, ED_TOOLS[i].key + " has no kind");
+        assert(ED_TOOLS[i].label, ED_TOOLS[i].key + " has no name to show");
+      }
+      ED = keep;
+    } },
+
+    { name: "the workshop tells you what you clicked, most specific first", run: function () {
+      /* A square carries a tile, and may carry a ram, a jet, a laser
+         and a flag at once -- board H prints a conveyor and a ram on
+         one square. So "what is here" has to answer with the thing
+         somebody most likely meant rather than with the floor. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      edSetCell(2, 2, "b>");
+      assert(edWhatsAt(2, 2, null).kind === "tile", "a plain square is not being read as its tile");
+      B.setWall(ED.grid, 2, 2, N, true);
+      assert(edWhatsAt(2, 2, N).kind === "wall", "a wall under the pointer was not found");
+      assert(edWhatsAt(2, 2, S).kind === "tile", "a side with no wall was read as one");
+      ED.grid.pushers.push({ c: 2, r: 2, d: N, regs: [1, 3, 5] });
+      assert(edWhatsAt(2, 2, N).kind === "pusher", "a ram sitting on the square lost to its wall");
+      ED.grid.flags.push({ c: 2, r: 2 });
+      var f = edWhatsAt(2, 2, N);
+      assert(f.kind === "flag" && f.i === 0, "a flag lost to the ram underneath it");
+      /* And the address it hands back is enough to find the thing
+         again, which is what the detail panel edits through. */
+      ED.sel = f;
+      assert(edSelected() === ED.grid.flags[0], "the flag's address does not find the flag");
+      ED.sel = { kind: "pusher", c: 2, r: 2, i: 0 };
+      assert(edSelected() === ED.grid.pushers[0], "the ram's address does not find the ram");
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -6932,6 +7043,27 @@
     ".pr-ed-solo .pr-ed-stage{outline:2px solid var(--pr-accent);outline-offset:2px}",
     ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
     ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
+    ".pr-ed-cell.pr-over{background:color-mix(in srgb,var(--pr-accent) 35%,transparent)}",
+    /* The square being looked at, so the panel on the right and the
+       map agree about which one that is. */
+    ".pr-ed-cell.pr-sel{outline:2px solid var(--pr-accent);outline-offset:-2px;",
+    "background:color-mix(in srgb,var(--pr-accent) 16%,transparent)}",
+    /* The workshop, side by side: map on the left, library and detail
+       on the right, footer underneath. */
+    ".pr-ed-work{display:flex;gap:10px;align-items:flex-start;width:100%;max-width:1200px}",
+    ".pr-ed-side{flex:0 0 236px;display:flex;flex-direction:column;gap:8px;",
+    "max-height:70vh;overflow-y:auto}",
+    ".pr-ed-h{margin:0 0 4px;font-size:11px;letter-spacing:1px;color:var(--pr-accent);",
+    "font-weight:normal;text-transform:uppercase}",
+    ".pr-ed-lib{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}",
+    ".pr-ed-item{display:flex;align-items:center;gap:5px;padding:3px 5px;min-height:0!important;",
+    "font-size:10px;text-align:left;cursor:grab}",
+    ".pr-ed-item.on{border-color:var(--pr-accent);color:var(--pr-accent);",
+    "background:var(--pr-panel-alt)}",
+    ".pr-ed-item-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".pr-ed-detail{border-top:1px solid var(--pr-border);padding-top:6px}",
+    ".pr-ed-detail .pr-ed-row{margin-bottom:4px}",
+    ".pr-ed-detail .pr-ed-note{opacity:.6}",
     ".pr-ed-ok{color:var(--pr-accent);font-size:11px}",
     ".pr-ed-bad{color:var(--pr-danger);font-size:11px}",
     ".pr-ed-out{width:100%;background:var(--pr-bg);color:var(--pr-ink);border:1px solid var(--pr-border);",
@@ -10188,17 +10320,55 @@
      ============================================================ */
   var ED_KEY = "pumarally_editor_v1";
 
+  /* THE LIBRARY, as one list rather than a row of tiles and four
+     separate mode buttons beside it.
+
+     A ram and a conveyor are different KINDS of thing -- one is bolted
+     to a wall and the other is the square itself, which is why board H
+     can print both on one square -- but from the person drawing's side
+     they are both "something I pick up and put down". So the library
+     is flat and each entry says what kind it is; the editor's mode
+     follows from that rather than being chosen separately.
+
+     `paint` marks the ones a drag lays a run of. `dir`, `regs`, `reach`
+     and `digit` say which settings that kind has, which is what the
+     detail panel draws when there is nothing selected. */
   var ED_TOOLS = [
-    { key: "..", label: "Floor" },
-    { key: "b", label: "Conveyor", dir: true },
-    { key: "B", label: "Express", dir: true },
-    { key: "l", label: "Gear CCW" },
-    { key: "r", label: "Gear CW" },
-    { key: "o", label: "Pit" },
-    { key: "w", label: "Repair" },
-    { key: "W", label: "Upgrade" },
-    { key: "s", label: "Docking bay", digit: true }
+    { key: "sel", label: "Select", kind: "select", solo: true },
+    { key: "..", label: "Floor", kind: "tile" },
+    { key: "b", label: "Conveyor", kind: "tile", dir: true, paint: true },
+    { key: "B", label: "Express", kind: "tile", dir: true, paint: true },
+    { key: "l", label: "Gear CCW", kind: "tile" },
+    { key: "r", label: "Gear CW", kind: "tile" },
+    { key: "o", label: "Pit", kind: "tile" },
+    { key: "w", label: "Repair", kind: "tile" },
+    { key: "W", label: "Upgrade", kind: "tile" },
+    { key: "s", label: "Docking bay", kind: "tile", digit: true },
+    { key: "wall", label: "Wall", kind: "wall", solo: true },
+    { key: "laser", label: "Laser", kind: "laser", dir: true, damage: true, drag: true },
+    { key: "pusher", label: "Ram", kind: "pusher", dir: true, regs: "push", drag: true },
+    { key: "burner", label: "Flame jet", kind: "burner", dir: true, regs: "burn", reach: true, drag: true },
+    { key: "flag", label: "Flag", kind: "flag", course: true, number: true, drag: true }
   ];
+
+  function edToolByKey(k) {
+    for (var i = 0; i < ED_TOOLS.length; i++) if (ED_TOOLS[i].key === k) return ED_TOOLS[i];
+    return null;
+  }
+
+  function edTool() { return edToolByKey(ED.pick) || edToolByKey("b"); }
+
+  /* Which library entries this workshop offers. Flags are placed on a
+     COURSE and not printed on a board, so the flag tool exists only
+     where a course is being edited. */
+  function edLibrary() {
+    var out = [];
+    for (var i = 0; i < ED_TOOLS.length; i++) {
+      if (ED_TOOLS[i].course && !ED.isCourse) continue;
+      out.push(ED_TOOLS[i]);
+    }
+    return out;
+  }
 
   var ED = null;
 
@@ -10221,6 +10391,9 @@
       id: id || "newBoard",
       grid: grid,
       tool: "b",
+      pick: "b",                 // the library entry in hand
+      sel: null,                 // the placed thing being looked at
+      flagNum: 1,                // the number the next flag takes
       dir: N,
       digit: 1,
       laserN: 1,
@@ -10340,6 +10513,72 @@
     ED.grid.cell[r * ED.grid.w + c] = code;
   }
 
+  /* WHAT IS ON THIS SQUARE, most specific first.
+
+     A square can carry a tile, a ram, a jet and a laser at once -- they
+     are different kinds of thing sharing one place -- so "select what
+     is here" has to answer with the thing somebody most likely meant.
+     A flag before a mount before a wall before the floor underneath. */
+  function edWhatsAt(c, r, edge) {
+    var g = ED.grid, i;
+    for (i = 0; i < (g.flags || []).length; i++) {
+      if (g.flags[i].c === c && g.flags[i].r === r) return { kind: "flag", c: c, r: r, i: i };
+    }
+    for (i = 0; i < g.lasers.length; i++) {
+      if (g.lasers[i].c === c && g.lasers[i].r === r) return { kind: "laser", c: c, r: r, i: i };
+    }
+    for (i = 0; i < g.pushers.length; i++) {
+      if (g.pushers[i].c === c && g.pushers[i].r === r) return { kind: "pusher", c: c, r: r, i: i };
+    }
+    for (i = 0; i < g.burners.length; i++) {
+      if (g.burners[i].c === c && g.burners[i].r === r) return { kind: "burner", c: c, r: r, i: i };
+    }
+    if (edge !== null && edge !== undefined && B.wallAt(g, c, r, edge)) {
+      return { kind: "wall", c: c, r: r, edge: edge };
+    }
+    return { kind: "tile", c: c, r: r };
+  }
+
+  function edSelected() {
+    if (!ED.sel) return null;
+    var s = ED.sel, g = ED.grid;
+    if (s.kind === "flag") return (g.flags || [])[s.i] || null;
+    if (s.kind === "laser") return g.lasers[s.i] || null;
+    if (s.kind === "pusher") return g.pushers[s.i] || null;
+    if (s.kind === "burner") return g.burners[s.i] || null;
+    return s;                                  // tile and wall are their own address
+  }
+
+  /* A BELT PRESUMES IT IS A CONTINUATION.
+
+     Laying a long run one square at a time and setting the facing for
+     each is the tedious half of transcribing a board. A belt dropped
+     next to one that points AT it takes that direction, so a run
+     carries on by itself and only the corners need saying. */
+  function edBeltDir(c, r, speed, fallback) {
+    var g = ED.grid;
+    for (var d = 0; d < 4; d++) {
+      var nb = B.step(c, r, B.opposite(d));    // the square that would feed this one
+      if (!B.inGrid(g, nb.c, nb.r)) continue;
+      var code = B.codeAt(g, nb.c, nb.r);
+      if (B.beltSpeed(code) !== speed) continue;
+      if (B.dirOf(code) === d) return d;       // it points at us
+    }
+    return fallback;
+  }
+
+  /* Flags are a list and their order is the race, so placing one is an
+     insertion rather than an append: the number in hand says where it
+     goes, and goes up by one afterward so a run of clicks lays 1, 2,
+     3. Q and E move the number instead of a facing, because a flag has
+     no facing to rotate. */
+  function edFlagSlot() {
+    var n = (ED.grid.flags || []).length;
+    if (!ED.flagNum || ED.flagNum < 1) ED.flagNum = 1;
+    if (ED.flagNum > n + 1) ED.flagNum = n + 1;
+    return ED.flagNum;
+  }
+
   function edToolCode() {
     var t = null;
     for (var i = 0; i < ED_TOOLS.length; i++) if (ED_TOOLS[i].key === ED.tool) t = ED_TOOLS[i];
@@ -10411,8 +10650,9 @@
     out = [];
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
-        out.push('<div class="pr-ed-cell" data-c="' + c + '" data-r="' + r +
-          '" title="' + c + "," + r + '"></div>');
+        var selHere = ED.sel && ED.sel.c === c && ED.sel.r === r;
+        out.push('<div class="pr-ed-cell' + (selHere ? " pr-sel" : "") +
+          '" data-c="' + c + '" data-r="' + r + '" title="' + c + "," + r + '"></div>');
       }
     }
     hits.innerHTML = out.join("");
@@ -10446,66 +10686,191 @@
     return ED.grid;
   }
 
+  /* THE SIDEBAR: what you can pick up, and what the thing in your hand
+     -- or the thing you have selected -- is made of. */
   function edRenderPanel() {
-    var out = ['<div class="pr-ed-row">'];
-    for (var i = 0; i < ED_TOOLS.length; i++) {
-      var t = ED_TOOLS[i];
-      out.push('<button data-act="edtool" data-k="' + esc(t.key) + '"' +
-        (ED.mode === "tile" && ED.tool === t.key ? ' class="on"' : "") + ">" + esc(t.label) + "</button>");
-    }
-    if (ED.isCourse) {
-      out.push('<button data-act="edmode" data-m="flag"' + (ED.mode === "flag" ? ' class="on"' : "") +
-        ">Flags</button>");
-    }
-    out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
-    out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
-    out.push('<button data-act="edmode" data-m="pusher"' + (ED.mode === "pusher" ? ' class="on"' : "") + ">Pushers</button>");
-    out.push('<button data-act="edmode" data-m="burner"' + (ED.mode === "burner" ? ' class="on"' : "") + ">Burners</button>");
-    out.push("</div>");
+    edRenderLib();
+    edRenderDetail();
+    edRenderFoot();
+  }
 
-    /* A pusher is bolted to a wall and the square under it is its own
-       thing, so it is a mode rather than a tile: a conveyor and a ram
-       share squares on board H, and a palette entry could only ever
-       replace one with the other. */
-    out.push('<div class="pr-ed-row"><span>Pusher fires in</span>');
-    for (var pg = 1; pg <= 5; pg++) {
-      out.push('<button data-act="edpreg" data-n="' + pg + '"' +
-        (ED.pushRegs.indexOf(pg) >= 0 ? ' class="on"' : "") + ">" + pg + "</button>");
-    }
-    out.push('<button data-act="edpreset" data-p="odd">1/3/5</button>');
-    out.push('<button data-act="edpreset" data-p="even">2/4</button>');
-    out.push("</div>");
-
-    /* A jet is wall-mounted like a ram, so it is a mode too -- and it has
-       one thing a ram does not: most cover one square and a few reach a
-       second, which no tile could ever have said. */
-    out.push('<div class="pr-ed-row"><span>Jet fires in</span>');
-    for (var bg = 1; bg <= 5; bg++) {
-      out.push('<button data-act="edbreg" data-n="' + bg + '"' +
-        (ED.burnRegs.indexOf(bg) >= 0 ? ' class="on"' : "") + ">" + bg + "</button>");
-    }
-    out.push('<span>Reaches</span>');
-    for (var bl = 1; bl <= 2; bl++) {
-      out.push('<button data-act="edblen" data-n="' + bl + '"' +
-        (ED.burnLen === bl ? ' class="on"' : "") + ">" + bl + (bl === 1 ? " square" : " squares") + "</button>");
+  function edRenderLib() {
+    var lib = edLibrary(), out = ['<h3 class="pr-ed-h">Library</h3><div class="pr-ed-lib">'], i;
+    for (i = 0; i < lib.length; i++) {
+      var t = lib[i], on = ED.pick === t.key;
+      out.push('<button class="pr-ed-item' + (on ? " on" : "") + '"' +
+        (t.drag ? ' draggable="true"' : "") +
+        ' data-act="edpick" data-k="' + esc(t.key) + '"' +
+        ' aria-pressed="' + (on ? "true" : "false") + '">' +
+        (t.kind === "tile" && t.key !== ".." ? edToolThumb(t) : "") +
+        '<span class="pr-ed-item-name">' + esc(t.label) + "</span></button>");
     }
     out.push("</div>");
+    UI.els.edLib.innerHTML = out.join("");
+  }
 
-    out.push('<div class="pr-ed-row"><span>Facing</span>');
+  /* The tile the way the board draws it, so the library is a picture
+     of what you are about to put down rather than a word for it. */
+  function edToolThumb(t) {
+    var g = B.blankGrid(1, 1);
+    g.flags = [];
+    g.cell[0] = t.dir ? t.key + B.DIR_CHARS.charAt(ED.dir) : t.digit ? t.key + ED.digit : t.key + ".";
+    return '<span class="pr-thumb" style="--tile:20px;--wt:8px;width:20px;height:20px">' +
+      '<span class="pr-thumb-grid" style="grid-template-columns:20px">' +
+      '<i class="' + tileClasses(g, 0, 0).join(" ") + '">' + tileInner(g, 0, 0) + "</i></span></span>";
+  }
+
+  /* THE DETAIL PANEL.
+
+     One place that answers "what is this and what can I change about
+     it". With something selected it edits that thing; with nothing
+     selected it sets what the tool in hand will lay down next. The two
+     read the same because they are the same questions -- which way it
+     faces, which registers it fires on, how far it reaches. */
+  function edRenderDetail() {
+    var sel = ED.sel && edSelected() ? ED.sel : null;
+    var t = edTool(), out = [];
+    if (sel) out.push('<h3 class="pr-ed-h">' + esc(edSelName(sel)) + "</h3>");
+    else out.push('<h3 class="pr-ed-h">' + esc(t.label) + "</h3>");
+
+    if (sel) out.push(edDetailFor(sel));
+    else if (t.kind === "select") {
+      out.push('<div class="pr-ed-note">Click anything on the course to see what it is and ' +
+        "change it. Pick something from the library to put one down instead.</div>");
+    } else out.push(edToolSettings(t));
+
+    UI.els.edDetail.innerHTML = out.join("");
+  }
+
+  function edSelName(sel) {
+    if (sel.kind === "flag") return "Flag " + (sel.i + 1);
+    if (sel.kind === "laser") return "Laser";
+    if (sel.kind === "pusher") return "Ram";
+    if (sel.kind === "burner") return "Flame jet";
+    if (sel.kind === "wall") return "Wall on the " + B.dirName(sel.edge) + " side";
+    var def = B.elemOf(B.codeAt(ED.grid, sel.c, sel.r));
+    return def ? def.name.charAt(0).toUpperCase() + def.name.slice(1) : "Empty square";
+  }
+
+  function edWhere(sel) {
+    return '<div class="pr-ed-note">Column ' + (sel.c + 1) + ", row " + (sel.r + 1) + ".</div>";
+  }
+
+  function edDetailFor(sel) {
+    var out = [edWhere(sel)], obj = edSelected(), i;
+    if (sel.kind === "tile") {
+      var code = B.codeAt(ED.grid, sel.c, sel.r), def = B.elemOf(code);
+      if (def && def.arg === "dir") {
+        out.push(edFacingRow("edseldir", B.dirOf(code)));
+      }
+      if (def && def.arg === "digit") {
+        out.push(edNumberRow("Bay", "edselnum", parseInt(code.charAt(1), 10), 1, 8));
+      }
+      out.push('<div class="pr-ed-row"><button data-act="edselclear">Make it floor</button></div>');
+      var walls = [];
+      for (i = 0; i < 4; i++) if (B.wallAt(ED.grid, sel.c, sel.r, i)) walls.push(B.dirName(i));
+      out.push('<div class="pr-ed-note">' +
+        (walls.length ? "Walled to the " + walls.join(" and ") + "." : "No walls on this square.") +
+        "</div>");
+      out.push(edWallRow(sel));
+    } else if (sel.kind === "wall") {
+      out.push(edWallRow(sel));
+      out.push('<div class="pr-ed-row"><button data-act="edselremove">Take the wall down</button></div>');
+    } else if (sel.kind === "laser") {
+      out.push(edFacingRow("edseldir", obj.d));
+      out.push(edNumberRow("Damage", "edselnum", obj.n, 1, 3));
+      out.push('<div class="pr-ed-row"><button data-act="edselremove">Take it off</button></div>');
+    } else if (sel.kind === "pusher" || sel.kind === "burner") {
+      out.push(edFacingRow("edseldir", obj.d));
+      out.push(edRegRow("Fires in", "edselreg", obj.regs));
+      if (sel.kind === "burner") out.push(edNumberRow("Reaches", "edselnum", obj.len, 1, 2));
+      out.push('<div class="pr-ed-row"><button data-act="edselremove">Take it off</button></div>');
+    } else if (sel.kind === "flag") {
+      out.push(edNumberRow("Number", "edselnum", sel.i + 1, 1, (ED.grid.flags || []).length));
+      out.push('<div class="pr-ed-note">Changing the number moves it in the order the flags are ' +
+        "raced. The others shuffle round it.</div>");
+      out.push('<div class="pr-ed-row"><button data-act="edselremove">Take it off</button></div>');
+    }
+    return out.join("");
+  }
+
+  function edToolSettings(t) {
+    var out = [];
+    if (t.dir) out.push(edFacingRow("eddir", ED.dir));
+    if (t.digit) out.push(edNumberRow("Bay", "eddigit", ED.digit, 1, 8));
+    if (t.damage) out.push(edNumberRow("Damage", "edlaser", ED.laserN, 1, 3));
+    if (t.regs === "push") {
+      out.push(edRegRow("Fires in", "edpreg", ED.pushRegs));
+      out.push('<div class="pr-ed-row"><button data-act="edpreset" data-p="odd">1/3/5</button>' +
+        '<button data-act="edpreset" data-p="even">2/4</button></div>');
+    }
+    if (t.regs === "burn") out.push(edRegRow("Fires in", "edbreg", ED.burnRegs));
+    if (t.reach) out.push(edNumberRow("Reaches", "edblen", ED.burnLen, 1, 2));
+    if (t.number) {
+      out.push(edNumberRow("Next flag", "edflagnum", edFlagSlot(), 1, (ED.grid.flags || []).length + 1));
+      out.push('<div class="pr-ed-note">Q and E move the number. Flags do not turn, so those keys ' +
+        "count instead. Clicking a flag already down picks it up and gives you its number back.</div>");
+    }
+    if (t.paint) {
+      out.push('<div class="pr-ed-note">Drag to lay a run: each square turns to point at the next ' +
+        "one. A belt dropped beside one that points at it carries on in the same direction.</div>");
+    }
+    if (t.kind === "wall") {
+      out.push('<div class="pr-ed-note">Click near the edge of a square to raise or lower the wall ' +
+        "on that side.</div>");
+    }
+    if (t.dir) {
+      out.push('<div class="pr-ed-note">W A S D face it north, west, south and east. Q and E turn ' +
+        "it a quarter each way.</div>");
+    }
+    return out.join("");
+  }
+
+  function edFacingRow(act, cur) {
+    var out = ['<div class="pr-ed-row"><span>Facing</span>'];
     for (var d = 0; d < 4; d++) {
-      out.push('<button data-act="eddir" data-d="' + d + '"' + (ED.dir === d ? ' class="on"' : "") + ">" +
-        esc(B.dirName(d)) + "</button>");
-    }
-    out.push('<span>Bay</span>');
-    for (var n = 1; n <= 8; n++) {
-      out.push('<button data-act="eddigit" data-n="' + n + '"' + (ED.digit === n ? ' class="on"' : "") + ">" + n + "</button>");
-    }
-    out.push('<span>Laser</span>');
-    for (var ln = 1; ln <= 3; ln++) {
-      out.push('<button data-act="edlaser" data-n="' + ln + '"' + (ED.laserN === ln ? ' class="on"' : "") + ">" + ln + "</button>");
+      out.push('<button data-act="' + act + '" data-d="' + d + '"' + (cur === d ? ' class="on"' : "") +
+        ">" + esc(B.dirName(d)) + "</button>");
     }
     out.push("</div>");
+    return out.join("");
+  }
 
+  function edNumberRow(label, act, cur, lo, hi) {
+    var out = ['<div class="pr-ed-row"><span>' + esc(label) + "</span>"];
+    for (var n = lo; n <= hi; n++) {
+      out.push('<button data-act="' + act + '" data-n="' + n + '"' + (cur === n ? ' class="on"' : "") +
+        ">" + n + "</button>");
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
+  function edRegRow(label, act, regs) {
+    var out = ['<div class="pr-ed-row"><span>' + esc(label) + "</span>"];
+    for (var n = 1; n <= 5; n++) {
+      out.push('<button data-act="' + act + '" data-n="' + n + '"' +
+        (regs.indexOf(n) >= 0 ? ' class="on"' : "") + ">" + n + "</button>");
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
+  function edWallRow(sel) {
+    var out = ['<div class="pr-ed-row"><span>Walls</span>'];
+    for (var d = 0; d < 4; d++) {
+      out.push('<button data-act="edselwall" data-d="' + d + '"' +
+        (B.wallAt(ED.grid, sel.c, sel.r, d) ? ' class="on"' : "") + ">" + esc(B.dirName(d)) + "</button>");
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
+  /* The footer: the photograph being traced, the way out, and what is
+     wrong with the map. Everything that is about the SESSION rather
+     than about a square. */
+  function edRenderFoot() {
+    var out = [];
     out.push('<div class="pr-ed-row"><span>Reference</span>' +
       '<input type="file" accept="image/*" data-act="edimg">' +
       '<span>Fade</span><input type="range" min="0" max="100" value="' + Math.round(ED.opacity * 100) +
@@ -10520,13 +10885,14 @@
       '<span>(hold Ctrl to flip)</span>' +
       '<button data-act="edclearimg">Remove</button></div>');
 
+    out.push(edUndoRow());
+
     if (ED.isCourse) {
       /* Three ways out, because a course is finished by three
          different people: one who wants to go on and place flags, one
          who has already placed them here and wants to race, and one
          who wants none of it. */
       var nF = (ED.grid.flags || []).length;
-      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Course</span>' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) +
           '" size="18" aria-label="course name">' +
@@ -10539,14 +10905,12 @@
       /* One way out that keeps the edit and one that throws it away.
          "Leave editor" on its own would be ambiguous here, and an
          ambiguous exit from twenty minutes of editing is cruel. */
-      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Board</span>' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
         '<button data-act="edapply">Use this map</button>' +
         '<button data-act="edrevert">Discard changes</button>' +
         '<button data-act="edexport">Export source</button></div>');
     } else {
-      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Board</span>' +
         '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
@@ -10555,16 +10919,15 @@
         '<button data-act="edquit">Leave editor</button></div>');
     }
 
-    var msg = "";
     if (ED.errors.length) {
-      msg = '<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" + (ED.errors.length > 1 ? "s" : "") +
-        (ED.isCourse ? " with this course" : "") + "</b><br>" +
-        ED.errors.map(esc).join("<br>") + "</div>";
+      out.push('<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" +
+        (ED.errors.length > 1 ? "s" : "") + (ED.isCourse ? " with this course" : "") + "</b><br>" +
+        ED.errors.map(esc).join("<br>") + "</div>");
     } else {
-      msg = '<div class="pr-ed-ok">' + (ED.isCourse ? "Valid course." : "Valid board.") +
-        (ED.warnings.length ? " " + ED.warnings.length + " warning: " + esc(ED.warnings[0]) : "") + "</div>";
+      out.push('<div class="pr-ed-ok">' + (ED.isCourse ? "Valid course." : "Valid board.") +
+        (ED.warnings.length ? " " + ED.warnings.length + " warning: " + esc(ED.warnings[0]) : "") +
+        "</div>");
     }
-    out.push(msg);
     UI.els.edPanel.innerHTML = out.join("");
   }
 
@@ -10661,96 +11024,181 @@
     announce("Undone.");
   }
 
+  /* ONE PLACE THAT PUTS A THING DOWN, whatever asked for it -- a
+     click, the end of a paint stroke, or a hazard dragged off the
+     library. Three callers, one definition of what placing means. */
+  function edPut(kind, c, r, opt) {
+    var g = ED.grid, i;
+    opt = opt || {};
+    if (!B.inGrid(g, c, r)) return false;
+    if (kind === "tile") {
+      edSetCell(c, r, opt.code || edToolCode());
+      return true;
+    }
+    if (kind === "wall") {
+      if (opt.edge === null || opt.edge === undefined) return false;
+      B.setWall(g, c, r, opt.edge, !B.wallAt(g, c, r, opt.edge));
+      return true;
+    }
+    if (kind === "laser") {
+      for (i = 0; i < g.lasers.length; i++) {
+        if (g.lasers[i].c === c && g.lasers[i].r === r) { g.lasers.splice(i, 1); return true; }
+      }
+      if (opt.erase) return false;
+      g.lasers.push({ c: c, r: r, d: opt.dir === undefined ? ED.dir : opt.dir,
+                      n: opt.n || ED.laserN });
+      return true;
+    }
+    if (kind === "pusher") {
+      for (i = 0; i < g.pushers.length; i++) {
+        if (g.pushers[i].c === c && g.pushers[i].r === r) { g.pushers.splice(i, 1); return true; }
+      }
+      if (opt.erase) return false;
+      if (!ED.pushRegs.length) { announce("Pick at least one register for the ram first."); return false; }
+      g.pushers.push({ c: c, r: r, d: opt.dir === undefined ? ED.dir : opt.dir,
+                       regs: ED.pushRegs.slice().sort() });
+      return true;
+    }
+    if (kind === "burner") {
+      for (i = 0; i < g.burners.length; i++) {
+        if (g.burners[i].c === c && g.burners[i].r === r) { g.burners.splice(i, 1); return true; }
+      }
+      if (opt.erase) return false;
+      if (!ED.burnRegs.length) { announce("Pick at least one register for the jet first."); return false; }
+      g.burners.push({ c: c, r: r, d: opt.dir === undefined ? ED.dir : opt.dir,
+                       regs: ED.burnRegs.slice().sort(), len: ED.burnLen });
+      return true;
+    }
+    if (kind === "flag") {
+      g.flags = g.flags || [];
+      for (i = 0; i < g.flags.length; i++) {
+        if (g.flags[i].c === c && g.flags[i].r === r) {
+          /* Clicking a flag picks it up, and the number it was comes
+             back into the hand so putting it down again restores the
+             order rather than appending to the end. */
+          g.flags.splice(i, 1);
+          ED.flagNum = i + 1;
+          return true;
+        }
+      }
+      if (opt.erase) return false;
+      var el0 = B.elemOf(B.codeAt(g, c, r));
+      if (!el0 || el0.name !== "floor") { announce("A flag can only sit on plain floor."); return false; }
+      var dk = ED.dock;
+      if (dk && c >= dk.at[0] && c <= dk.at[0] + 11 && r >= dk.at[1] && r <= dk.at[1] + 3) {
+        announce("That is the starting block. A flag there is touched before the race begins.");
+        return false;
+      }
+      var at = edFlagSlot() - 1;
+      g.flags.splice(at, 0, { c: c, r: r });
+      ED.flagNum = at + 2;
+      return true;
+    }
+    return false;
+  }
+
   function edClick(e, erase) {
     var hit = edHit(e);
     if (!hit) return;
-    var before = edMark();
-    if (ED.mode === "flag") {
-      /* Flags are a list, not a square: clicking one already down
-         takes it back, and the ones after it renumber. Same rule as
-         the by-hand picker on the flags screen, because it is the same
-         decision being made in a different room. */
-      ED.grid.flags = ED.grid.flags || [];
-      var gf = -1;
-      for (var g2 = 0; g2 < ED.grid.flags.length; g2++) {
-        if (ED.grid.flags[g2].c === hit.c && ED.grid.flags[g2].r === hit.r) gf = g2;
-      }
-      if (gf >= 0) ED.grid.flags.splice(gf, 1);
-      else if (!erase) {
-        var code0 = B.codeAt(ED.grid, hit.c, hit.r), el0 = B.elemOf(code0);
-        if (!el0 || el0.name !== "floor") {
-          announce("A flag can only sit on plain floor.");
-          edKeep(before);
-          return;
-        }
-        /* And not in the start area. The empty squares of the docking
-           strip ARE plain floor, so "floor" alone would let flag one
-           sit where the robots begin -- touched for free by whoever
-           happens to start on it. */
-        var dk = ED.dock;
-        if (dk && hit.c >= dk.at[0] && hit.c <= dk.at[0] + 11 &&
-            hit.r >= dk.at[1] && hit.r <= dk.at[1] + 3) {
-          announce("That is the starting block. A flag there is touched before the race begins.");
-          edKeep(before);
-          return;
-        }
-        /* NO REACH RULE HERE. The two automatic placements keep every
-           flag within a board's width of the one before it, because
-           that is what makes a generated course a course rather than a
-           set of separate journeys. The workshop is the room where a
-           person is deciding, and a rule of thumb enforced against
-           somebody who is drawing on purpose is just an obstacle. */
-        ED.grid.flags.push({ c: hit.c, r: hit.r });
-      }
-    } else if (ED.mode === "wall") {
-      if (hit.edge === null) { edKeep(before); return; }
-      B.setWall(ED.grid, hit.c, hit.r, hit.edge, !B.wallAt(ED.grid, hit.c, hit.r, hit.edge));
-    } else if (ED.mode === "laser") {
-      var found = -1;
-      for (var i = 0; i < ED.grid.lasers.length; i++) {
-        if (ED.grid.lasers[i].c === hit.c && ED.grid.lasers[i].r === hit.r) found = i;
-      }
-      if (found >= 0) ED.grid.lasers.splice(found, 1);
-      if (!erase && found < 0) ED.grid.lasers.push({ c: hit.c, r: hit.r, d: ED.dir, n: ED.laserN });
-    } else if (ED.mode === "burner") {
-      var ff = -1;
-      for (var f = 0; f < ED.grid.burners.length; f++) {
-        if (ED.grid.burners[f].c === hit.c && ED.grid.burners[f].r === hit.r) ff = f;
-      }
-      if (ff >= 0) ED.grid.burners.splice(ff, 1);
-      if (!erase && ff < 0) {
-        if (!ED.burnRegs.length) {
-          announce("Pick at least one register for the jet first.");
-          edKeep(before);
-          return;
-        }
-        ED.grid.burners.push({ c: hit.c, r: hit.r, d: ED.dir,
-                               regs: ED.burnRegs.slice().sort(), len: ED.burnLen });
-      }
-    } else if (ED.mode === "pusher") {
-      var fu = -1;
-      for (var u = 0; u < ED.grid.pushers.length; u++) {
-        if (ED.grid.pushers[u].c === hit.c && ED.grid.pushers[u].r === hit.r) fu = u;
-      }
-      if (fu >= 0) ED.grid.pushers.splice(fu, 1);
-      if (!erase && fu < 0) {
-        if (!ED.pushRegs.length) {
-          announce("Pick at least one register for the pusher first.");
-          edKeep(before);
-          return;
-        }
-        ED.grid.pushers.push({ c: hit.c, r: hit.r, d: ED.dir, regs: ED.pushRegs.slice().sort() });
-      }
-    } else {
-      edSetCell(hit.c, hit.r, erase ? ".." : edToolCode());
+    var kind = edTool().kind;
+    /* A PAINT TOOL BELONGS TO THE POINTER, WHOLE.
+
+       Pressing and releasing without moving is a stroke of one square,
+       which the paint path already lays -- so letting the click
+       through as well would place it twice, and guarding against that
+       with a flag set at the end of a drag leaves the flag standing
+       when no click follows. Left button: the pointer owns it. Right
+       button rubs out, and never starts a stroke. */
+    if (!erase && kind === "tile" && edTool().paint) return;
+
+    /* SELECT looks rather than places. Everything about the thing
+       under the pointer then lives in one panel on the right, which is
+       where changing it lives too. */
+    if (kind === "select") {
+      ED.sel = edWhatsAt(hit.c, hit.r, hit.edge);
+      edRender();
+      edRenderPanel();
+      return;
     }
-    /* A click that changed nothing -- floor painted over floor -- does
-       not cost a step of history. */
+
+    var before = edMark();
+    var did = kind === "wall"
+      ? edPut("wall", hit.c, hit.r, { edge: hit.edge })
+      : kind === "tile"
+        ? edPut("tile", hit.c, hit.r, { code: erase ? ".." : edPaintCode(hit.c, hit.r) })
+        : edPut(kind, hit.c, hit.r, { erase: erase });
+    if (!did) { edKeep(before); return; }
+    /* What was just put down is what you are looking at, so the panel
+       is about it without a second click -- EXCEPT a flag. Flags are
+       laid in runs, and the thing you want to keep steering between
+       clicks is the number in hand, not the one already down. */
+    ED.sel = kind === "flag" ? null : edWhatsAt(hit.c, hit.r, kind === "wall" ? hit.edge : null);
     edKeep(before);
+    edAfterEdit();
+  }
+
+  /* The code a tile tool lays HERE, which for a belt is the run it is
+     joining rather than the facing in the toolbar. */
+  function edPaintCode(c, r) {
+    var t = edTool();
+    if (!t.paint) return edToolCode();
+    var speed = t.key === "B" ? 2 : 1;
+    return t.key + B.DIR_CHARS.charAt(edBeltDir(c, r, speed, ED.dir));
+  }
+
+  function edAfterEdit() {
     edValidate();
     edSave();
     edRender();
     edRenderPanel();
+  }
+
+  /* PAINTING A RUN.
+
+     Pointer down starts a stroke and pointer-over continues it: each
+     square you leave is turned to point at the one you moved to, so a
+     drag lays a belt that goes where the hand went. One stroke is one
+     step of history, because undoing a twelve-square run twelve times
+     is not undoing it. */
+  function edPaintStart(e) {
+    var t = edTool();
+    if (!t.paint || ED.mode !== "tile") return;
+    var hit = edHit(e);
+    if (!hit) return;
+    ED.stroke = { before: edMark(), last: { c: hit.c, r: hit.r }, n: 1 };
+    edPut("tile", hit.c, hit.r, { code: edPaintCode(hit.c, hit.r) });
+    ED.sel = null;
+    edValidate();
+    edRender();
+  }
+
+  function edPaintOver(e) {
+    if (!ED.stroke) return;
+    var hit = edHit(e);
+    if (!hit) return;
+    var last = ED.stroke.last;
+    if (hit.c === last.c && hit.r === last.r) return;
+    var dc = hit.c - last.c, dr = hit.r - last.r;
+    /* Only orthogonal steps: a diagonal drag would have to guess which
+       way round the corner went, and guessing is how a run ends up
+       pointing into a wall. */
+    if (Math.abs(dc) + Math.abs(dr) !== 1) { ED.stroke.last = { c: hit.c, r: hit.r }; return; }
+    var d = dc === 1 ? E : dc === -1 ? W : dr === 1 ? S : N;
+    var t = edTool();
+    edSetCell(last.c, last.r, t.key + B.DIR_CHARS.charAt(d));
+    edSetCell(hit.c, hit.r, t.key + B.DIR_CHARS.charAt(d));
+    ED.stroke.last = { c: hit.c, r: hit.r };
+    ED.stroke.n++;
+    edValidate();
+    edRender();
+  }
+
+  function edPaintEnd() {
+    if (!ED.stroke) return;
+    var st = ED.stroke;
+    ED.stroke = null;
+    edKeep(st.before);
+    edAfterEdit();
   }
 
   /* THE WHOLE COURSE, NOT ONE BOARD.
@@ -10803,6 +11251,9 @@
       ED.isCourse = true;
       ED.boards = course.boards;
       ED.dock = course.dock;
+      /* The next flag follows the ones already on the course rather
+         than starting at one and shoving them all down the order. */
+      ED.flagNum = (ED.grid.flags || []).length + 1;
       /* A course is two boards wide before anybody adds a second row,
          so it opens further out than a single board does. */
       ED.zoom = 1;
@@ -10820,24 +11271,97 @@
         : fromSetup
           ? "Change this map for the race you are about to start."
           : "Trace a photograph, export the source.") + "</span>");
+    /* THE MAP ON THE LEFT, THE SIDEBAR ON THE RIGHT. What you can pick
+       up and what the thing in your hand is made of belong beside the
+       thing you are drawing on, not stacked above it where choosing a
+       register scrolls the board off the screen. */
+    var work = el("div", "pr-ed-work");
     var stage = el("div", "pr-ed-stage");
+    var side = el("div", "pr-ed-side");
+    var lib = el("div", "pr-ed-libwrap");
+    var detail = el("div", "pr-ed-detail");
     var panel = el("div", "pr-ed-panel");
     var overlay = el("div", "pr-overlay");
     overlay.hidden = true;
     var sr = el("div", "pr-sr");
     sr.setAttribute("aria-live", "polite");
 
+    side.appendChild(lib);
+    side.appendChild(detail);
+    work.appendChild(stage);
+    work.appendChild(side);
+
     host.appendChild(hud);
+    host.appendChild(work);
     host.appendChild(panel);
-    host.appendChild(stage);
     host.appendChild(overlay);
     host.appendChild(sr);
 
-    UI.els = { host: host, edBoard: stage, edPanel: panel, overlay: overlay, sr: sr };
+    UI.els = { host: host, edBoard: stage, edPanel: panel, edLib: lib, edDetail: detail,
+               overlay: overlay, sr: sr };
     UI.mounted = false;                 // there is no game here to render
 
     stage.addEventListener("click", function (e) { edClick(e, false); });
     stage.addEventListener("contextmenu", function (e) { e.preventDefault(); edClick(e, true); });
+
+    /* PAINTING A RUN, and dropping a hazard out of the library. Both
+       are pointer gestures over the hit grid, so both live here. */
+    stage.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0) return;
+      edPaintStart(e);
+    });
+    stage.addEventListener("pointermove", function (e) { edPaintOver(e); });
+    document.addEventListener("pointerup", function () { if (ED) edPaintEnd(); });
+    stage.addEventListener("dragover", function (e) {
+      if (!ED || !ED.dragTool) return;
+      var cell = e.target.closest(".pr-ed-cell");
+      if (!cell) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      cell.classList.add("pr-over");
+    });
+    stage.addEventListener("dragleave", function (e) {
+      var cell = e.target.closest(".pr-ed-cell");
+      if (cell) cell.classList.remove("pr-over");
+    });
+    stage.addEventListener("drop", function (e) {
+      if (!ED || !ED.dragTool) return;
+      var hit = edHit(e);
+      if (!hit) return;
+      e.preventDefault();
+      var t = edToolByKey(ED.dragTool);
+      ED.dragTool = null;
+      if (!t) return;
+      var before = edMark();
+      var did = t.kind === "tile"
+        ? edPut("tile", hit.c, hit.r, { code: edPaintCode(hit.c, hit.r) })
+        : edPut(t.kind, hit.c, hit.r, {});
+      if (!did) { edKeep(before); edRender(); return; }
+      ED.sel = edWhatsAt(hit.c, hit.r, null);
+      edKeep(before);
+      edAfterEdit();
+    });
+    host.addEventListener("dragstart", function (e) {
+      var item = e.target.closest(".pr-ed-item[draggable=true]");
+      if (!item) { e.preventDefault(); return; }
+      /* The library entry travels on ED rather than in dataTransfer,
+         for the reason the assembler's boards do: Safari will not let
+         a dragover handler read the payload. */
+      ED.dragTool = item.dataset.k;
+      /* The SIDEBAR redraws, the map does not. A drag begins on an
+         element and rebuilding the map under the pointer is how the
+         board assembler's drags were cancelled; the hit grid the
+         pointer is about to travel over must survive the gesture. */
+      edPickQuiet(item.dataset.k);
+      try { e.dataTransfer.setData("text/plain", "tool"); e.dataTransfer.effectAllowed = "copy"; }
+      catch (err) {}
+    });
+    host.addEventListener("dragend", function () {
+      if (!ED) return;
+      ED.dragTool = null;
+      var over = host.querySelectorAll(".pr-ed-cell.pr-over");
+      for (var i = 0; i < over.length; i++) over[i].classList.remove("pr-over");
+    });
     host.addEventListener("click", function (e) {
       var b = e.target.closest("[data-act]");
       if (b && !b.disabled) edDispatch(b, e);
@@ -10856,6 +11380,7 @@
 
     edValidate();
     edRender();
+    edRenderPanel();
   }
 
   function edKey(e) {
@@ -10876,8 +11401,62 @@
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === "r" || e.key === "R") { ED.dir = B.rot(ED.dir, 1); edRenderPanel(); }
-    else if (e.key === "w" || e.key === "W") { ED.mode = ED.mode === "wall" ? "tile" : "wall"; edRenderPanel(); }
+    /* Typing into the board name must not steer the tool. */
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+
+    /* THE HAND STAYS ON THE MOUSE.
+
+       W A S D are the four facings themselves rather than a rotation,
+       because "point it north" is what you actually want to say and
+       turning three times to get there is three chances to overshoot.
+       Q and E are the quarter turns for when the thing in hand is
+       nearly right.
+
+       A flag has no facing to turn, so on a flag Q and E count the
+       number instead -- the same two keys, the same "one less, one
+       more", applied to the only thing a flag has. */
+    var face = { w: N, a: W, s: S, d: E }[e.key.toLowerCase()];
+    if (face !== undefined) {
+      e.preventDefault();
+      edFace(face);
+      return;
+    }
+    if (e.key === "q" || e.key === "Q") { e.preventDefault(); edSpin(-1); }
+    else if (e.key === "e" || e.key === "E") { e.preventDefault(); edSpin(1); }
+  }
+
+  /* Both keys act on the SELECTION when there is one and on the tool
+     in hand when there is not, because those are the same decision
+     asked of two different things. */
+  function edFace(d) {
+    if (ED.sel && edSelected() && ED.sel.kind !== "flag") { edSelEdit("dir", d); return; }
+    ED.dir = d;
+    edRenderPanel();
+    announce("Facing " + B.dirName(d) + ".");
+  }
+
+  function edSpin(way) {
+    var sel = ED.sel && edSelected() ? ED.sel : null;
+    if (sel && sel.kind === "flag") {
+      edSelEdit("num", Math.max(1, Math.min((ED.grid.flags || []).length, sel.i + 1 + way)));
+      return;
+    }
+    if (sel) {
+      var obj = edSelected();
+      var cur = sel.kind === "tile" ? B.dirOf(B.codeAt(ED.grid, sel.c, sel.r)) : obj.d;
+      edSelEdit("dir", B.rot(cur, way));
+      return;
+    }
+    if (edTool().number) {
+      ED.flagNum = Math.max(1, Math.min((ED.grid.flags || []).length + 1, edFlagSlot() + way));
+      edRenderPanel();
+      announce("Next flag is number " + ED.flagNum + ".");
+      return;
+    }
+    ED.dir = B.rot(ED.dir, way);
+    edRenderPanel();
+    announce("Facing " + B.dirName(ED.dir) + ".");
   }
 
   function edKeyUp(e) {
@@ -10903,33 +11482,108 @@
     edRender();
   }
 
+  function edPickQuiet(k) {
+    var t = edToolByKey(k);
+    if (!t) return;
+    ED.pick = k;
+    ED.mode = t.kind;
+    if (t.kind === "tile") ED.tool = k;
+    /* Picking something up puts down whatever was being looked at: the
+       panel on the right is about one thing at a time, and that thing
+       is the one in hand. */
+    ED.sel = null;
+    edRenderLib();
+    edRenderDetail();
+  }
+
+  function edPickTool(k) {
+    var had = ED.sel;
+    edPickQuiet(k);
+    /* The map only has to redraw to drop the selection highlight. */
+    if (had) edRender();
+  }
+
+  /* CHANGING THE THING THAT IS ALREADY THERE. Every edit here is one
+     step of history and one re-render, whatever kind it was. */
+  function edSelEdit(what, v) {
+    var sel = ED.sel;
+    if (!sel) return;
+    var obj = edSelected();
+    if (!obj && sel.kind !== "tile" && sel.kind !== "wall") { ED.sel = null; edRenderPanel(); return; }
+    var before = edMark(), g = ED.grid, i;
+
+    if (what === "wall") {
+      B.setWall(g, sel.c, sel.r, v, !B.wallAt(g, sel.c, sel.r, v));
+      if (sel.kind === "wall") sel.edge = v;
+    } else if (what === "remove") {
+      if (sel.kind === "wall") B.setWall(g, sel.c, sel.r, sel.edge, false);
+      else if (sel.kind === "flag") g.flags.splice(sel.i, 1);
+      else if (sel.kind === "laser") g.lasers.splice(sel.i, 1);
+      else if (sel.kind === "pusher") g.pushers.splice(sel.i, 1);
+      else if (sel.kind === "burner") g.burners.splice(sel.i, 1);
+      ED.sel = null;
+    } else if (what === "clear") {
+      edSetCell(sel.c, sel.r, "..");
+    } else if (what === "dir") {
+      if (sel.kind === "tile") {
+        var code = B.codeAt(g, sel.c, sel.r);
+        edSetCell(sel.c, sel.r, code.charAt(0) + B.DIR_CHARS.charAt(v));
+      } else obj.d = v;
+    } else if (what === "num") {
+      if (sel.kind === "tile") {
+        var tc = B.codeAt(g, sel.c, sel.r);
+        edSetCell(sel.c, sel.r, tc.charAt(0) + v);
+      } else if (sel.kind === "laser") obj.n = v;
+      else if (sel.kind === "burner") obj.len = v;
+      else if (sel.kind === "flag") {
+        /* Renumbering is moving it in the order, because the order IS
+           the race. The others shuffle round it. */
+        var was = g.flags.splice(sel.i, 1)[0];
+        g.flags.splice(Math.max(0, Math.min(g.flags.length, v - 1)), 0, was);
+        sel.i = Math.max(0, Math.min(g.flags.length - 1, v - 1));
+      }
+    } else if (what === "reg") {
+      i = obj.regs.indexOf(v);
+      if (i >= 0) obj.regs.splice(i, 1); else obj.regs.push(v);
+      obj.regs.sort();
+      if (!obj.regs.length) { obj.regs.push(v); announce("A hazard has to fire in at least one register."); }
+    }
+    edKeep(before);
+    edAfterEdit();
+  }
+
   function edDispatch(b, e) {
     var a = b.dataset.act;
-    if (a === "edtool") { ED.mode = "tile"; ED.tool = b.dataset.k; edRenderPanel(); }
-    else if (a === "edmode") { ED.mode = ED.mode === b.dataset.m ? "tile" : b.dataset.m; edRenderPanel(); }
+    if (a === "edpick") { edPickTool(b.dataset.k); }
     else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
     else if (a === "eddigit") { ED.digit = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edflagnum") { ED.flagNum = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edpreg") {
       var n = parseInt(b.dataset.n, 10), at = ED.pushRegs.indexOf(n);
       if (at >= 0) ED.pushRegs.splice(at, 1); else ED.pushRegs.push(n);
       ED.pushRegs.sort();
-      ED.mode = "pusher";
       edRenderPanel();
     }
     else if (a === "edpreset") {
       ED.pushRegs = b.dataset.p === "odd" ? [1, 3, 5] : [2, 4];
-      ED.mode = "pusher";
       edRenderPanel();
     }
     else if (a === "edbreg") {
       var bn = parseInt(b.dataset.n, 10), bat = ED.burnRegs.indexOf(bn);
       if (bat >= 0) ED.burnRegs.splice(bat, 1); else ED.burnRegs.push(bn);
       ED.burnRegs.sort();
-      ED.mode = "burner";
       edRenderPanel();
     }
-    else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); ED.mode = "burner"; edRenderPanel(); }
+    else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    /* ---- the detail panel, which edits the thing rather than the
+       thing about to be placed ---- */
+    else if (a === "edseldir") edSelEdit("dir", parseInt(b.dataset.d, 10));
+    else if (a === "edselnum") edSelEdit("num", parseInt(b.dataset.n, 10));
+    else if (a === "edselreg") edSelEdit("reg", parseInt(b.dataset.n, 10));
+    else if (a === "edselwall") edSelEdit("wall", parseInt(b.dataset.d, 10));
+    else if (a === "edselremove") edSelEdit("remove");
+    else if (a === "edselclear") edSelEdit("clear");
     else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
     else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
