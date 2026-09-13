@@ -4533,11 +4533,35 @@
       for (k in CARD_KINDS) {
         assert(cardArt(k).indexOf("<path") >= 0, "card kind " + k + " draws nothing");
       }
+      function shafts(k) { return (cardArt(k).match(/class="pr-cshaft"/g) || []).length; }
+      /* The x of every arrowhead on a card, in order. */
+      function headXs(k) {
+        var out = [], re = /class="pr-cmark" d="M[-\d.]+ [-\d.]+L([-\d.]+) /g, m;
+        while ((m = re.exec(cardArt(k)))) out.push(parseFloat(m[1]));
+        return out;
+      }
       for (k in CARD_KINDS) {
         var d = CARD_KINDS[k];
         if (!d.move) continue;
-        assert(chevs(k) === Math.abs(d.move),
-          k + " moves " + Math.abs(d.move) + " but draws " + chevs(k) + " chevron(s)");
+        var n = Math.abs(d.move);
+        assert(chevs(k) === n,
+          k + " moves " + n + " but draws " + chevs(k) + " chevron(s)");
+        /* PARALLEL ARROWS, NOT ONE ARROW WITH BARBS. A Move 3 is three
+           arrows side by side, so it needs three shafts as well as
+           three heads -- the earlier art stacked the heads on ONE
+           shaft and passed the count check above while drawing a
+           single heavy arrow. */
+        assert(shafts(k) === n,
+          k + " draws " + shafts(k) + " shaft(s) for " + n + " square(s); one arrow each");
+        var xs = headXs(k);
+        for (var xi = 1; xi < xs.length; xi++) {
+          assert(Math.abs(xs[xi] - xs[xi - 1]) > 20,
+            k + " draws arrows " + Math.abs(xs[xi] - xs[xi - 1]).toFixed(1) +
+            " apart; side by side means they must not overlap");
+        }
+        /* And centred, so a Move 2 does not sit off to one side. */
+        var mid = xs.reduce(function (a, b) { return a + b; }, 0) / xs.length;
+        assert(Math.abs(mid - 50) < 0.6, k + " is not centred on the card, sits at " + mid.toFixed(1));
       }
       /* A rotate card ends pointing the way you will be FACING, so its
          arrowhead goes sideways -- left for Rotate L, right for
@@ -5709,12 +5733,37 @@
   function cardArt(kind) {
     var d = CARD_KINDS[kind], i, out = [];
     if (d.move) {
-      /* Backing up is the same arrow the other way round, because that
-         is what the move is: the robot does not turn to do it. */
+      /* ONE ARROW PER SQUARE, SIDE BY SIDE.
+
+         The first version stacked the chevrons along a single shaft,
+         which draws a Move 3 as one arrow with three barbs -- a heavier
+         arrow, not three of them. Read at card size that says "forward,
+         emphatically" and leaves the player counting barbs to find the
+         distance, which is the one number on the card that has to be
+         read at a glance.
+
+         Backing up is the same arrow the other way round, because that
+         is what the move is: the robot does not turn to do it.
+
+         Spacing and head size come from a table rather than a formula.
+         Three arrows have to clear each other at a 34px render with an
+         8px stroke, and the width that works there is not the width a
+         formula built from the count would give. */
       var dir = d.move > 0 ? -1 : 1, n = Math.abs(d.move);
-      var tip = 50 + dir * 34, tail = 50 - dir * 30;
-      out.push('<path class="pr-cshaft" d="M50 ' + tail + "L50 " + (tip - dir * 6) + '"/>');
-      for (i = 0; i < n; i++) out.push(chev(50, tip - dir * i * 19, 0, dir, 13, "pr-cmark"));
+      var LAY = { 1: { gap: 0, head: 15 }, 2: { gap: 32, head: 13 }, 3: { gap: 29, head: 11 } };
+      var lay = LAY[n] || LAY[1];
+      var tip = 50 + dir * 32, tail = 50 - dir * 30;
+      for (i = 0; i < n; i++) {
+        var x = 50 + (i - (n - 1) / 2) * lay.gap;
+        out.push('<path class="pr-cshaft" d="M' + x.toFixed(1) + " " + tail +
+                 "L" + x.toFixed(1) + " " + (tip - dir * 7) + '"/>');
+      }
+      /* Heads last, so every one of them sits over every shaft rather
+         than over its own only -- at three abreast the wings overlap
+         the neighbouring shaft and the order is visible. */
+      for (i = 0; i < n; i++) {
+        out.push(chev(50 + (i - (n - 1) / 2) * lay.gap, tip, 0, dir, lay.head, "pr-cmark"));
+      }
     } else if (kind === "uturn") {
       /* Up, round, and back the way you came.
 
