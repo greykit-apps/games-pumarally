@@ -1040,8 +1040,25 @@
 
   function newGame(seed, opts) {
     opts = opts || {};
+    /* THE COURSE RIDES IN THE SAVE, NOT ITS NAME.
+
+       A shipped course can be rebuilt from a key because the table is
+       in the file. A course the player composed cannot -- it exists
+       only in the game that is using it. So the SPEC goes into G, and
+       a key is resolved to one here rather than being carried around
+       as a name that may mean nothing later.
+
+       The shipped courses go through the same path, which is what
+       stops the composed one being a second kind of game. */
     var courseId = opts.course || "provingRun";
-    var C = B.buildCourse(courseId);
+    /* A shipped course is built from its NAME so the built course
+       keeps it. Building every course from a spec object looked
+       tidier and made C.id "composed" for all of them -- which
+       silently collided the distance-field cache, so every bot
+       navigated by whichever course had been built first and the
+       games stopped finishing. The id is not decoration. */
+    var spec = opts.courseSpec || null;
+    var C = B.buildCourse(spec || courseId);
     UI.course = C;
 
     var seats = Math.max(2, Math.min(8, opts.players || 4));
@@ -1049,7 +1066,12 @@
       v: SAVE_VERSION,
       seed: seed,
       rngState: seed | 0,
-      courseId: courseId,
+      courseId: spec ? (spec.id || "composed") : courseId,
+      /* A deep copy, because G must survive JSON round-tripping and
+         must not share structure with the table it may have come
+         from -- a composed course that aliased a shipped one would
+         edit the shipped one. */
+      courseSpec: JSON.parse(JSON.stringify(spec || B.courseSpec(courseId))),
       /* House rules ride in the SAVE, not in localStorage, so a game
          replays under the rules it was started with even if the setup
          screen has been changed since. */
@@ -2836,7 +2858,18 @@
      ============================================================ */
   function distField(C, flagIdx) {
     if (!UI.dist) UI.dist = {};
-    var key = C.id + ":" + C.w + "x" + C.h + ":" + flagIdx;
+    /* KEYED ON WHAT THE FIELD IS COMPUTED FROM, not on what the course
+       is called. The name was enough while every course was a shipped
+       one with a unique key; a composed course is called "composed"
+       whatever is in it, so two of the same size shared a field and
+       every bot in the second one navigated to the first one's flags.
+       Caught when every course built from a spec came out named
+       "composed" and the sims stopped finishing.
+
+       Flag positions are the whole input, so they are the whole key. */
+    var flagKey = "";
+    for (var fk = 0; fk < C.flags.length; fk++) flagKey += C.flags[fk].c + "," + C.flags[fk].r + ";";
+    var key = C.id + ":" + C.w + "x" + C.h + ":" + flagIdx + ":" + flagKey;
     if (UI.dist[key]) return UI.dist[key];
 
     var n = C.w * C.h, d = new Int16Array(n);
@@ -3561,6 +3594,81 @@
       assert(fakeHost.__prWired === true, "and the host is marked so a third call is cheap too");
       setupInput(fakeHost);
       assert(calls === first, "nor a third");
+    } },
+
+    { name: "a composed course builds, validates and plays", run: function () {
+      /* The point of the whole stage: a course the player assembled is
+         not a second kind of game. It goes through buildCourse,
+         validateCourse and newGame by the same path a shipped one
+         does. */
+      var layout = { cols: 2, rows: 1, dockCol: 0, name: "Bench Yard",
+                     cells: [{ id: "island", rot: 0 }, { id: "cross", rot: 1 }] };
+      var spec = B.composeCourse(layout, 3);
+      assert(spec.boards.length === 2, "both boards are in the spec");
+      assert(spec.boards[1].at[0] === 12 && spec.boards[1].at[1] === 0,
+        "the second board snaps to (12,0), landed at " + spec.boards[1].at);
+      assert(spec.dock.at[1] === 12, "the dock sits under the boards, at row " + spec.dock.at[1]);
+      var C = B.buildCourse(spec);
+      assert(C.w === 24 && C.h === 16, "two boards and a dock make 24x16, made " + C.w + "x" + C.h);
+      assert(C.docks.length === 8, "the dock brings its eight bays, brought " + C.docks.length);
+      B.validateCourse(spec, function () {});
+      newGame(5, { courseSpec: spec, players: 4, humans: 0 });
+      runDraft();
+      assert(G.players.every(function (p) { return p.placed; }), "everyone drafts on a composed course too");
+    } },
+
+    { name: "flags land somewhere legal, spread out, and never on the dock", run: function () {
+      /* Each of those was a separate way to ruin a course. A flag on a
+         conveyor is carried off it; one in a pit cannot be touched;
+         three in a corner is a race to a corner; and one in the DOCK
+         is a flag somebody starts on top of -- which is what the
+         first version produced, because "furthest from the start" had
+         been written as "largest row" and the dock is at the bottom. */
+      var layout = { cols: 2, rows: 2, dockCol: 0,
+                     cells: [{ id: "island", rot: 0 }, { id: "cross", rot: 1 },
+                             { id: "pitMaze", rot: 2 }, { id: "boardG", rot: 3 }] };
+      var spec = B.composeCourse(layout, 3);
+      var C = B.buildCourse(spec);
+      assert(C.flags.length === 3, "three flags, got " + C.flags.length);
+      for (var i = 0; i < C.flags.length; i++) {
+        var f = C.flags[i], code = B.codeAt(C, f.c, f.r), el = B.elemOf(code);
+        assert(el && el.name === "floor",
+          "flag " + f.n + " sits on " + (el ? el.name : "nothing") + " at (" + f.c + "," + f.r + ")");
+        var inDock = f.c >= spec.dock.at[0] && f.c <= spec.dock.at[0] + 11 &&
+                     f.r >= spec.dock.at[1] && f.r <= spec.dock.at[1] + 3;
+        assert(!inDock, "flag " + f.n + " is in the docking bay at (" + f.c + "," + f.r + ")");
+        for (var j = 0; j < i; j++) {
+          var d = Math.abs(f.c - C.flags[j].c) + Math.abs(f.r - C.flags[j].r);
+          assert(d > 3, "flags " + C.flags[j].n + " and " + f.n + " are " + d + " apart");
+        }
+      }
+    } },
+
+    { name: "the same layout composes the same course, every time", run: function () {
+      /* A save carries the SPEC, so the spec has to be the whole
+         answer. If composing twice gave two courses, a reload would
+         be a different race. */
+      var layout = { cols: 1, rows: 2, dockCol: 0,
+                     cells: [{ id: "exchange", rot: 0 }, { id: "maelstrom", rot: 2 }] };
+      var a = JSON.stringify(B.composeCourse(layout, 3));
+      var b = JSON.stringify(B.composeCourse(layout, 3));
+      assert(a === b, "two composes of one layout must match");
+    } },
+
+    { name: "two composed courses of a size do not share a distance field", run: function () {
+      /* Every composed course is called "composed", so a cache keyed
+         on the name handed the second one the first one's field and
+         its bots raced toward flags that were not there. The sims
+         found it as "no game was ever won". */
+      function mk(order) {
+        return B.composeCourse({ cols: 1, rows: 1, dockCol: 0,
+          cells: [{ id: order, rot: 0 }] }, 3);
+      }
+      var A = B.buildCourse(mk("island")), Bc = B.buildCourse(mk("cross"));
+      assert(A.id === Bc.id, "fixture: both are called " + A.id);
+      assert(A.w === Bc.w && A.h === Bc.h, "fixture: and are the same size");
+      var fa = distField(A, 0), fb = distField(Bc, 0);
+      assert(fa !== fb, "they must not be handed the same field object");
     } },
 
     { name: "you get the colour you picked, and no bay until you draft one", run: function () {
@@ -5645,7 +5753,12 @@
      it produces a broken one, with the first render throwing on a
      field that was never written. Refusing to load is the only
      honest option, since there is nothing to migrate from. */
-  var SAVE_VERSION = 2;
+  /* 3: the course spec rides in the save beside its name, so a
+     composed course survives a reload. A version 2 save has only the
+     name, and a name is all a shipped course ever needed -- but there
+     is no way to tell from the outside, so they are refused rather
+     than half-read. */
+  var SAVE_VERSION = 3;
 
   function saveGame() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION, G: G })); } catch (e) {}
@@ -8528,10 +8641,25 @@
     }
     var courseId = chosenCourse(opts);
     var C;
+    /* THE SAVE IS READ BEFORE THE BOARD IS BUILT.
+
+       mount used to build from the course NAME and only then look for
+       a save, which is fine while every course is in the table and
+       throws the moment one is not: a composed course resolves to no
+       entry, so a reload of your own course died at startup rather
+       than resuming it. The saved spec is what gets built when there
+       is one. */
+    var resumed = loadGame();
+    var wantSpec = null;
+    if (resumed && resumed.courseSpec &&
+        (!opts.course || resumed.courseId === courseId)) {
+      wantSpec = resumed.courseSpec;
+    }
+
     try {
       validateTables();
       B.validateAll();
-      C = B.buildCourse(courseId);
+      C = B.buildCourse(wantSpec || courseId);
     } catch (e) {
       var pre = el("div", "pr-err");
       pre.textContent = "PumaRally failed to load:\n" + e.message;
@@ -8679,7 +8807,6 @@
     var shot = /[#&]shot=([a-z]+)/.exec(root.location ? root.location.hash : "");
     if (shot) { applyShotState(shot[1]); return { course: C, stage: stage }; }
 
-    var resumed = loadGame();
     if (resumed && resumed.courseId === C.id) {
       G = resumed;
       UI.wallsChecked = false;
