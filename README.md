@@ -42,9 +42,14 @@ at play time.
 Each turn you are dealt `9 − damage` program cards and commit five of them,
 face down, to your registers. Then all five registers execute one at a time:
 every robot reveals that register's card, the highest card priority moves
-first, and then the board takes its turn — express conveyors, conveyors,
-pushers, gears, lasers, checkpoints. You do not get to react. The whole game is
-in the guess you made ninety seconds ago.
+first, and then the board takes its turn in the printed order — express
+conveyors, conveyors, pushers, gears, **crushers**, lasers, flame jets,
+checkpoints. You do not get to react. The whole game is in the guess you made
+ninety seconds ago.
+
+Where the crusher sits in that order is load-bearing and is asserted: a robot
+carried onto one by a conveyor is crushed in the *same* register, which is what
+Cannery Row is built around.
 
 Damage is the pressure. Each point costs you a card next turn, and from five
 damage your registers start locking from the right, so a wounded robot is
@@ -281,10 +286,19 @@ the entire transcription workflow.
 |---|---|---|---|
 | `..` floor | `o.` pit | `w.` repair | `W.` repair + option |
 | `b>` conveyor east | `B^` express conveyor north | `l.` gear ccw | `r.` gear cw |
-| `p<` pusher, registers 1/3/5 | `Pv` pusher, registers 2/4 | `s3` docking bay 3 | |
+| `s3` docking bay 3 | | | |
 
 Flags are **not** in here. They are tokens the *course* places, exactly as in
 the box, which is why one board serves many courses.
+
+Neither are **pushers, flame jets, lasers or crushers**. Each is a thing standing
+*on* a square rather than the square itself, so each lives in a sparse list
+beside the picture. A pusher is bolted to a wall and the square beneath it can
+be a conveyor; a flame jet plays over the floor in front of its nozzle and one
+on board G reaches two squares; and a **crusher** comes down from above, which
+is why it needs no wall and faces nowhere — every one of the ten on Cannery Row
+stands on a conveyor, the roller bed running straight under the disc. No single
+cell could ever say any of that.
 
 ## What the validator refuses
 
