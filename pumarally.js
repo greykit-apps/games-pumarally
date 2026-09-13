@@ -1203,10 +1203,20 @@
     var courseSpec = spec || B.COURSES[courseId];
     var boardCount = (courseSpec && courseSpec.boards) ? courseSpec.boards.length : 1;
     var startLives = livesFor(seats, boardCount);
+    var modern = RULESETS[opts.ruleset] && opts.ruleset === "modern";
     G = {
       v: SAVE_VERSION,
       seed: seed,
       startLives: startLives,
+      /* WHO GOES FIRST IN EVERY REGISTER THIS ROUND.
+
+         The 2016 game has no priority number on its cards -- the deck
+         is nine types and not one of them carries one -- so the order
+         robots act in comes from a token that sits with one player for
+         a whole round and passes one seat left at the end of it. The
+         classic game decides the order per register from the priority
+         printed on each card, and never reads this. */
+      priority: 0,
       rngState: seed | 0,
       courseId: spec ? (spec.id || "composed") : courseId,
       /* A deep copy, because G must survive JSON round-tripping and
@@ -1316,10 +1326,16 @@
         poweredDown: false,
         announceDown: false,
         ready: false,
-        /* The 2016 resource. Zero under the classic rules, where
-           nothing gives it and nothing spends it, so it costs a
-           classic game one number in the save and changes nothing. */
-        energy: 0,
+        /* The 2016 resource, and the deck it is spent from. Setup puts
+           the tracking cube on the "3" space, so a modern robot starts
+           with three; a classic one starts with none, because nothing
+           gives or spends it and the number never moves. */
+        energy: modern ? START_ENERGY : 0,
+        /* EACH ROBOT HAS ITS OWN DECK under the 2016 rules, shuffled
+           and face down on its own mat, with its own discard beside
+           it. The classic game deals every robot from one pile of 84
+           and leaves both of these empty. */
+        deck: [], pile: [],
         alive: true,
         out: false
       });
@@ -1354,6 +1370,39 @@
       out.push(G.deck.pop());
     }
     return out;
+  }
+
+  /* DRAWING, FOR WHICHEVER GAME THIS IS.
+
+     The classic table deals every robot from one pile of 84 that is
+     gathered and reshuffled whole before each deal. The 2016 table
+     gives each robot its own deck of twenty on its own mat, with its
+     own discard beside it -- so what you throw away this round is what
+     you draw next round, and the two are different games rather than
+     the same game with a different pile.
+
+     Running dry reshuffles YOUR discard, not everybody's. */
+  function drawFor(p, n) {
+    if (rulesetOf(houseRules) !== "modern") return draw(n);
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      if (!p.deck.length) {
+        if (!p.pile.length) break;                  // nothing left anywhere: deal short
+        p.deck = shuffle(p.pile);
+        p.pile = [];
+      }
+      out.push(p.deck.pop());
+    }
+    return out;
+  }
+
+  /* Where a card this robot is finished with goes. Its own discard
+     under the 2016 rules, the one shared pile under the classic ones. */
+  function discardFor(p, list) {
+    if (rulesetOf(houseRules) !== "modern") { discardCards(list); return; }
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] !== null && list[i] !== undefined) p.pile.push(list[i]);
+    }
   }
 
   function discardCards(list) {
@@ -2617,7 +2666,7 @@
           if (p.poweredDown) { p.hand = []; p.dealtCount = 0; continue; }
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
-          p.hand = draw(p.dealtCount);
+          p.hand = drawFor(p, p.dealtCount);
           handOrder(p);
         }
         go("turn", "postDeal");
@@ -2635,8 +2684,8 @@
           var ctx = fire(p, "onDealt", { hand: p.hand, redraw: false });
           if (ctx.pending) { pending = true; continue; }
           if (ctx.redraw) {
-            discardCards(p.hand);
-            p.hand = draw(p.dealtCount);
+            discardFor(p, p.hand);
+            p.hand = drawFor(p, p.dealtCount);
             handOrder(p);
             log(p.name + " recompiles");
           }
@@ -2715,7 +2764,25 @@
            stands, so a robot that does not move has a trail of one and
            behaves identically under either rule. */
         for (var ti = 0; ti < alive.length; ti++) alive[ti].trail = [[alive[ti].c, alive[ti].r]];
-        q.sort(function (a, b) { return b.pri - a.pri; });   // highest priority first
+        /* WHO ACTS FIRST, and it is not the same question in the two
+           games. The classic deck prints a priority on every card, so
+           the order is read off the cards and can differ from one
+           register to the next. The 2016 deck prints none at all: the
+           order comes from the Priority Token and is the same for all
+           five registers of the round, starting at its holder and
+           going one seat at a time from there.
+
+           Both resolve robots ONE AT A TIME within a register and then
+           let the floor act; neither is simultaneous, and neither runs
+           a robot's whole programme before the next robot moves. */
+        if (rulesetOf(houseRules) === "modern") {
+          var seats = G.players.length;
+          q.sort(function (a, b) {
+            return ((a.id - G.priority + seats) % seats) - ((b.id - G.priority + seats) % seats);
+          });
+        } else {
+          q.sort(function (a, b) { return b.pri - a.pri; });   // highest priority first
+        }
         G.exec.queue = q.map(function (x) { return x.id; });
         go("exec", "move");
         return animate([
@@ -2940,12 +3007,12 @@
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
-          discardCards(p.hand);
+          discardFor(p, p.hand);
           p.hand = [];
           var open = openRegisters(p.damage);
           for (var reg = 0; reg < REGISTERS; reg++) {
             if (reg >= open) continue;                 // locked: the card stays put
-            if (p.registers[reg] !== null) { G.discard.push(p.registers[reg]); p.registers[reg] = null; }
+            if (p.registers[reg] !== null) { discardFor(p, [p.registers[reg]]); p.registers[reg] = null; }
           }
         }
         go("cleanup", "endTurn");
@@ -2953,6 +3020,9 @@
       },
 
       endTurn: function () {
+        /* The token moves one seat left, every round, whatever else
+           happened -- it is not a reward and nothing earns it. */
+        if (G.players.length) G.priority = (G.priority + 1) % G.players.length;
         for (var i = 0; i < G.players.length; i++) {
           var p = G.players[i];
           p.poweredDown = p.announceDown;
@@ -3019,6 +3089,8 @@
      maximum of ten. The cap is the player mat's track, which has ten
      spaces on it and nowhere to put an eleventh cube. */
   var MAX_ENERGY = 10;
+  /* Setup puts the tracking cube on the "3" space of the track. */
+  var START_ENERGY = 3;
 
   function batteryPass() {
     var C = UI.course, alive = live(), i;
@@ -3262,14 +3334,35 @@
   function assertInvariants() {
     var C = UI.course, i, p;
 
-    // 1. The 84 program cards are conserved, always, everywhere.
-    var n = G.deck.length + G.discard.length;
-    for (i = 0; i < G.players.length; i++) {
-      p = G.players[i];
-      n += p.hand.length;
-      for (var reg = 0; reg < REGISTERS; reg++) if (p.registers[reg] !== null) n++;
+    /* 1. PROGRAM CARDS ARE CONSERVED, and the law is not the same law
+       in the two games. The classic table has one pile of 84 that
+       every robot draws from, so the total across deck, discard, hands
+       and registers is 84 and nothing else is true. The 2016 table
+       gives each robot its own deck and its own discard, so what is
+       conserved is each robot's own cards -- a card moving from one
+       robot's pile to another's would leave the grand total right and
+       still be the worst kind of wrong. Counted per robot for that
+       reason, against whatever that robot started with. */
+    if (rulesetOf(houseRules) === "modern") {
+      for (i = 0; i < G.players.length; i++) {
+        p = G.players[i];
+        var own = p.deck.length + p.pile.length + p.hand.length;
+        for (var mreg = 0; mreg < REGISTERS; mreg++) if (p.registers[mreg] !== null) own++;
+        if (p.deckSize === undefined) continue;      // no deck dealt yet
+        if (own !== p.deckSize) {
+          throw new Error(p.name + "'s deck is " + own + "/" + p.deckSize + " at " +
+            G.phase + "." + G.step + " turn " + G.turn);
+        }
+      }
+    } else {
+      var n = G.deck.length + G.discard.length;
+      for (i = 0; i < G.players.length; i++) {
+        p = G.players[i];
+        n += p.hand.length;
+        for (var reg = 0; reg < REGISTERS; reg++) if (p.registers[reg] !== null) n++;
+      }
+      if (n !== 84) throw new Error("program card conservation broken: " + n + "/84 at " + G.phase + "." + G.step + " turn " + G.turn);
     }
-    if (n !== 84) throw new Error("program card conservation broken: " + n + "/84 at " + G.phase + "." + G.step + " turn " + G.turn);
 
     // 1b. Option cards are conserved too.
     var o = G.optionDeck.length + G.optionDiscard.length;
@@ -6224,6 +6317,110 @@
       assert(B.timerAt(built, 2, 2), "the crusher did not survive into the board");
       assert(B.beltArms(built, 2, 2).join(",") === String(N), "the belt arm did not survive into the board");
       ED = keep;
+    } },
+
+    { name: "the Priority Token decides who acts, and moves one seat a round", run: function () {
+      /* The 2016 deck prints no priority on any of its nine card types,
+         so the order cannot come from the cards. It comes from a token
+         that sits with one player for a whole round -- the same order
+         in all five registers -- and passes one seat at the end of it. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        benchGame(bench([["..", "..", "..", ".."]]),
+          [{ c: 0, r: 0 }, { c: 1, r: 0 }, { c: 2, r: 0 }, { c: 3, r: 0 }]);
+        var i;
+        for (i = 0; i < 4; i++) { G.players[i].registers[0] = 0; G.players[i].dealtCount = 1; }
+        G.priority = 2;
+        G.register = 0;
+        STEP.exec.reveal();
+        assert(G.exec.queue.join(",") === "2,3,0,1",
+          "the order should start at the token and go one seat at a time, it was " + G.exec.queue.join(","));
+
+        /* Same token, same order, whichever register it is. */
+        G.register = 3;
+        for (i = 0; i < 4; i++) G.players[i].registers[3] = 0;
+        STEP.exec.reveal();
+        assert(G.exec.queue.join(",") === "2,3,0,1",
+          "the order changed between registers, so it is not coming from the token");
+
+        /* And it moves one seat, every round. */
+        STEP.cleanup.endTurn();
+        assert(G.priority === 3, "the token should have moved to seat 3, it is at " + G.priority);
+        STEP.cleanup.endTurn();
+        STEP.cleanup.endTurn();
+        assert(G.priority === 1, "it should wrap round the table, it is at " + G.priority);
+      } finally { houseRules.ruleset = keepHouse; }
+
+      /* The classic game still reads the cards, not the token. */
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+      var lo = 0, hi = 0, k;
+      for (k = 0; k < PROGRAM_DECK.length; k++) {
+        if (PROGRAM_DECK[k].pri < PROGRAM_DECK[lo].pri) lo = k;
+        if (PROGRAM_DECK[k].pri > PROGRAM_DECK[hi].pri) hi = k;
+      }
+      G.players[0].registers[0] = lo;                 // seat 0 holds the LOWEST priority
+      G.players[1].registers[0] = hi;
+      G.priority = 0;
+      G.register = 0;
+      STEP.exec.reveal();
+      assert(G.exec.queue.join(",") === "1,0",
+        "the classic order must come from the cards, it was " + G.exec.queue.join(","));
+    } },
+
+    { name: "each robot draws from its own deck and discards to its own pile", run: function () {
+      /* The classic table deals every robot from one pile of 84. The
+         2016 table gives each its own deck on its own mat, so what you
+         throw away this round is what you draw next round -- and a
+         card must never cross from one robot's pile to another's. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var a = G.players[0], b = G.players[1];
+        a.deck = [1, 2, 3]; a.pile = []; a.deckSize = 3;
+        b.deck = [7, 8];    b.pile = []; b.deckSize = 2;
+
+        var got = drawFor(a, 2);
+        assert(got.length === 2, "it drew " + got.length + " of the two asked for");
+        assert(a.deck.length === 1, "it drew from something other than its own deck");
+        assert(b.deck.length === 2, "it drew from the OTHER robot's deck");
+
+        /* Running dry reshuffles your own discard and nobody else's. */
+        discardFor(a, got);
+        assert(a.pile.length === 2 && b.pile.length === 0, "the discard went to the wrong mat");
+        var more = drawFor(a, 3);
+        assert(more.length === 3, "it should have reshuffled its own discard, it drew " + more.length);
+        assert(b.deck.length === 2 && b.pile.length === 0, "reshuffling reached the other robot");
+
+        /* With nothing anywhere it deals short rather than inventing. */
+        a.deck = []; a.pile = [];
+        assert(drawFor(a, 2).length === 0, "it drew cards that do not exist");
+      } finally { houseRules.ruleset = keepHouse; }
+
+      /* Classic still uses the one shared pile. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      G.deck = [4, 5, 6]; G.discard = [];
+      var c = G.players[0];
+      c.deck = []; c.pile = [];
+      var cl = drawFor(c, 2);
+      assert(cl.length === 2 && G.deck.length === 1,
+        "the classic deal must come from the shared pile");
+      assert(c.deck.length === 0, "the classic deal must not touch a per-robot deck");
+    } },
+
+    { name: "a modern robot starts on three Energy and a classic one on none", run: function () {
+      newGame(3, { course: "exchangeRun", players: 3, ruleset: "modern" });
+      var i;
+      for (i = 0; i < G.players.length; i++) {
+        assert(G.players[i].energy === START_ENERGY,
+          G.players[i].name + " started on " + G.players[i].energy + " Energy, not " + START_ENERGY);
+      }
+      newGame(3, { course: "exchangeRun", players: 3 });
+      for (i = 0; i < G.players.length; i++) {
+        assert(G.players[i].energy === 0,
+          "a classic robot started on " + G.players[i].energy + " Energy, which nothing there can spend");
+      }
     } },
 
     { name: "a course keeps the belt arms its boards were printed with", run: function () {
