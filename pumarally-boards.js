@@ -1038,11 +1038,11 @@
         " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         "|.. B^ b^ B^ b^ b< b< b< b< Bv bv ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
         "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        "|.. B^ b^ b< b< b< b< b< b< b< b< ..|",
+        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|.. B^ b^ b< b< b< b< b< b< b< b< ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " B> B^ B< B< B< B< B< B< B< B< B< .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. .. .. B^ .. .. .. B^ w. ",
@@ -1051,82 +1051,8 @@
       lasers: [
         { c: 4, r: 5, d: "E", n: 1 },
         { c: 3, r: 6, d: "E", n: 1 },
-        { c: 5, r: 8, d: "N", n: 1 },
-        { c: 6, r: 9, d: "N", n: 1 }
-      ]
-      ,
-      pushers: [
-        { c: 2, r: 0, d: "S", regs: [2, 4] },
-        { c: 4, r: 0, d: "S", regs: [1, 3, 5] },
-        { c: 7, r: 0, d: "S", regs: [1, 3, 5] },
-        { c: 9, r: 0, d: "S", regs: [2, 4] },
-        { c: 0, r: 2, d: "E", regs: [2, 4] },
-        { c: 11, r: 2, d: "W", regs: [2, 4] },
-        { c: 0, r: 4, d: "E", regs: [1, 3, 5] },
-        { c: 11, r: 4, d: "W", regs: [1, 3, 5] },
-        { c: 0, r: 7, d: "E", regs: [1, 3, 5] },
-        { c: 11, r: 7, d: "W", regs: [1, 3, 5] },
-        { c: 0, r: 9, d: "E", regs: [2, 4] },
-        { c: 11, r: 9, d: "W", regs: [2, 4] },
-        { c: 2, r: 11, d: "N", regs: [2, 4] },
-        { c: 4, r: 11, d: "N", regs: [1, 3, 5] },
-        { c: 7, r: 11, d: "N", regs: [1, 3, 5] },
-        { c: 9, r: 11, d: "N", regs: [2, 4] }
-      ]
-    },
-
-    /* THE SECOND CRASH AND BURN BOARD, and the only one of the four that
-       is genuinely new -- E turned out to be a reprint of Island.
-
-       A double spiral: an express ring running one way and a normal
-       ring inside it running the other, wound around a four-square pit
-       at the centre. Sixteen pushers around the rim, alternating 1/3/5
-       and 2/4 at columns and rows 3, 5, 8 and 10, and four single
-       lasers crossing the middle.
-
-       Read the hard way. The walls, lasers, pushers and pit came off
-       the photograph by measurement and are exact; the belt field --
-       106 squares of it, mixing both speeds with many turns -- was
-       drafted by beltscan and then corrected square by square in the
-       board workshop against the rectified photograph. beltscan gets
-       direction right only where belt runs are long, and this board is
-       made of short ones, so the draft it produced was a starting
-       point rather than an answer. */
-    boardF: {
-      name: "Board F", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
-      notes: "Transcribed from the printed board; belts verified by hand against the photograph.",
-      pic: [
-        "+  +  +--+  +--+  +  +--+  +--+  +  +",
-        " w. bv .. .. .. bv b^ .. .. .. .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. b> b> b> b> b> b> b> b> b> bv b< ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. B> B> B> B> B> B> B> B> Bv bv ..|",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|.. B^ b^ B> B> B> B> Bv bv Bv bv ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. B^ b^ B^ b^ b< b< b< b< Bv bv ..|",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|.. B^ b^ b< b< b< b< b< b< b< b< ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. B^ .. .. .. B^ w. ",
-        "+  +  +--+  +--+  +  +--+  +--+  +  +"
-      ],
-      lasers: [
         { c: 5, r: 7, d: "N", n: 1 },
-        { c: 6, r: 8, d: "N", n: 1 },
-        { c: 4, r: 5, d: "E", n: 1 },
-        { c: 3, r: 6, d: "E", n: 1 }
+        { c: 6, r: 8, d: "N", n: 1 }
       ]
       ,
       pushers: [
@@ -1155,7 +1081,8 @@
        Two pairs of portals -- violet and green -- eight flamethrowers
        on register sets of their own, four oil spills of nineteen
        squares between them, four pits and four tool plates. Unlike E
-       and F it carries NO perimeter wall at all; every wall on it is
+       and F -- both reprints, of Island and Maelstrom -- it carries NO
+       perimeter wall at all; every wall on it is
        interior, and six of those are the bars the flamethrowers are
        bolted to.
 
@@ -1540,19 +1467,6 @@
       name: "Maelstrom Run",
       blurb: "Everything spirals inward, and the middle is a hole.",
       boards: [{ id: "maelstrom", rot: 0, at: [0, 0] }],
-      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[3, 0], [11, 6], [5, 11]],
-      minPlayers: 2, maxPlayers: 8
-    },
-
-    /* Flags ours, not the printed course. Only fifteen squares on this
-       board are plain floor -- everything else is belt, pusher or hole --
-       so they go on three of those, spread across the spiral rather
-       than clustered on one rim. */
-    boardFRun: {
-      name: "Board F Run",
-      blurb: "A double spiral wound the wrong way round a hole.",
-      boards: [{ id: "boardF", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[3, 0], [11, 6], [5, 11]],
       minPlayers: 2, maxPlayers: 8
