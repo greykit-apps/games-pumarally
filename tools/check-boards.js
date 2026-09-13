@@ -73,6 +73,40 @@ for (const id of boards) {
 }
 console.log(`  ok -- ${boards.length} board(s) round-trip through formatBoard byte for byte`);
 
+/* A key written twice in an object literal is not an error in JavaScript --
+ * the later one wins and the earlier one vanishes before anything can look at
+ * it. Every check in this file and in validateAll() runs against the object
+ * AFTER that collapse, so a board or a course defined twice is invisible to
+ * all of them. It happened: `maelstrom` was defined twice, and the copy that
+ * lost carried a laser table that had already been corrected once. The second
+ * definition was right, so nothing was ever wrong on screen -- which is what
+ * makes it worth a check rather than a reading.
+ *
+ * This reads the SOURCE TEXT, because that is the only place the duplicate
+ * still exists. */
+function dupeKeys(label, openLine, closeLine) {
+  const lines = src.split("\n");
+  const from = lines.findIndex(l => l === openLine);
+  if (from < 0) { console.error(`  error:   cannot find "${openLine}" to scan for duplicates`); process.exitCode = 1; return; }
+  const to = lines.findIndex((l, i) => i > from && l === closeLine);
+  if (to < 0) { console.error(`  error:   ${label} table never closes`); process.exitCode = 1; return; }
+  const seen = new Map();
+  for (let i = from + 1; i < to; i++) {
+    const m = /^    (\w+): \{$/.exec(lines[i]);
+    if (!m) continue;
+    const k = m[1];
+    if (seen.has(k)) {
+      console.error(`  error:   ${label} defines "${k}" twice, at source lines ` +
+        `${seen.get(k) + 1} and ${i + 1}; the second silently replaces the first`);
+      process.exitCode = 1;
+    } else seen.set(k, i);
+  }
+  return seen.size;
+}
+const nb = dupeKeys("BOARD_SPECS", "  var BOARD_SPECS = {", "  };");
+const nc = dupeKeys("COURSES", "  var COURSES = {", "  };");
+if (!process.exitCode) console.log(`  ok -- ${nb} board and ${nc} course keys, each written once in the source`);
+
 for (const id of courses) {
   const C = B.buildCourse(id);
   console.log(`  ok -- course ${id}: ${C.w}x${C.h}, ${C.flags.length} flags, ${C.docks.length} docking bays, ${C.lasers.length} lasers`);

@@ -72,6 +72,17 @@ board("belts head-on",    s => { s.pic[1] = s.pic[1].slice(0, 7) + "b<" + s.pic[
 
 // ---- pushers and lasers --------------------------------------------------
 board("pusher unmounted", s => { s.pic[6] = s.pic[6].slice(0, 25) + "  " + s.pic[6].slice(27); }, "no wall behind it to mount on");
+// Pushers moved out of the picture and into a sparse list, so every way
+// that list can be wrong needs its own refusal -- a picture character
+// could only ever be malformed, a list entry can be absent, doubled or
+// nonsense, and none of those show up when you look at the board.
+board("pusher off the board", s => { s.pushers.push({ c: 99, r: 0, d: "E", regs: [1] }); }, "is off the board");
+board("pusher bad direction", s => { s.pushers[0].d = "up"; },           "which is not a direction");
+board("pusher with no registers", s => { s.pushers[0].regs = []; },      "lists no registers");
+board("pusher register out of range", s => { s.pushers[0].regs = [6]; }, "registers run 1-5");
+board("two pushers on one square",
+      s => { s.pushers.push({ c: s.pushers[0].c, r: s.pushers[0].r, d: "E", regs: [1] }); },
+      "two pushers at");
 board("laser damage",     s => { s.lasers[0].n = 4; },                   "the box prints 1, 2 and 3");
 board("laser unmounted",  s => { s.pic[0] = s.pic[0].slice(0, 10) + "  " + s.pic[0].slice(12); }, "no wall behind it to mount on");
 board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[1].slice(3);

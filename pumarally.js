@@ -649,11 +649,16 @@
     if (def && def.name !== "floor") cls.push("pr-has");
     if (B.beltSpeed(code)) cls.push(B.beltSpeed(code) === 2 ? "pr-t-express" : "pr-t-belt");
     else if (def.gear) cls.push("pr-t-gear");
-    else if (def.push) cls.push("pr-t-pusher");
     else if (def.option) cls.push("pr-t-upgrade");
     else if (def.repair) cls.push("pr-t-repair");
     else if (code.charAt(0) === "o") cls.push("pr-t-pit");
     else if (code.charAt(0) === "s") cls.push("pr-t-dock");
+    /* Added, never instead-of: a pusher is on the wall, so the square
+       under it keeps its own class and can be a conveyor. */
+    if (B.pusherAt(C, c, r)) {
+      if (cls.indexOf("pr-has") < 0) cls.push("pr-has");
+      cls.push("pr-t-pusher");
+    }
     return cls;
   }
 
@@ -663,7 +668,6 @@
     var art = beltArt(C, c, r);
     if (art) out.push(beltSvg(art, marksBoundary(C, c, r, art)));
     else if (def.gear) out.push(gearSvg(def.gear));
-    else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push !== "even"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
@@ -673,11 +677,12 @@
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
-    if (def.push) {
-      var pt = def.push === "set" ? B.timerAt(C, c, r) : null;
-      out.push('<span class="pr-pushreg">' +
-        (def.push === "set" ? esc(pt ? pt.regs.join("") : "?")
-         : def.push === "odd" ? "135" : "24") + "</span>");
+    /* Pushers are drawn from the board's list, over the tile, because
+       the tile beneath one can be anything -- including a conveyor. */
+    var pu = B.pusherAt(C, c, r);
+    if (pu) {
+      out.push(pusherSvg(pu.d, true));
+      out.push('<span class="pr-pushreg">' + esc(pu.regs.join("")) + "</span>");
     }
     if (def.crush || def.burn) {
       var t = B.timerAt(C, c, r);
@@ -1737,14 +1742,13 @@
   function pusherPass() {
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
-      var p = alive[i], el = B.elemOf(B.codeAt(C, p.c, p.r));
-      if (!el || !el.push) continue;
-      /* The two printed parities answer from the element character, a
-         listed pusher from its timer. Asking the board rather than
-         testing "odd" here is what lets board H's 1/2/3/4/5 pushers
-         exist at all. */
-      if (!B.pusherFires(C, p.c, p.r, G.register)) continue;
-      var d = B.dirOf(B.codeAt(C, p.c, p.r));
+      var p = alive[i], pu = B.pusherAt(C, p.c, p.r);
+      /* A pusher is bolted to a WALL, so the square under it is its own
+         business -- on board H a conveyor and a pusher share squares,
+         which is ordinary on the printed board and was impossible to
+         say while a pusher WAS the square. */
+      if (!pu || !B.pusherFires(C, p.c, p.r, G.register)) continue;
+      var d = pu.d;
       var uctx = fire(p, "onBoardElement", { kind: "pusher", turn: 0, dir: d, veto: false });
       if (uctx.veto) continue;
       log(p.name + " is shoved by a pusher");
@@ -2668,10 +2672,8 @@
     ghostBelt(C, st, 2);
     ghostBelt(C, st, 1);
     if (st.dead) return;
-    var el = B.elemOf(B.codeAt(C, st.c, st.r));
-    if (el && el.push && ((el.push === "odd") === (register % 2 === 0))) {
-      ghostMove(C, st, B.dirOf(B.codeAt(C, st.c, st.r)));
-    }
+    var pu = B.pusherAt(C, st.c, st.r);
+    if (pu && B.pusherFires(C, st.c, st.r, register)) ghostMove(C, st, pu.d);
     if (st.dead) return;
     var t = B.gearTurn(B.codeAt(C, st.c, st.r));
     if (t) st.face = B.rot(st.face, t);
@@ -2821,10 +2823,10 @@
     return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
   }
 
-  function bench(cells, walls, lasers, timers) {
+  function bench(cells, walls, lasers, timers, pushers) {
     var w = cells[0].length, h = cells.length;
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
-      lasers: lasers || [], timers: timers || [] });
+      lasers: lasers || [], timers: timers || [], pushers: pushers || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -2982,14 +2984,16 @@
     } },
 
     { name: "a pusher fires only on its own registers", run: function () {
-      var cells = [["p>", "..", ".."], ["P>", "..", ".."]];
+      var cells = [["..", "..", ".."], ["..", "..", ".."]];
       var walls = ["0,0,W", "0,1,W"];       // each pusher mounts on the wall behind it
-      benchGame(bench(cells, walls), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
+      var pushers = [{ c: 0, r: 0, d: "E", regs: [1, 3, 5] },
+                     { c: 0, r: 1, d: "E", regs: [2, 4] }];
+      benchGame(bench(cells, walls, [], [], pushers), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
       G.register = 0;                       // printed register 1: odd pushers only
       pusherPass();
       assert(G.players[0].c === 1, "the 1/3/5 pusher should fire on register 1");
       assert(G.players[1].c === 0, "the 2/4 pusher must not fire on register 1");
-      benchGame(bench(cells, walls), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
+      benchGame(bench(cells, walls, [], [], pushers), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
       G.register = 1;                       // printed register 2: even pushers only
       pusherPass();
       assert(G.players[0].c === 0, "the 1/3/5 pusher must not fire on register 2");
@@ -3459,17 +3463,17 @@
       try { bench([["F."]]); } catch (e) { noSet = /no registers/.test(e.message); }
       assert(noSet, "a burner with no timer entry must be refused");
       try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
-      catch (e) { orphan = /not on a press, a burner or a listed pusher/.test(e.message); }
+      catch (e) { orphan = /not on a press or a burner/.test(e.message); }
       assert(orphan, "a timer pointing at plain floor must be refused");
     } },
 
     { name: "a pusher can fire on an arbitrary set of registers", run: function () {
       /* The two printed parities cover most boards, but board H prints
          pushers on 1/2/3/4/5 and 2/3/4/5 among others, which "odd" and
-         "even" cannot say at all. A listed pusher reads its registers
-         from the same sparse list the presses and burners use. */
-      benchGame(bench([["u>", ".."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 3, 4, 5] }]),
-        [{ c: 0, r: 0, face: N }]);
+         "even" cannot say at all. Every pusher carries its own set, so
+         there is one question here and not three cases. */
+      benchGame(bench([["..", ".."]], [], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [1, 2, 3, 4, 5] }]), [{ c: 0, r: 0, face: N }]);
       var p = G.players[0];
       for (var reg = 0; reg < 5; reg++) {
         p.c = 0; p.r = 0;
@@ -3478,8 +3482,8 @@
         assert(p.c === 1, "a pusher listing every register must fire in register " + (reg + 1));
       }
       /* And one that lists only two must be silent in the others. */
-      benchGame(bench([["u>", ".."]], [], [], [{ c: 0, r: 0, regs: [2, 5] }]),
-        [{ c: 0, r: 0, face: N }]);
+      benchGame(bench([["..", ".."]], [], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [2, 5] }]), [{ c: 0, r: 0, face: N }]);
       p = G.players[0];
       G.register = 0; pusherPass();
       assert(p.c === 0, "register 1 is not in {2,5}");
@@ -3487,13 +3491,35 @@
       assert(p.c === 1, "register 2 is");
     } },
 
-    { name: "the printed parities still answer from the element", run: function () {
-      benchGame(bench([["p>", ".."]]), [{ c: 0, r: 0, face: N }]);
-      var p = G.players[0];
-      G.register = 1; pusherPass();
-      assert(p.c === 0, "an odd pusher does not fire in register 2");
-      G.register = 2; pusherPass();
-      assert(p.c === 1, "but does in register 3");
+    { name: "a pusher and a conveyor share a square", run: function () {
+      /* The reason pushers left the picture. Board H prints rams over
+         belt squares; while a pusher WAS the square, the two could not
+         both be said, and the board came out wrong in whichever way
+         the transcriber picked. The belt carries east, then the ram on
+         the west wall shoves east again -- two squares in one register,
+         which is what the cardboard does. */
+      var g = bench([["b>", "..", ".."]], ["0,0,W"], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [1] }]);
+      benchGame(g, [{ c: 0, r: 0, face: N }]);
+      assert(B.beltSpeed(B.codeAt(g, 0, 0)) === 1, "the square under the ram is still a conveyor");
+      assert(B.pusherAt(g, 0, 0), "and still carries the ram");
+      G.register = 0;
+      beltPass();
+      assert(G.players[0].c === 1, "the belt carries east first");
+      G.players[0].c = 0;
+      pusherPass();
+      assert(G.players[0].c === 1, "and the ram on the same square shoves east");
+    } },
+
+    { name: "a pusher with no wall behind it is refused", run: function () {
+      /* A ram is bolted to a wall. One floating in open floor is a
+         transcription slip that would otherwise render and play. */
+      var refused = false;
+      try {
+        B.validateGrid("bench", bench([["..", ".."]], [], [], [],
+          [{ c: 0, r: 0, d: "E", regs: [1] }]), function () {});
+      } catch (e) { refused = /no wall behind it/.test(e.message); }
+      assert(refused, "a wall-less pusher must be refused");
     } },
 
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
@@ -4042,6 +4068,25 @@
       assert(L, "the laser from (11,6) should land at (5,11) after a clockwise turn");
       assert(L.d === N, "and should face north, faces " + L.d);
       assert(B.wallAt(t, 5, 11, B.opposite(N)), "and must still have a wall behind it to mount on");
+
+      /* Pushers are the third wall-mounted layer, and the one nothing
+         else would catch: every shipped course happens to use rot 0,
+         so a rotation that dropped them would play correctly on every
+         board we have and wrongly on the first one that turns. */
+      assert(g.pushers.length === 4, "test fixture moved: shuntYard should have four pushers");
+      assert(t.pushers.length === 4, "a quarter turn lost " + (4 - t.pushers.length) + " pusher(s)");
+      var U = null;
+      for (var u = 0; u < t.pushers.length; u++) if (t.pushers[u].c === 11 && t.pushers[u].r === 0) U = t.pushers[u];
+      assert(U, "the east-pushing ram at (0,0) should land at (11,0) after a clockwise turn");
+      assert(U.d === S, "and should push south, pushes " + U.d);
+      assert(U.regs.join("") === "135", "carrying its own registers, got " + U.regs.join(""));
+      assert(B.wallAt(t, 11, 0, B.opposite(S)), "and must still have a wall behind it to mount on");
+
+      /* Four turns is identity, which is the property that actually
+         matters: a course may rotate a board by any quarter. */
+      var back = B.rotateGrid(g, 4);
+      assert(JSON.stringify(back.pushers) === JSON.stringify(g.pushers),
+        "four quarter turns must put every pusher back where it started");
     } },
 
     { name: "two boards assemble side by side without disturbing each other", run: function () {
@@ -4058,6 +4103,20 @@
       // And the left-hand board is still itself.
       var p = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
       assert(B.codeAt(C, 1, 0) === B.codeAt(p, 1, 0), "the left board was disturbed by the stamp");
+
+      /* The sparse layers have to be stamped too, and they are the half
+         a tile-by-tile comparison cannot see. A course that quietly
+         dropped every pusher would still assemble, still validate and
+         still play -- just without the rams. */
+      assert(C.pushers.length === p.pushers.length + g.pushers.length,
+        "the course should carry every board's pushers, has " + C.pushers.length +
+        " of " + (p.pushers.length + g.pushers.length));
+      for (var u = 0; u < g.pushers.length; u++) {
+        var U = g.pushers[u], at = B.pusherAt(C, U.c + 12, U.r);
+        assert(at, "the right board's pusher at (" + U.c + "," + U.r + ") is missing from the course");
+        assert(at.d === U.d && at.regs.join("") === U.regs.join(""),
+          "and arrived facing or firing differently");
+      }
     } },
 
     { name: "walls agree across a seam between two boards", run: function () {
@@ -4105,7 +4164,13 @@
         "formatting the picture back did not reproduce the source picture");
       var again = B.parsePic(id, {
         w: g.w, h: g.h, pic: pic,
-        lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+        lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+        /* Every sparse layer beside the picture has to make the trip.
+           This is what caught the pushers when they moved out of the
+           cells: the picture round-tripped perfectly and the rams
+           vanished, which is the silent half of the failure. */
+        pushers: g.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+        timers: g.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; })
       });
       /* Same metadata to both: the board DATA is what has to be a fixed
          point, and a re-parse of a bare picture legitimately carries no
@@ -4626,6 +4691,11 @@
     ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams,.pr-ed-stage .pr-walls{position:absolute;left:0;top:0}",
     ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
     ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
+    /* Photo-only: the traced layers go, the hit grid stays, so you can
+       still click squares while looking at the thing you are copying. */
+    ".pr-ed-solo .pr-ed-stage .pr-grid,.pr-ed-solo .pr-ed-stage .pr-beams,",
+    ".pr-ed-solo .pr-ed-stage .pr-walls{visibility:hidden}",
+    ".pr-ed-solo .pr-ed-stage{outline:2px solid var(--pr-accent);outline-offset:2px}",
     ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
     ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
     ".pr-ed-ok{color:var(--pr-accent);font-size:11px}",
@@ -6072,8 +6142,12 @@
       out.push("<tr><td>" + legendSwatch(tileInner(probeTile(sampleCode(ch, d)), 0, 0)) +
         "</td><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
     }
-    /* Flags and lasers are course tokens rather than printed board
-       elements, so they are not in ELEMENT_DEFS and are added here. */
+    /* Three things the legend has to name that are not cells. Flags and
+       lasers because they are course tokens rather than printed board
+       elements; pushers because they are bolted to a wall, and the
+       square under one is a separate thing that can be a conveyor. */
+    out.push("<tr><td>" + legendSwatch(pusherSvg(E, true)) + "</td><td>pusher</td><td>" +
+      "Shoves you one square, on the registers stamped beside it.</td></tr>");
     out.push("<tr><td>" + legendSwatch(flagSvg(1)) + "</td><td>flag</td><td>" +
       "Touch them in order. Touching one out of order still moves your archive.</td></tr>");
     out.push("<tr><td>" + legendSwatch(emitterSvg(S)) + "</td><td>board laser</td><td>" +
@@ -6085,7 +6159,6 @@
     if (d.belt === 2) return "Moves you two squares. Curves turn you, but only if the belt carried you on.";
     if (d.belt === 1) return "Moves you one square. Will not push a robot that is standing still.";
     if (d.gear) return "Turns you a quarter turn " + (d.gear > 0 ? "clockwise" : "counter-clockwise") + ".";
-    if (d.push) return "Shoves you one square, on the registers printed on the tile.";
     if (d.option) return "Repairs 1 damage at the end of the turn and deals you an option card. Sets your archive.";
     if (d.repair) return "Repairs 1 damage at the end of the turn. Sets your archive.";
     if (ch === "o") return "Destroyed. So is walking off the edge of the course.";
@@ -6332,8 +6405,6 @@
     { key: "B", label: "Express", dir: true },
     { key: "l", label: "Gear CCW" },
     { key: "r", label: "Gear CW" },
-    { key: "p", label: "Pusher 1/3/5", dir: true },
-    { key: "P", label: "Pusher 2/4", dir: true },
     { key: "o", label: "Pit" },
     { key: "w", label: "Repair" },
     { key: "W", label: "Upgrade" },
@@ -6364,9 +6435,21 @@
       dir: N,
       digit: 1,
       laserN: 1,
-      mode: "tile",              // tile | wall | laser
+      /* Which registers a newly placed ram fires in. The classic
+         parities are a preset, not a special case -- board H prints
+         1/2/3/4/5 and 2/3/4/5, so the tool has to be able to say any
+         subset and the parities are just two of them. */
+      pushRegs: [1, 3, 5],
+      mode: "tile",              // tile | wall | laser | pusher
       underlay: null,            // an object URL, never exported
       opacity: 0.5,
+      /* Comparing a trace with a photograph through 50% of each turns
+         out to be the hardest way to do it: everything is half there
+         and the eye averages the two. Flipping between them whole is
+         much easier to read, so Control swaps map for photo and the
+         button latches it. */
+      soloLatch: false,
+      soloHold: false,
       offX: 0, offY: 0, zoom: 2, uScale: 1,
       errors: [],
       warnings: []
@@ -6382,7 +6465,8 @@
         id: ED.id, w: ED.grid.w, h: ED.grid.h,
         name: ED.grid.name, notes: ED.grid.notes,
         pic: B.gridToPic(ED.grid),
-        lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+        lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+        pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; })
       }));
     } catch (e) {}
   }
@@ -6391,7 +6475,7 @@
     try {
       var s = JSON.parse(localStorage.getItem(ED_KEY) || "null");
       if (!s || !s.pic) return null;
-      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [] });
+      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [], pushers: s.pushers || [] });
       g.name = s.name || "New Board"; g.notes = s.notes || ""; g.origin = "transcribed"; g.flags = [];
       return edState(g, s.id);
     } catch (e) { return null; }
@@ -6469,7 +6553,7 @@
       var img = document.createElement("img");
       img.className = "pr-ed-under";
       img.src = ED.underlay;
-      img.style.opacity = ED.opacity;
+      img.style.opacity = edSolo() ? 1 : ED.opacity;
       img.style.left = ED.offX + "px";
       img.style.top = ED.offY + "px";
       img.style.width = (w * ED.uScale) + "px";
@@ -6488,7 +6572,25 @@
     }
     hits.innerHTML = out.join("");
     host.appendChild(hits);
+    host.classList.toggle("pr-ed-solo", edSolo());
     edRenderPanel();
+  }
+
+  /* Map or photo, never a blend. Control flips whichever way you are
+     currently looking, so it reads the same held down as latched. */
+  function edSolo() { return !!ED && (ED.soloLatch !== ED.soloHold) && !!ED.underlay; }
+
+  /* Called on every keydown repeat while Control is held, so it must
+     not rebuild the board -- it moves two classes and one opacity. */
+  function edSoloPaint() {
+    var host = UI.els && UI.els.host;
+    if (!host) return;
+    var on = edSolo();
+    host.classList.toggle("pr-ed-solo", on);
+    var img = host.querySelector(".pr-ed-under");
+    if (img) img.style.opacity = on ? 1 : ED.opacity;
+    var btn = host.querySelector('[data-act="edsolo"]');
+    if (btn) btn.className = ED.soloLatch ? "on" : "";
   }
 
   /* The tile renderer wants something course-shaped. A board being
@@ -6508,6 +6610,20 @@
     }
     out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
     out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
+    out.push('<button data-act="edmode" data-m="pusher"' + (ED.mode === "pusher" ? ' class="on"' : "") + ">Pushers</button>");
+    out.push("</div>");
+
+    /* A pusher is bolted to a wall and the square under it is its own
+       thing, so it is a mode rather than a tile: a conveyor and a ram
+       share squares on board H, and a palette entry could only ever
+       replace one with the other. */
+    out.push('<div class="pr-ed-row"><span>Pusher fires in</span>');
+    for (var pg = 1; pg <= 5; pg++) {
+      out.push('<button data-act="edpreg" data-n="' + pg + '"' +
+        (ED.pushRegs.indexOf(pg) >= 0 ? ' class="on"' : "") + ">" + pg + "</button>");
+    }
+    out.push('<button data-act="edpreset" data-p="odd">1/3/5</button>');
+    out.push('<button data-act="edpreset" data-p="even">2/4</button>');
     out.push("</div>");
 
     out.push('<div class="pr-ed-row"><span>Facing</span>');
@@ -6533,6 +6649,8 @@
       '<button data-act="ednudge" data-dx="4" data-dy="0">&rarr;</button>' +
       '<button data-act="ednudge" data-dx="0" data-dy="-4">&uarr;</button>' +
       '<button data-act="ednudge" data-dx="0" data-dy="4">&darr;</button>' +
+      '<button data-act="edsolo"' + (ED.soloLatch ? ' class="on"' : "") + '>Photo only</button>' +
+      '<span>(hold Ctrl to flip)</span>' +
       '<button data-act="edclearimg">Remove</button></div>');
 
     out.push('<div class="pr-ed-row"><span>Board</span>' +
@@ -6590,6 +6708,16 @@
       }
       if (found >= 0) ED.grid.lasers.splice(found, 1);
       if (!erase && found < 0) ED.grid.lasers.push({ c: hit.c, r: hit.r, d: ED.dir, n: ED.laserN });
+    } else if (ED.mode === "pusher") {
+      var fu = -1;
+      for (var u = 0; u < ED.grid.pushers.length; u++) {
+        if (ED.grid.pushers[u].c === hit.c && ED.grid.pushers[u].r === hit.r) fu = u;
+      }
+      if (fu >= 0) ED.grid.pushers.splice(fu, 1);
+      if (!erase && fu < 0) {
+        if (!ED.pushRegs.length) { announce("Pick at least one register for the pusher first."); return; }
+        ED.grid.pushers.push({ c: hit.c, r: hit.r, d: ED.dir, regs: ED.pushRegs.slice().sort() });
+      }
     } else {
       edSetCell(hit.c, hit.r, erase ? ".." : edToolCode());
     }
@@ -6649,16 +6777,42 @@
       if (b) edLoadImage(b.files && b.files[0]);
     });
     document.addEventListener("keydown", edKey);
+    document.addEventListener("keyup", edKeyUp);
+    root.addEventListener("blur", edBlur);
 
     edValidate();
     edRender();
   }
 
   function edKey(e) {
-    if (!ED || modalOpen()) return;
+    if (!ED) return;
+    /* The photo flip is checked before the modal guard on purpose --
+       it changes nothing in the board, and releasing Control with an
+       export dialog open must still put the map back. */
+    if (e.key === "Control") {
+      if (ED.soloHold) return;               // keydown repeats while held
+      ED.soloHold = true;
+      edSoloPaint();
+      return;
+    }
+    if (modalOpen()) { if (e.key === "Escape") closeModal(); return; }
     if (e.key === "r" || e.key === "R") { ED.dir = B.rot(ED.dir, 1); edRenderPanel(); }
     else if (e.key === "w" || e.key === "W") { ED.mode = ED.mode === "wall" ? "tile" : "wall"; edRenderPanel(); }
-    else if (e.key === "Escape" && modalOpen()) closeModal();
+  }
+
+  function edKeyUp(e) {
+    if (!ED || e.key !== "Control") return;
+    ED.soloHold = false;
+    edSoloPaint();
+  }
+
+  /* Alt-tabbing away mid-hold never delivers the keyup, which would
+     leave the photo stuck over the board with no way back short of
+     pressing and releasing Control again. */
+  function edBlur() {
+    if (!ED || !ED.soloHold) return;
+    ED.soloHold = false;
+    edSoloPaint();
   }
 
   function edLoadImage(file) {
@@ -6676,6 +6830,19 @@
     else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
     else if (a === "eddigit") { ED.digit = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edpreg") {
+      var n = parseInt(b.dataset.n, 10), at = ED.pushRegs.indexOf(n);
+      if (at >= 0) ED.pushRegs.splice(at, 1); else ED.pushRegs.push(n);
+      ED.pushRegs.sort();
+      ED.mode = "pusher";
+      edRenderPanel();
+    }
+    else if (a === "edpreset") {
+      ED.pushRegs = b.dataset.p === "odd" ? [1, 3, 5] : [2, 4];
+      ED.mode = "pusher";
+      edRenderPanel();
+    }
+    else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
     else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "ednudge") { ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10); edRender(); }
@@ -6698,7 +6865,8 @@
     edValidate();
     if (ED.errors.length) { announce("Fix the board first: " + ED.errors[0]); edRenderPanel(); return; }
     var spec = { w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), name: ED.grid.name, origin: "authored",
-                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }) };
+                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+                 pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }) };
     B.BOARD_SPECS.__editorTest = spec;
     var spots = [];
     for (var r = 0; r < ED.grid.h && spots.length < 3; r++) {
@@ -6719,6 +6887,8 @@
     catch (err) { announce("Test course will not build: " + err.message); return; }
     root.location.hash = "";
     document.removeEventListener("keydown", edKey);
+    document.removeEventListener("keyup", edKeyUp);
+    root.removeEventListener("blur", edBlur);
     ED = null;
     mount(UI.els.host, { course: "__editorTest" });
   }
