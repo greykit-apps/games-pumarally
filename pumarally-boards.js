@@ -1549,8 +1549,7 @@
        the second pass lands. */
     canneryRow: {
       name: "Cannery Row", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
-      unverified: true,
-      notes: "Belt shapes audited against the photograph. Three pushers still need a close-up for their registers.",
+      notes: "Checked square by square against the photograph and confirmed. Three rams on the lower half are printed on the board and are not here: their register plates cannot be read at this resolution, and a guessed register is worse than a missing ram.",
       pic: [
         "+  +  +--+  +--+  +  +--+  +--+  +  +",
         " B> B> B> B> bv b< o. .. .. .. ..|Bv ",
@@ -1738,6 +1737,15 @@
     /* Flags ours, not the printed course. All three on plain floor and
        clear of the spills, so reaching one is not a matter of luck with
        an oil slide. */
+    canneryRowRun: {
+      name: "Cannery Row",
+      kind: "quick",
+      blurb: "Two belt lanes run the whole length of it, with a crusher on every other square.",
+      boards: [{ id: "canneryRow", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[2, 9], [8, 3], [7, 7]],
+      minPlayers: 2, maxPlayers: 8
+    },
     boardGRun: {
       name: "Board G",
       kind: "quick",
