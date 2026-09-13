@@ -61,6 +61,7 @@
     violet: "#b47dff",        /* upgrade */
     steel: "#94a0c4",         /* gears, walls */
     concrete: "#9aa1ae",      /* the poured edge of a wall, not its face */
+    concreteEdge: "#4a5160",  /* the shadowed lip where a slab meets the floor */
     /* Hazard stripes: the yellow-and-black the printed board uses for
        anything that will hurt you -- wall faces, pit frames, rams. */
     hazard: "#f2c400",
@@ -178,6 +179,14 @@
   /* Edge midpoints and the tile centre, in viewBox units. Indexed by
      direction, so N/E/S/W is the array order the engine already uses. */
   var EDGE = [[50, 0], [100, 50], [50, 100], [0, 50]];
+
+  var HAZARD_DEFS =
+    '<svg class="pr-defs" width="0" height="0" aria-hidden="true">' +
+      '<defs><pattern id="pr-hz" width="14" height="14" patternUnits="userSpaceOnUse" ' +
+      'patternTransform="rotate(-45)">' +
+        '<rect class="pr-hz-dark" width="14" height="14"/>' +
+        '<rect class="pr-hz-lit" width="7" height="14"/>' +
+      "</pattern></defs></svg>";
 
   function svg(inner, cls) {
     return '<svg class="pr-art' + (cls ? " " + cls : "") + '" viewBox="0 0 100 100" ' +
@@ -445,31 +454,39 @@
      Which registers it fires on is a rule, not decoration, so the
      digits are stamped on the tile rather than left to the legend --
      upright and in a fixed corner whichever way the ram points. */
+  /* A PUSHING PLATFORM, not an arrow.
+
+     The printed board draws a pusher as a barricade-striped plate that
+     slides out of the wall it is bolted to, and that is a better sign
+     than an arrow for a reason beyond fidelity: every other arrow on
+     this board means a conveyor, so an arrow here said "you will be
+     carried" when it means "you will be shoved, on these registers and
+     not the others".
+
+     Geometry is in the mount's frame -- u runs out from the wall, v
+     runs along it -- so one bit of arithmetic serves all four
+     orientations instead of four hand-rotated copies. */
   function pusherSvg(dir, odd) {
     var mount = B.opposite(dir), m = EDGE[mount];
-    var px = -DR[mount] * 36, py = DC[mount] * 36;
-    var qx = DC[dir] * 18, qy = DR[dir] * 18;
-    var reach = 32;
-    /* Ram first, plate over it: the plate stays one unbroken bar and
-       the ram reads as coming OUT of it. Drawn the other way round the
-       ram cuts the plate into two squares floating either side of it. */
+    var ux = DC[dir], uy = DR[dir];            // out from the wall
+    var vx = -uy, vy = ux;                     // along the wall
+    var HALF = 34, BACK = 4, FACE = 46, LIP = 10;
+    function pt(u, v) {
+      return (m[0] + ux * u + vx * v).toFixed(1) + " " +
+             (m[1] + uy * u + vy * v).toFixed(1);
+    }
+    function quad(u0, u1, v) {
+      return "M" + pt(u0, -v) + "L" + pt(u0, v) + "L" + pt(u1, v) + "L" + pt(u1, -v) + "Z";
+    }
     return svg(
-      '<path class="pr-ram" d="M' + m[0] + " " + m[1] + "L" +
-        (m[0] + DC[dir] * reach) + " " + (m[1] + DR[dir] * reach) + '"/>' +
-      pushHead(m[0] + DC[dir] * (reach + 24), m[1] + DR[dir] * (reach + 24), DC[dir], DR[dir], 24) +
-      '<path class="pr-ram-base" d="M' + (m[0] + px) + " " + (m[1] + py) +
-        "L" + (m[0] - px) + " " + (m[1] - py) +
-        "L" + (m[0] - px + qx) + " " + (m[1] - py + qy) +
-        "L" + (m[0] + px + qx) + " " + (m[1] + py + qy) + 'Z"/>',
+      /* the slot it comes out of, so the plate reads as emerging */
+      '<path class="pr-push-slot" d="' + quad(-2, BACK, HALF + 4) + '"/>' +
+      /* the striped deck */
+      '<path class="pr-push-deck" d="' + quad(BACK, FACE, HALF) + '"/>' +
+      /* a steel lip along the leading edge: the part that does the work */
+      '<path class="pr-push-lip" d="' + quad(FACE - LIP, FACE, HALF) + '"/>' +
+      '<path class="pr-push-edge" d="M' + pt(FACE, -HALF) + "L" + pt(FACE, HALF) + '"/>',
       "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
-  }
-
-  function pushHead(x, y, hx, hy, size) {
-    var bx = x - hx * size, by = y - hy * size;
-    var px = -hy * size * 0.85, py = hx * size * 0.85;
-    return '<path class="pr-ram-head" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
-           "L" + x.toFixed(1) + " " + y.toFixed(1) +
-           "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + 'Z"/>';
   }
 
   /* Repair is a plate with a cross cut into it; upgrade is the same
@@ -492,10 +509,15 @@
      with walls on all four sides, which is very nearly the opposite
      of what it is. A borrowed convention that contradicts your own is
      worse than no convention. */
+  /* A pit is a hole with a barricade painted round its rim, which is
+     exactly how the printed board marks one. The frame is DIMMED: at
+     full strength the stripe is the loudest thing on the board and a
+     course of pits reads as a warning label rather than as a floor. */
   function pitSvg() {
-    return svg('<rect class="pr-shaft" x="12" y="12" width="76" height="76" rx="2"/>' +
-               '<path class="pr-shaft-2" d="M12 12L88 12L66 34L34 34Z"/>' +
-               '<rect class="pr-void-floor" x="34" y="34" width="32" height="42" rx="1"/>', "pr-pit");
+    return svg('<rect class="pr-hazard-frame" x="5" y="5" width="90" height="90" rx="3"/>' +
+               '<rect class="pr-shaft" x="16" y="16" width="68" height="68" rx="2"/>' +
+               '<path class="pr-shaft-2" d="M16 16L84 16L64 36L36 36Z"/>' +
+               '<rect class="pr-void-floor" x="36" y="36" width="28" height="38" rx="1"/>', "pr-pit");
   }
 
   /* A press is a ram seen from underneath: a heavy plate ringed by the
@@ -4109,10 +4131,10 @@
     /* Pushers: a hazard-striped ram on the wall it is bolted to. */
     /* The ram is the moving part and has to out-weigh the plate it
        comes out of, or the tile reads as a wall with a scratch on it. */
-    ".pr-pusher .pr-ram-base{fill:var(--pr-hazard);stroke:var(--pr-hazard-dark);stroke-width:3}",
-    ".pr-pusher .pr-ram{stroke:var(--pr-steel);stroke-width:30;stroke-linecap:butt}",
-    ".pr-pusher .pr-ram-head{fill:var(--pr-steel);stroke:var(--pr-steel);stroke-width:6;",
-    "stroke-linejoin:round}",
+    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.85}",
+    ".pr-pusher .pr-push-deck{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2}",
+    ".pr-pusher .pr-push-lip{fill:var(--pr-steel);opacity:.92}",
+    ".pr-pusher .pr-push-edge{stroke:var(--pr-bg);stroke-width:4;stroke-linecap:round}",
 
     ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
     ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
@@ -4121,6 +4143,9 @@
     ".pr-dock .pr-plate{fill:var(--pr-panel-alt);stroke:var(--pr-border);stroke-width:3}",
     ".pr-dock .pr-num{fill:var(--pr-dim)}",
 
+    /* Dimmed on purpose: at full strength a course of pits reads as a
+       warning label rather than as a floor with holes in it. */
+    ".pr-pit .pr-hazard-frame{fill:none;stroke:url(#pr-hz);stroke-width:9;opacity:.42}",
     ".pr-pit .pr-shaft{fill:#161c2a}",
     ".pr-pit .pr-shaft-2{fill:#20283a}",
     ".pr-pit .pr-void-floor{fill:#000}",
@@ -4131,11 +4156,24 @@
     ".pr-flag .pr-num{fill:#120c00;font-size:44px;font-weight:700}",
     ".pr-emitter .pr-mount{fill:var(--pr-danger)}",
 
-    /* The hazard stripe, shared by everything that will hurt you: the
-       face of a wall, the frame of a pit, the head of a ram. One
-       definition, so they cannot drift apart. */
+    /* The hazard stripe, now meaning "this will move or swallow you" --
+       pit rims and pusher decks -- rather than "this is solid". Walls
+       are concrete. One definition still, in two forms: a CSS gradient
+       for DOM bars and an SVG pattern for tile art, kept at the same
+       pitch so a pit rim and a pusher deck are the same stripe. */
     ".pr-root{--pr-stripe:repeating-linear-gradient(-45deg,var(--pr-hazard) 0 5px,",
-    "var(--pr-hazard-dark) 5px 10px)}",
+    "var(--pr-hazard-dark) 5px 10px);",
+    /* Concrete: aggregate, grain, and a lit top edge. Two directions so
+       a vertical wall is lit down its length rather than across it. */
+    "--pr-concrete-h:repeating-linear-gradient(64deg,rgba(255,255,255,.055) 0 1px,transparent 1px 4px),",
+    "repeating-linear-gradient(-27deg,rgba(0,0,0,.20) 0 1px,transparent 1px 5px),",
+    "linear-gradient(180deg,#99a0ad 0,#7a818e 52%,#5f6674 100%);",
+    "--pr-concrete-v:repeating-linear-gradient(64deg,rgba(255,255,255,.055) 0 1px,transparent 1px 4px),",
+    "repeating-linear-gradient(-27deg,rgba(0,0,0,.20) 0 1px,transparent 1px 5px),",
+    "linear-gradient(90deg,#99a0ad 0,#7a818e 52%,#5f6674 100%)}",
+    ".pr-defs{position:absolute;width:0;height:0;overflow:hidden}",
+    ".pr-hz-dark{fill:var(--pr-hazard-dark)}",
+    ".pr-hz-lit{fill:var(--pr-hazard)}",
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
@@ -4162,13 +4200,21 @@
        warning is painted on, and it is what gives the bar an outside
        rather than just a colour. The shadow falls both ways, because
        the wall is standing on the line rather than against a side. */
-    ".pr-wall{position:absolute;background:var(--pr-stripe);pointer-events:none;",
-    "box-sizing:border-box;border:2px solid var(--pr-concrete);",
-    "box-shadow:0 0 6px 1px rgba(0,0,0,.7);",
+    /* A wall is POURED CONCRETE, not a hazard stripe. The stripe now
+       belongs to the things that move or swallow you -- pit rims and
+       pusher decks -- and a board where the static walls shouted the
+       same warning as the moving parts had no way to say which was
+       which. The texture is three cheap layers: fine aggregate one way,
+       coarser grain across it, and a vertical shade so the slab has a
+       lit top edge and a shadowed foot. */
+    ".pr-wall{position:absolute;background:var(--pr-concrete-h);pointer-events:none;",
+    "box-sizing:border-box;border:1px solid var(--pr-concrete-edge);",
+    "box-shadow:0 0 6px 1px rgba(0,0,0,.72);",
     "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 2);",
     "width:var(--tile);height:var(--wt)}",
     ".pr-wall.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
-    "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile)}",
+    "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile);",
+    "background:var(--pr-concrete-v)}",
 
     /* A swing door sits exactly where a wall would, so it inherits the
        geometry and changes only what it says: hollow rather than solid,
@@ -6474,6 +6520,12 @@
     injectCSS();
     host.classList.add("pr-root");
     host.innerHTML = "";
+    /* The hazard stripe lives in ONE pattern that every tile references,
+       rather than being redrawn per tile: a pit frame and a pusher plate
+       have to be the same stripe at the same pitch or the board looks
+       like two boards. Ids are document-scoped, so this is appended
+       once and reached by url(#...) from inside any tile's svg. */
+    host.insertAdjacentHTML("beforeend", HAZARD_DEFS);
     UI.opts = opts;
 
     houseRules = loadRules();
