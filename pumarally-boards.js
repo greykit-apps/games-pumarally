@@ -1541,7 +1541,11 @@
         { id: "provingGround", rot: 0, at: [0, 0] },
         { id: "shuntYard", rot: 0, at: [12, 0] }
       ],
-      dock: { id: "dockingBay", rot: 0, at: [6, 12] },
+      /* Squarely under the left board. This course is ours rather than
+         printed, and its block used to straddle the seam -- which the
+         assembler no longer expresses, and a course it cannot express
+         drops off its menu silently. */
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[9, 2], [17, 6], [1, 10]],
       minPlayers: 2, maxPlayers: 8
     },
@@ -1700,123 +1704,137 @@
      a save.
      ============================================================ */
 
-  /* The most a layout may be: two boards by two, plus the block. */
-  var LAY_BOARDS = 4, LAY_HALF = 4, LAY_ROWS = 2;
+  /* A THREE BY THREE OF SLOTS, AND THE BLOCK UNDER ONE COLUMN.
 
-  function layBoards(layout) {
-    return (layout && layout.boards) || [];
+     Boards are aligned. Every board is 12x12 and sits squarely in a
+     slot, so a slot IS a board position and there is nothing to fit --
+     which is the point of going back to a grid after trying free
+     placement: half a board over reads as a mistake far more often
+     than it reads as a course, and every rule about it (what touches
+     what, what covers the block, what a corner means) existed only to
+     describe arrangements nobody wanted.
+
+     The block goes under the bottom row, in one of the three columns.
+     It is 12 wide and so is a board, so the column above it is either
+     filled or it is not -- there is no half-covered start area any
+     more, and no rule about one.
+
+     The grid is cropped to the boards actually in it, so a course made
+     of the two bottom-left slots is 24 by 12 and not 36 by 36 with
+     holes. */
+  var LAY_COLS = 3, LAY_ROWS = 3, LAY_BOARDS = LAY_COLS * LAY_ROWS;
+
+  function layCells(layout) {
+    var cells = (layout && layout.cells) || [];
+    var out = [];
+    for (var i = 0; i < LAY_BOARDS; i++) out.push(cells[i] || null);
+    return out;
   }
 
-  /* The half-board columns and board rows the layout occupies, WITH
-     the block, because the block is part of the footprint even when no
-     board sits over it. */
-  function laySpan(boards) {
-    var minH = 0, maxH = 2, maxRow = 0;
-    for (var i = 0; i < boards.length; i++) {
-      minH = Math.min(minH, boards[i].x);
-      maxH = Math.max(maxH, boards[i].x + 2);
-      maxRow = Math.max(maxRow, boards[i].row);
+  function layAt(cells, c, r) {
+    if (c < 0 || r < 0 || c >= LAY_COLS || r >= LAY_ROWS) return null;
+    return cells[r * LAY_COLS + c] || null;
+  }
+
+  /* The box the boards actually occupy, or null for an empty grid. */
+  function laySpan(cells) {
+    var c0 = LAY_COLS, c1 = -1, r0 = LAY_ROWS, r1 = -1, n = 0, c, r;
+    for (r = 0; r < LAY_ROWS; r++) {
+      for (c = 0; c < LAY_COLS; c++) {
+        if (!layAt(cells, c, r)) continue;
+        n++;
+        if (c < c0) c0 = c;
+        if (c > c1) c1 = c;
+        if (r < r0) r0 = r;
+        if (r > r1) r1 = r;
+      }
     }
-    return { minH: minH, maxH: maxH, maxRow: maxRow, half: maxH - minH, rows: maxRow + 1 };
+    return n ? { c0: c0, c1: c1, r0: r0, r1: r1, n: n,
+                 cols: c1 - c0 + 1, rows: r1 - r0 + 1 } : null;
   }
 
-  function layOverlaps(boards, x, row, skip) {
-    for (var i = 0; i < boards.length; i++) {
-      if (i === skip) continue;
-      if (boards[i].row === row && Math.abs(boards[i].x - x) < 2) return true;
-    }
-    return false;
-  }
-
-  function layAdjacent(a, b) {
-    var dx = Math.abs(a.x - b.x), dr = Math.abs(a.row - b.row);
-    if (dr === 0) return dx === 2;
-    if (dr === 1) return dx <= 1;
-    return false;
-  }
-
-  /* Every board reachable from the first, so a layout is one course
-     rather than two courses in the same picture. */
-  function layConnected(boards) {
-    if (boards.length < 2) return true;
-    var seen = [0], queue = [0], i, j;
+  /* Every board reachable from the first along an edge, so a layout is
+     one course rather than two courses in the same picture. Corners do
+     not join: nothing can drive across one. */
+  function layConnected(cells) {
+    var sp = laySpan(cells);
+    if (!sp || sp.n < 2) return true;
+    var start = -1, i;
+    for (i = 0; i < LAY_BOARDS; i++) if (cells[i]) { start = i; break; }
+    var seen = {}, queue = [start];
+    seen[start] = 1;
     while (queue.length) {
-      var at = queue.pop();
-      for (j = 0; j < boards.length; j++) {
-        if (seen.indexOf(j) >= 0) continue;
-        if (layAdjacent(boards[at], boards[j])) { seen.push(j); queue.push(j); }
+      var at = queue.pop(), c = at % LAY_COLS, r = (at - c) / LAY_COLS;
+      var around = [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]];
+      for (i = 0; i < around.length; i++) {
+        var nc = around[i][0], nr = around[i][1];
+        if (!layAt(cells, nc, nr)) continue;
+        var k = nr * LAY_COLS + nc;
+        if (seen[k]) continue;
+        seen[k] = 1;
+        queue.push(k);
       }
     }
-    return seen.length === boards.length;
+    var count = 0;
+    for (i in seen) count++;
+    return count === sp.n;
   }
 
-  /* Which half of the starting block has nothing over it. A robot in a
-     bay under open void drives straight off the course, so this is the
-     reason a half-offset board needs a second one beside it. */
-  function layDockOpen(boards) {
-    var open = [];
-    for (var h = 0; h < 2; h++) {
-      var covered = false;
-      for (var i = 0; i < boards.length; i++) {
-        if (boards[i].row === 0 && boards[i].x <= h && h <= boards[i].x + 1) covered = true;
+  /* Which columns the block may sit under: the filled ones along the
+     bottom row of the boards actually placed. */
+  function layDockCols(cells) {
+    var sp = laySpan(cells), out = [];
+    if (!sp) return out;
+    for (var c = sp.c0; c <= sp.c1; c++) if (layAt(cells, c, sp.r1)) out.push(c);
+    return out;
+  }
+
+  /* The column the block WILL sit under, given where it is wanted. A
+     block under a column with nothing over it is a row of bays opening
+     onto the void, so it moves rather than being left there. */
+  function layDockCol(cells, want) {
+    var ok = layDockCols(cells);
+    if (!ok.length) return -1;
+    for (var i = 0; i < ok.length; i++) if (ok[i] === want) return want;
+    return ok[0];
+  }
+
+  /* Where a board may be put: any empty slot touching one already
+     placed, or -- with an empty grid -- any slot at all. */
+  function laySlots(cells) {
+    var out = [], c, r;
+    var sp = laySpan(cells);
+    for (r = 0; r < LAY_ROWS; r++) {
+      for (c = 0; c < LAY_COLS; c++) {
+        if (layAt(cells, c, r)) continue;
+        if (!sp) { out.push({ c: c, r: r }); continue; }
+        if (layAt(cells, c - 1, r) || layAt(cells, c + 1, r) ||
+            layAt(cells, c, r - 1) || layAt(cells, c, r + 1)) out.push({ c: c, r: r });
       }
-      if (!covered) open.push(h);
     }
-    return open;
-  }
-
-  function layFits(boards) {
-    if (boards.length > LAY_BOARDS) return false;
-    var sp = laySpan(boards);
-    return sp.half <= LAY_HALF && sp.rows <= LAY_ROWS;
-  }
-
-  /* Where a board may be dropped: touching what is already there, or
-     -- with an empty stage -- on the block, square on or half over
-     either way. Moving a board asks the same question with that board
-     lifted off first, which is why `skip` exists. */
-  function laySlots(boards, skip) {
-    var live = [], i, k;
-    for (i = 0; i < boards.length; i++) if (i !== skip) live.push(boards[i]);
-    var want = [], seen = {};
-    function offer(x, row) {
-      var key = x + ":" + row;
-      if (seen[key] || row < 0 || row >= LAY_ROWS) return;
-      if (layOverlaps(live, x, row, -1)) return;
-      if (!layFits(live.concat([{ x: x, row: row }]))) return;
-      seen[key] = 1;
-      want.push({ x: x, row: row });
-    }
-    if (!live.length) { offer(-1, 0); offer(0, 0); offer(1, 0); return want; }
-    for (i = 0; i < live.length; i++) {
-      var b = live[i];
-      var around = [[b.x - 2, b.row], [b.x + 2, b.row],
-                    [b.x - 1, b.row - 1], [b.x, b.row - 1], [b.x + 1, b.row - 1],
-                    [b.x - 1, b.row + 1], [b.x, b.row + 1], [b.x + 1, b.row + 1]];
-      for (k = 0; k < around.length; k++) offer(around[k][0], around[k][1]);
-    }
-    return want;
+    return out;
   }
 
   function composeCourse(layout, flagCount, rnd) {
-    var src = layBoards(layout), boards = [], i;
-    if (!src.length) throw new Error("a course needs at least one board");
-    var sp = laySpan(src);
-    for (i = 0; i < src.length; i++) {
-      boards.push({ id: src[i].id, rot: src[i].rot || 0,
-                    at: [(src[i].x - sp.minH) * 6, (sp.maxRow - src[i].row) * 12] });
+    var cells = layCells(layout), sp = laySpan(cells);
+    if (!sp) throw new Error("a course needs at least one board");
+    var boards = [], c, r;
+    for (r = sp.r0; r <= sp.r1; r++) {
+      for (c = sp.c0; c <= sp.c1; c++) {
+        var cell = layAt(cells, c, r);
+        if (!cell) continue;
+        boards.push({ id: cell.id, rot: cell.rot || 0,
+                      at: [(c - sp.c0) * 12, (r - sp.r0) * 12] });
+      }
     }
-    /* Read in a stable order rather than whatever order they were
-       dropped in, so the same layout always composes byte for byte the
-       same spec -- which is what lets a save and a re-render agree. */
-    boards.sort(function (a, b) { return a.at[1] - b.at[1] || a.at[0] - b.at[0]; });
+    var dc = layDockCol(cells, layout.dockCol || 0);
     var spec = {
       id: layout.id || "composed",
       name: layout.name || "Your course",
       blurb: layout.blurb || "",
       boards: boards,
       dock: { id: layout.dockId || "dockingBay", rot: 0,
-              at: [(0 - sp.minH) * 6, (sp.maxRow + 1) * 12] },
+              at: [(dc - sp.c0) * 12, sp.rows * 12] },
       flags: [],
       minPlayers: 2, maxPlayers: 8
     };
@@ -1857,7 +1875,7 @@
      caller passed in -- the layout is the player's live state and a
      question about it must not edit it. */
   function withFlags(layout, flags) {
-    var out = { v: layout.v, boards: layout.boards, flags: flags };
+    var out = { v: layout.v, cells: layout.cells, dockCol: layout.dockCol, flags: flags };
     if (layout.id) out.id = layout.id;
     if (layout.name) out.name = layout.name;
     if (layout.dockId) out.dockId = layout.dockId;
@@ -1879,29 +1897,31 @@
   function layoutFromCourse(id) {
     var spec = COURSES[id];
     if (!spec || !spec.dock) return null;
-    var i, b, maxY = 0;
+    var i, b, maxC = 0, maxR = 0;
     for (i = 0; i < spec.boards.length; i++) {
       b = spec.boards[i];
       var g = specOf(b.id);
       if (!g || g.w !== 12 || g.h !== 12) return null;
-      /* Half a board horizontally, a whole one vertically -- the two
-         units the layout model is built on. Anything printed off that
-         lattice is not a shape this stage can hold. */
-      if (b.at[0] % 6 || b.at[1] % 12 || b.at[0] < 0 || b.at[1] < 0) return null;
-      maxY = Math.max(maxY, b.at[1]);
+      /* Aligned, and nothing else: a board off the twelve-square
+         lattice is not a shape this grid can hold. */
+      if (b.at[0] % 12 || b.at[1] % 12 || b.at[0] < 0 || b.at[1] < 0) return null;
+      maxC = Math.max(maxC, b.at[0] / 12);
+      maxR = Math.max(maxR, b.at[1] / 12);
     }
-    if (spec.dock.at[0] % 6 || spec.dock.at[1] !== maxY + 12) return null;
-    var dockH = spec.dock.at[0] / 6, boards = [];
+    if (maxC >= LAY_COLS || maxR >= LAY_ROWS) return null;
+    if (spec.dock.at[0] % 12 || spec.dock.at[1] !== (maxR + 1) * 12) return null;
+    var dockCol = spec.dock.at[0] / 12;
+    if (dockCol < 0 || dockCol >= LAY_COLS) return null;
+    var cells = [];
+    for (i = 0; i < LAY_BOARDS; i++) cells.push(null);
     for (i = 0; i < spec.boards.length; i++) {
       b = spec.boards[i];
-      boards.push({ id: b.id, rot: b.rot || 0,
-                    x: b.at[0] / 6 - dockH, row: (maxY - b.at[1]) / 12 });
+      var at = (b.at[1] / 12) * LAY_COLS + (b.at[0] / 12);
+      if (cells[at]) return null;                    // two boards in one slot
+      cells[at] = { id: b.id, rot: b.rot || 0 };
     }
-    if (!layFits(boards) || !layConnected(boards)) return null;
-    for (i = 0; i < boards.length; i++) {
-      if (layOverlaps(boards, boards[i].x, boards[i].row, i)) return null;
-    }
-    return { v: 2, boards: boards };
+    if (!layConnected(cells) || layDockCol(cells, dockCol) !== dockCol) return null;
+    return { v: 3, cells: cells, dockCol: dockCol };
   }
 
   function defaultFlagsFor(layout) {
@@ -2497,9 +2517,9 @@
     flagCandidates: flagCandidates, flagLegal: flagLegal, dockBoxOf: dockBoxOf,
     withFlags: withFlags, flagRank: flagRank, boardBoxes: boardBoxes, shareOut: shareOut,
     layoutFromCourse: layoutFromCourse,
-    LAY_BOARDS: LAY_BOARDS, LAY_HALF: LAY_HALF, LAY_ROWS: LAY_ROWS,
-    laySpan: laySpan, layOverlaps: layOverlaps, layAdjacent: layAdjacent,
-    layConnected: layConnected, layDockOpen: layDockOpen, layFits: layFits, laySlots: laySlots,
+    LAY_BOARDS: LAY_BOARDS, LAY_COLS: LAY_COLS, LAY_ROWS: LAY_ROWS,
+    layCells: layCells, layAt: layAt, laySpan: laySpan, layConnected: layConnected,
+    layDockCols: layDockCols, layDockCol: layDockCol, laySlots: laySlots,
     rallyFlags: rallyFlags, arenaFlags: arenaFlags, northrupFlags: northrupFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,

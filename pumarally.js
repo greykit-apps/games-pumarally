@@ -3689,9 +3689,7 @@
          not a second kind of game. It goes through buildCourse,
          validateCourse and newGame by the same path a shipped one
          does. */
-      var layout = { v: 2, name: "Bench Yard",
-                     boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                              { id: "cross", rot: 1, x: 2, row: 0 }] };
+      var layout = { v: 3, dockCol: 0, name: "Bench Yard", cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 1 }, null] };
       var spec = B.composeCourse(layout, 3);
       assert(spec.boards.length === 2, "both boards are in the spec");
       assert(spec.boards[1].at[0] === 12 && spec.boards[1].at[1] === 0,
@@ -3713,9 +3711,7 @@
          is a flag somebody starts on top of -- which is what the
          first version produced, because "furthest from the start" had
          been written as "largest row" and the dock is at the bottom. */
-      var layout = { v: 2, boards: [
-        { id: "island", rot: 0, x: 0, row: 1 }, { id: "cross", rot: 1, x: 2, row: 1 },
-        { id: "pitMaze", rot: 2, x: 0, row: 0 }, { id: "boardG", rot: 3, x: 2, row: 0 }] };
+      var layout = { v: 3, dockCol: 0, cells: [null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 1 }, null, { id: "pitMaze", rot: 2 }, { id: "boardG", rot: 3 }, null] };
       var spec = B.composeCourse(layout, 3);
       var C = B.buildCourse(spec);
       assert(C.flags.length === 3, "three flags, got " + C.flags.length);
@@ -3737,8 +3733,7 @@
       /* A save carries the SPEC, so the spec has to be the whole
          answer. If composing twice gave two courses, a reload would
          be a different race. */
-      var layout = { v: 2, boards: [{ id: "exchange", rot: 0, x: 0, row: 1 },
-                                    { id: "maelstrom", rot: 2, x: 0, row: 0 }] };
+      var layout = { v: 3, dockCol: 0, cells: [null, null, null, { id: "exchange", rot: 0 }, null, null, { id: "maelstrom", rot: 2 }, null, null] };
       var a = JSON.stringify(B.composeCourse(layout, 3));
       var b = JSON.stringify(B.composeCourse(layout, 3));
       assert(a === b, "two composes of one layout must match");
@@ -3750,7 +3745,7 @@
          its bots raced toward flags that were not there. The sims
          found it as "no game was ever won". */
       function mk(order) {
-        return B.composeCourse({ v: 2, boards: [{ id: order, rot: 0, x: 0, row: 0 }] }, 3);
+        return B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: order, rot: 0 }, null, null] }, 3);
       }
       var A = B.buildCourse(mk("island")), Bc = B.buildCourse(mk("cross"));
       assert(A.id === Bc.id, "fixture: both are called " + A.id);
@@ -5281,168 +5276,149 @@
       assert(pal.indexOf("dockingBay") < 0, "the docking bay is the start area, not a board to place");
     } },
 
-    { name: "the first board lands on the block, square on or half over", run: function () {
-      /* The block is the anchor and the only thing an empty stage
-         offers to land on. Three places, because a start area under
-         the seam between two boards is a real course and one of the
-         shipped ones is exactly that. */
-      UI.layout = { v: 2, boards: [] };
-      var at = B.laySlots([], undefined), xs = [];
-      for (var i = 0; i < at.length; i++) {
-        assert(at[i].row === 0, "an empty stage offered a landing place off the block, at row " + at[i].row);
-        xs.push(at[i].x);
+    { name: "the first board may go in any slot; the rest go beside one", run: function () {
+      /* An empty grid offers every slot, because the block follows
+         whichever column the board lands in. After that a board has to
+         touch one already down, or the course would be in two halves
+         with nothing driving between them. */
+      var empty = [null, null, null, null, null, null, null, null, null];
+      assert(B.laySlots(empty).length === 9, "an empty grid should offer all nine slots");
+      var one = empty.slice();
+      one[4] = { id: "island", rot: 0 };                 // the middle
+      var at = B.laySlots(one), seen = {};
+      for (var i = 0; i < at.length; i++) seen[at[i].c + ":" + at[i].r] = 1;
+      assert(at.length === 4, "a board in the middle should offer its four sides, offered " + at.length);
+      assert(seen["1:0"] && seen["0:1"] && seen["2:1"] && seen["1:2"],
+        "the four sides are not the four offered: " + Object.keys(seen).join(" "));
+      assert(!seen["0:0"] && !seen["2:2"], "a corner was offered as a place to join");
+      assert(!seen["1:1"], "the slot the board is standing in was offered");
+    } },
+
+    { name: "boards join along an edge, never at a corner", run: function () {
+      var cells = [null, null, null, null, null, null, null, null, null];
+      cells[0] = { id: "island", rot: 0 };
+      cells[1] = { id: "cross", rot: 0 };
+      assert(B.layConnected(cells), "two boards side by side are not being read as joined");
+      cells[1] = null;
+      cells[3] = { id: "cross", rot: 0 };                // directly below
+      assert(B.layConnected(cells), "two boards one above the other are not being read as joined");
+      cells[3] = null;
+      cells[4] = { id: "cross", rot: 0 };                // corner to corner
+      assert(!B.layConnected(cells), "boards touching at a corner read as joined");
+      assert(B.layConnected([null, null, null, null, null, null, null, null, null]),
+        "an empty grid is not two courses");
+      var solo = [null, null, null, null, { id: "island", rot: 0 }, null, null, null, null];
+      assert(B.layConnected(solo), "one board on its own is not two courses");
+    } },
+
+    { name: "a course stops at three boards by three", run: function () {
+      UI.layout = { v: 3, dockCol: 0,
+                    cells: [null, null, null, null, null, null, null, null, null] };
+      assert(layoutPut(6, "island"), "the first board was refused");
+      var put = 1;
+      for (var g = 0; g < 12; g++) {
+        var slots = B.laySlots(layoutNow().cells);
+        if (!slots.length) break;
+        var at = slots[0].r * B.LAY_COLS + slots[0].c;
+        if (layoutPut(at, "cross")) put++;
       }
-      xs.sort(function (a, b) { return a - b; });
-      assert(xs.join(",") === "-1,0,1",
-        "the block should offer square on and half a board either way, offered " + xs.join(","));
-    } },
-
-    { name: "boards snap to each other along an edge, never at a corner", run: function () {
-      /* Two boards meeting at a corner share no squares at all --
-         nothing can drive between them -- so a stage that offered that
-         as a landing place would build a course in two halves. */
-      var one = [{ id: "island", rot: 0, x: 0, row: 0 }];
-      var at = B.laySlots(one, undefined), seen = {}, i;
-      for (i = 0; i < at.length; i++) seen[at[i].x + ":" + at[i].row] = 1;
-      assert(seen["-2:0"] && seen["2:0"], "a board may sit beside another and did not: " +
-        Object.keys(seen).join(" "));
-      assert(seen["0:1"] && seen["-1:1"] && seen["1:1"],
-        "a board may sit on top of another, square on or half over: " + Object.keys(seen).join(" "));
-      assert(!seen["2:1"] && !seen["-2:1"], "two boards were offered a corner to meet at");
-      assert(!seen["1:0"] && !seen["-1:0"], "a landing place overlaps the board already there");
-      assert(!seen["0:-1"], "a board was offered a place under the block");
-
-      /* A place one board would offer that ANOTHER board is already
-         standing in. One board alone never generates such a candidate,
-         so a single-board fixture asserts nothing about the check that
-         removes them. */
-      var two = [{ id: "island", rot: 0, x: 0, row: 0 }, { id: "cross", rot: 0, x: 2, row: 0 }];
-      var at2 = B.laySlots(two, undefined), seen2 = {};
-      for (i = 0; i < at2.length; i++) seen2[at2[i].x + ":" + at2[i].row] = 1;
-      assert(!seen2["0:0"] && !seen2["2:0"],
-        "a landing place was offered on top of a board: " + Object.keys(seen2).join(" "));
-      assert(seen2["0:1"], "the row above is still open: " + Object.keys(seen2).join(" "));
-
-      /* And the same question of the model itself. */
-      assert(B.layAdjacent({ x: 0, row: 0 }, { x: 2, row: 0 }), "side by side is a join");
-      assert(B.layAdjacent({ x: 0, row: 0 }, { x: 1, row: 1 }), "half a board over is a join");
-      assert(!B.layAdjacent({ x: 0, row: 0 }, { x: 2, row: 1 }), "a corner is not a join");
-      assert(!B.layAdjacent({ x: 0, row: 0 }, { x: 4, row: 0 }), "a gap is not a join");
-      assert(B.layOverlaps([{ x: 0, row: 0 }], 1, 0, -1), "half a board over in the same row overlaps");
-      assert(!B.layOverlaps([{ x: 0, row: 0 }], 1, 1, -1), "half a board over in the next row does not");
-    } },
-
-    { name: "a course stops at two boards by two", run: function () {
-      UI.layout = { v: 2, boards: [] };
-      assert(layoutAdd("island", 0, 0), "the first board was refused");
-      assert(layoutAdd("cross", 2, 0), "the second board was refused");
-      assert(layoutAdd("pitMaze", 0, 1), "the third board was refused");
-      assert(layoutAdd("shuntYard", 2, 1), "the fourth board was refused");
-      assert(!layoutAdd("exchange", 4, 0), "a fifth board went down on a full course");
-      assert(UI.layout.boards.length === 4, "the course holds " + UI.layout.boards.length + " boards");
-      /* And the REASON, which is the footprint rather than the count:
-         there is nowhere inside two boards by two for a fifth to go.
-         Asserting the refusal alone passes on a build whose count cap
-         has been removed, because the geometry refuses it first. */
-      assert(B.laySlots(UI.layout.boards, undefined).length === 0,
-        "a full two by two still offered somewhere to put another board");
-      /* Wider than two boards is refused whatever the count. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
-      assert(layoutAdd("cross", 2, 0), "two boards side by side should fit");
-      assert(!layoutAdd("pitMaze", 4, 0), "three boards in a row are wider than two by two");
-      /* And taller. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 0, row: 1 }] };
-      assert(!layoutAdd("pitMaze", 0, 2), "three boards stacked are taller than two by two");
-      assert(!B.layFits([{ x: 0, row: 0 }, { x: 0, row: 1 }, { x: 0, row: 2 }]),
-        "three rows are within two by two");
-      assert(B.layFits([{ x: -1, row: 0 }, { x: 1, row: 0 }]),
-        "two boards with the block under the seam do not fit");
+      assert(put === 9, "the grid took " + put + " boards, not nine");
+      assert(!B.laySlots(layoutNow().cells).length, "a full grid still offers somewhere to put one");
+      assert(!layoutPut(0, "pitMaze"), "a tenth board went down on a full grid");
+      /* And a slot that is taken is refused whatever else is true. */
+      assert(!layoutPut(6, "pitMaze"), "a board went down on top of another");
     } },
 
     { name: "an L of three boards is a course; two islands are not", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 2, row: 0 },
-                                   { id: "pitMaze", rot: 0, x: 0, row: 1 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [
+        null, null, null,
+        { id: "island", rot: 0 }, null, null,
+        { id: "cross", rot: 0 }, { id: "pitMaze", rot: 0 }, null] };
       flagPick().mode = "arena";
-      assert(B.layConnected(UI.layout.boards), "an L shape is not being read as connected");
+      assert(B.layConnected(UI.layout.cells), "an L shape is not being read as connected");
       assert(!layoutProblem(), "an L of three boards was refused: " + layoutProblem());
       /* Two boards meeting only at a corner are two courses. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 2, row: 1 }] };
-      assert(!B.layConnected(UI.layout.boards), "boards touching at a corner read as joined");
+      UI.layout = { v: 3, dockCol: 0, cells: [
+        { id: "island", rot: 0 }, null, null,
+        null, { id: "cross", rot: 0 }, null,
+        null, null, null] };
+      assert(!B.layConnected(UI.layout.cells), "boards touching at a corner read as joined");
       assert(/join the others/.test(layoutProblem() || ""),
         "a course in two halves was allowed: " + layoutProblem());
     } },
 
-    { name: "an empty stage is not a course", run: function () {
-      UI.layout = { v: 2, boards: [] };
+    { name: "an empty grid is not a course", run: function () {
+      UI.layout = { v: 3, dockCol: 0,
+                    cells: [null, null, null, null, null, null, null, null, null] };
       /* The MESSAGE and not merely a refusal: with the guard removed an
-         empty stage is still refused, by the validator, in its own
-         words -- so a test that accepts any refusal passes on a build
-         that has lost the check it is there to protect. */
-      assert(layoutProblem() === "Drag a board onto the starting block.",
-        "an empty stage should be refused in its own words, got: " + layoutProblem());
-      layoutAdd("island", 0, 0);
-      assert(!layoutProblem(), "a stage with a board on it was refused: " + layoutProblem());
+         empty grid is still refused, by composeCourse, in its own words
+         -- so a test that accepts any refusal passes on a build that
+         has lost the check it is there to protect. */
+      assert(layoutProblem() === "Put a board on the grid.",
+        "an empty grid should be refused in its own words, got: " + layoutProblem());
+      layoutPut(7, "island");
+      assert(!layoutProblem(), "a grid with a board on it was refused: " + layoutProblem());
     } },
 
-    { name: "half the block uncovered is refused, and says why", run: function () {
-      /* This is the rule that makes a half-offset board need a second
-         one beside it: a bay with nothing over it opens onto the void,
-         and a robot starting there drives off the course on its first
-         move. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 1, row: 0 }] };
-      flagPick().mode = "arena";
-      assert(B.layDockOpen(UI.layout.boards).length === 1,
-        "a board half over the block should leave half of it open");
-      assert(/second board beside/.test(layoutProblem() || ""),
-        "half an open block was allowed: " + layoutProblem());
-      layoutAdd("cross", -1, 0);
-      assert(B.layDockOpen(UI.layout.boards).length === 0, "the block is still open");
-      assert(!layoutProblem(), "a covered block was refused: " + layoutProblem());
-      /* A board that does not sit on the block at all covers nothing,
-         whatever else is true of it. */
-      assert(B.layDockOpen([{ x: 0, row: 1 }]).length === 2,
-        "a board a row up is being counted as covering the block");
+    { name: "the block sits under a column that has a board over it", run: function () {
+      /* A block under nothing is a row of bays opening onto the void.
+         There is no half-covered case any more -- a board is twelve
+         wide and so is the block -- so the whole question is which
+         columns have something standing in their bottom row. */
+      UI.layout = { v: 3, dockCol: 0, cells: [
+        null, null, null,
+        null, null, null,
+        { id: "island", rot: 0 }, null, { id: "cross", rot: 0 }] };
+      var ok = B.layDockCols(UI.layout.cells);
+      assert(ok.join(",") === "0,2", "the open columns are " + ok.join(",") + ", not 0 and 2");
+      assert(B.layDockCol(UI.layout.cells, 1) === 0,
+        "the block was left under a column with nothing over it");
+      assert(B.layDockCol(UI.layout.cells, 2) === 2, "the block would not stay where it was wanted");
+      assert(layoutDockTo(2), "the block could not be moved under a covered column");
+      assert(UI.layout.dockCol === 2, "the block did not move");
+      assert(!layoutDockTo(1), "the block was moved under a column with nothing over it");
+      assert(UI.layout.dockCol === 2, "the refused move happened anyway");
+      /* Taking the board out from under it moves it rather than
+         leaving it hanging. */
+      layoutDrop(8);
+      assert(UI.layout.dockCol === 0, "the block stayed under a column it had lost");
+      /* And with the grid empty there is nowhere for it at all. */
+      layoutDrop(6);
+      assert(B.layDockCol(UI.layout.cells, 0) === -1, "an empty grid offered a place for the block");
     } },
 
     { name: "a board can be moved without being taken off first", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 2, x: 0, row: 0 },
-                                   { id: "cross", rot: 1, x: 2, row: 0 }] };
-      assert(!layoutMove(0, 2, 0), "a board was moved on top of another");
-      assert(UI.layout.boards[0].x === 0, "the refused move happened anyway");
-      assert(layoutMove(1, 0, 1), "a board could not be moved to a free place");
-      assert(UI.layout.boards[1].x === 0 && UI.layout.boards[1].row === 1,
+      UI.layout = { v: 3, dockCol: 0, cells: [
+        null, null, null, null, null, null,
+        { id: "island", rot: 2 }, { id: "cross", rot: 1 }, null] };
+      assert(!layoutMove(6, 7), "a board was moved on top of another");
+      assert(UI.layout.cells[6].id === "island", "the refused move happened anyway");
+      assert(layoutMove(7, 4), "a board could not be moved to a free slot");
+      assert(!UI.layout.cells[7], "the slot it left is still occupied");
+      assert(UI.layout.cells[4] && UI.layout.cells[4].id === "cross",
         "the board did not arrive where it was sent");
-      assert(UI.layout.boards[1].rot === 1, "moving a board lost its rotation");
-      /* And a move that would burst the two-by-two is put back rather
-         than left half done. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 2, row: 0 }] };
-      assert(!layoutMove(1, 4, 0), "a board was moved outside two by two");
-      assert(UI.layout.boards[1].x === 2, "the refused move left the board somewhere new");
+      assert(UI.layout.cells[4].rot === 1, "moving a board lost its rotation");
+      assert(!layoutMove(4, 4), "a board was moved onto itself");
     } },
 
     { name: "a board turns both ways, and four of either comes back round", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
-      var i;
-      for (i = 0; i < 4; i++) layoutTurn(0, 1);
-      assert(UI.layout.boards[0].rot === 0, "four clockwise quarter-turns did not come back round");
-      for (i = 0; i < 4; i++) layoutTurn(0, -1);
-      assert(UI.layout.boards[0].rot === 0, "four anticlockwise quarter-turns did not come back round");
-      layoutTurn(0, 1);
-      assert(UI.layout.boards[0].rot === 1, "clockwise went the wrong way, to " + UI.layout.boards[0].rot);
-      layoutTurn(0, -1);
-      assert(UI.layout.boards[0].rot === 0, "anticlockwise did not undo clockwise");
-      layoutTurn(0, -1);
-      assert(UI.layout.boards[0].rot === 3,
-        "anticlockwise from square should be three quarters, got " + UI.layout.boards[0].rot);
+      UI.layout = { v: 3, dockCol: 0,
+                    cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
+      var i, b = function () { return UI.layout.cells[6] || UI.layout.cells[3]; };
+      for (i = 0; i < 4; i++) layoutTurn(6, 1);
+      assert(b().rot === 0, "four clockwise quarter-turns did not come back round");
+      for (i = 0; i < 4; i++) layoutTurn(6, -1);
+      assert(b().rot === 0, "four anticlockwise quarter-turns did not come back round");
+      layoutTurn(6, 1);
+      assert(b().rot === 1, "clockwise went the wrong way, to " + b().rot);
+      layoutTurn(6, -1);
+      assert(b().rot === 0, "anticlockwise did not undo clockwise");
+      layoutTurn(6, -1);
+      assert(b().rot === 3, "anticlockwise from square should be three quarters, got " + b().rot);
       /* Turning is a property of the board and not of where it sits,
          so it must survive a move. */
-      layoutAdd("cross", 2, 0);
-      layoutMove(0, 0, 1);
-      assert(UI.layout.boards[0].rot === 3, "turning was lost when the board moved");
+      layoutMove(6, 3);
+      assert(UI.layout.cells[3].rot === 3, "turning was lost when the board moved");
     } },
 
     { name: "the stage puts nothing over a board until it is selected", run: function () {
@@ -5450,22 +5426,23 @@
          on the stage, permanently, to say what the map says better.
          Nothing is drawn over the art now until a board is picked,
          and then it is three things on that board alone. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 2, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [
+        null, null, null, null, null, null,
+        { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null] };
       UI.heldBoard = null; UI.heldAt = null; UI.layMenu = null;
       var rest = layoutStage();
       assert(rest.indexOf("pr-lay-tool") < 0, "controls are drawn over a board nobody selected");
       assert(rest.indexOf("pr-lay-menu") < 0, "a menu is drawn with no menu open");
       assert((rest.match(/pr-lboard/g) || []).length === 2, "the stage lost a board");
 
-      UI.heldAt = 1;
+      UI.heldAt = 7;
       var picked = layoutStage();
       assert((picked.match(/class="pr-lay-tool/g) || []).length === 3,
         "a selected board should carry three controls, carries " +
         (picked.match(/class="pr-lay-tool/g) || []).length);
-      assert(/pr-lay-tool tl[^>]*data-act="lrotl" data-i="1"/.test(picked),
+      assert(/pr-lay-tool tl[^>]*data-act="lrotl" data-i="7"/.test(picked),
         "the left turn is not in the top-left corner of the selected board");
-      assert(/pr-lay-tool tr[^>]*data-act="lrotr" data-i="1"/.test(picked),
+      assert(/pr-lay-tool tr[^>]*data-act="lrotr" data-i="7"/.test(picked),
         "the right turn is not in the top-right corner");
       /* AND THEY ARE THE ROTATE CARDS' OWN DRAWING. A quarter turn is
          a quarter turn wherever it appears, and a loop glyph says
@@ -5483,13 +5460,13 @@
          is what makes it ninety degrees of HEADING rather than a spin. */
       assert(picked.indexOf("&#8634;") < 0 && picked.indexOf("&#8635;") < 0,
         "a loop glyph is still being used to turn a board");
-      assert(/pr-lay-tool bin[^>]*data-act="lclear" data-i="1"/.test(picked),
+      assert(/pr-lay-tool bin[^>]*data-act="lclear" data-i="7"/.test(picked),
         "the bin is not in the middle");
       /* On THAT board and no other. */
-      assert(picked.indexOf('data-act="lrotl" data-i="0"') < 0,
+      assert(picked.indexOf('data-act="lrotl" data-i="6"') < 0,
         "the controls were drawn on a board that is not selected");
-      assert(/data-i="1"[^>]*aria-pressed="true"/.test(picked) ||
-             /aria-pressed="true"[^>]*data-i="1"/.test(picked),
+      assert(/data-i="7"[^>]*aria-pressed="true"/.test(picked) ||
+             /aria-pressed="true"[^>]*data-i="7"/.test(picked),
         "the selected board does not say it is selected");
     } },
 
@@ -5527,10 +5504,9 @@
       /* A duplicate path, not the only one: the corner controls are
          real buttons and Tab reaches those, so the menu is a
          convenience rather than a requirement. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                                   { id: "cross", rot: 0, x: 2, row: 0 }] };
-      UI.heldAt = 0;
-      UI.layMenu = { i: 0, x: 40, y: 30 };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null] };
+      UI.heldAt = 6;
+      UI.layMenu = { i: 6, x: 40, y: 30 };
       var html = layoutStage();
       var menu = html.match(/<div class="pr-lay-menu"[\s\S]*?<\/div>/);
       assert(menu, "no menu was drawn");
@@ -5544,9 +5520,9 @@
         "the menu offers a different number of things");
       /* One menu, on the board it was opened over. */
       assert((html.match(/pr-lay-menu/g) || []).length === 1, "a menu was drawn on more than one board");
-      UI.layMenu = { i: 1, x: 5, y: 5 };
+      UI.layMenu = { i: 7, x: 5, y: 5 };
       var other = layoutStage();
-      assert(other.indexOf("pr-lay-menu") > other.indexOf('data-i="1"'),
+      assert(other.indexOf("pr-lay-menu") > other.indexOf('data-i="7"'),
         "the menu did not move to the board it was opened over");
       UI.layMenu = null;
     } },
@@ -5554,7 +5530,7 @@
     { name: "Escape backs out one layer at a time", run: function () {
       /* Closing the whole wizard because a right-click menu was open
          would throw away four screens of decisions. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       UI.heldBoard = null; UI.heldAt = 0; UI.layMenu = { i: 0, x: 1, y: 1 };
       assert(layEscape(), "Escape did nothing with a menu open");
       assert(!UI.layMenu, "the menu stayed open");
@@ -5570,14 +5546,13 @@
     } },
 
     { name: "a composed course carries every board it was given", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 1, x: -1, row: 0 },
-                                   { id: "cross", rot: 0, x: 1, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 1 }, { id: "cross", rot: 0 }, null] };
       var spec = layoutCourse(), C = B.buildCourse(spec);
       assert(spec.boards.length === 2, "the course lost a board: " + spec.boards.length);
       assert(C.w === 24 && C.h === 16, "two boards and a dock should be 24 by 16, is " + C.w + " by " + C.h);
-      /* The block under the seam, which is what the half-board unit
-         exists for. */
-      assert(spec.dock.at[0] === 6, "the block landed at column " + spec.dock.at[0] + ", not the seam");
+      /* The block under whichever column it was put, squarely. */
+      assert(spec.dock.at[0] === 0, "the block landed at column " + spec.dock.at[0] + ", not zero");
+      assert(spec.dock.at[1] === 12, "the block is not under the bottom row");
       var rots = {};
       for (var k = 0; k < spec.boards.length; k++) rots[spec.boards[k].id] = spec.boards[k].rot;
       assert(rots.island === 1, "the course lost a board's rotation");
@@ -5590,37 +5565,68 @@
       }
     } },
 
-    { name: "a layout saved by the old grid version still opens", run: function () {
-      /* The stage used to be a grid of slots with the block measured
-         in whole board columns. Somebody's half-built course surviving
-         an update is the difference between a tool and a toy. */
-      var old = { cols: 2, rows: 2, dockCol: 1,
-                  cells: [{ id: "island", rot: 1 }, null,
-                          { id: "cross", rot: 0 }, { id: "pitMaze", rot: 2 }] };
-      var up = migrateLayout(old);
-      assert(up && up.v === 2, "an old layout did not come across");
-      assert(up.boards.length === 3, "it came across with " + up.boards.length + " of its three boards");
-      var by = {};
-      for (var i = 0; i < up.boards.length; i++) by[up.boards[i].id] = up.boards[i];
-      /* Row 1 of the old grid is the row ON the block; the dock was
-         under column 1, so that column is now x zero. */
-      assert(by.cross.x === -2 && by.cross.row === 0,
-        "cross landed at " + by.cross.x + "," + by.cross.row);
-      assert(by.pitMaze.x === 0 && by.pitMaze.row === 0,
-        "pitMaze landed at " + by.pitMaze.x + "," + by.pitMaze.row);
-      assert(by.island.x === -2 && by.island.row === 1,
-        "island landed at " + by.island.x + "," + by.island.row);
-      assert(by.island.rot === 1, "the migration lost a rotation");
-      /* And a saved layout the new model cannot hold is dropped rather
-         than opened half-broken. */
-      assert(!migrateLayout({ cols: 3, rows: 3, dockCol: 0,
-        cells: [{ id: "island", rot: 0 }, { id: "cross", rot: 0 }, { id: "pitMaze", rot: 0 },
-                { id: "island", rot: 0 }, { id: "cross", rot: 0 }, { id: "pitMaze", rot: 0 },
-                { id: "island", rot: 0 }, { id: "cross", rot: 0 }, { id: "pitMaze", rot: 0 }] }),
-        "a nine-board grid was carried into a model that holds four");
+    { name: "layouts saved by either older version still open", run: function () {
+      /* Two shapes have come before this one. The first was a grid of
+         any size with the block under a column of it; the second had
+         the boards floating on a half-board lattice around the block.
+         Somebody's half-built course surviving an update is the
+         difference between a tool and a toy, so both are read -- and
+         anything that will not fit three by three aligned is refused
+         rather than opened crooked. */
+      var old1 = { cols: 2, rows: 2, dockCol: 1,
+                   cells: [{ id: "island", rot: 1 }, null,
+                           { id: "cross", rot: 0 }, { id: "pitMaze", rot: 2 }] };
+      var up = migrateLayout(old1);
+      assert(up && up.v === 3, "a grid layout did not come across");
+      var sp = B.laySpan(up.cells);
+      assert(sp && sp.n === 3, "it came across with " + (sp ? sp.n : 0) + " of its three boards");
+      /* The old grid's bottom row is the row ON the block, so it lands
+         on the bottom row of the new one. */
+      assert(B.layAt(up.cells, 0, 2) && B.layAt(up.cells, 0, 2).id === "cross",
+        "cross is not on the bottom row");
+      assert(B.layAt(up.cells, 1, 2) && B.layAt(up.cells, 1, 2).id === "pitMaze",
+        "pitMaze is not beside it");
+      assert(B.layAt(up.cells, 0, 1) && B.layAt(up.cells, 0, 1).id === "island",
+        "island is not in the row above");
+      assert(B.layAt(up.cells, 0, 1).rot === 1, "the migration lost a rotation");
+      assert(up.dockCol === 1, "the block came across under column " + up.dockCol + ", not one");
+
+      /* The half-board shape, where every board sat an even number of
+         half-columns from the block. */
+      var old2 = { v: 2, boards: [{ id: "island", rot: 2, x: 0, row: 0 },
+                                  { id: "cross", rot: 0, x: 2, row: 0 },
+                                  { id: "pitMaze", rot: 0, x: 0, row: 1 }] };
+      var up2 = migrateLayout(old2);
+      assert(up2 && up2.v === 3, "a half-board layout did not come across");
+      assert(B.layAt(up2.cells, 0, 2) && B.layAt(up2.cells, 0, 2).id === "island",
+        "the board on the block is not on the bottom row");
+      assert(B.layAt(up2.cells, 1, 2) && B.layAt(up2.cells, 1, 2).id === "cross",
+        "the board beside it moved");
+      assert(B.layAt(up2.cells, 0, 1) && B.layAt(up2.cells, 0, 1).id === "pitMaze",
+        "the board above it moved");
+      assert(B.layAt(up2.cells, 0, 2).rot === 2, "the migration lost a rotation");
+
+      /* A course that was standing half over is not an aligned course,
+         and is refused rather than squashed onto the lattice. */
+      assert(!migrateLayout({ v: 2, boards: [{ id: "island", rot: 0, x: -1, row: 0 },
+                                             { id: "cross", rot: 0, x: 1, row: 0 }] }),
+        "a half-offset course was squashed onto the grid");
+      /* And a grid too big for three by three is dropped rather than
+         opened half-broken. */
+      assert(!migrateLayout({ cols: 4, rows: 1, dockCol: 0,
+        cells: [{ id: "island", rot: 0 }, { id: "cross", rot: 0 },
+                { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }] }),
+        "a four-wide grid was carried into a model three wide");
       assert(!migrateLayout(null), "nothing at all came across as something");
-      assert(!migrateLayout({ v: 2, boards: [{ id: "nosuchboard", rot: 0, x: 0, row: 0 }] }),
+      assert(!migrateLayout({ v: 3, dockCol: 0,
+        cells: [null, null, null, null, null, null, { id: "nosuchboard", rot: 0 }, null, null] }),
         "a layout naming a board that does not exist was opened");
+      /* Two boards meeting at a corner are two courses, whatever
+         version they were saved by. */
+      assert(!migrateLayout({ v: 3, dockCol: 0, cells: [
+        { id: "island", rot: 0 }, null, null,
+        null, { id: "cross", rot: 0 }, null,
+        null, null, null] }), "a course in two halves was opened");
     } },
 
     // ---- the course workshop ---------------------------------------
@@ -5633,7 +5639,7 @@
          appears in. So an edited course carries its picture and is
          parsed from that, and stamping the boards again would throw
          the edit away. */
-      var L = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       var plain = B.composeCourse(B.withFlags(L, [[4, 4]]), 1);
       var C0 = B.buildCourse(plain);
       /* Find a floor square and drop a pit on it, the way the workshop
@@ -5675,7 +5681,7 @@
          the wrong one, a square the workshop put down would change the
          game silently. So the two paths have to agree on a course
          nobody has edited. */
-      var L = { v: 2, boards: [{ id: "boardH", rot: 0, x: 0, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "boardH", rot: 0 }, null, null] };
       var spec = B.composeCourse(B.withFlags(L, [[2, 2]]), 1);
       var byBoards = B.playableEditions(spec).slice().sort().join(",");
       var g = B.buildCourse(spec);
@@ -5721,8 +5727,7 @@
          carries holes, and then may have them. Without this the
          workshop crashed on any course that was not a neat rectangle,
          reporting it as a problem with the map. */
-      var L = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
-                               { id: "cross", rot: 0, x: 2, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null] };
       var spec = B.composeCourse(B.withFlags(L, [[4, 4]]), 1);
       var g = B.buildCourse(spec);
       assert(g.w === 24 && g.h === 16, "fixture: two boards over a one-board block");
@@ -5765,31 +5770,39 @@
     } },
 
     { name: "moving a board lets go of the workshop's picture", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       flagPick().mode = "arena";
-      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [[0, 0]] };
+      var pic = function () {
+        return { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [[0, 0]] };
+      };
+      UI.layout.edit = pic();
       UI.layout.pick.mode = "workshop";
       /* While it stands, the course that would be raced carries it. */
       assert(layoutCourse([[1, 1]]).grid, "the edit is not reaching the course that would be raced");
-      layoutTurn(0);
+      layoutTurn(6, 1);
       assert(!UI.layout.edit, "turning a board kept a picture of the old arrangement");
       assert(UI.layout.pick.mode !== "workshop",
         "the flags step is still offering flags from a picture that is gone");
-      /* Adding, moving and taking off do the same, because they all go
-         through the same mark. */
-      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
-      layoutAdd("cross", 2, 0);
-      assert(!UI.layout.edit, "adding a board kept the old picture");
-      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
-      layoutMove(1, 0, 1);
+      /* Putting one down, moving one and taking one off do the same,
+         because they all go through the same mark. */
+      UI.layout.edit = pic();
+      layoutPut(7, "cross");
+      assert(!UI.layout.edit, "putting a board down kept the old picture");
+      UI.layout.edit = pic();
+      layoutMove(7, 4);
       assert(!UI.layout.edit, "moving a board kept the old picture");
-      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
-      layoutDrop(1);
+      UI.layout.edit = pic();
+      layoutDrop(4);
       assert(!UI.layout.edit, "taking a board off kept the old picture");
+      /* And moving the block, which changes the course as surely as
+         moving a board does. */
+      UI.layout.edit = pic();
+      layoutDockTo(0);
+      assert(!UI.layout.edit, "moving the block kept the old picture");
     } },
 
     { name: "flags put down in the workshop are the flags raced", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"],
                          flags: [[3, 3], [7, 7], [2, 9], [8, 1]] };
       UI.layout.pick = { mode: "workshop", hand: [] };
@@ -5809,20 +5822,22 @@
 
     { name: "a saved workshop course survives a reload", run: function () {
       var g = B.buildCourse(B.composeCourse(
-        { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }], flags: [] }, 0));
+        { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null], flags: [] }, 0));
       var edit = { w: g.w, h: g.h, pic: B.gridToPic(g), voids: true, name: "Mine", flags: [[4, 4]],
                    lasers: [], pushers: [], burners: [], timers: [] };
-      var up = migrateLayout({ v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }], edit: edit });
+      var up = migrateLayout({ v: 3, dockCol: 0, edit: edit,
+        cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] });
       assert(up && up.edit, "the workshop's picture did not come back");
       assert(up.edit.pic.length === edit.pic.length, "it came back a different size");
       assert(JSON.stringify(up.edit.flags) === "[[4,4]]", "it came back without its flags");
       /* A stored picture that no longer reads is dropped rather than
          opened: a broken edit would take the wizard down on its first
          render, and having no edit is the honest answer. */
-      var broken = migrateLayout({ v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }],
-                                   edit: { w: 4, h: 4, pic: ["nonsense"], flags: [] } });
+      var broken = migrateLayout({ v: 3, dockCol: 0,
+        cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null],
+        edit: { w: 4, h: 4, pic: ["nonsense"], flags: [] } });
       assert(broken && !broken.edit, "a picture that will not parse was carried across anyway");
-      assert(broken.boards.length === 1, "and it took the boards with it");
+      assert(B.laySpan(broken.cells).n === 1, "and it took the boards with it");
     } },
 
     // ---- where the flags go ----------------------------------------
@@ -5835,21 +5850,21 @@
          layout of exactly that IS Proving Run, so its default flags
          are the ones it ships with rather than whatever the automatic
          placement would invent. */
-      var L = { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
       var got = B.defaultFlagsFor(L), want = B.COURSES.provingRun.flags;
       assert(got, "the layout matched no shipped course");
       assert(JSON.stringify(got) === JSON.stringify(want),
         "got " + JSON.stringify(got) + ", the course ships " + JSON.stringify(want));
       /* Turned off its printed orientation it is a different course. */
-      L.boards[0].rot = 1;
+      L.cells[6].rot = 1;
       assert(!B.defaultFlagsFor(L), "a turned board must not claim the printed flags");
-      L.boards[0].rot = 0;
-      L.boards.push({ id: "island", rot: 0, x: 2, row: 0 });
+      L.cells[6].rot = 0;
+      L.cells[7] = { id: "island", rot: 0 };
       assert(!B.defaultFlagsFor(L), "two boards must not claim a one-board course's flags");
     } },
 
     { name: "a flag may only sit on plain floor outside the dock", run: function () {
-      var spec = B.composeCourse({ v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }], flags: [] }, 0);
+      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null], flags: [] }, 0);
       var C = B.buildCourse(spec), box = B.dockBoxOf(spec);
       var cand = B.flagCandidates(C, box), i;
       assert(cand.length > 10, "no square on this course can hold a flag");
@@ -5867,7 +5882,7 @@
     } },
 
     { name: "a random placement is legal, distinct and the right length", run: function () {
-      var spec = B.composeCourse({ v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }], flags: [] }, 0);
+      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null], flags: [] }, 0);
       var C = B.buildCourse(spec), box = B.dockBoxOf(spec);
       /* Seeded, so a failure here is reproducible rather than a story
          about one unlucky afternoon. */
@@ -5914,7 +5929,7 @@
     } },
 
     { name: "placing flags by hand keeps the order they were clicked", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
       var pick = flagPick();
       pick.mode = "hand"; pick.n = 3; pick.chosen = true; pick.hand = [];
       var ok = benchFlagSquares();
@@ -5941,7 +5956,7 @@
     } },
 
     { name: "a race is refused until every flag is down", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
       var pick = flagPick();
       pick.mode = "hand"; pick.n = 3; pick.chosen = true; pick.hand = [];
       assert(/Place 3 more/.test(flagProblem() || ""),
@@ -5955,7 +5970,7 @@
     } },
 
     { name: "shortening a race keeps the flags already placed", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
       var pick = flagPick();
       pick.mode = "hand"; pick.n = 4; pick.chosen = true; pick.hand = [];
       var ok = benchFlagSquares();
@@ -5968,8 +5983,7 @@
     } },
 
     { name: "the course that starts is the course the flags were placed on", run: function () {
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 1, x: -1, row: 0 },
-                                   { id: "cross", rot: 0, x: 1, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 1 }, { id: "cross", rot: 0 }, null] };
       var pick = flagPick();
       pick.mode = "hand"; pick.n = 2; pick.chosen = true; pick.hand = [];
       var spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
@@ -5988,7 +6002,7 @@
       /* withFlags exists because every one of these questions used to
          be asked by handing the player's live layout to a function
          that put its answer back into it. */
-      var L = { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
       var before = JSON.stringify(L);
       B.defaultFlagsFor(L);
       B.composeCourse(B.withFlags(L, null), 3);
@@ -6001,9 +6015,7 @@
          board early. Flags that interleave between boards would be a
          lap, which is the OTHER style, and the two would be
          indistinguishable from the picture. */
-      var L = { v: 2, boards: [
-        { id: "island", rot: 0, x: 0, row: 1 }, { id: "cross", rot: 0, x: 2, row: 1 },
-        { id: "pitMaze", rot: 0, x: 0, row: 0 }, { id: "shuntYard", rot: 0, x: 2, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null, { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
       var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
       var got = B.rallyFlags(C, 8, spec), boxes = B.boardBoxes(spec), i;
       assert(got.length === 8, "asked for eight flags, got " + got.length);
@@ -6033,9 +6045,7 @@
     } },
 
     { name: "Arena calls at every board and leads out to the edges", run: function () {
-      var L = { v: 2, boards: [
-        { id: "island", rot: 0, x: 0, row: 1 }, { id: "cross", rot: 0, x: 2, row: 1 },
-        { id: "pitMaze", rot: 0, x: 0, row: 0 }, { id: "shuntYard", rot: 0, x: 2, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null, { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
       var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
       var got = B.arenaFlags(C, 8, spec), boxes = B.boardBoxes(spec), i, j;
       assert(got.length === 8, "asked for eight flags, got " + got.length);
@@ -6067,7 +6077,7 @@
          none. It is not illegal -- a tiny course may have nothing else
          -- so the pickers rank rather than filter, and the assertion
          is that the rank is actually consulted. */
-      var L = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
       assert(B.flagRank(C, 0, 0) === 2, "the top-left square is not being read as a corner");
       assert(B.flagRank(C, 5, 0) === 1, "the top row is not being read as an edge");
@@ -6089,9 +6099,7 @@
          three robots, because nobody is ever far from the next flag.
          The window is the whole point -- flags scattered over a 3x3
          course would be the ordinary placement wearing the name. */
-      var L = { v: 2, boards: [
-        { id: "island", rot: 0, x: 0, row: 1 }, { id: "cross", rot: 0, x: 2, row: 1 },
-        { id: "pitMaze", rot: 0, x: 0, row: 0 }, { id: "shuntYard", rot: 0, x: 2, row: 0 }] };
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null, { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
       var i, spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
       assert(C.w === 24 && C.h === 28, "a two-by-two course with a block should be 24 by 28");
       var got = B.northrupFlags(C, 5, spec);
@@ -6134,14 +6142,14 @@
     } },
 
     { name: "a step nobody can answer yet is not reachable", run: function () {
-      UI.layout = { v: 2, boards: [] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, null, null, null] };
       assert(wizReachable(0), "the first step should always be reachable");
       assert(wizReachable(1), "the boards step should be reachable from the settings");
       assert(!wizReachable(2), "the flags step is reachable with no boards on the course");
       assert(!wizReachable(3), "the colour step is reachable with no boards on the course");
       assert(wizBlocker(1), "an empty grid is not blocking the boards step");
 
-      layoutAdd("island", 0, 0);
+      layoutPut(6, "island");
       flagPick().mode = "arena";
       assert(wizReachable(2), "the flags step is still unreachable with a board down: " + wizBlocker(1));
       assert(wizReachable(3), "the colour step is unreachable with the flags placed");
@@ -6160,12 +6168,12 @@
       /* The rail greys out what cannot be answered, but the step can
          also be asked for from a keyboard, from a stale render, or by
          a screen handing back after its input disappeared. */
-      UI.layout = { v: 2, boards: [] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, null, null, null] };
       UI.wizStep = 3;
       var step = 3;
       while (step > 0 && !wizReachable(step)) step--;
       assert(step === 1, "asking for the colour step on an empty course should fall back to the boards, got " + step);
-      layoutAdd("island", 0, 0);
+      layoutPut(6, "island");
       flagPick().mode = "arena";
       step = 3;
       while (step > 0 && !wizReachable(step)) step--;
@@ -6215,7 +6223,7 @@
          otherwise a rulebook with no rules for flame jets would
          happily race a board covered in them. */
       var keep = houseRules.ruleset;
-      UI.layout = { v: 2, boards: [{ id: "boardH", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "boardH", rot: 0 }, null, null] };
       flagPick().mode = "arena";
       houseRules.ruleset = "classic";
       assert(!layoutProblem(), "the classic rulebook refused its own board: " + layoutProblem());
@@ -6243,19 +6251,33 @@
       assert(!layoutProblem(), "the layout was refused under its own rulebook: " + layoutProblem());
     } },
 
-    { name: "a start area may straddle two boards", run: function () {
-      /* Cross Town's docking bay sits across the seam. Whole-board
-         columns alone could not express that, so the course dropped
-         off the menu entirely -- silently, because a course that
-         cannot be laid out is simply not listed. */
+    { name: "a course off the twelve-square lattice is not a layout", run: function () {
+      /* Boards are aligned now and nothing else is offered. Cross
+         Town's block used to straddle the seam between its two boards
+         -- and a course the assembler cannot express drops off its
+         menu silently -- so that course was squared up rather than the
+         rule bent. It is ours rather than printed; a printed one would
+         have had to keep its shape and lose the menu. */
       var L = B.layoutFromCourse("crossTown");
       assert(L, "Cross Town cannot be expressed as a layout");
-      var xs = [L.boards[0].x, L.boards[1].x].sort(function (a, b) { return a - b; });
-      assert(xs.join(",") === "-1,1",
-        "its boards sit at " + xs.join(",") + ", not half a board either side of the block");
+      assert(L.dockCol === 0, "its block is under column " + L.dockCol + ", not squarely under one");
       var spec = B.composeCourse(B.withFlags(L, []), 0);
-      assert(spec.dock.at[0] === 6, "the rebuilt block is at " + spec.dock.at[0] + ", not square six");
-      assert(B.layDockOpen(L.boards).length === 0, "the block is not fully covered by the pair");
+      assert(spec.dock.at[0] % 12 === 0,
+        "the rebuilt block is at column " + spec.dock.at[0] + ", off the lattice");
+      assert(B.layDockCols(L.cells).indexOf(L.dockCol) >= 0, "the block has nothing over it");
+
+      /* And a course off the lattice is refused rather than squashed
+         onto it -- a board squashed half a square is a course nobody
+         drew. */
+      var crooked = JSON.parse(JSON.stringify(B.COURSES.crossTown));
+      B.COURSES._crooked = crooked;
+      crooked.dock = { id: "dockingBay", rot: 0, at: [6, 12] };
+      assert(!B.layoutFromCourse("_crooked"), "a block off the lattice was read as a layout");
+      crooked.dock = { id: "dockingBay", rot: 0, at: [0, 12] };
+      crooked.boards = [{ id: "provingGround", rot: 0, at: [0, 0] },
+                        { id: "shuntYard", rot: 0, at: [6, 0] }];
+      assert(!B.layoutFromCourse("_crooked"), "a board off the lattice was read as a layout");
+      delete B.COURSES._crooked;
     } },
 
     { name: "the picture says which square holds which flag", run: function () {
@@ -6295,9 +6317,7 @@
       /* Random was a mode of its own. Flags thrown anywhere on a
          four-board course are not a race, so the roll lives inside the
          window now, where the printed rule keeps it honest. */
-      UI.layout = { v: 2, boards: [
-        { id: "island", rot: 0, x: 0, row: 1 }, { id: "cross", rot: 0, x: 2, row: 1 },
-        { id: "pitMaze", rot: 0, x: 0, row: 0 }, { id: "shuntYard", rot: 0, x: 2, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null, { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }, null] };
       var i, pick = flagPick();
       pick.mode = "random";                    // an old saved layout
       pick = flagPick();
@@ -6345,7 +6365,7 @@
       assert(B.flagRank(g, 0, 0) === 2, "the corner of the course is still a corner");
       /* Proving Ground has walled squares and open interior both, so
          the automatic placements must take the open ones. */
-      var spec = B.composeCourse({ v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }], flags: [] }, 0);
+      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null], flags: [] }, 0);
       var C = B.buildCourse(spec), boxed = 0, c, r, d, n;
       for (r = 0; r < 12; r++) for (c = 0; c < 12; c++) {
         n = 0;
@@ -6374,12 +6394,12 @@
     { name: "the flag count follows the course until somebody sets one", run: function () {
       /* About one a board is what the book suggests, with a floor of
          three so a small course is still a race. */
-      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
       assert(flagPick().n === 3, "one board should be a three-flag race, got " + flagPick().n);
-      UI.layout.boards.push({ id: "cross", rot: 0, x: 2, row: 0 });
+      UI.layout.cells[7] = { id: "cross", rot: 0 };
       assert(flagPick().n === 3, "two boards should still be floored at three, got " + flagPick().n);
-      UI.layout.boards.push({ id: "pitMaze", rot: 0, x: 0, row: 1 },
-                            { id: "shuntYard", rot: 0, x: 2, row: 1 });
+      UI.layout.cells[3] = { id: "pitMaze", rot: 0 };
+      UI.layout.cells[4] = { id: "shuntYard", rot: 0 };
       assert(flagPick().n === 4, "four boards should be a four-flag race, got " + flagPick().n);
       /* And the ceiling is three a board, which is where the longer,
          denser race lives. */
@@ -6387,7 +6407,7 @@
       /* Once set by hand it stays set, even as the course changes --
          the number is then a decision rather than a default. */
       flagPick().n = 5; flagPick().chosen = true;
-      UI.layout.boards.pop();
+      UI.layout.cells[4] = null;
       assert(flagPick().n === 5, "a chosen count was overwritten when the course changed");
     } },
 
@@ -7150,14 +7170,20 @@
     ".pr-lay{display:flex;gap:10px;align-items:flex-start;margin:4px 0}",
     ".pr-lay-stage{position:relative;flex:0 0 auto;background:var(--pr-bg);",
     "border:1px solid var(--pr-border);padding:0}",
-    ".pr-lay-dock,.pr-lay-board,.pr-lay-slot{position:absolute}",
+    ".pr-lay-dock,.pr-lay-board,.pr-lay-slot,.pr-lay-dockslot{position:absolute}",
     ".pr-lay-dock{line-height:0;outline:1px solid var(--pr-accent);outline-offset:-1px}",
     ".pr-lay-label{position:absolute;left:2px;top:1px;font-size:8px;line-height:1;",
     "letter-spacing:1px;color:var(--pr-accent);text-transform:uppercase;pointer-events:none}",
+    /* The other columns the block could sit under, offered only where
+       a board is standing over them. */
+    ".pr-lay-dockslot{border:1px dashed var(--pr-accent-dim)!important;",
+    "background:color-mix(in srgb,var(--pr-accent) 5%,transparent);color:var(--pr-dim);",
+    "min-height:0!important;padding:0;font-size:8px;letter-spacing:1px;text-transform:uppercase}",
+    ".pr-lay-dockslot:hover{border-color:var(--pr-accent)!important;color:var(--pr-accent);",
+    "background:color-mix(in srgb,var(--pr-accent) 22%,transparent)}",
     ".pr-lay-board{line-height:0}",
     ".pr-lay-board .pr-lboard{padding:0;border:0!important;background:none;cursor:grab;",
     "line-height:0;min-height:0!important;display:block}",
-    ".pr-lay-board.lifted{opacity:.45}",
     ".pr-lay-board.sel .pr-thumb{border-color:var(--pr-accent);",
     "box-shadow:0 0 0 1px var(--pr-accent),0 0 10px 2px rgba(0,0,0,.7)}",
     /* THE CONTROLS SIT ON THE BOARD, and only on the selected one. A
@@ -7181,19 +7207,20 @@
     "stroke-linecap:round;stroke-linejoin:round}",
     /* The turn controls are the ROTATE cards' own drawing, at button
        size. Same paths, so the card and the control cannot come to
-       mean different things. */
+       mean different things. pr-quarter and not pr-turn: pr-turn is
+       already the gear art's arc. */
     ".pr-quarter{width:17px;height:17px;display:block;color:currentColor}",
     ".pr-quarter .pr-cshaft,.pr-quarter .pr-cmark{stroke:currentColor;stroke-width:11;",
     "stroke-linecap:round;stroke-linejoin:round;fill:none}",
     ".pr-lay-menu .pr-quarter{width:13px;height:13px;flex:0 0 auto}",
-    ".pr-lay-menu button{display:flex;align-items:center;gap:5px}",
     ".pr-lay-menu{position:absolute;z-index:6;display:flex;flex-direction:column;",
     "background:var(--pr-panel);border:1px solid var(--pr-accent);",
     "box-shadow:0 2px 12px 2px rgba(0,0,0,.8);min-width:110px;line-height:1.4}",
-    ".pr-lay-menu button{text-align:left;padding:3px 8px;min-height:0!important;",
-    "border:0!important;background:none;font-size:11px;color:var(--pr-ink);white-space:nowrap}",
+    ".pr-lay-menu button{display:flex;align-items:center;gap:5px;text-align:left;",
+    "padding:3px 8px;min-height:0!important;border:0!important;background:none;",
+    "font-size:11px;color:var(--pr-ink);white-space:nowrap}",
     ".pr-lay-menu button:hover{background:var(--pr-accent);color:var(--pr-bg)}",
-    /* Landing places are always drawn and light up when something is
+    /* Empty slots are always drawn and light up when something is
        being carried. Drawn only while holding, the one thing this
        screen wants you to know was invisible until you had guessed
        it. */
@@ -7203,7 +7230,7 @@
     "justify-content:center;font:700 18px ui-monospace,Menlo,Consolas,monospace;",
     "cursor:default;z-index:1}",
     ".pr-lay-slot.live{border-color:var(--pr-accent)!important;color:var(--pr-accent);",
-    "background:color-mix(in srgb,var(--pr-accent) 12%,transparent);cursor:copy;opacity:1;z-index:3}",
+    "background:color-mix(in srgb,var(--pr-accent) 12%,transparent);cursor:copy;z-index:3}",
     ".pr-lay-slot.live:hover,.pr-lay-slot.pr-over{",
     "background:color-mix(in srgb,var(--pr-accent) 34%,transparent)}",
     ".pr-lay-slot:focus-visible{outline:2px solid var(--pr-accent);outline-offset:1px}",
@@ -8441,18 +8468,19 @@
     }
     if (a === "lmenuclose") { showWizard(); return; }
     if (a === "ldrop") {
-      var dx = +el.dataset.x, drow = +el.dataset.row;
+      var dat = +el.dataset.at;
       if (UI.heldAt !== null && UI.heldAt !== undefined) {
-        layoutMove(UI.heldAt, dx, drow);
+        layoutMove(UI.heldAt, dat);
         UI.heldAt = null;
       } else if (UI.heldBoard) {
-        layoutAdd(UI.heldBoard, dx, drow);
-        /* The board stays in hand: filling two by two with four copies
-           of one board should not be four trips to the shelf. */
-        if (layoutNow().boards.length >= B.LAY_BOARDS) UI.heldBoard = null;
+        layoutPut(dat, UI.heldBoard);
+        /* The board stays in hand: filling the grid with copies of one
+           board should not be nine trips to the shelf. */
+        if (!B.laySlots(layoutNow().cells).length) UI.heldBoard = null;
       } else return;
       saveLayout(); showWizard(); return;
     }
+    if (a === "ldock") { layoutDockTo(+el.dataset.c); saveLayout(); showWizard(); return; }
     if (a === "lrot" || a === "lrotr") { layoutTurn(+el.dataset.i, 1); saveLayout(); showWizard(); return; }
     if (a === "lrotl") { layoutTurn(+el.dataset.i, -1); saveLayout(); showWizard(); return; }
     if (a === "lundo") { if (layoutUndo()) { saveLayout(); } showWizard(); return; }
@@ -8467,7 +8495,7 @@
     }
     if (a === "lempty") {
       layoutMark();
-      layoutNow().boards = [];
+      for (var ec = 0; ec < B.LAY_BOARDS; ec++) layoutNow().cells[ec] = null;
       UI.heldAt = null;
       saveLayout(); showWizard(); return;
     }
@@ -8607,7 +8635,7 @@
            route shows -- one model, two gestures -- but PAINTED IN
            rather than re-rendered: rebuilding the element a drag began
            on cancels the drag. */
-        paintSlots(pal ? undefined : +lb.dataset.i);
+        paintSlots();
         (pal || lb).classList.add("pr-dragging");
         try {
           e.dataTransfer.setData("text/plain", "board");
@@ -8660,10 +8688,10 @@
       var ls = e.target.closest(".pr-lay-slot");
       if (ls && UI.layout && dragKind() === "board") {
         e.preventDefault();
-        var dx = +ls.dataset.x, drow = +ls.dataset.row;
-        if (!isNaN(dx) && !isNaN(drow)) {
-          if (UI.drag.from === "palette") layoutAdd(UI.drag.board, dx, drow);
-          else layoutMove(UI.drag.i, dx, drow);
+        var dat = +ls.dataset.at;
+        if (!isNaN(dat)) {
+          if (UI.drag.from === "palette") layoutPut(dat, UI.drag.board);
+          else layoutMove(UI.drag.i, dat);
           UI.drag = null;
           UI.heldBoard = null;
           UI.heldAt = null;
@@ -9338,7 +9366,12 @@
   var LAYOUT_KEY = "pumarally_layout_v1";
 
   function defaultLayout() {
-    return { v: 2, boards: [{ id: "provingGround", rot: 0, x: 0, row: 0 }] };
+    var cells = [];
+    for (var i = 0; i < B.LAY_BOARDS; i++) cells.push(null);
+    /* Bottom-left, with the block under it: the corner every course
+       built here grows out of. */
+    cells[(B.LAY_ROWS - 1) * B.LAY_COLS] = { id: "provingGround", rot: 0 };
+    return { v: 3, cells: cells, dockCol: 0 };
   }
 
   /* Every reader of the layout goes through this, because the wizard
@@ -9359,50 +9392,78 @@
     return defaultLayout();
   }
 
-  /* THE OLD SHAPE WAS A GRID OF SLOTS.
+  /* TWO OLDER SHAPES, BOTH CARRIED ACROSS.
 
-     A saved layout from the grid version is a cols/rows/cells object
-     with the dock measured in whole board columns. It is carried
-     across rather than dropped, because somebody's half-built course
-     surviving an update is the difference between a tool and a toy. */
+     Before this the boards floated on a half-board lattice around the
+     block; before that they sat in a grid of any size with the block
+     under a column of it. Somebody's half-built course surviving an
+     update is the difference between a tool and a toy, so both are
+     read -- and anything that will not fit three by three aligned is
+     refused rather than opened crooked. */
   function migrateLayout(raw) {
     if (!raw || typeof raw !== "object") return null;
-    if (raw.v === 2 && raw.boards && raw.boards.length) {
-      var out2 = { v: 2, boards: [], pick: raw.pick };
-      for (var q = 0; q < raw.boards.length; q++) {
-        var bq = raw.boards[q];
-        if (!bq || !B.BOARD_SPECS[bq.id]) return null;
-        out2.boards.push({ id: bq.id, rot: (bq.rot | 0) % 4, x: bq.x | 0, row: bq.row | 0 });
+    var cells = [], i;
+    for (i = 0; i < B.LAY_BOARDS; i++) cells.push(null);
+    var out = { v: 3, cells: cells, dockCol: 0, pick: raw.pick };
+
+    if (raw.v === 3 && raw.cells) {
+      for (i = 0; i < B.LAY_BOARDS; i++) {
+        var c3 = raw.cells[i];
+        if (!c3) continue;
+        if (!B.BOARD_SPECS[c3.id]) return null;
+        cells[i] = { id: c3.id, rot: (c3.rot | 0) % 4 };
       }
-      if (!B.layFits(out2.boards)) return null;
-      /* The workshop's picture comes back too, and is PARSED on the
-         way in rather than trusted: a stored picture that no longer
-         reads is a course that would take the wizard down on its first
-         render, and the honest answer to that is to have no edit
-         rather than a broken one. */
-      if (raw.edit && raw.edit.pic) {
-        try {
-          B.parsePic("course", raw.edit);
-          out2.edit = raw.edit;
-        } catch (e) { /* dropped */ }
+      out.dockCol = Math.max(0, Math.min(B.LAY_COLS - 1, raw.dockCol | 0));
+    } else if (raw.v === 2 && raw.boards && raw.boards.length) {
+      /* Half-board columns become whole ones, and anything that was
+         standing half over is not an aligned course. */
+      var minX = 0;
+      for (i = 0; i < raw.boards.length; i++) {
+        if (!raw.boards[i] || !B.BOARD_SPECS[raw.boards[i].id]) return null;
+        if ((raw.boards[i].x | 0) % 2) return null;
+        minX = Math.min(minX, raw.boards[i].x | 0);
       }
-      return out2;
+      for (i = 0; i < raw.boards.length; i++) {
+        var b2 = raw.boards[i];
+        /* `row` counted UP from the block, so row zero is the bottom
+           row of the grid rather than the top. */
+        var col = ((b2.x | 0) - minX) / 2, row = (B.LAY_ROWS - 1) - (b2.row | 0);
+        if (col >= B.LAY_COLS || row >= B.LAY_ROWS || col < 0 || row < 0) return null;
+        var at2 = row * B.LAY_COLS + col;
+        if (cells[at2]) return null;
+        cells[at2] = { id: b2.id, rot: (b2.rot | 0) % 4 };
+      }
+      out.dockCol = Math.max(0, -minX / 2);
+    } else if (raw.cells && raw.cols && raw.rows) {
+      var cols1 = raw.cols | 0, rows1 = raw.rows | 0;
+      if (cols1 > B.LAY_COLS || rows1 > B.LAY_ROWS) return null;
+      for (var r1 = 0; r1 < rows1; r1++) {
+        for (var c1 = 0; c1 < cols1; c1++) {
+          var cell1 = raw.cells[r1 * cols1 + c1];
+          if (!cell1 || !cell1.id) continue;
+          if (!B.BOARD_SPECS[cell1.id]) return null;
+          cells[(r1 + B.LAY_ROWS - rows1) * B.LAY_COLS + c1] = { id: cell1.id, rot: cell1.rot || 0 };
+        }
+      }
+      out.dockCol = Math.max(0, Math.min(B.LAY_COLS - 1, Math.round(raw.dockCol || 0)));
+    } else {
+      return null;
     }
-    if (!raw.cells || raw.cells.length !== raw.cols * raw.rows) return null;
-    var boards = [], c, r;
-    for (r = 0; r < raw.rows; r++) {
-      for (c = 0; c < raw.cols; c++) {
-        var cell = raw.cells[r * raw.cols + c];
-        if (!cell || !cell.id || !B.BOARD_SPECS[cell.id]) continue;
-        /* Whole columns became half-columns, and the dock became the
-           origin rather than a column of its own. */
-        boards.push({ id: cell.id, rot: cell.rot || 0,
-                      x: c * 2 - Math.round((raw.dockCol || 0) * 2),
-                      row: raw.rows - 1 - r });
-      }
+
+    if (!B.laySpan(cells) || !B.layConnected(cells)) return null;
+    out.dockCol = B.layDockCol(cells, out.dockCol);
+    if (out.dockCol < 0) return null;
+    /* The workshop's picture comes back too, and is PARSED on the way
+       in rather than trusted: a stored picture that no longer reads is
+       a course that would take the wizard down on its first render,
+       and having no edit is the honest answer to that. */
+    if (raw.edit && raw.edit.pic) {
+      try {
+        B.parsePic("course", raw.edit);
+        out.edit = raw.edit;
+      } catch (e) { /* dropped */ }
     }
-    if (!boards.length || !B.layFits(boards)) return null;
-    return { v: 2, boards: boards, pick: raw.pick };
+    return out;
   }
 
   function saveLayout() {
@@ -9410,8 +9471,8 @@
   }
 
   /* Boards a player may place. The docking bay is not one of them --
-     it is 12x4, it is the start area, and it is the one thing on the
-     stage that never moves. */
+     it is 12x4, it is the start area, and it goes under the grid
+     rather than in it. */
   function paletteBoards() {
     var out = [];
     for (var id in B.BOARD_SPECS) {
@@ -9422,10 +9483,6 @@
     return out;
   }
 
-  /* The three edits a board can take. They live here rather than in
-     the click handler because the pointer path, the keyboard path and
-     the rule tests must all be the same operation -- a move that only
-     the drop handler knows how to do is a move nothing can test. */
   /* ONE STEP BACK, ALWAYS.
 
      Arranging boards is trial and error -- put one down, turn it, see
@@ -9433,8 +9490,9 @@
      trial expensive. A snapshot is a string, so this costs nothing and
      survives being handed to JSON. */
   function layoutMark() {
+    var L = layoutNow();
     UI.layUndo = UI.layUndo || [];
-    UI.layUndo.push(JSON.stringify(layoutNow().boards));
+    UI.layUndo.push(JSON.stringify({ cells: L.cells, dockCol: L.dockCol }));
     if (UI.layUndo.length > 24) UI.layUndo.shift();
     /* Marking a change is the one place every board edit passes
        through, so it is the one place the workshop's picture has to be
@@ -9445,31 +9503,10 @@
 
   function layoutUndo() {
     if (!UI.layUndo || !UI.layUndo.length) return false;
-    layoutNow().boards = JSON.parse(UI.layUndo.pop());
+    var was = JSON.parse(UI.layUndo.pop()), L = layoutNow();
+    L.cells = was.cells;
+    L.dockCol = was.dockCol;
     UI.heldAt = null;
-    return true;
-  }
-
-  function layoutAdd(id, x, row) {
-    var L = layoutNow();
-    if (L.boards.length >= B.LAY_BOARDS) return false;
-    var next = L.boards.concat([{ id: id, rot: 0, x: x, row: row }]);
-    if (B.layOverlaps(L.boards, x, row, -1) || !B.layFits(next)) return false;
-    layoutMark();
-    L.boards = next;
-    return true;
-  }
-
-  function layoutMove(i, x, row) {
-    var L = layoutNow(), b = L.boards[i];
-    if (!b) return false;
-    if (B.layOverlaps(L.boards, x, row, i)) return false;
-    var was = { x: b.x, row: b.row };
-    /* Marked before the move and rolled back after a refusal, so an
-       undo stack never carries a step that did not happen. */
-    layoutMark();
-    b.x = x; b.row = row;
-    if (!B.layFits(L.boards)) { b.x = was.x; b.row = was.row; UI.layUndo.pop(); return false; }
     return true;
   }
 
@@ -9488,21 +9525,56 @@
     return false;
   }
 
-  function layoutTurn(i, dir) {
-    var b = layoutNow().boards[i];
+  /* The four edits a slot can take. They live here rather than in the
+     click handler because the pointer path, the keyboard path and the
+     rule tests must all be the same operation -- a move that only the
+     drop handler knows how to do is a move nothing can test. */
+  function layoutPut(at, id) {
+    var L = layoutNow();
+    if (at < 0 || at >= B.LAY_BOARDS || L.cells[at]) return false;
+    layoutMark();
+    L.cells[at] = { id: id, rot: 0 };
+    L.dockCol = B.layDockCol(L.cells, L.dockCol);
+    return true;
+  }
+
+  function layoutMove(from, to) {
+    var L = layoutNow();
+    if (from === to || !L.cells[from] || L.cells[to]) return false;
+    layoutMark();
+    L.cells[to] = L.cells[from];
+    L.cells[from] = null;
+    L.dockCol = B.layDockCol(L.cells, L.dockCol);
+    return true;
+  }
+
+  function layoutTurn(at, dir) {
+    var b = layoutNow().cells[at];
     if (!b) return;
     layoutMark();
     b.rot = (b.rot + (dir < 0 ? 3 : 1)) % 4;
   }
 
-  function layoutDrop(i) {
+  function layoutDrop(at) {
     var L = layoutNow();
-    if (!L.boards[i]) return;
+    if (!L.cells[at]) return;
     layoutMark();
-    L.boards.splice(i, 1);
+    L.cells[at] = null;
+    L.dockCol = B.layDockCol(L.cells, L.dockCol);
   }
 
-  function layoutBoardCount() { return layoutNow().boards.length; }
+  function layoutDockTo(col) {
+    var L = layoutNow();
+    if (B.layDockCols(L.cells).indexOf(col) < 0) return false;
+    layoutMark();
+    L.dockCol = col;
+    return true;
+  }
+
+  function layoutBoardCount() {
+    var sp = B.laySpan(layoutNow().cells);
+    return sp ? sp.n : 0;
+  }
 
   function layoutCourse(flags) {
     /* Composed fresh each time so the preview is the course that would
@@ -9532,15 +9604,9 @@
 
   function layoutProblem() {
     var L = layoutNow();
-    if (!L.boards.length) return "Drag a board onto the starting block.";
-    if (!B.layConnected(L.boards)) {
+    if (!B.laySpan(L.cells)) return "Put a board on the grid.";
+    if (!B.layConnected(L.cells)) {
       return "Every board has to join the others along an edge. A corner is not a join.";
-    }
-    var open = B.layDockOpen(L.boards);
-    if (open.length === 2) return "Nothing sits over the starting block.";
-    if (open.length) {
-      return "Half the starting block has nothing over it \u2014 the bays under it lead off the " +
-        "course. Put a second board beside the first.";
     }
     try {
       var spec = layoutCourse();
@@ -9633,14 +9699,26 @@
        to anyone not using a mouse, so a board can also be picked up
        with a click and put down with a second -- the same two steps,
        reachable by Tab. */
+    /* THE STAGE AND THE SHELF.
+
+       A three by three of slots with the starting block under the
+       bottom row, and the shelf of boards down the right. Boards are
+       aligned: a slot IS a board position and there is nothing to fit.
+
+       Every gesture has a pointer form and a keyboard form. Dragging a
+       board into a slot is the obvious one and is unavailable to
+       anyone not using a mouse, so a board can also be picked up with
+       a click and put down with a second -- the same two steps,
+       reachable by Tab. */
     out.push('<h3 class="pr-rule-group">Or lay one out</h3>');
     out.push('<div class="pr-lay">');
     out.push(layoutStage());
 
     out.push('<div class="pr-lay-shelf">');
     out.push('<div class="pr-lay-shelf-in">');
-    var pal = paletteBoards(), full = L.boards.length >= B.LAY_BOARDS, used = {};
-    for (i = 0; i < L.boards.length; i++) used[L.boards[i].id] = (used[L.boards[i].id] || 0) + 1;
+    var pal = paletteBoards(), used = {}, spn = B.laySpan(L.cells);
+    var full = !B.laySlots(L.cells).length;
+    for (i = 0; i < B.LAY_BOARDS; i++) if (L.cells[i]) used[L.cells[i].id] = 1;
     for (i = 0; i < pal.length; i++) {
       var held = UI.heldBoard === pal[i], nope = boardBlocker(pal[i]);
       var off = nope || full;
@@ -9648,8 +9726,8 @@
         (off ? " disabled" : ' draggable="true"') +
         ' data-act="lhold" data-b="' + esc(pal[i]) + '"' +
         (nope ? ' title="' + esc(RULESETS[rulesetOf(houseRules)].name + " has no " + nope) + '"'
-              : full ? ' title="The course is full \u2014 take a board off first"'
-              : ' title="Drag it onto the course, or click to pick it up"') +
+              : full ? ' title="The grid is full \u2014 take a board off first"'
+              : ' title="Drag it onto a slot, or click to pick it up"') +
         ' aria-pressed="' + (held ? "true" : "false") + '">' +
         boardThumb(pal[i], 0, 5) +
         '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) +
@@ -9660,22 +9738,22 @@
 
     /* ONE LINE THAT SAYS WHAT TO DO NEXT, and it is never the same
        line twice: what this screen wants from you changes completely
-       between an empty stage, a board in hand and a finished course. */
+       between an empty grid, a board in hand and a finished course. */
     var say;
     if (UI.heldBoard) {
       say = "Holding " + B.BOARD_SPECS[UI.heldBoard].name +
-        " \u2014 click one of the lit squares to put it down.";
-    } else if (UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt]) {
-      say = B.BOARD_SPECS[L.boards[UI.heldAt].id].name + " is selected \u2014 turn it with the " +
-        "arrows in its corners, take it off with the bin, or click a lit square to move it there.";
-    } else if (!L.boards.length) {
-      say = "Drag a board from the right onto one of the marked squares over the starting block. " +
-        "Square on, or half a board over either way.";
-    } else if (B.laySlots(L.boards, undefined).length) {
+        " \u2014 click one of the lit slots to put it down.";
+    } else if (UI.heldAt !== null && UI.heldAt !== undefined && L.cells[UI.heldAt]) {
+      say = B.BOARD_SPECS[L.cells[UI.heldAt].id].name + " is selected \u2014 turn it with the " +
+        "arrows in its corners, take it off with the bin, or click a lit slot to move it there.";
+    } else if (!spn) {
+      say = "Drag a board from the right into any slot. The starting block goes under the " +
+        "bottom row, in whichever column you put it.";
+    } else if (!full) {
       say = "Click a board to select it, then turn it or take it off. Drag it to move it. " +
-        "Add another on any marked square, up to two boards by two.";
+        "Add another in any slot beside one already down, up to three by three.";
     } else {
-      say = "Two boards by two is as big as a course gets. Click one to turn it, move it, " +
+      say = "Three by three is as big as a course gets. Click a board to turn it, move it, " +
         "or take it off.";
     }
     out.push('<div class="pr-rule-desc">' + esc(say) + "</div>");
@@ -9683,7 +9761,7 @@
     out.push('<div class="pr-ed-row">' +
       '<button data-act="lundo"' + ((UI.layUndo && UI.layUndo.length) ? "" : " disabled") +
         '">Undo</button>' +
-      '<button data-act="lempty"' + (L.boards.length ? "" : " disabled") +
+      '<button data-act="lempty"' + (spn ? "" : " disabled") +
         '">Clear the course</button>' +
       /* THE WORKSHOP, on the course rather than on a board. This is
          where "these boards are now a course" becomes true: from here
@@ -9739,27 +9817,29 @@
     '<path d="M6.5 6.5 7.6 20.5h8.8L17.5 6.5"/>' +
     '<path d="M10 10v7"/><path d="M14 10v7"/></svg>';
 
+  /* ONE FIXED CANVAS: the whole three by three, plus the strip the
+     block sits in. A stage that grew as boards went down would slide
+     the board out from under the pointer mid-drag and slide the empty
+     slots away from the eye aiming at them. */
   function stageGeom() {
-    var minH = -2, halves = B.LAY_HALF + 2, rows = B.LAY_ROWS;
-    var px = 10;
+    var px = 8;
     return {
-      minH: minH, halves: halves, rows: rows, px: px,
-      w: halves * 6 * px, h: (rows * 12 + 4) * px,
-      left: function (x) { return (x - minH) * 6 * px; },
-      top: function (row) { return (rows - 1 - row) * 12 * px; }
+      px: px,
+      w: B.LAY_COLS * 12 * px, h: (B.LAY_ROWS * 12 + 4) * px,
+      left: function (c) { return c * 12 * px; },
+      top: function (r) { return r * 12 * px; },
+      dockTop: function () { return B.LAY_ROWS * 12 * px; }
     };
   }
 
-  function slotHtml(g, sl, live) {
+  function slotHtml(g, c, r, live) {
+    var at = r * B.LAY_COLS + c;
     return '<button class="pr-lay-slot' + (live ? " live" : "") +
-      '" data-act="ldrop" data-x="' + sl.x + '" data-row="' + sl.row +
-      '"' + (live ? "" : " tabindex=\"-1\" aria-hidden=\"true\"") +
-      ' style="left:' + g.left(sl.x) + "px;top:" + g.top(sl.row) + "px;width:" + (12 * g.px) +
-      "px;height:" + (12 * g.px) + 'px" aria-label="Put it down here, ' +
-      (sl.row === 0 ? (sl.x === 0 ? "square on the block"
-                                  : sl.x === -1 || sl.x === 1 ? "half a board over the block"
-                                  : "beside the block")
-                    : "the row above") + '"><span>+</span></button>';
+      '" data-act="ldrop" data-at="' + at + '"' +
+      (live ? "" : " tabindex=\"-1\" aria-hidden=\"true\"") +
+      ' style="left:' + g.left(c) + "px;top:" + g.top(r) + "px;width:" + (12 * g.px) +
+      "px;height:" + (12 * g.px) + 'px" aria-label="Empty slot, column ' + (c + 1) +
+      " row " + (r + 1) + '"><span>+</span></button>';
   }
 
   /* Landing places painted STRAIGHT INTO the stage rather than by
@@ -9767,15 +9847,15 @@
      element's ancestors under it cancels the drag in every browser, so
      the pointer route appends and removes, and the keyboard route --
      which has no such constraint -- goes through the ordinary render. */
-  function paintSlots(moving) {
+  function paintSlots() {
     var stage = UI.els.overlay && UI.els.overlay.querySelector(".pr-lay-stage");
     if (!stage) return;
     clearSlots();
-    var g = stageGeom(), slots = B.laySlots(layoutNow().boards, moving);
+    var g = stageGeom(), slots = B.laySlots(layoutNow().cells);
     var holder = document.createElement("div");
     holder.className = "pr-lay-painted";
     var html = [];
-    for (var i = 0; i < slots.length; i++) html.push(slotHtml(g, slots[i], true));
+    for (var i = 0; i < slots.length; i++) html.push(slotHtml(g, slots[i].c, slots[i].r, true));
     holder.innerHTML = html.join("");
     stage.appendChild(holder);
   }
@@ -9788,96 +9868,109 @@
   }
 
   function layoutStage() {
-    var L = layoutNow(), i, g = stageGeom();
-    var moving = (UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt] !== undefined)
+    var L = layoutNow(), g = stageGeom(), c, r, i;
+    var moving = (UI.heldAt !== null && UI.heldAt !== undefined && L.cells[UI.heldAt])
       ? UI.heldAt : -1;
     var carrying = !!UI.heldBoard || moving >= 0;
-    /* THE LANDING PLACES ARE ALWAYS DRAWN, faintly, and light up when
+    /* THE EMPTY SLOTS ARE ALWAYS DRAWN, faintly, and light up when
        something is being carried. Shown only while holding, the one
        thing this screen wants you to know -- that boards go HERE --
        was invisible until after you had guessed it. */
-    var slots = B.laySlots(L.boards, moving >= 0 ? moving : undefined);
+    var slots = B.laySlots(L.cells);
 
     var out = ['<div class="pr-lay-stage' + (carrying ? " carrying" : "") +
       '" style="width:' + g.w + "px;height:" + g.h + 'px">'];
 
-    /* The block first, so a board dropped over it draws on top. */
-    out.push('<div class="pr-lay-dock" style="left:' + g.left(0) + "px;top:" + (g.rows * 12 * g.px) +
-      "px;width:" + (12 * g.px) + "px;height:" + (4 * g.px) + 'px">' +
-      boardThumb("dockingBay", 0, g.px) +
-      '<span class="pr-lay-label">start</span></div>');
+    for (i = 0; i < slots.length; i++) out.push(slotHtml(g, slots[i].c, slots[i].r, carrying));
 
-    for (i = 0; i < slots.length; i++) out.push(slotHtml(g, slots[i], carrying));
+    /* THE BLOCK, under the bottom row, in one of the three columns.
+       The columns with a board over them are offered; the rest are
+       not, because a block under nothing is a row of bays opening onto
+       the void. */
+    var dockOk = B.layDockCols(L.cells);
+    for (c = 0; c < B.LAY_COLS; c++) {
+      var here = L.dockCol === c, may = dockOk.indexOf(c) >= 0;
+      if (here) {
+        out.push('<div class="pr-lay-dock" style="left:' + g.left(c) + "px;top:" + g.dockTop() +
+          "px;width:" + (12 * g.px) + "px;height:" + (4 * g.px) + 'px">' +
+          boardThumb("dockingBay", 0, g.px) +
+          '<span class="pr-lay-label">start</span></div>');
+      } else if (may) {
+        out.push('<button class="pr-lay-dockslot" data-act="ldock" data-c="' + c +
+          '" style="left:' + g.left(c) + "px;top:" + g.dockTop() + "px;width:" + (12 * g.px) +
+          "px;height:" + (4 * g.px) + '" aria-label="Move the starting block under column ' +
+          (c + 1) + '"><span>start here</span></button>');
+      }
+    }
 
-    for (i = 0; i < L.boards.length; i++) {
-      var b = L.boards[i], sel = i === moving;
-      var name = B.BOARD_SPECS[b.id].name;
-      /* NOTHING OVER THE ART UNTIL IT IS ASKED FOR. The bar that used
-         to sit across every board's foot covered a sixth of every map
-         on the stage, all the time, to say things the map itself says
-         better. Select a board and its controls appear ON it: a turn
-         either way in the top corners, where they point the direction
-         they turn, and the bin in the middle. */
-      out.push('<div class="pr-lay-board' + (sel ? " sel" : "") + '" data-i="' + i +
-        '" style="left:' + g.left(b.x) + "px;top:" + g.top(b.row) + "px;width:" + (12 * g.px) +
-        "px;height:" + (12 * g.px) + 'px">' +
-        '<button class="pr-lboard" draggable="true" data-act="lgrab" data-i="' + i + '"' +
-          ' aria-pressed="' + (sel ? "true" : "false") +
-          '" title="Click to select it. Drag to move it. Right-click for turn and remove."' +
-          ' aria-label="' + esc(name) + ", turned " + (b.rot * 90) +
-          " degrees" + (sel ? ", selected" : "") + '. Press to select it.">' +
-          boardThumb(b.id, b.rot, g.px) + "</button>");
-      if (sel) {
-        out.push('<button class="pr-lay-tool tl" data-act="lrotl" data-i="' + i +
-          '" title="Turn it left a quarter" aria-label="Turn ' + esc(name) +
-          ' left a quarter turn">' + turnIcon(false) + "</button>" +
-          '<button class="pr-lay-tool tr" data-act="lrotr" data-i="' + i +
-          '" title="Turn it right a quarter" aria-label="Turn ' + esc(name) +
-          ' right a quarter turn">' + turnIcon(true) + "</button>" +
-          '<button class="pr-lay-tool bin" data-act="lclear" data-i="' + i +
-          '" title="Take it off the course" aria-label="Take ' + esc(name) + ' off">' +
-          TRASH_SVG + "</button>");
+    for (r = 0; r < B.LAY_ROWS; r++) {
+      for (c = 0; c < B.LAY_COLS; c++) {
+        var at = r * B.LAY_COLS + c, b = L.cells[at];
+        if (!b) continue;
+        var sel = at === moving, name = B.BOARD_SPECS[b.id].name;
+        out.push('<div class="pr-lay-board' + (sel ? " sel" : "") + '" data-i="' + at +
+          '" style="left:' + g.left(c) + "px;top:" + g.top(r) + "px;width:" + (12 * g.px) +
+          "px;height:" + (12 * g.px) + 'px">' +
+          '<button class="pr-lboard" draggable="true" data-act="lgrab" data-i="' + at + '"' +
+            ' aria-pressed="' + (sel ? "true" : "false") +
+            '" title="Click to select it. Drag to move it. Right-click for turn and remove."' +
+            ' aria-label="' + esc(name) + ", turned " + (b.rot * 90) +
+            " degrees, column " + (c + 1) + " row " + (r + 1) +
+            (sel ? ", selected" : "") + '. Press to select it.">' +
+            boardThumb(b.id, b.rot, g.px) + "</button>");
+        if (sel) {
+          out.push('<button class="pr-lay-tool tl" data-act="lrotl" data-i="' + at +
+            '" title="Turn it left a quarter" aria-label="Turn ' + esc(name) +
+            ' left a quarter turn">' + turnIcon(false) + "</button>" +
+            '<button class="pr-lay-tool tr" data-act="lrotr" data-i="' + at +
+            '" title="Turn it right a quarter" aria-label="Turn ' + esc(name) +
+            ' right a quarter turn">' + turnIcon(true) + "</button>" +
+            '<button class="pr-lay-tool bin" data-act="lclear" data-i="' + at +
+            '" title="Take it off the course" aria-label="Take ' + esc(name) + ' off">' +
+            TRASH_SVG + "</button>");
+        }
+        if (UI.layMenu && UI.layMenu.i === at) {
+          /* The same three things again, under the pointer, because
+             that is where a right-click expects to find them. Not the
+             only way to reach them: the corner controls are real
+             buttons and Tab reaches those. */
+          out.push('<div class="pr-lay-menu" style="left:' + (UI.layMenu.x - g.left(c)) +
+            "px;top:" + (UI.layMenu.y - g.top(r)) + 'px" role="menu" aria-label="' + esc(name) + '">' +
+            '<button role="menuitem" data-act="lrotl" data-i="' + at + '">' + turnIcon(false) +
+              "Turn left</button>" +
+            '<button role="menuitem" data-act="lrotr" data-i="' + at + '">' + turnIcon(true) +
+              "Turn right</button>" +
+            '<button role="menuitem" data-act="lclear" data-i="' + at + '">Take it off</button>' +
+            "</div>");
+        }
+        out.push("</div>");
       }
-      if (UI.layMenu && UI.layMenu.i === i) {
-        /* The same three things again, under the pointer, because that
-           is where a right-click expects to find them. Not the only
-           way to reach them: the corner controls are real buttons and
-           Tab reaches those. */
-        out.push('<div class="pr-lay-menu" style="left:' + (UI.layMenu.x - g.left(b.x)) +
-          "px;top:" + (UI.layMenu.y - g.top(b.row)) + 'px" role="menu" aria-label="' + esc(name) + '">' +
-          '<button role="menuitem" data-act="lrotl" data-i="' + i + '">' + turnIcon(false) +
-            "Turn left</button>" +
-          '<button role="menuitem" data-act="lrotr" data-i="' + i + '">' + turnIcon(true) +
-            "Turn right</button>" +
-          '<button role="menuitem" data-act="lclear" data-i="' + i + '">Take it off</button>' +
-          "</div>");
-      }
-      out.push("</div>");
     }
     out.push("</div>");
     return out.join("");
   }
 
   function layoutIsCourse() {
-    var mine = layoutNow().boards;
+    var mine = layoutNow(), sp = B.laySpan(mine.cells);
+    if (!sp) return null;
     for (var id in B.COURSES) {
       if (id.charAt(0) === "_") continue;
       var L = B.layoutFromCourse(id);
-      if (!L || L.boards.length !== mine.length) continue;
-      /* Compared as a SET, because the order boards were dropped in is
-         not part of the layout -- the same course built left to right
-         and right to left is the same course. */
-      var used = {}, same = true;
-      for (var i = 0; i < L.boards.length && same; i++) {
-        var a = L.boards[i], found = -1;
-        for (var j = 0; j < mine.length; j++) {
-          if (used[j]) continue;
-          var b = mine[j];
-          if (a.id === b.id && (a.rot || 0) === (b.rot || 0) && a.x === b.x && a.row === b.row) {
-            found = j; break;
-          }
+      if (!L) continue;
+      var theirs = B.laySpan(L.cells);
+      if (!theirs || theirs.n !== sp.n || theirs.cols !== sp.cols || theirs.rows !== sp.rows) continue;
+      if (L.dockCol - theirs.c0 !== mine.dockCol - sp.c0) continue;
+      /* Compared by SHAPE rather than by slot: the same two boards in
+         the bottom-left and in the top-right are the same course, put
+         somewhere else on the grid. */
+      var same = true;
+      for (var r = 0; r < sp.rows && same; r++) {
+        for (var c = 0; c < sp.cols && same; c++) {
+          var a = B.layAt(mine.cells, sp.c0 + c, sp.r0 + r);
+          var b = B.layAt(L.cells, theirs.c0 + c, theirs.r0 + r);
+          if (!a !== !b) same = false;
+          else if (a && (a.id !== b.id || (a.rot || 0) !== (b.rot || 0))) same = false;
         }
-        if (found < 0) same = false; else used[found] = 1;
       }
       if (same) return id;
     }
