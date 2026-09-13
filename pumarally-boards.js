@@ -129,7 +129,11 @@
        play as a square that swallows robots. */
     "t": { name: "portal", arg: "pair", portal: true, editions: ["classic"] },
     "X": { name: "press", arg: "none", crush: true, editions: ["classic"] },
-    "F": { name: "burner", arg: "none", burn: 1, editions: ["classic"] },
+    /* Burners are NOT here either, and for the pushers' reason twice over.
+       A flame jet is bolted to a wall and plays over the floor in front of
+       it, so the square it scorches is not the jet -- and board G has one
+       that reaches TWO squares, which no single cell could ever say. They
+       live in `burners`, beside the picture. */
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
     "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
     "s": { name: "docking bay", arg: "digit", editions: BOTH }
@@ -155,6 +159,24 @@
   function activeNow(g, c, r, register) {
     var t = timerAt(g, c, r);
     return !!t && t.regs.indexOf(register + 1) >= 0;
+  }
+
+  /* The jet playing over this square, or null. A jet covers its mount
+     square and, when it reaches two, the next one along -- so this asks
+     "am I in the fire", not "am I the nozzle". */
+  function burnerAt(g, c, r) {
+    for (var i = 0; i < (g.burners || []).length; i++) {
+      var f = g.burners[i];
+      for (var k = 0; k < (f.len || 1); k++) {
+        if (f.c + DC[f.d] * k === c && f.r + DR[f.d] * k === r) return f;
+      }
+    }
+    return null;
+  }
+
+  function burnerFires(g, c, r, register) {
+    var f = burnerAt(g, c, r);
+    return !!f && f.regs.indexOf(register + 1) >= 0;
   }
 
   /* The pusher overhanging this square, or null. There is at most one:
@@ -199,7 +221,6 @@
        L.  oil slick                        (Crash and Burn)
        t1  portal, colour 1 (exactly two)   (Crash and Burn)
        X.  press   -- registers listed in `timers` (Crash and Burn)
-       F.  burner  -- registers listed in `timers` (Crash and Burn)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.
@@ -242,6 +263,14 @@
          The wall it mounts on is checked, so this list cannot drift
          from the picture without the validator saying so. */
       pushers: [],
+      /* Flame jets, wall-mounted: { c, r, d, regs, len }. (c,r) is the
+         square the nozzle stands in, d the way it throws, len how many
+         squares the fire covers -- 1 for nearly all of them, 2 for the
+         one on board G that reaches across into (2,3). Measured off the
+         photographs, where a two-square jet is unmistakable: the narrow
+         cones fill the mount square and the bright ball lands in the
+         next, brighter than the square it came from. */
+      burners: [],
       docks: []
     };
   }
@@ -392,8 +421,8 @@
       var T = spec.timers[ti];
       var tcode = (inGrid(g, T.c, T.r) && g.cell[T.r * w + T.c]) || "";
       var tdef = ELEMENT_DEFS[tcode.charAt(0)];
-      if (!tdef || !(tdef.crush || tdef.burn)) {
-        E_("timer at (" + T.c + "," + T.r + ") is not on a press or a burner");
+      if (!tdef || !tdef.crush) {
+        E_("timer at (" + T.c + "," + T.r + ") is not on a press");
       }
       if (!T.regs || !T.regs.length) E_("timer at (" + T.c + "," + T.r + ") lists no registers");
       for (var ri = 0; ri < T.regs.length; ri++) {
@@ -408,7 +437,7 @@
     for (var tr = 0; tr < h; tr++) {
       for (var tc = 0; tc < w; tc++) {
         var cd2 = g.cell[tr * w + tc] || "", d2 = ELEMENT_DEFS[cd2.charAt(0)];
-        if (d2 && (d2.crush || d2.burn) && !timed[tc + "," + tr]) {
+        if (d2 && d2.crush && !timed[tc + "," + tr]) {
           E_("(" + tc + "," + tr + ") is a " + d2.name + " with no registers; every one is printed with a set");
         }
       }
@@ -432,6 +461,27 @@
       if (pushed[U.c + "," + U.r]) E_("two pushers at (" + U.c + "," + U.r + ")");
       pushed[U.c + "," + U.r] = 1;
       g.pushers.push({ c: U.c, r: U.r, d: DIR_OF[U.d], regs: U.regs.slice().sort() });
+    }
+    var burnt = {};
+    for (var fi = 0; fi < (spec.burners || []).length; fi++) {
+      var F = spec.burners[fi], fw = "burner at (" + F.c + "," + F.r + ")";
+      if (!inGrid(g, F.c, F.r)) E_(fw + " is off the board");
+      if (DIR_OF[F.d] === undefined) E_(fw + ' throws "' + F.d + '", which is not a direction');
+      if (!F.regs || !F.regs.length) E_(fw + " lists no registers; every printed one fires in some");
+      for (var fr = 0; fr < F.regs.length; fr++) {
+        if (!(F.regs[fr] >= 1 && F.regs[fr] <= 5)) {
+          E_(fw + " lists register " + F.regs[fr] + "; registers run 1-5");
+        }
+      }
+      var flen = F.len === undefined ? 1 : F.len;
+      if (flen !== 1 && flen !== 2) E_(fw + " reaches " + flen + " squares; the printed ones reach 1 or 2");
+      var fd = DIR_OF[F.d];
+      for (var fk = 0; fk < flen; fk++) {
+        var fc = F.c + DC[fd] * fk, frr = F.r + DR[fd] * fk;
+        if (burnt[fc + "," + frr]) E_("two burners cover (" + fc + "," + frr + ")");
+        burnt[fc + "," + frr] = 1;
+      }
+      g.burners.push({ c: F.c, r: F.r, d: fd, regs: F.regs.slice().sort(), len: flen });
     }
     g.name = spec.name;
     g.edition = edition;
@@ -517,6 +567,17 @@
       }
       out.push("      ]");
     }
+    if (g.burners && g.burners.length) {
+      out.push("      ,");
+      out.push("      burners: [");
+      for (var fi = 0; fi < g.burners.length; fi++) {
+        var F = g.burners[fi];
+        out.push("        { c: " + F.c + ", r: " + F.r + ', d: "' + DIR_LETTER[F.d] +
+          '", regs: [' + F.regs.join(", ") + "]" + (F.len === 2 ? ", len: 2" : "") + " }" +
+          (fi === g.burners.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
     if (g.timers && g.timers.length) {
       out.push("      ,");
       out.push("      timers: [");
@@ -571,6 +632,11 @@
     for (var uq = 0; uq < g.pushers.length; uq++) {
       var U2 = g.pushers[uq];
       n.pushers.push({ c: g.h - 1 - U2.r, r: U2.c, d: rot(U2.d, 1), regs: U2.regs.slice() });
+    }
+    for (var fq = 0; fq < g.burners.length; fq++) {
+      var F2 = g.burners[fq];
+      n.burners.push({ c: g.h - 1 - F2.r, r: F2.c, d: rot(F2.d, 1),
+                       regs: F2.regs.slice(), len: F2.len });
     }
     for (var tq = 0; tq < g.timers.length; tq++) {
       var T2 = g.timers[tq];
@@ -633,6 +699,27 @@
       if (!wallAt(g, U.c, U.r, opposite(U.d))) {
         E_("(" + U.c + "," + U.r + ") pusher pushes " + dirName(U.d) +
            " but has no wall behind it to mount on");
+      }
+    }
+
+    // ---- burners: a jet needs a wall to be bolted to, and somewhere to reach ----
+    for (var fi = 0; fi < g.burners.length; fi++) {
+      var F = g.burners[fi];
+      if (!wallAt(g, F.c, F.r, opposite(F.d))) {
+        E_("(" + F.c + "," + F.r + ") burner throws " + dirName(F.d) +
+           " but has no wall behind it to mount on");
+      }
+      /* A two-square jet whose second square is off the board, or behind a
+         wall, is a misread reach -- the fire would be painted onto nothing
+         or through something solid. */
+      if (F.len === 2) {
+        if (wallAt(g, F.c, F.r, F.d)) {
+          E_("(" + F.c + "," + F.r + ") burner reaches two squares but a wall stops it at one");
+        }
+        var nx2 = step(F.c, F.r, F.d);
+        if (!inGrid(g, nx2.c, nx2.r)) {
+          E_("(" + F.c + "," + F.r + ") burner reaches two squares but the second is off the board");
+        }
       }
     }
 
@@ -1081,9 +1168,9 @@
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " b< o. .. .. L. .. .. .. .. t2 L. b< ",
         "+  +  +--+--+  +  +  +  +--+  +  +  +",
-        " .. t1|.. .. L. .. o. .. F. .. L. .. ",
+        " .. t1|.. .. L. .. o. .. .. .. L. .. ",
         "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. .. F. F.|L. .. .. .. ..|F.|.. .. ",
+        " .. .. .. ..|L. .. .. .. ..|..|.. .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. L. bv b< b< L. L. .. W. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -1091,11 +1178,11 @@
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " b> b^ .. W. .. b> b> b> b^ .. .. b> ",
         "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. .. .. .. L. L. L. L. F. .. .. .. ",
+        " .. .. .. .. L. L. L. L. .. .. .. .. ",
         "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. w.|F.|.. .. .. .. .. ..|F.|t1 .. ",
+        " .. w.|..|.. .. .. .. .. ..|..|t1 .. ",
         "+  +  +  +--+  +  +  +  +  +  +  +  +",
-        " .. .. t2 F. .. o. .. L. .. ..|.. .. ",
+        " .. .. t2 .. .. o. .. L. .. ..|.. .. ",
         "+  +  +  +--+  +  +  +  +--+  +  +  +",
         " b> .. L. L. L. .. .. L. .. .. o. b> ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -1104,15 +1191,14 @@
       ],
       lasers: []
       ,
-      timers: [
-        { c: 8, r: 2, regs: [1, 3, 5] },
-        { c: 2, r: 3, regs: [2, 3, 5] },
-        { c: 3, r: 3, regs: [2, 3, 5] },
-        { c: 9, r: 3, regs: [2, 4] },
-        { c: 8, r: 7, regs: [2, 3, 4] },
-        { c: 2, r: 8, regs: [2, 3] },
-        { c: 9, r: 8, regs: [1, 5] },
-        { c: 3, r: 9, regs: [1, 3, 5] }
+      burners: [
+        { c: 8, r: 2, d: "S", regs: [1, 3, 5] },
+        { c: 3, r: 3, d: "W", regs: [2, 3, 5], len: 2 },
+        { c: 9, r: 3, d: "W", regs: [2, 4] },
+        { c: 8, r: 7, d: "S", regs: [2, 3, 4] },
+        { c: 2, r: 8, d: "E", regs: [2, 3] },
+        { c: 9, r: 8, d: "W", regs: [1, 5] },
+        { c: 3, r: 9, d: "N", regs: [1, 3, 5] }
       ]
     },
 
@@ -1296,29 +1382,29 @@
       name: "Board H", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
       pic: [
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. bv .. W. ..|F.|b^ .. bv .. .. .. ",
+        " .. bv .. W. .. ..|b^ .. bv .. .. .. ",
         "+  +  +  +--+  +  +  +  +  +  +  +  +",
         " .. b> b> b> b> b> b^ .. bv ..|bv b< ",
-        "+  +--+  +--+--+  +--+  +  +  +  +  +",
-        " .. .. .. F. F. .. .. .. bv .. bv .. ",
-        "+  +  +  +--+--+  +  +--+  +  +  +  +",
-        " b> b> b> b> b> b> b> b> bv|F.|bv|W. ",
+        "+  +--+  +  +--+  +--+  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. bv .. bv .. ",
+        "+  +  +  +--+  +  +  +--+  +  +  +  +",
+        " b> b> b> b> b> b> b> b> bv|.. bv|W. ",
         "+  +  +  +  +--+  +  +  +  +  +  +  +",
-        " .. .. .. .. F. .. ..|F.|bv|F.|bv .. ",
-        "+--+  +  +  +--+  +  +  +  +  +  +--+",
-        " F. b> b> b> b> bv w. .. bv .. bv F. ",
+        " .. .. .. .. .. .. .. ..|bv ..|bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> bv w. .. bv .. bv .. ",
         "+--+  +  +  +  +  +  +  +  +  +  +--+",
         " b> b^ .. .. .. bv o. o. bv .. b> b> ",
         "+  +  +--+  +  +  +  +  +  +  +  +  +",
-        " .. .. F. W. .. b> b> b> bv|F.|.. o. ",
-        "+  +  +--+  +  +  +  +--+  +  +  +  +",
-        " b< b< b< b< .. .. .. F. bv b< b< b< ",
-        "+  +  +--+  +  +  +  +--+  +--+  +  +",
-        " .. .. F. b^|F. .. .. .. bv .. .. .. ",
-        "+  +  +--+  +  +  +  +  +  +  +  +  +",
-        " b> b> b> b^|F.|.. o. .. bv .. w. b> ",
-        "+--+  +  +  +  +  +  +  +  +  +  +  +",
-        " F. .. .. b^ .. .. b^ .. bv .. b^ .. ",
+        " .. .. .. W. .. b> b> b> bv|.. .. o. ",
+        "+  +  +  +  +  +  +  +--+  +  +  +  +",
+        " b< b< b< b< .. .. .. .. bv b< b< b< ",
+        "+  +  +--+  +  +  +  +  +  +--+  +  +",
+        " .. .. .. b^|.. .. .. .. bv .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> b> b> b^ ..|.. o. .. bv .. w. b> ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. b^ .. .. b^ .. bv .. b^ .. ",
         "+--+  +  +  +--+  +  +  +  +  +  +  +"
       ],
       lasers: []
@@ -1339,23 +1425,23 @@
         { c: 4, r: 11, d: "N", regs: [1, 3, 5] }
       ]
       ,
-      timers: [
-        { c: 5, r: 0, regs: [1, 2, 3, 4] },
-        { c: 3, r: 2, regs: [2, 3, 5] },
-        { c: 4, r: 2, regs: [2, 3, 5] },
-        { c: 9, r: 3, regs: [1, 2, 4] },
-        { c: 4, r: 4, regs: [1, 3, 5] },
-        { c: 7, r: 4, regs: [2, 4] },
-        { c: 9, r: 4, regs: [1, 2, 4] },
-        { c: 0, r: 5, regs: [2, 5] },
-        { c: 11, r: 5, regs: [2, 5] },
-        { c: 2, r: 7, regs: [2, 4] },
-        { c: 9, r: 7, regs: [2, 4] },
-        { c: 7, r: 8, regs: [2, 3, 4] },
-        { c: 2, r: 9, regs: [1, 5] },
-        { c: 4, r: 9, regs: [1, 5] },
-        { c: 4, r: 10, regs: [2, 4] },
-        { c: 0, r: 11, regs: [2, 5] }
+      burners: [
+        { c: 5, r: 0, d: "W", regs: [1, 2, 3, 4] },
+        { c: 3, r: 2, d: "N", regs: [2, 3, 5] },
+        { c: 4, r: 2, d: "S", regs: [2, 3, 5] },
+        { c: 9, r: 3, d: "E", regs: [1, 2, 4] },
+        { c: 4, r: 4, d: "S", regs: [1, 3, 5] },
+        { c: 7, r: 4, d: "W", regs: [2, 4] },
+        { c: 9, r: 4, d: "W", regs: [1, 2, 4] },
+        { c: 0, r: 5, d: "N", regs: [2, 5] },
+        { c: 11, r: 5, d: "N", regs: [2, 5] },
+        { c: 2, r: 7, d: "S", regs: [2, 4] },
+        { c: 9, r: 7, d: "E", regs: [2, 4] },
+        { c: 7, r: 8, d: "S", regs: [2, 3, 4] },
+        { c: 2, r: 9, d: "S", regs: [1, 5] },
+        { c: 4, r: 9, d: "E", regs: [1, 5] },
+        { c: 4, r: 10, d: "W", regs: [2, 4] },
+        { c: 0, r: 11, d: "N", regs: [2, 5] }
       ]
     },
 
@@ -1566,6 +1652,10 @@
       var U3 = g.pushers[uu];
       C.pushers.push({ c: U3.c + ox, r: U3.r + oy, d: U3.d, regs: U3.regs.slice() });
     }
+    for (var ff = 0; ff < (g.burners || []).length; ff++) {
+      var F3 = g.burners[ff];
+      C.burners.push({ c: F3.c + ox, r: F3.r + oy, d: F3.d, regs: F3.regs.slice(), len: F3.len });
+    }
     for (var tt = 0; tt < (g.timers || []).length; tt++) {
       var T3 = g.timers[tt];
       C.timers.push({ c: T3.c + ox, r: T3.r + oy, regs: T3.regs.slice() });
@@ -1747,7 +1837,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,

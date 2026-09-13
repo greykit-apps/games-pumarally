@@ -88,6 +88,33 @@ board("laser unmounted",  s => { s.pic[0] = s.pic[0].slice(0, 10) + "  " + s.pic
 board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[1].slice(3);
                                  s.pic[3] = s.pic[3].slice(0, 1) + "s1" + s.pic[3].slice(3); }, "two docking bays numbered 1");
 
+// A burner is wall-mounted like a pusher, and the sparse list that holds one
+// can be wrong in all the same ways -- plus two of its own, because a jet has
+// a REACH and the far end of it can land on nothing.
+{
+  const withJet = (mutate, want) => {
+    const spec = clone(B.BOARD_SPECS.boardH);
+    mutate(spec);
+    let msg = null;
+    try { B.validateGrid("test", B.parsePic("test", spec), () => {}); }
+    catch (e) { msg = e.message; }
+    record("burner: " + want, msg, want);
+  };
+  withJet(s => { s.burners.push({ c: 99, r: 0, d: "E", regs: [1] }); }, "is off the board");
+  withJet(s => { s.burners[0].d = "sideways"; },      "which is not a direction");
+  withJet(s => { s.burners[0].regs = []; },           "lists no registers");
+  withJet(s => { s.burners[0].regs = [9]; },          "registers run 1-5");
+  withJet(s => { s.burners[0].len = 4; },             "reach 1 or 2");
+  withJet(s => { s.burners.push({ c: s.burners[0].c, r: s.burners[0].r, d: "E", regs: [1] }); },
+          "two burners cover");
+  // (5,0) throws west off its east mount; take the mount away
+  withJet(s => { s.pic[1] = s.pic[1].slice(0, 18) + " " + s.pic[1].slice(19); },
+          "no wall behind it to mount on");
+  // make it reach two, into the wall on its own far side
+  withJet(s => { s.burners[0].len = 2; s.pic[1] = s.pic[1].slice(0, 15) + "|" + s.pic[1].slice(16); },
+          "a wall stops it at one");
+}
+
 // ---- editions ------------------------------------------------------------
 board("unknown edition",  s => { s.edition = "gritty reboot"; },        "which is not a thing");
 board("repair site on a modern board",
