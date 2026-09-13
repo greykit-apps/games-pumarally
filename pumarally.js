@@ -466,26 +466,53 @@
      Geometry is in the mount's frame -- u runs out from the wall, v
      runs along it -- so one bit of arithmetic serves all four
      orientations instead of four hand-rotated copies. */
+  /* A PUSHING PLATE ON A SCISSOR.
+
+     Three parts, and which part carries the stripe is the whole point.
+     The broad FACE is the thing that hits you, so the barricade belongs
+     there; the linkage behind it is machinery and reads as steel. The
+     first version striped the whole deck instead, which made the pusher
+     one flat hazard slab with no way to see that it EXTENDS.
+
+     The scissor is what says "this comes out at you". Two arms crossing
+     at a centre pivot, hinged to the wall at one end and to the back of
+     the face at the other, with the pivots drawn: a lazy-tong at rest.
+     An arrow could not say that -- and worse, every other arrow on this
+     board means a conveyor, so it said "you will be carried" where it
+     means "you will be shoved, on these registers and not the others".
+
+     Geometry lives in the mount's own frame -- u runs out from the
+     wall, v along it -- so one piece of arithmetic serves all four
+     orientations instead of four hand-rotated copies. */
   function pusherSvg(dir, odd) {
     var mount = B.opposite(dir), m = EDGE[mount];
     var ux = DC[dir], uy = DR[dir];            // out from the wall
     var vx = -uy, vy = ux;                     // along the wall
-    var HALF = 34, BACK = 4, FACE = 46, LIP = 10;
+    var HALF = 33, FACE = 52, PLATE = 13, SPREAD = 17;
+    var hinge = 5, cross = (hinge + (FACE - PLATE)) / 2;
     function pt(u, v) {
       return (m[0] + ux * u + vx * v).toFixed(1) + " " +
              (m[1] + uy * u + vy * v).toFixed(1);
     }
-    function quad(u0, u1, v) {
+    function bar(u0, u1, v) {
       return "M" + pt(u0, -v) + "L" + pt(u0, v) + "L" + pt(u1, v) + "L" + pt(u1, -v) + "Z";
     }
+    function pivot(u, v) {
+      var xy = pt(u, v).split(" ");
+      return '<circle class="pr-push-pin" cx="' + xy[0] + '" cy="' + xy[1] + '" r="3.4"/>';
+    }
     return svg(
-      /* the slot it comes out of, so the plate reads as emerging */
-      '<path class="pr-push-slot" d="' + quad(-2, BACK, HALF + 4) + '"/>' +
-      /* the striped deck */
-      '<path class="pr-push-deck" d="' + quad(BACK, FACE, HALF) + '"/>' +
-      /* a steel lip along the leading edge: the part that does the work */
-      '<path class="pr-push-lip" d="' + quad(FACE - LIP, FACE, HALF) + '"/>' +
-      '<path class="pr-push-edge" d="M' + pt(FACE, -HALF) + "L" + pt(FACE, HALF) + '"/>',
+      /* the slot in the wall it emerges from */
+      '<path class="pr-push-slot" d="' + bar(-3, hinge, HALF - 4) + '"/>' +
+      /* the scissor: two arms crossing at a centre pivot */
+      '<path class="pr-push-arm" d="M' + pt(hinge, -SPREAD) + "L" + pt(cross, 0) +
+        "L" + pt(FACE - PLATE, -SPREAD) + '"/>' +
+      '<path class="pr-push-arm" d="M' + pt(hinge, SPREAD) + "L" + pt(cross, 0) +
+        "L" + pt(FACE - PLATE, SPREAD) + '"/>' +
+      pivot(hinge, -SPREAD) + pivot(hinge, SPREAD) + pivot(cross, 0) +
+      pivot(FACE - PLATE, -SPREAD) + pivot(FACE - PLATE, SPREAD) +
+      /* the face: broad, striped, and the only part that touches a robot */
+      '<path class="pr-push-face" d="' + bar(FACE - PLATE, FACE, HALF) + '"/>',
       "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
   }
 
@@ -622,11 +649,16 @@
     if (def && def.name !== "floor") cls.push("pr-has");
     if (B.beltSpeed(code)) cls.push(B.beltSpeed(code) === 2 ? "pr-t-express" : "pr-t-belt");
     else if (def.gear) cls.push("pr-t-gear");
-    else if (def.push) cls.push("pr-t-pusher");
     else if (def.option) cls.push("pr-t-upgrade");
     else if (def.repair) cls.push("pr-t-repair");
     else if (code.charAt(0) === "o") cls.push("pr-t-pit");
     else if (code.charAt(0) === "s") cls.push("pr-t-dock");
+    /* Added, never instead-of: a pusher is on the wall, so the square
+       under it keeps its own class and can be a conveyor. */
+    if (B.pusherAt(C, c, r)) {
+      if (cls.indexOf("pr-has") < 0) cls.push("pr-has");
+      cls.push("pr-t-pusher");
+    }
     return cls;
   }
 
@@ -636,7 +668,6 @@
     var art = beltArt(C, c, r);
     if (art) out.push(beltSvg(art, marksBoundary(C, c, r, art)));
     else if (def.gear) out.push(gearSvg(def.gear));
-    else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
@@ -646,7 +677,13 @@
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
-    if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
+    /* Pushers are drawn from the board's list, over the tile, because
+       the tile beneath one can be anything -- including a conveyor. */
+    var pu = B.pusherAt(C, c, r);
+    if (pu) {
+      out.push(pusherSvg(pu.d, true));
+      out.push('<span class="pr-pushreg">' + esc(pu.regs.join("")) + "</span>");
+    }
     if (def.crush || def.burn) {
       var t = B.timerAt(C, c, r);
       out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
@@ -1704,13 +1741,14 @@
 
   function pusherPass() {
     var C = UI.course, alive = live();
-    // G.register is 0-based, so index 0/2/4 are the printed registers 1/3/5.
-    var wantOdd = (G.register % 2 === 0);
     for (var i = 0; i < alive.length; i++) {
-      var p = alive[i], el = B.elemOf(B.codeAt(C, p.c, p.r));
-      if (!el || !el.push) continue;
-      if ((el.push === "odd") !== wantOdd) continue;
-      var d = B.dirOf(B.codeAt(C, p.c, p.r));
+      var p = alive[i], pu = B.pusherAt(C, p.c, p.r);
+      /* A pusher is bolted to a WALL, so the square under it is its own
+         business -- on board H a conveyor and a pusher share squares,
+         which is ordinary on the printed board and was impossible to
+         say while a pusher WAS the square. */
+      if (!pu || !B.pusherFires(C, p.c, p.r, G.register)) continue;
+      var d = pu.d;
       var uctx = fire(p, "onBoardElement", { kind: "pusher", turn: 0, dir: d, veto: false });
       if (uctx.veto) continue;
       log(p.name + " is shoved by a pusher");
@@ -1990,6 +2028,7 @@
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
           p.hand = draw(p.dealtCount);
+          handOrder(p);
         }
         go("turn", "postDeal");
         return NEXT;
@@ -2008,6 +2047,7 @@
           if (ctx.redraw) {
             discardCards(p.hand);
             p.hand = draw(p.dealtCount);
+            handOrder(p);
             log(p.name + " recompiles");
           }
         }
@@ -2632,10 +2672,8 @@
     ghostBelt(C, st, 2);
     ghostBelt(C, st, 1);
     if (st.dead) return;
-    var el = B.elemOf(B.codeAt(C, st.c, st.r));
-    if (el && el.push && ((el.push === "odd") === (register % 2 === 0))) {
-      ghostMove(C, st, B.dirOf(B.codeAt(C, st.c, st.r)));
-    }
+    var pu = B.pusherAt(C, st.c, st.r);
+    if (pu && B.pusherFires(C, st.c, st.r, register)) ghostMove(C, st, pu.d);
     if (st.dead) return;
     var t = B.gearTurn(B.codeAt(C, st.c, st.r));
     if (t) st.face = B.rot(st.face, t);
@@ -2785,10 +2823,10 @@
     return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
   }
 
-  function bench(cells, walls, lasers, timers) {
+  function bench(cells, walls, lasers, timers, pushers) {
     var w = cells[0].length, h = cells.length;
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
-      lasers: lasers || [], timers: timers || [] });
+      lasers: lasers || [], timers: timers || [], pushers: pushers || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -2946,14 +2984,16 @@
     } },
 
     { name: "a pusher fires only on its own registers", run: function () {
-      var cells = [["p>", "..", ".."], ["P>", "..", ".."]];
+      var cells = [["..", "..", ".."], ["..", "..", ".."]];
       var walls = ["0,0,W", "0,1,W"];       // each pusher mounts on the wall behind it
-      benchGame(bench(cells, walls), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
+      var pushers = [{ c: 0, r: 0, d: "E", regs: [1, 3, 5] },
+                     { c: 0, r: 1, d: "E", regs: [2, 4] }];
+      benchGame(bench(cells, walls, [], [], pushers), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
       G.register = 0;                       // printed register 1: odd pushers only
       pusherPass();
       assert(G.players[0].c === 1, "the 1/3/5 pusher should fire on register 1");
       assert(G.players[1].c === 0, "the 2/4 pusher must not fire on register 1");
-      benchGame(bench(cells, walls), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
+      benchGame(bench(cells, walls, [], [], pushers), [{ c: 0, r: 0 }, { c: 0, r: 1 }]);
       G.register = 1;                       // printed register 2: even pushers only
       pusherPass();
       assert(G.players[0].c === 0, "the 1/3/5 pusher must not fire on register 2");
@@ -3178,19 +3218,58 @@
       assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
+    { name: "every mount injects the hazard pattern", run: function () {
+      /* The tile art references url(#pr-hz), which is document-scoped.
+         mount() injected it and edMount() did not, so in the board
+         workshop every striped thing -- pusher decks, pit rims --
+         painted empty. It looked like the art was wrong; it was a
+         definition missing three thousand lines away, and nothing
+         failed. Both mounts are checked against the same source. */
+      var src = String(mount) + String(edMount);
+      var n = (src.match(/HAZARD_DEFS/g) || []).length;
+      assert(n >= 2, "both mount() and edMount() must inject HAZARD_DEFS, found " + n);
+      assert(/id="pr-hz"/.test(HAZARD_DEFS), "and the pattern must carry the id the art asks for");
+    } },
+
+    { name: "the hand keeps its order when a card comes back from a register", run: function () {
+      /* The bug this exists for: cards were pushed back on the END of
+         the hand, so taking one card out of a register moved every card
+         after it. You looked, clicked where a card had been, and a
+         different card went in. Nothing was ever in the wrong place --
+         the hand had rearranged itself between the look and the
+         click. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      /* Card ids are indices into PROGRAM_DECK. Deliberately NOT in
+         priority order to begin with, so the sort has work to do. */
+      p.hand = [40, 3, 77, 12, 55, 8, 61, 29, 70];
+      handOrder(p);
+      var before = p.hand.slice();
+      /* Pull the middle card into a register and put it straight back. */
+      p.registers[0] = p.hand.splice(4, 1)[0];
+      toHand(p, p.registers[0]);
+      p.registers[0] = null;
+      assert(p.hand.join(",") === before.join(","),
+        "the hand must come back identical, got " + p.hand.join(",") + " from " + before.join(","));
+      for (var i = 1; i < p.hand.length; i++) {
+        assert(card(p.hand[i - 1]).pri <= card(p.hand[i]).pri,
+          "and it must stay sorted by priority");
+      }
+    } },
+
     // ---- rulesets and the course menu ---------------------------------
     { name: "a course's rulebooks come from its squares, not from its box", run: function () {
-      /* boardE is printed in a Crash and Burn box, which is a classic
-         product, but that is not WHY it is classic-only. It is
-         classic-only because it carries repair squares, which the 2016
-         rules do not print. The distinction matters the moment a board
-         from a classic box happens to use only shared elements. */
-      var eds = B.playableEditions("boardERun");
-      assert(eds.indexOf("classic") >= 0, "boardE is readable by the classic rules");
+      /* Island is a base-game board, which is a classic product, but
+         that is not WHY it is classic-only. It is classic-only because
+         it carries a repair square, which the 2016 rules do not print.
+         The distinction matters the moment a board from a classic box
+         happens to use only shared elements. */
+      var eds = B.playableEditions("islandRun");
+      assert(eds.indexOf("classic") >= 0, "Island is readable by the classic rules");
       assert(eds.indexOf("modern") < 0, "and not by the modern ones");
-      assert(B.editionBlocker("boardERun", "modern") === "repair site",
+      assert(B.editionBlocker("islandRun", "modern") === "repair site",
         "and the menu must be able to say which square shuts it out, got " +
-        B.editionBlocker("boardERun", "modern"));
+        B.editionBlocker("islandRun", "modern"));
     } },
 
     { name: "an unbuilt ruleset offers nothing and starts nothing", run: function () {
@@ -3386,6 +3465,61 @@
       try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
       catch (e) { orphan = /not on a press or a burner/.test(e.message); }
       assert(orphan, "a timer pointing at plain floor must be refused");
+    } },
+
+    { name: "a pusher can fire on an arbitrary set of registers", run: function () {
+      /* The two printed parities cover most boards, but board H prints
+         pushers on 1/2/3/4/5 and 2/3/4/5 among others, which "odd" and
+         "even" cannot say at all. Every pusher carries its own set, so
+         there is one question here and not three cases. */
+      benchGame(bench([["..", ".."]], [], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [1, 2, 3, 4, 5] }]), [{ c: 0, r: 0, face: N }]);
+      var p = G.players[0];
+      for (var reg = 0; reg < 5; reg++) {
+        p.c = 0; p.r = 0;
+        G.register = reg;
+        pusherPass();
+        assert(p.c === 1, "a pusher listing every register must fire in register " + (reg + 1));
+      }
+      /* And one that lists only two must be silent in the others. */
+      benchGame(bench([["..", ".."]], [], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [2, 5] }]), [{ c: 0, r: 0, face: N }]);
+      p = G.players[0];
+      G.register = 0; pusherPass();
+      assert(p.c === 0, "register 1 is not in {2,5}");
+      G.register = 1; pusherPass();
+      assert(p.c === 1, "register 2 is");
+    } },
+
+    { name: "a pusher and a conveyor share a square", run: function () {
+      /* The reason pushers left the picture. Board H prints rams over
+         belt squares; while a pusher WAS the square, the two could not
+         both be said, and the board came out wrong in whichever way
+         the transcriber picked. The belt carries east, then the ram on
+         the west wall shoves east again -- two squares in one register,
+         which is what the cardboard does. */
+      var g = bench([["b>", "..", ".."]], ["0,0,W"], [], [],
+        [{ c: 0, r: 0, d: "E", regs: [1] }]);
+      benchGame(g, [{ c: 0, r: 0, face: N }]);
+      assert(B.beltSpeed(B.codeAt(g, 0, 0)) === 1, "the square under the ram is still a conveyor");
+      assert(B.pusherAt(g, 0, 0), "and still carries the ram");
+      G.register = 0;
+      beltPass();
+      assert(G.players[0].c === 1, "the belt carries east first");
+      G.players[0].c = 0;
+      pusherPass();
+      assert(G.players[0].c === 1, "and the ram on the same square shoves east");
+    } },
+
+    { name: "a pusher with no wall behind it is refused", run: function () {
+      /* A ram is bolted to a wall. One floating in open floor is a
+         transcription slip that would otherwise render and play. */
+      var refused = false;
+      try {
+        B.validateGrid("bench", bench([["..", ".."]], [], [], [],
+          [{ c: 0, r: 0, d: "E", regs: [1] }]), function () {});
+      } catch (e) { refused = /no wall behind it/.test(e.message); }
+      assert(refused, "a wall-less pusher must be refused");
     } },
 
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
@@ -3934,6 +4068,25 @@
       assert(L, "the laser from (11,6) should land at (5,11) after a clockwise turn");
       assert(L.d === N, "and should face north, faces " + L.d);
       assert(B.wallAt(t, 5, 11, B.opposite(N)), "and must still have a wall behind it to mount on");
+
+      /* Pushers are the third wall-mounted layer, and the one nothing
+         else would catch: every shipped course happens to use rot 0,
+         so a rotation that dropped them would play correctly on every
+         board we have and wrongly on the first one that turns. */
+      assert(g.pushers.length === 4, "test fixture moved: shuntYard should have four pushers");
+      assert(t.pushers.length === 4, "a quarter turn lost " + (4 - t.pushers.length) + " pusher(s)");
+      var U = null;
+      for (var u = 0; u < t.pushers.length; u++) if (t.pushers[u].c === 11 && t.pushers[u].r === 0) U = t.pushers[u];
+      assert(U, "the east-pushing ram at (0,0) should land at (11,0) after a clockwise turn");
+      assert(U.d === S, "and should push south, pushes " + U.d);
+      assert(U.regs.join("") === "135", "carrying its own registers, got " + U.regs.join(""));
+      assert(B.wallAt(t, 11, 0, B.opposite(S)), "and must still have a wall behind it to mount on");
+
+      /* Four turns is identity, which is the property that actually
+         matters: a course may rotate a board by any quarter. */
+      var back = B.rotateGrid(g, 4);
+      assert(JSON.stringify(back.pushers) === JSON.stringify(g.pushers),
+        "four quarter turns must put every pusher back where it started");
     } },
 
     { name: "two boards assemble side by side without disturbing each other", run: function () {
@@ -3950,6 +4103,20 @@
       // And the left-hand board is still itself.
       var p = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
       assert(B.codeAt(C, 1, 0) === B.codeAt(p, 1, 0), "the left board was disturbed by the stamp");
+
+      /* The sparse layers have to be stamped too, and they are the half
+         a tile-by-tile comparison cannot see. A course that quietly
+         dropped every pusher would still assemble, still validate and
+         still play -- just without the rams. */
+      assert(C.pushers.length === p.pushers.length + g.pushers.length,
+        "the course should carry every board's pushers, has " + C.pushers.length +
+        " of " + (p.pushers.length + g.pushers.length));
+      for (var u = 0; u < g.pushers.length; u++) {
+        var U = g.pushers[u], at = B.pusherAt(C, U.c + 12, U.r);
+        assert(at, "the right board's pusher at (" + U.c + "," + U.r + ") is missing from the course");
+        assert(at.d === U.d && at.regs.join("") === U.regs.join(""),
+          "and arrived facing or firing differently");
+      }
     } },
 
     { name: "walls agree across a seam between two boards", run: function () {
@@ -3997,7 +4164,13 @@
         "formatting the picture back did not reproduce the source picture");
       var again = B.parsePic(id, {
         w: g.w, h: g.h, pic: pic,
-        lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+        lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+        /* Every sparse layer beside the picture has to make the trip.
+           This is what caught the pushers when they moved out of the
+           cells: the picture round-tripped perfectly and the rams
+           vanished, which is the silent half of the failure. */
+        pushers: g.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+        timers: g.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; })
       });
       /* Same metadata to both: the board DATA is what has to be a fixed
          point, and a re-parse of a bare picture legitimately carries no
@@ -4188,10 +4361,13 @@
     /* Pushers: a hazard-striped ram on the wall it is bolted to. */
     /* The ram is the moving part and has to out-weigh the plate it
        comes out of, or the tile reads as a wall with a scratch on it. */
-    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.85}",
-    ".pr-pusher .pr-push-deck{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2}",
-    ".pr-pusher .pr-push-lip{fill:var(--pr-steel);opacity:.92}",
-    ".pr-pusher .pr-push-edge{stroke:var(--pr-bg);stroke-width:4;stroke-linecap:round}",
+    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.9}",
+    /* The linkage is machinery, so it is steel. The FACE is the thing
+       that hits you, so it carries the barricade. */
+    ".pr-pusher .pr-push-arm{fill:none;stroke:var(--pr-steel);stroke-width:7;",
+    "stroke-linecap:round;stroke-linejoin:round}",
+    ".pr-pusher .pr-push-pin{fill:var(--pr-bg);stroke:var(--pr-steel);stroke-width:2.5}",
+    ".pr-pusher .pr-push-face{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2.5}",
 
     ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
     ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
@@ -4515,6 +4691,11 @@
     ".pr-ed-stage .pr-grid,.pr-ed-stage .pr-beams,.pr-ed-stage .pr-walls{position:absolute;left:0;top:0}",
     ".pr-ed-under{position:absolute;pointer-events:none;image-rendering:auto;z-index:1}",
     ".pr-ed-grid{position:absolute;left:0;top:0;display:grid;z-index:2}",
+    /* Photo-only: the traced layers go, the hit grid stays, so you can
+       still click squares while looking at the thing you are copying. */
+    ".pr-ed-solo .pr-ed-stage .pr-grid,.pr-ed-solo .pr-ed-stage .pr-beams,",
+    ".pr-ed-solo .pr-ed-stage .pr-walls{visibility:hidden}",
+    ".pr-ed-solo .pr-ed-stage{outline:2px solid var(--pr-accent);outline-offset:2px}",
     ".pr-ed-cell{border:1px solid rgba(84,242,255,.12);cursor:crosshair}",
     ".pr-ed-cell:hover{background:rgba(84,242,255,.12)}",
     ".pr-ed-ok{color:var(--pr-accent);font-size:11px}",
@@ -5158,6 +5339,29 @@
     UI.els.opts.innerHTML = out.join("");
   }
 
+  /* A HAND THAT DOES NOT MOVE UNDER YOU.
+
+     Cards used to be dealt in draw order and pushed back on the END
+     when they came out of a register, so taking one card back
+     reshuffled everything after it. You would pull a card out of
+     register 2, click the card you wanted instead, and a different one
+     would go in -- because the hand had rearranged itself between the
+     look and the click. The cards were never wrong; the positions were.
+
+     Sorting by printed priority fixes it for good: the order is the
+     same every time, so a card returned to the hand goes back exactly
+     where it came from, and the hand reads the way a player would lay
+     it out on the table anyway. */
+  function handOrder(p) {
+    p.hand.sort(function (a, b) { return card(a).pri - card(b).pri; });
+    return p.hand;
+  }
+
+  function toHand(p, id) {
+    p.hand.push(id);
+    handOrder(p);
+  }
+
   function firstEmpty(p) {
     var open = openRegisters(p.damage);
     for (var i = 0; i < open; i++) if (p.registers[i] === null) return i;
@@ -5205,7 +5409,7 @@
     /* Dropping onto an occupied register sends its card back to the
        hand rather than refusing: the gesture plainly means "this one
        instead", and refusing it would make the player undo first. */
-    if (p.registers[slotIndex] !== null) p.hand.push(p.registers[slotIndex]);
+    if (p.registers[slotIndex] !== null) toHand(p, p.registers[slotIndex]);
     p.registers[slotIndex] = p.hand.splice(handIndex, 1)[0];
     sfx("place");
     announce("Register " + (slotIndex + 1) + " set.");
@@ -5237,7 +5441,7 @@
     if (!inPhase("turn", "program") || !p) return;
     if (i >= openRegisters(p.damage)) return;        // locked registers are not yours to change
     if (p.registers[i] === null) return;
-    p.hand.push(p.registers[i]);
+    toHand(p, p.registers[i]);
     p.registers[i] = null;
     sfx("clear");
     announce("Register " + (i + 1) + " cleared.");
@@ -5250,7 +5454,7 @@
     var open = openRegisters(p.damage);
     for (var i = 0; i < open; i++) {
       if (p.registers[i] === null) continue;
-      p.hand.push(p.registers[i]);
+      toHand(p, p.registers[i]);
       p.registers[i] = null;
     }
     updateAll();
@@ -5938,8 +6142,12 @@
       out.push("<tr><td>" + legendSwatch(tileInner(probeTile(sampleCode(ch, d)), 0, 0)) +
         "</td><td>" + esc(d.name) + "</td><td>" + esc(elementBlurb(ch, d)) + "</td></tr>");
     }
-    /* Flags and lasers are course tokens rather than printed board
-       elements, so they are not in ELEMENT_DEFS and are added here. */
+    /* Three things the legend has to name that are not cells. Flags and
+       lasers because they are course tokens rather than printed board
+       elements; pushers because they are bolted to a wall, and the
+       square under one is a separate thing that can be a conveyor. */
+    out.push("<tr><td>" + legendSwatch(pusherSvg(E, true)) + "</td><td>pusher</td><td>" +
+      "Shoves you one square, on the registers stamped beside it.</td></tr>");
     out.push("<tr><td>" + legendSwatch(flagSvg(1)) + "</td><td>flag</td><td>" +
       "Touch them in order. Touching one out of order still moves your archive.</td></tr>");
     out.push("<tr><td>" + legendSwatch(emitterSvg(S)) + "</td><td>board laser</td><td>" +
@@ -5951,7 +6159,6 @@
     if (d.belt === 2) return "Moves you two squares. Curves turn you, but only if the belt carried you on.";
     if (d.belt === 1) return "Moves you one square. Will not push a robot that is standing still.";
     if (d.gear) return "Turns you a quarter turn " + (d.gear > 0 ? "clockwise" : "counter-clockwise") + ".";
-    if (d.push) return "Shoves you one square, on the registers printed on the tile.";
     if (d.option) return "Repairs 1 damage at the end of the turn and deals you an option card. Sets your archive.";
     if (d.repair) return "Repairs 1 damage at the end of the turn. Sets your archive.";
     if (ch === "o") return "Destroyed. So is walking off the edge of the course.";
@@ -6198,8 +6405,6 @@
     { key: "B", label: "Express", dir: true },
     { key: "l", label: "Gear CCW" },
     { key: "r", label: "Gear CW" },
-    { key: "p", label: "Pusher 1/3/5", dir: true },
-    { key: "P", label: "Pusher 2/4", dir: true },
     { key: "o", label: "Pit" },
     { key: "w", label: "Repair" },
     { key: "W", label: "Upgrade" },
@@ -6230,9 +6435,21 @@
       dir: N,
       digit: 1,
       laserN: 1,
-      mode: "tile",              // tile | wall | laser
+      /* Which registers a newly placed ram fires in. The classic
+         parities are a preset, not a special case -- board H prints
+         1/2/3/4/5 and 2/3/4/5, so the tool has to be able to say any
+         subset and the parities are just two of them. */
+      pushRegs: [1, 3, 5],
+      mode: "tile",              // tile | wall | laser | pusher
       underlay: null,            // an object URL, never exported
       opacity: 0.5,
+      /* Comparing a trace with a photograph through 50% of each turns
+         out to be the hardest way to do it: everything is half there
+         and the eye averages the two. Flipping between them whole is
+         much easier to read, so Control swaps map for photo and the
+         button latches it. */
+      soloLatch: false,
+      soloHold: false,
       offX: 0, offY: 0, zoom: 2, uScale: 1,
       errors: [],
       warnings: []
@@ -6248,7 +6465,8 @@
         id: ED.id, w: ED.grid.w, h: ED.grid.h,
         name: ED.grid.name, notes: ED.grid.notes,
         pic: B.gridToPic(ED.grid),
-        lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; })
+        lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+        pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; })
       }));
     } catch (e) {}
   }
@@ -6257,7 +6475,7 @@
     try {
       var s = JSON.parse(localStorage.getItem(ED_KEY) || "null");
       if (!s || !s.pic) return null;
-      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [] });
+      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [], pushers: s.pushers || [] });
       g.name = s.name || "New Board"; g.notes = s.notes || ""; g.origin = "transcribed"; g.flags = [];
       return edState(g, s.id);
     } catch (e) { return null; }
@@ -6335,7 +6553,7 @@
       var img = document.createElement("img");
       img.className = "pr-ed-under";
       img.src = ED.underlay;
-      img.style.opacity = ED.opacity;
+      img.style.opacity = edSolo() ? 1 : ED.opacity;
       img.style.left = ED.offX + "px";
       img.style.top = ED.offY + "px";
       img.style.width = (w * ED.uScale) + "px";
@@ -6354,7 +6572,25 @@
     }
     hits.innerHTML = out.join("");
     host.appendChild(hits);
+    host.classList.toggle("pr-ed-solo", edSolo());
     edRenderPanel();
+  }
+
+  /* Map or photo, never a blend. Control flips whichever way you are
+     currently looking, so it reads the same held down as latched. */
+  function edSolo() { return !!ED && (ED.soloLatch !== ED.soloHold) && !!ED.underlay; }
+
+  /* Called on every keydown repeat while Control is held, so it must
+     not rebuild the board -- it moves two classes and one opacity. */
+  function edSoloPaint() {
+    var host = UI.els && UI.els.host;
+    if (!host) return;
+    var on = edSolo();
+    host.classList.toggle("pr-ed-solo", on);
+    var img = host.querySelector(".pr-ed-under");
+    if (img) img.style.opacity = on ? 1 : ED.opacity;
+    var btn = host.querySelector('[data-act="edsolo"]');
+    if (btn) btn.className = ED.soloLatch ? "on" : "";
   }
 
   /* The tile renderer wants something course-shaped. A board being
@@ -6374,6 +6610,20 @@
     }
     out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
     out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
+    out.push('<button data-act="edmode" data-m="pusher"' + (ED.mode === "pusher" ? ' class="on"' : "") + ">Pushers</button>");
+    out.push("</div>");
+
+    /* A pusher is bolted to a wall and the square under it is its own
+       thing, so it is a mode rather than a tile: a conveyor and a ram
+       share squares on board H, and a palette entry could only ever
+       replace one with the other. */
+    out.push('<div class="pr-ed-row"><span>Pusher fires in</span>');
+    for (var pg = 1; pg <= 5; pg++) {
+      out.push('<button data-act="edpreg" data-n="' + pg + '"' +
+        (ED.pushRegs.indexOf(pg) >= 0 ? ' class="on"' : "") + ">" + pg + "</button>");
+    }
+    out.push('<button data-act="edpreset" data-p="odd">1/3/5</button>');
+    out.push('<button data-act="edpreset" data-p="even">2/4</button>');
     out.push("</div>");
 
     out.push('<div class="pr-ed-row"><span>Facing</span>');
@@ -6399,6 +6649,8 @@
       '<button data-act="ednudge" data-dx="4" data-dy="0">&rarr;</button>' +
       '<button data-act="ednudge" data-dx="0" data-dy="-4">&uarr;</button>' +
       '<button data-act="ednudge" data-dx="0" data-dy="4">&darr;</button>' +
+      '<button data-act="edsolo"' + (ED.soloLatch ? ' class="on"' : "") + '>Photo only</button>' +
+      '<span>(hold Ctrl to flip)</span>' +
       '<button data-act="edclearimg">Remove</button></div>');
 
     out.push('<div class="pr-ed-row"><span>Board</span>' +
@@ -6456,6 +6708,16 @@
       }
       if (found >= 0) ED.grid.lasers.splice(found, 1);
       if (!erase && found < 0) ED.grid.lasers.push({ c: hit.c, r: hit.r, d: ED.dir, n: ED.laserN });
+    } else if (ED.mode === "pusher") {
+      var fu = -1;
+      for (var u = 0; u < ED.grid.pushers.length; u++) {
+        if (ED.grid.pushers[u].c === hit.c && ED.grid.pushers[u].r === hit.r) fu = u;
+      }
+      if (fu >= 0) ED.grid.pushers.splice(fu, 1);
+      if (!erase && fu < 0) {
+        if (!ED.pushRegs.length) { announce("Pick at least one register for the pusher first."); return; }
+        ED.grid.pushers.push({ c: hit.c, r: hit.r, d: ED.dir, regs: ED.pushRegs.slice().sort() });
+      }
     } else {
       edSetCell(hit.c, hit.r, erase ? ".." : edToolCode());
     }
@@ -6468,6 +6730,12 @@
     injectCSS();
     host.classList.add("pr-root", "pr-editing");
     host.innerHTML = "";
+    /* The editor draws the same tiles the board does, so it needs the
+       same pattern. Without this, url(#pr-hz) resolves to nothing here
+       and every striped thing -- pusher decks, pit rims -- paints empty,
+       which reads as "the art is wrong" rather than "a definition is
+       missing three thousand lines away". */
+    host.insertAdjacentHTML("beforeend", HAZARD_DEFS);
 
     var restored = edRestore();
     if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
@@ -6509,16 +6777,42 @@
       if (b) edLoadImage(b.files && b.files[0]);
     });
     document.addEventListener("keydown", edKey);
+    document.addEventListener("keyup", edKeyUp);
+    root.addEventListener("blur", edBlur);
 
     edValidate();
     edRender();
   }
 
   function edKey(e) {
-    if (!ED || modalOpen()) return;
+    if (!ED) return;
+    /* The photo flip is checked before the modal guard on purpose --
+       it changes nothing in the board, and releasing Control with an
+       export dialog open must still put the map back. */
+    if (e.key === "Control") {
+      if (ED.soloHold) return;               // keydown repeats while held
+      ED.soloHold = true;
+      edSoloPaint();
+      return;
+    }
+    if (modalOpen()) { if (e.key === "Escape") closeModal(); return; }
     if (e.key === "r" || e.key === "R") { ED.dir = B.rot(ED.dir, 1); edRenderPanel(); }
     else if (e.key === "w" || e.key === "W") { ED.mode = ED.mode === "wall" ? "tile" : "wall"; edRenderPanel(); }
-    else if (e.key === "Escape" && modalOpen()) closeModal();
+  }
+
+  function edKeyUp(e) {
+    if (!ED || e.key !== "Control") return;
+    ED.soloHold = false;
+    edSoloPaint();
+  }
+
+  /* Alt-tabbing away mid-hold never delivers the keyup, which would
+     leave the photo stuck over the board with no way back short of
+     pressing and releasing Control again. */
+  function edBlur() {
+    if (!ED || !ED.soloHold) return;
+    ED.soloHold = false;
+    edSoloPaint();
   }
 
   function edLoadImage(file) {
@@ -6536,6 +6830,19 @@
     else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
     else if (a === "eddigit") { ED.digit = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edpreg") {
+      var n = parseInt(b.dataset.n, 10), at = ED.pushRegs.indexOf(n);
+      if (at >= 0) ED.pushRegs.splice(at, 1); else ED.pushRegs.push(n);
+      ED.pushRegs.sort();
+      ED.mode = "pusher";
+      edRenderPanel();
+    }
+    else if (a === "edpreset") {
+      ED.pushRegs = b.dataset.p === "odd" ? [1, 3, 5] : [2, 4];
+      ED.mode = "pusher";
+      edRenderPanel();
+    }
+    else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
     else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "ednudge") { ED.offX += parseInt(b.dataset.dx, 10); ED.offY += parseInt(b.dataset.dy, 10); edRender(); }
@@ -6558,7 +6865,8 @@
     edValidate();
     if (ED.errors.length) { announce("Fix the board first: " + ED.errors[0]); edRenderPanel(); return; }
     var spec = { w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), name: ED.grid.name, origin: "authored",
-                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }) };
+                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+                 pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }) };
     B.BOARD_SPECS.__editorTest = spec;
     var spots = [];
     for (var r = 0; r < ED.grid.h && spots.length < 3; r++) {
@@ -6579,6 +6887,8 @@
     catch (err) { announce("Test course will not build: " + err.message); return; }
     root.location.hash = "";
     document.removeEventListener("keydown", edKey);
+    document.removeEventListener("keyup", edKeyUp);
+    root.removeEventListener("blur", edBlur);
     ED = null;
     mount(UI.els.host, { course: "__editorTest" });
   }

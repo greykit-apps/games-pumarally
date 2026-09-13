@@ -109,8 +109,13 @@
     "B": { name: "express conveyor", arg: "dir", belt: 2, editions: BOTH },
     "l": { name: "gear (counter-clockwise)", arg: "none", gear: -1, editions: BOTH },
     "r": { name: "gear (clockwise)", arg: "none", gear: 1, editions: BOTH },
-    "p": { name: "pusher (registers 1, 3, 5)", arg: "dir", push: "odd", editions: BOTH },
-    "P": { name: "pusher (registers 2, 4)", arg: "dir", push: "even", editions: BOTH },
+    /* Pushers are NOT here. A pusher is bolted to a wall, and the
+       square it overhangs is its own separate thing -- on board H a
+       conveyor and a pusher share squares, which is ordinary on the
+       printed board and impossible to say while a pusher WAS the
+       square. They live in `pushers`, beside the picture, the way
+       lasers do -- lasers are wall-mounted for exactly the same
+       reason and were never cells. */
     /* The 2016 edition removed repair and upgrade squares from the
        boards, so these two are classic-only and a modern board
        carrying one is a transcription error rather than a variant. */
@@ -152,6 +157,25 @@
     return !!t && t.regs.indexOf(register + 1) >= 0;
   }
 
+  /* The pusher overhanging this square, or null. There is at most one:
+     the validator refuses a second, because two rams on one square is a
+     transcription error that would otherwise shove a robot twice. */
+  function pusherAt(g, c, r) {
+    for (var i = 0; i < (g.pushers || []).length; i++) {
+      if (g.pushers[i].c === c && g.pushers[i].r === r) return g.pushers[i];
+    }
+    return null;
+  }
+
+  /* Does the pusher on this square fire in this register? Every pusher
+     carries its own set, so the classic 1/3/5 and 2/4 parities and
+     board H's 1/2/3/4/5 are one question with one answer rather than
+     three cases. register is 0-based, the board prints 1-5. */
+  function pusherFires(g, c, r, register) {
+    var pu = pusherAt(g, c, r);
+    return !!pu && pu.regs.indexOf(register + 1) >= 0;
+  }
+
   /* ============================================================
      THE PICTURE FORMAT
 
@@ -169,8 +193,7 @@
 
        ..  floor          b>  conveyor, exits east
        o.  pit            B^  express conveyor, exits north
-       l.  gear ccw       p<  pusher, registers 1/3/5, pushes west
-       r.  gear cw        Pv  pusher, registers 2/4,   pushes south
+       l.  gear ccw       r.  gear cw
        w.  repair (1 damage)
        W.  upgrade (2 damage OR an option card -- the player chooses)
        L.  oil slick                        (Crash and Burn)
@@ -211,6 +234,14 @@
          photograph. The validator pairs the two layers 1:1 so they
          cannot drift. */
       timers: [],
+      /* Pushers, wall-mounted, one entry per ram: { c, r, d, regs }.
+         Beside the picture rather than in it because the square a
+         pusher overhangs is not the pusher -- board H has conveyors
+         under several of them, and a two-character cell cannot say
+         "conveyor east AND a ram on the north wall firing 2 and 5".
+         The wall it mounts on is checked, so this list cannot drift
+         from the picture without the validator saying so. */
+      pushers: [],
       docks: []
     };
   }
@@ -387,6 +418,21 @@
       var L = spec.lasers[i];
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
     }
+    var pushed = {};
+    for (var pi = 0; pi < (spec.pushers || []).length; pi++) {
+      var U = spec.pushers[pi], uw = "pusher at (" + U.c + "," + U.r + ")";
+      if (!inGrid(g, U.c, U.r)) E_(uw + " is off the board");
+      if (DIR_OF[U.d] === undefined) E_(uw + ' pushes "' + U.d + '", which is not a direction');
+      if (!U.regs || !U.regs.length) E_(uw + " lists no registers; every printed one acts in some");
+      for (var ui = 0; ui < U.regs.length; ui++) {
+        if (!(U.regs[ui] >= 1 && U.regs[ui] <= 5)) {
+          E_(uw + " lists register " + U.regs[ui] + "; registers run 1-5");
+        }
+      }
+      if (pushed[U.c + "," + U.r]) E_("two pushers at (" + U.c + "," + U.r + ")");
+      pushed[U.c + "," + U.r] = 1;
+      g.pushers.push({ c: U.c, r: U.r, d: DIR_OF[U.d], regs: U.regs.slice().sort() });
+    }
     g.name = spec.name;
     g.edition = edition;
     g.set = set;
@@ -458,9 +504,19 @@
       }
       out.push("      ]");
     }
-    /* Emitted only when there are any, so every board without a press
-       or a burner formats exactly as it did before this existed and the
-       byte-for-byte round-trip keeps its meaning. */
+    /* Emitted only when there are any, so a board without one formats
+       exactly as it did before these existed and the byte-for-byte
+       round-trip keeps its meaning. */
+    if (g.pushers && g.pushers.length) {
+      out.push("      ,");
+      out.push("      pushers: [");
+      for (var ui = 0; ui < g.pushers.length; ui++) {
+        var U = g.pushers[ui];
+        out.push("        { c: " + U.c + ", r: " + U.r + ', d: "' + DIR_LETTER[U.d] +
+          '", regs: [' + U.regs.join(", ") + "] }" + (ui === g.pushers.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
     if (g.timers && g.timers.length) {
       out.push("      ,");
       out.push("      timers: [");
@@ -511,6 +567,10 @@
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
       n.lasers.push({ c: g.h - 1 - L.r, r: L.c, d: rot(L.d, 1), n: L.n });
+    }
+    for (var uq = 0; uq < g.pushers.length; uq++) {
+      var U2 = g.pushers[uq];
+      n.pushers.push({ c: g.h - 1 - U2.r, r: U2.c, d: rot(U2.d, 1), regs: U2.regs.slice() });
     }
     for (var tq = 0; tq < g.timers.length; tq++) {
       var T2 = g.timers[tq];
@@ -565,13 +625,14 @@
         }
       }
 
-      // ---- pushers: the tile says which way, the wall must agree ----
-      var el = ELEMENT_DEFS[code.charAt(0)];
-      if (el.push) {
-        var pd = dirOf(code);
-        if (!wallAt(g, c, r, opposite(pd))) {
-          E_("(" + c + "," + r + ") pusher pushes " + dirName(pd) + " but has no wall behind it to mount on");
-        }
+    }
+
+    // ---- pushers: a ram needs a wall to be bolted to ----
+    for (var ui = 0; ui < g.pushers.length; ui++) {
+      var U = g.pushers[ui];
+      if (!wallAt(g, U.c, U.r, opposite(U.d))) {
+        E_("(" + U.c + "," + U.r + ") pusher pushes " + dirName(U.d) +
+           " but has no wall behind it to mount on");
       }
     }
 
@@ -637,7 +698,7 @@
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. b^ .. r. .. bv .. .. .. .. .. .. ",
         "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. b^ b< b< b< b< .. .. Pv .. .. .. ",
+        " .. b^ b< b< b< b< .. .. .. .. .. .. ",
         "+  +  +  +--+  +  +  +  +  +  +  +  +",
         " .. .. .. .. .. ..|.. .. .. ..|.. W. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -649,7 +710,7 @@
         "+  +  +  +  +  +  +  +  +  +  +--+  +",
         "|.. .. o. o. ..|.. .. .. .. .. ..|Bv ",
         "+  +  +  +  +  +  +  +  +  +  +--+  +",
-        " .. .. .. o.|p> .. .. .. .. .. .. Bv ",
+        " .. .. .. o.|.. .. .. .. .. .. .. Bv ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " w. .. .. .. .. .. .. .. .. .. .. Bv ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -660,6 +721,11 @@
         { c: 3, r: 0, d: "S", n: 1 },
         { c: 9, r: 4, d: "W", n: 2 },
         { c: 0, r: 8, d: "E", n: 3 }
+      ]
+      ,
+      pushers: [
+        { c: 8, r: 3, d: "S", regs: [2, 4] },
+        { c: 4, r: 9, d: "E", regs: [1, 3, 5] }
       ]
     },
 
@@ -678,7 +744,7 @@
       notes: "Authored for PumaRally, to exercise multi-board assembly and rotation.",
       pic: [
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|p> .. .. .. .. .. .. .. .. .. .. p<|",
+        "|.. .. .. .. .. .. .. .. .. .. .. ..|",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. .. .. .. .. .. .. .. .. ",
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
@@ -700,13 +766,20 @@
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. .. .. .. .. .. .. .. .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|P> .. .. .. .. .. .. .. .. .. .. P<|",
+        "|.. .. .. .. .. .. .. .. .. .. .. ..|",
         "+  +  +  +  +  +  +  +  +  +  +  +  +"
       ],
       lasers: [
         { c: 0, r: 5, d: "E", n: 2 },
         { c: 11, r: 6, d: "W", n: 1 },
         { c: 6, r: 0, d: "S", n: 3 }
+      ]
+      ,
+      pushers: [
+        { c: 0, r: 0, d: "E", regs: [1, 3, 5] },
+        { c: 11, r: 0, d: "W", regs: [1, 3, 5] },
+        { c: 0, r: 11, d: "E", regs: [2, 4] },
+        { c: 11, r: 11, d: "W", regs: [2, 4] }
       ]
     },
 
@@ -827,67 +900,6 @@
        A spiral. Nested rectangular runs work inward, alternating
        ordinary conveyor and express, and everything ends at a 2x2 pit
        in the middle. Sixteen pushers, four to an edge. Four
-       wall-mounted lasers firing into the centre, two of them double.
-
-       TELLING THE TWO BELT SPEEDS APART is the whole difficulty of
-       this board, and the tell is the ARROW: an ordinary conveyor's is
-       solid, an express conveyor's is a hollow outline. Rail colour --
-       copper for ordinary, bare metal for express -- looks like the
-       easier test and is a trap, because a tile's two rails can belong
-       to two different belts and shadow desaturates copper until it
-       measures the same as bare metal. Two classifiers built on rail
-       colour disagreed with each other and with the board.
-
-       Pusher facing is the other trap. The hazard bar marks the wall
-       the ram is bolted to, so a pusher on row 1 shoves SOUTH and one
-       on row 12 shoves NORTH. The first draft had row 12 backwards.
-
-       Each pusher needs the wall it is mounted on, which is what the
-       sixteen perimeter walls are: not a decorative frame like
-       Exchange's and Island's, but structural. */
-    maelstrom: {
-      name: "Maelstrom", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
-      pic: [
-        "+  +  +--+  +--+  +  +--+  +--+  +  +",
-        " w. bv Pv .. pv bv b^ pv .. Pv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. b> b> b> b> b> b> b> b> b> bv b< ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|P> B> B> B> B> B> B> B> B> Bv bv P<|",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|p> B^ b^ B> B> B> B> Bv bv Bv bv p<|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|p> B^ b^ B^ b^ b< b< b< b< Bv bv p<|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        "|P> B^ b^ b< b< b< b< b< b< b< b< P<|",
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. P^ .. p^ .. B^ p^ .. P^ B^ w. ",
-        "+  +  +--+  +--+  +  +--+  +--+  +  +"
-      ],
-      lasers: [
-        { c: 4, r: 5, d: "E", n: 1 },
-        { c: 3, r: 6, d: "E", n: 2 },
-        { c: 5, r: 8, d: "N", n: 1 },
-        { c: 6, r: 9, d: "N", n: 2 }
-      ]
-    },
-
-    /* THE THIRD TRANSCRIBED OFFICIAL BOARD, and the densest so far:
-       106 of its 144 squares are conveyor.
-
-       A spiral. Nested rectangular runs work inward, alternating
-       ordinary conveyor and express, and everything ends at a 2x2 pit
-       in the middle. Sixteen pushers, four to an edge. Four
        wall-mounted lasers firing into the centre, all single.
 
        TELLING THE TWO BELT SPEEDS APART is the whole difficulty of
@@ -910,29 +922,29 @@
       name: "Maelstrom", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       pic: [
         "+  +  +--+  +--+  +  +--+  +--+  +  +",
-        " w. bv Pv .. pv bv b^ pv .. Pv .. .. ",
+        " w. bv .. .. .. bv b^ .. .. .. .. .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. b> b> b> b> b> b> b> b> b> bv b< ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|P> B> B> B> B> B> B> B> B> Bv bv P<|",
+        "|.. B> B> B> B> B> B> B> B> Bv bv ..|",
         "+  +  +  +  +  +--+  +  +  +  +  +  +",
         " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|p> B^ b^ B> B> B> B> Bv bv Bv bv p<|",
+        "|.. B^ b^ B> B> B> B> Bv bv Bv bv ..|",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|p> B^ b^ B^ b^ b< b< b< b< Bv bv p<|",
+        "|.. B^ b^ B^ b^ b< b< b< b< Bv bv ..|",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
         "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        "|P> B^ b^ b< b< b< b< b< b< b< b< P<|",
+        "|.. B^ b^ b< b< b< b< b< b< b< b< ..|",
         "+  +  +  +  +  +  +--+  +  +  +  +  +",
         " B> B^ B< B< B< B< B< B< B< B< B< .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. P^ .. p^ .. B^ p^ .. P^ B^ w. ",
+        " .. .. .. .. .. .. B^ .. .. .. B^ w. ",
         "+  +  +--+  +--+  +  +--+  +--+  +  +"
       ],
       lasers: [
@@ -940,6 +952,167 @@
         { c: 3, r: 6, d: "E", n: 1 },
         { c: 5, r: 8, d: "N", n: 1 },
         { c: 6, r: 9, d: "N", n: 1 }
+      ]
+      ,
+      pushers: [
+        { c: 2, r: 0, d: "S", regs: [2, 4] },
+        { c: 4, r: 0, d: "S", regs: [1, 3, 5] },
+        { c: 7, r: 0, d: "S", regs: [1, 3, 5] },
+        { c: 9, r: 0, d: "S", regs: [2, 4] },
+        { c: 0, r: 2, d: "E", regs: [2, 4] },
+        { c: 11, r: 2, d: "W", regs: [2, 4] },
+        { c: 0, r: 4, d: "E", regs: [1, 3, 5] },
+        { c: 11, r: 4, d: "W", regs: [1, 3, 5] },
+        { c: 0, r: 7, d: "E", regs: [1, 3, 5] },
+        { c: 11, r: 7, d: "W", regs: [1, 3, 5] },
+        { c: 0, r: 9, d: "E", regs: [2, 4] },
+        { c: 11, r: 9, d: "W", regs: [2, 4] },
+        { c: 2, r: 11, d: "N", regs: [2, 4] },
+        { c: 4, r: 11, d: "N", regs: [1, 3, 5] },
+        { c: 7, r: 11, d: "N", regs: [1, 3, 5] },
+        { c: 9, r: 11, d: "N", regs: [2, 4] }
+      ]
+    },
+
+    /* THE SECOND CRASH AND BURN BOARD, and the only one of the four that
+       is genuinely new -- E turned out to be a reprint of Island.
+
+       A double spiral: an express ring running one way and a normal
+       ring inside it running the other, wound around a four-square pit
+       at the centre. Sixteen pushers around the rim, alternating 1/3/5
+       and 2/4 at columns and rows 3, 5, 8 and 10, and four single
+       lasers crossing the middle.
+
+       Read the hard way. The walls, lasers, pushers and pit came off
+       the photograph by measurement and are exact; the belt field --
+       106 squares of it, mixing both speeds with many turns -- was
+       drafted by beltscan and then corrected square by square in the
+       board workshop against the rectified photograph. beltscan gets
+       direction right only where belt runs are long, and this board is
+       made of short ones, so the draft it produced was a starting
+       point rather than an answer. */
+    boardF: {
+      name: "Board F", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board; belts verified by hand against the photograph.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " w. bv .. .. .. bv b^ .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> b> b> b> b> b> bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. B> B> B> B> B> B> B> B> Bv bv ..|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|.. B^ b^ B> B> B> B> Bv bv Bv bv ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. B^ b^ B^ b^ b< b< b< b< Bv bv ..|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|.. B^ b^ b< b< b< b< b< b< b< b< ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. B^ .. .. .. B^ w. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 5, r: 7, d: "N", n: 1 },
+        { c: 6, r: 8, d: "N", n: 1 },
+        { c: 4, r: 5, d: "E", n: 1 },
+        { c: 3, r: 6, d: "E", n: 1 }
+      ]
+      ,
+      pushers: [
+        { c: 2, r: 0, d: "S", regs: [2, 4] },
+        { c: 4, r: 0, d: "S", regs: [1, 3, 5] },
+        { c: 7, r: 0, d: "S", regs: [1, 3, 5] },
+        { c: 9, r: 0, d: "S", regs: [2, 4] },
+        { c: 0, r: 2, d: "E", regs: [2, 4] },
+        { c: 11, r: 2, d: "W", regs: [2, 4] },
+        { c: 0, r: 4, d: "E", regs: [1, 3, 5] },
+        { c: 11, r: 4, d: "W", regs: [1, 3, 5] },
+        { c: 0, r: 7, d: "E", regs: [1, 3, 5] },
+        { c: 11, r: 7, d: "W", regs: [1, 3, 5] },
+        { c: 0, r: 9, d: "E", regs: [2, 4] },
+        { c: 11, r: 9, d: "W", regs: [2, 4] },
+        { c: 2, r: 11, d: "N", regs: [2, 4] },
+        { c: 4, r: 11, d: "N", regs: [1, 3, 5] },
+        { c: 7, r: 11, d: "N", regs: [1, 3, 5] },
+        { c: 9, r: 11, d: "N", regs: [2, 4] }
+      ]
+    },
+
+    /* THE THIRD CRASH AND BURN BOARD, and the one the expansion was
+       really built for: every element the 1997 box added is on it.
+
+       Two pairs of portals -- violet and green -- eight flamethrowers
+       on register sets of their own, four oil spills of nineteen
+       squares between them, four pits and four tool plates. Unlike E
+       and F it carries NO perimeter wall at all; every wall on it is
+       interior, and six of those are the bars the flamethrowers are
+       bolted to.
+
+       Read by measurement and then verified square by square in the
+       board workshop against the rectified photograph. Three things
+       nearly escaped the automated pass and are worth knowing about if
+       G ever needs re-reading. The violet portals are small enough
+       against their tile that the tile's MEAN colour is not violet at
+       all -- only a per-pixel test finds them. Two of the pits were
+       swallowed by the oil filter, because a pit is dark too; what
+       separates them is the hazard border on the rim. And all four
+       tool plates were missed outright, and were found by rendering a
+       labelled grid and reading it.
+
+       The 2/3/5 flame spans two squares -- nozzle in one, blob in the
+       next -- so both are burner squares here, each with the same
+       register set. */
+    boardG: {
+      name: "Board G", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board; verified by hand against the photograph.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. .. .. b> b^ .. .. .. b^ w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< o. .. .. L. .. .. .. .. t2 L. b< ",
+        "+  +  +--+--+  +  +  +  +--+  +  +  +",
+        " .. t1|.. .. L. .. o. .. F. .. L. .. ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. .. F. F.|L. .. .. .. ..|F.|.. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. L. bv b< b< L. L. .. W. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< b< .. .. L. bv .. b^ b< .. .. bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> b^ .. W. .. b> b> b> b^ .. .. b> ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. .. .. .. L. L. L. L. F. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. w.|F.|.. .. .. .. .. ..|F.|t1 .. ",
+        "+  +  +  +--+  +  +  +  +  +  +  +  +",
+        " .. .. t2 F. .. o. .. L. .. ..|.. .. ",
+        "+  +  +  +--+  +  +  +  +--+  +  +  +",
+        " b> .. L. L. L. .. .. L. .. .. o. b> ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. .. .. bv b< L. .. .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: []
+      ,
+      timers: [
+        { c: 8, r: 2, regs: [1, 3, 5] },
+        { c: 2, r: 3, regs: [2, 3, 5] },
+        { c: 3, r: 3, regs: [2, 3, 5] },
+        { c: 9, r: 3, regs: [2, 4] },
+        { c: 8, r: 7, regs: [2, 3, 4] },
+        { c: 2, r: 8, regs: [2, 3] },
+        { c: 9, r: 8, regs: [1, 5] },
+        { c: 3, r: 9, regs: [1, 3, 5] }
       ]
     },
 
@@ -982,52 +1155,6 @@
        cell width, not one -- per the note above `maelstrom`, probing
        a beam at a single point reads JPEG noise as a gap and turns a
        1-damage laser into a 2. */
-    /* THE FIRST CRASH AND BURN BOARD, and the tamest of the four: it
-       carries none of the expansion's new elements at all. Six L-shaped
-       three-square pits, two concentric belt loops turned by six gears,
-       and a repair site at each of two corners.
-
-       The pits sit in exact 180-degree rotational symmetry, which is
-       what gave the reading its cross-check -- every pit triple maps
-       onto another under (c,r) -> (11-c,11-r). The tool squares do NOT:
-       the repair sites are at (11,0) and (0,9) and the upgrade is at
-       (6,5), so the symmetry is a property of the holes and not of the
-       board. Worth saying because a symmetric board is exactly the kind
-       of thing that tempts you to "correct" a square you read
-       correctly. */
-    boardE: {
-      name: "Board E", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
-      notes: "Transcribed from the printed board. (5,6) is a mottled floor plate with no marking; see maps/MANIFEST.md.",
-      pic: [
-        "+  +  +--+  +--+  +  +--+  +--+  +  +",
-        " .. .. .. .. .. .. .. .. .. .. .. w. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. o. o. .. .. .. .. .. .. o. o. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. o. r. b> b> b> b> b> b> r. o. ..|",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        " .. .. b^ l. b< b< b< b< l. bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. .. b^ bv .. .. o. o. b^ bv .. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. b^|bv b< b< W. o. b^ bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. b^ bv o. .. b> b> b^|bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. .. b^ bv o. o. .. .. b^ bv .. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. b^ l. b> b> b> b> l. bv .. .. ",
-        "+  +  +  +  +  +--+  +  +  +  +  +  +",
-        "|w. o. b< b< b< b< b< b< b< bv o. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. o. o. .. .. .. .. .. .. o. o. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. .. .. .. .. .. .. ",
-        "+  +  +--+  +--+  +  +--+  +--+  +  +"
-      ],
-      lasers: []
-    },
-
     pitMaze: {
       name: "Pit Maze", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1231,31 +1358,27 @@
     },
 
     /* Flags ours, not the printed course. Only fifteen squares on this
-       board are plain floor, so they go on three of those rather than
-       on a belt that would carry the robot straight off them. */
-    maelstromRun: {
-      name: "Maelstrom Run",
-      blurb: "Everything spirals inward, and the middle is a hole.",
-      boards: [{ id: "maelstrom", rot: 0, at: [0, 0] }],
+       board are plain floor -- everything else is belt, pusher or hole --
+       so they go on three of those, spread across the spiral rather
+       than clustered on one rim. */
+    boardFRun: {
+      name: "Board F Run",
+      blurb: "A double spiral wound the wrong way round a hole.",
+      boards: [{ id: "boardF", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[3, 0], [11, 6], [5, 11]],
       minPlayers: 2, maxPlayers: 8
     },
 
-    /* Flags ours, not the printed course -- same reason as Exchange
-       and Island: the course cards have not been photographed. All
-       three sit on plain floor, which on this board is the scarce
-       thing. */
-    /* Flags ours, not the printed course -- the course cards have not
-       been photographed. All three sit on plain floor, away from the
-       two belt loops, so reaching one is a matter of getting off the
-       conveyor rather than of being carried onto it. */
-    boardERun: {
-      name: "Board E Run",
-      blurb: "Two belt loops, six gears, and six holes shaped like elbows.",
-      boards: [{ id: "boardE", rot: 0, at: [0, 0] }],
+    /* Flags ours, not the printed course. All three on plain floor and
+       clear of the spills, so reaching one is not a matter of luck with
+       an oil slide. */
+    boardGRun: {
+      name: "Board G Run",
+      blurb: "Portals, flamethrowers and four spills of oil.",
+      boards: [{ id: "boardG", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[5, 1], [10, 5], [1, 7]],
+      flags: [[2, 1], [10, 5], [6, 10]],
       minPlayers: 2, maxPlayers: 8
     },
 
@@ -1338,6 +1461,10 @@
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
       C.lasers.push({ c: L.c + ox, r: L.r + oy, d: L.d, n: L.n });
+    }
+    for (var uu = 0; uu < (g.pushers || []).length; uu++) {
+      var U3 = g.pushers[uu];
+      C.pushers.push({ c: U3.c + ox, r: U3.r + oy, d: U3.d, regs: U3.regs.slice() });
     }
     for (var tt = 0; tt < (g.timers || []).length; tt++) {
       var T3 = g.timers[tt];
@@ -1491,6 +1618,28 @@
       validateGrid(id, g, warn);
       boards[id] = g;
     }
+    /* NO TWO BOARDS MAY BE THE SAME BOARD.
+
+       Crash and Burn's "board E" turned out to be a reprint of the base
+       game's Island -- same 144 squares, same walls, different word
+       printed along the bottom edge. Transcribed in good faith from its
+       own photograph, it validated perfectly, played perfectly, and put
+       the same board in the menu twice. Nothing caught it: every check
+       here asks whether a board is INTERNALLY sound, and a duplicate is.
+
+       It surfaced by accident, when a belt reader was run across two
+       boards and returned identical results. That is luck, not a
+       method, so it gets a check. */
+    var byPic = {};
+    for (id in BOARD_SPECS) {
+      var key = BOARD_SPECS[id].pic.join("\n");
+      if (byPic[key]) {
+        throw new Error("board " + id + " is square-for-square identical to " + byPic[key] +
+          "; the same board cannot ship under two names");
+      }
+      byPic[key] = id;
+    }
+
     for (id in COURSES) validateCourse(id, warn);
     return { boards: boards, warnings: warnings };
   }
@@ -1498,7 +1647,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
