@@ -834,6 +834,26 @@
        missing, which is the same data-shaped failure -- a board
        transcribes an element nobody drew and it renders as bare
        floor. That is silent and plausible, so it throws. */
+    /* A rulebook nobody can print a board for, and a board nobody can
+       read, are the same bug from two ends. Every ruleset must name a
+       real edition, and every shipped course must be readable by at
+       least one BUILT ruleset -- otherwise it is in the menu and
+       unplayable, which is the state this whole screen exists to make
+       visible rather than to create. */
+    for (k in RULESETS) {
+      if (!B.EDITIONS[k]) throw new Error('ruleset "' + k + '" names no edition in the board module');
+    }
+    for (k in B.EDITIONS) {
+      if (!RULESETS[k]) throw new Error('edition "' + k + '" has no ruleset; a board could be printed and unreadable');
+    }
+    for (k in B.COURSES) {
+      if (k.charAt(0) === "_") continue;
+      var anyBuilt = false, eds = B.playableEditions(k);
+      for (var ei = 0; ei < eds.length; ei++) if (RULESETS[eds[ei]] && RULESETS[eds[ei]].built) anyBuilt = true;
+      if (!eds.length) throw new Error('course "' + k + '" is playable under no edition at all');
+      if (!anyBuilt) throw new Error('course "' + k + '" needs a ruleset that is not built');
+    }
+
     for (k in B.ELEMENT_DEFS) {
       var ed = B.ELEMENT_DEFS[k];
       if (ed.name === "floor") continue;
@@ -949,6 +969,10 @@
          replays under the rules it was started with even if the setup
          screen has been changed since. */
       flagTouch: opts.flagTouch ? 1 : 0,
+      /* Which rulebook this game is being played under, in the save
+         beside the seed for the same reason: a replay must not change
+         games because the menu was changed afterwards. */
+      ruleset: RULESETS[opts.ruleset] ? opts.ruleset : "classic",
       turn: 1,
       register: 0,
       phase: "turn",
@@ -3154,6 +3178,39 @@
       assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
+    // ---- rulesets and the course menu ---------------------------------
+    { name: "a course's rulebooks come from its squares, not from its box", run: function () {
+      /* boardE is printed in a Crash and Burn box, which is a classic
+         product, but that is not WHY it is classic-only. It is
+         classic-only because it carries repair squares, which the 2016
+         rules do not print. The distinction matters the moment a board
+         from a classic box happens to use only shared elements. */
+      var eds = B.playableEditions("boardERun");
+      assert(eds.indexOf("classic") >= 0, "boardE is readable by the classic rules");
+      assert(eds.indexOf("modern") < 0, "and not by the modern ones");
+      assert(B.editionBlocker("boardERun", "modern") === "repair site",
+        "and the menu must be able to say which square shuts it out, got " +
+        B.editionBlocker("boardERun", "modern"));
+    } },
+
+    { name: "an unbuilt ruleset offers nothing and starts nothing", run: function () {
+      assert(RULESETS.modern.built === false, "the modern rules are not implemented");
+      var offered = 0;
+      for (var cid in B.COURSES) if (cid.charAt(0) !== "_" && courseAllowed(cid, "modern")) offered++;
+      assert(offered === 0, "an unbuilt ruleset must offer no course, it offered " + offered);
+      assert(!courseAllowed("provingRun", "modern"),
+        "and must refuse a course even if that course's squares would suit it");
+    } },
+
+    { name: "every shipped course is readable by a ruleset that exists", run: function () {
+      for (var cid in B.COURSES) {
+        if (cid.charAt(0) === "_") continue;
+        var eds = B.playableEditions(cid), ok = false;
+        for (var i = 0; i < eds.length; i++) if (RULESETS[eds[i]] && RULESETS[eds[i]].built) ok = true;
+        assert(ok, cid + " is in the menu and no built ruleset can read it");
+      }
+    } },
+
     // ---- house rule: what counts as touching a flag -------------------
     { name: "by default, crossing a flag does not touch it", run: function () {
       benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 1, r: 0, n: 1 }]);
@@ -4184,7 +4241,24 @@
     ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
     ".pr-burner .pr-flame{fill:var(--pr-danger)}",
     ".pr-burner .pr-flame-core{fill:var(--pr-warn)}",
-        ".pr-rule-group{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--pr-accent);",
+        /* A course button is a PICTURE of the board with its name under it.
+       The thumbnail reuses the board renderer, so it cannot drift. */
+    ".pr-course{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 5px}",
+    ".pr-course[disabled]{opacity:.38}",
+    ".pr-course .pr-course-name{font-size:11px;letter-spacing:.5px}",
+    ".pr-thumb{position:relative;display:block;background:var(--pr-bg);",
+    "border:1px solid var(--pr-border);overflow:hidden}",
+    ".pr-thumb-grid{position:absolute;inset:0;display:grid}",
+    ".pr-thumb-walls{position:absolute;inset:0;pointer-events:none}",
+    /* The tile art is sized off --tile, so a thumbnail cell needs no
+       rules of its own beyond losing the board's hover affordances. */
+    ".pr-thumb .pr-cell{cursor:default}",
+    ".pr-c-both{font-size:9px;letter-spacing:.5px;color:var(--pr-good);font-style:normal}",
+    ".pr-c-no{font-size:9px;letter-spacing:.5px;color:var(--pr-dim);font-style:normal}",
+    ".pr-rs-years{font-size:9px;color:var(--pr-dim);font-style:normal;margin-left:4px}",
+    ".pr-rs-n{font-size:9px;color:var(--pr-good);font-style:normal;margin-left:4px}",
+    ".pr-rs-no{font-size:9px;color:var(--pr-danger);font-style:normal;margin-left:4px}",
+    ".pr-rule-group{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--pr-accent);",
     "font-weight:normal;margin:14px 0 2px;border-top:1px solid var(--pr-border);padding-top:10px}",
         ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
     "color:var(--pr-hazard);background:var(--pr-bg);padding:1px 2px;pointer-events:none;z-index:2}",
@@ -5215,7 +5289,7 @@
       course: courseId,
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions,
-      flagTouch: cfg.flagTouch
+      flagTouch: cfg.flagTouch, ruleset: cfg.ruleset
     };
   }
 
@@ -5263,7 +5337,27 @@
       saveRules(); showSetup(); return;
     }
     if (a === "course") { houseRules.course = el.dataset.c; saveRules(); showSetup(); return; }
-    if (a === "start") { saveRules(); closeModal(); onNewGame(); return; }
+    if (a === "ruleset") {
+      houseRules.ruleset = el.dataset.r;
+      /* Switching rulebook can strand you on a course the new one
+         cannot read, so move to the first it can. Leaving the old
+         selection in place would let Start run a course the ruleset
+         has no squares for. */
+      if (!courseAllowed(houseRules.course, houseRules.ruleset)) {
+        for (var cid3 in B.COURSES) {
+          if (cid3.charAt(0) === "_") continue;
+          if (courseAllowed(cid3, houseRules.ruleset)) { houseRules.course = cid3; break; }
+        }
+      }
+      saveRules(); showSetup(); return;
+    }
+    if (a === "start") {
+      /* Belt and braces over the disabled buttons: the menu can be
+         driven from the keyboard and from a restored localStorage that
+         predates a ruleset changing, so the refusal lives here too. */
+      if (!courseAllowed(houseRules.course, rulesetOf(houseRules))) { showSetup(); return; }
+      saveRules(); closeModal(); onNewGame(); return;
+    }
     if (a === "tut") { showTutorial(i); return; }
     if (a === "tutskip") { showTutorial(TUTORIAL.length); return; }
     if (a === "mute") { toggleMute(); return; }
@@ -5444,6 +5538,39 @@
     "Pass-and-play": { players: 4, humans: 2, skill: 1, startOptions: 0 }
   };
 
+  /* THE RULEBOOKS.
+
+     One entry per EDITIONS key in the board module -- validateTables
+     asserts that, because a ruleset nobody can print a board for and a
+     board nobody can read are the same bug seen from two ends.
+
+     `built` is the honest field. RoboRally was reprinted in 2016 as a
+     substantially different game: priority antenna instead of printed
+     card priorities, SPAM cards instead of damage tokens, an energy and
+     upgrade shop instead of option cards, and no repair or upgrade
+     squares at all. None of that is implemented. It appears in the menu
+     ANYWAY, greyed with the reason, because a menu that silently omits
+     half the game tells you nothing, while one that offers it and then
+     plays the wrong rules is worse than either. */
+  var RULESETS = {
+    classic: { name: "Classic", years: "1994-2005", built: true,
+               blurb: "Priorities printed on the cards, damage tokens, option cards, " +
+                      "and repair and upgrade squares on the floor." },
+    modern: { name: "Modern", years: "2016-", built: false,
+              blurb: "Priority antenna, SPAM damage cards, an energy and upgrade shop. " +
+                     "Not built: no board here can be read by it yet either." }
+  };
+
+  function rulesetOf(h) { return RULESETS[h && h.ruleset] ? h.ruleset : "classic"; }
+
+  /* A course is offerable under a ruleset when the ruleset exists, is
+     built, and every square on the course is printed by that edition. */
+  function courseAllowed(courseId, ruleset) {
+    var rs = RULESETS[ruleset];
+    if (!rs || !rs.built) return false;
+    return B.playableEditions(courseId).indexOf(ruleset) >= 0;
+  }
+
   var RULES_KEY = "pumarally_rules_v1";
   var houseRules = {};
 
@@ -5451,6 +5578,7 @@
     var out = {};
     for (var k in SLIDER_DEFS) out[k] = SLIDER_DEFS[k].def;
     out.course = "provingRun";          // a choice, not a range
+    out.ruleset = "classic";            // likewise
     return out;
   }
 
@@ -5460,6 +5588,7 @@
       var s = JSON.parse(localStorage.getItem(RULES_KEY) || "null");
       for (var k in out) if (s && SLIDER_DEFS[k] && typeof s[k] === "number") out[k] = clampRule(k, s[k]);
       if (s && s.course && B.COURSES[s.course]) out.course = s.course;
+      if (s && RULESETS[s.ruleset]) out.ruleset = s.ruleset;
     } catch (e) {}
     return out;
   }
@@ -5479,6 +5608,7 @@
     var players = clampRule("players", h.players);
     return {
       course: B.COURSES[h.course] ? h.course : "provingRun",
+      ruleset: rulesetOf(h),
       players: players,
       humans: Math.min(players, clampRule("humans", h.humans)),
       skill: clampRule("skill", h.skill),
@@ -5641,6 +5771,44 @@
      reads. A board element renamed in ELEMENT_DEFS renames itself in
      the help, and a card added to OPTION_DEFS documents itself.
      ============================================================ */
+  /* A COURSE THUMBNAIL: the board itself, small.
+
+     It reuses tileClasses, tileInner and wallSpans rather than growing
+     a second renderer, so a thumbnail cannot drift from the board it
+     previews -- change a pusher's art and the menu changes with it.
+
+     Cached, because the setup modal rebuilds on every click and a
+     course is 12x16 tiles of real SVG; building ten of those per
+     keystroke is the difference between a menu and a slideshow. The
+     cache is keyed by course id and cleared when the art could have
+     changed, which in practice is never during a session.
+
+     Multi-board runs need nothing here: buildCourse already lays out
+     however many boards a course names, so a joined run will thumbnail
+     itself at whatever size it comes out. */
+  function courseThumb(id) {
+    UI.thumbs = UI.thumbs || {};
+    if (UI.thumbs[id]) return UI.thumbs[id];
+    var C;
+    try { C = B.buildCourse(id); } catch (e) { return ""; }
+    var px = C.w > 12 ? 5 : 7;                 // a two-board run gets smaller tiles, not a wider menu
+    var cells = [], c, r;
+    for (r = 0; r < C.h; r++) {
+      for (c = 0; c < C.w; c++) {
+        cells.push('<i class="' + tileClasses(C, c, r).join(" ") + '">' + tileInner(C, c, r) + "</i>");
+      }
+    }
+    var html =
+      '<span class="pr-thumb" style="--tile:' + px + "px;--wt:" + Math.max(2, Math.round(px / 2.5)) +
+        "px;width:" + (C.w * px) + "px;height:" + (C.h * px) + 'px">' +
+        '<span class="pr-thumb-grid" style="grid-template-columns:repeat(' + C.w + "," + px + 'px)">' +
+          cells.join("") + "</span>" +
+        '<span class="pr-thumb-walls">' + wallSpans(C) + "</span>" +
+      "</span>";
+    UI.thumbs[id] = html;
+    return html;
+  }
+
   function showSetup() {
     var out = ['<h2>SET UP A RACE</h2><div class="pr-presets">'];
     var cur = currentPreset();
@@ -5650,6 +5818,26 @@
     }
     out.push(cur ? "" : '<button class="on" disabled>Custom</button>');
     out.push("</div>");
+
+    /* RULESET first, because it decides which courses are even on the
+       menu. An unbuilt one is shown and greyed with its reason rather
+       than hidden: hiding it says the game has one rulebook, which is
+       not true, and offering it would play the wrong one, which is
+       worse. */
+    var rsCur = rulesetOf(houseRules);
+    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Ruleset</b>' +
+      '<span class="pr-rule-val">' + esc(RULESETS[rsCur].name) + "</span></div>" +
+      '<div class="pr-presets">');
+    for (var rk in RULESETS) {
+      var rs = RULESETS[rk], nCourses = 0;
+      for (var cc in B.COURSES) if (cc.charAt(0) !== "_" && courseAllowed(cc, rk)) nCourses++;
+      out.push('<button data-act="ruleset" data-r="' + esc(rk) + '"' +
+        (rsCur === rk ? ' class="on"' : "") + (rs.built ? "" : " disabled") + ">" +
+        esc(rs.name) + ' <i class="pr-rs-years">' + esc(rs.years) + "</i>" +
+        (rs.built ? ' <i class="pr-rs-n">' + nCourses + "</i>" : ' <i class="pr-rs-no">not built</i>') +
+        "</button>");
+    }
+    out.push("</div><div class='pr-rule-desc'>" + esc(RULESETS[rsCur].blurb) + "</div></div>");
 
     out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Course</b>' +
       '<span class="pr-rule-val">' + esc(B.COURSES[houseRules.course].name) + "</span></div>" +
@@ -5668,8 +5856,19 @@
       if (order.length > 1) out.push('<span class="pr-set-label">' + esc(B.SETS[sid].name) + "</span>");
       for (var ci = 0; ci < bySet[sid].length; ci++) {
         var id2 = bySet[sid][ci];
-        out.push('<button data-act="course" data-c="' + esc(id2) + '"' +
-          (houseRules.course === id2 ? ' class="on"' : "") + ">" + esc(B.COURSES[id2].name) + "</button>");
+        /* A course the chosen rulebook cannot read is greyed AND says
+           which square shuts it out, so the menu answers "why not"
+           instead of leaving you to guess. */
+        var okHere = courseAllowed(id2, rsCur);
+        var why = okHere ? "" : B.editionBlocker(id2, rsCur);
+        var both = B.playableEditions(id2).length > 1;
+        out.push('<button class="pr-course' + (houseRules.course === id2 ? " on" : "") +
+          '" data-act="course" data-c="' + esc(id2) + '"' + (okHere ? "" : " disabled") +
+          (why ? ' title="' + esc(RULESETS[rsCur].name + " has no " + why) + '"' : "") + ">" +
+          courseThumb(id2) +
+          '<span class="pr-course-name">' + esc(B.COURSES[id2].name) + "</span>" +
+          (both ? '<i class="pr-c-both">either ruleset</i>' : "") +
+          (why ? '<i class="pr-c-no">needs ' + esc(why) + "</i>" : "") + "</button>");
       }
     }
     out.push("</div><div class='pr-rule-desc'>" +

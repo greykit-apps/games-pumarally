@@ -1374,6 +1374,55 @@
      as a pit, and the reason inGrid() alone is not enough. */
   function isVoid(C, c, r) { return !inGrid(C, c, r) || !C.cell[idx(C, c, r)]; }
 
+  /* WHICH RULEBOOKS CAN READ THIS COURSE.
+
+     Derived from the elements actually printed on it, not from the box
+     it came out of. The two are different questions: a board's `set`
+     and `edition` say which game published it, and that is history.
+     What a rulebook can READ is decided square by square -- a repair
+     site means nothing to the 2016 rules, which dropped them, so a
+     board carrying one is classic and no argument. A board built only
+     out of elements both editions print can be played either way, and
+     the menu is allowed to offer it twice. */
+  function playableEditions(id) {
+    var spec = COURSES[id];
+    var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
+    var out = [];
+    for (var e in EDITIONS) out.push(e);
+    for (var i = 0; i < parts.length; i++) {
+      var bs = BOARD_SPECS[parts[i].id];
+      if (!bs) continue;
+      for (var r = 0; r < bs.h; r++) {
+        var row = bs.pic[2 * r + 1];
+        for (var c = 0; c < bs.w; c++) {
+          var def = ELEMENT_DEFS[row.charAt(3 * c + 1)];
+          if (!def || !def.editions) continue;
+          out = out.filter(function (ed) { return def.editions.indexOf(ed) >= 0; });
+        }
+      }
+    }
+    return out;
+  }
+
+  /* Why a course is shut out of an edition, for a menu that has to say
+     so rather than just greying a button. */
+  function editionBlocker(id, edition) {
+    var spec = COURSES[id];
+    var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
+    for (var i = 0; i < parts.length; i++) {
+      var bs = BOARD_SPECS[parts[i].id];
+      if (!bs) continue;
+      for (var r = 0; r < bs.h; r++) {
+        var row = bs.pic[2 * r + 1];
+        for (var c = 0; c < bs.w; c++) {
+          var def = ELEMENT_DEFS[row.charAt(3 * c + 1)];
+          if (def && def.editions && def.editions.indexOf(edition) < 0) return def.name;
+        }
+      }
+    }
+    return null;
+  }
+
   function validateCourse(id, warn) {
     var spec = COURSES[id];
     var E_ = function (m) { throw new Error("course " + id + ": " + m); };
@@ -1457,6 +1506,7 @@
     idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall, doorAt: doorAt, setDoor: setDoor,
     doorOpen: doorOpen, blockedAt: blockedAt,
     buildCourse: buildCourse, isVoid: isVoid,
-    validateGrid: validateGrid, validateCourse: validateCourse, validateAll: validateAll
+    validateGrid: validateGrid, validateCourse: validateCourse,
+    playableEditions: playableEditions, editionBlocker: editionBlocker, validateAll: validateAll
   };
 });
