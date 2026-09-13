@@ -6640,6 +6640,42 @@
       ED = keep;
     } },
 
+    { name: "the course screen has one door into the workshop, not two", run: function () {
+      /* The screen carried its own "Open in the workshop" from when
+         the step after it was a flags screen and the workshop was a
+         detour off to the side. It is the only way on now -- the Next
+         button at the foot of the screen goes there -- so a button
+         saying the same thing is two doors into one room. */
+      var keepLayout = UI.layout, keepHeld = UI.heldBoard, keepAt = UI.heldAt;
+      UI.layout = { v: 3, dockCol: 0,
+        cells: [null, null, null, null, null, null, { id: "island", rot: 0 }, null, null] };
+      UI.heldBoard = null;
+      UI.heldAt = null;
+      try {
+        var body = layoutBody();
+        assert(body && body.length > 100, "the course screen draws nothing to look at");
+        assert(body.indexOf("editcourse") < 0, "the course screen still has a workshop button of its own");
+        assert(!/workshop\\u2026|workshop&#8230;|workshop…/.test(body),
+          "something on the course screen still offers to open the workshop");
+        /* The things it IS for are all still on it: the shipped
+           courses, the shelf, and the assembler. */
+        assert(body.indexOf("lcourse") >= 0, "the printed courses are gone from the course screen");
+        assert(body.indexOf("Your library") >= 0, "the library is gone from the course screen");
+        assert(body.indexOf("lundo") >= 0 && body.indexOf("lempty") >= 0,
+          "the assembler lost undo or clear");
+
+        /* And no dispatch is left answering to a button nobody draws. */
+        var before = JSON.stringify(UI.layout);
+        dispatchAct({ dataset: { act: "editcourse" } });
+        assert(JSON.stringify(UI.layout) === before,
+          "a dead action still does something when something sends it");
+      } finally {
+        UI.layout = keepLayout;
+        UI.heldBoard = keepHeld;
+        UI.heldAt = keepAt;
+      }
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -9325,7 +9361,6 @@
     if (a === "lrotl") { layoutTurn(+el.dataset.i, -1); saveLayout(); showWizard(); return; }
     if (a === "lundo") { if (layoutUndo()) { saveLayout(); } showWizard(); return; }
     if (a === "ldropedit") { layoutDropEdit(); saveLayout(); showWizard(); return; }
-    if (a === "editcourse") { openWorkshop(); return; }
     if (a === "libopen") { if (libOpen(el.dataset.i)) openWorkshop(); return; }
     if (a === "libplay") {
       if (!libOpen(el.dataset.i)) return;
@@ -10728,17 +10763,17 @@
     }
     out.push('<div class="pr-rule-desc">' + esc(say) + "</div>");
 
+    /* ONE DOOR ONWARD, and it is the Next button at the foot of the
+       screen. This row carried a second "Open in the workshop" of its
+       own, from when the step after this one was a flags screen and
+       the workshop was a detour off to the side. It is the only way
+       on now, so a button here saying the same thing is two doors
+       into one room. */
     out.push('<div class="pr-ed-row">' +
       '<button data-act="lundo"' + ((UI.layUndo && UI.layUndo.length) ? "" : " disabled") +
         '">Undo</button>' +
       '<button data-act="lempty"' + (spn ? "" : " disabled") +
         '">Clear the course</button>' +
-      /* THE WORKSHOP, on the course rather than on a board. This is
-         where "these boards are now a course" becomes true: from here
-         it can be adjusted square by square, given its flags, and
-         raced without coming back through the wizard at all. */
-      '<button data-act="editcourse"' + (layoutProblem() ? " disabled" : "") +
-        ' title="Adjust the assembled course square by square">Open in the workshop\u2026</button>' +
       (L.edit ? '<button data-act="ldropedit">Undo the workshop edits</button>' : "") +
       "</div>");
     if (L.edit) {
@@ -10988,11 +11023,10 @@
     return L.pick;
   }
 
-  /* THE ONE DOOR INTO THE WORKSHOP. Three things open it -- the
-     set-up's last step, the button on the course screen, and a course
-     taken out of the library -- and all three have to leave the same
-     state behind them, or the workshop opens on a layout that was
-     never saved. */
+  /* THE ONE DOOR INTO THE WORKSHOP. Two things open it -- the last
+     step of the set-up, and a course taken out of the library -- and
+     both have to leave the same state behind them, or the workshop
+     opens on a layout that was never saved. */
   function openWorkshop() {
     if (layoutProblem()) { showWizard(); return; }
     saveLayout();
