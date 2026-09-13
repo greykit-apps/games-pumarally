@@ -1316,6 +1316,10 @@
         poweredDown: false,
         announceDown: false,
         ready: false,
+        /* The 2016 resource. Zero under the classic rules, where
+           nothing gives it and nothing spends it, so it costs a
+           classic game one number in the save and changes nothing. */
+        energy: 0,
         alive: true,
         out: false
       });
@@ -2046,14 +2050,21 @@
      empty, and two robots converging on one square means NEITHER
      moves. Assume everyone on a qualifying belt moves, then keep
      cancelling until nothing changes. */
-  function beltPass(speed) {
+  /* MOVED BY A RANGE OF SPEEDS, not by one number.
+
+     The classic floor runs the express belts alone and then every belt
+     together, which is (2,2) then (1,2). The 2016 floor runs the blue
+     ones alone twice and then the GREEN ones alone, and "green only" is
+     (1,1) -- a thing the old single argument could not say at all,
+     because 1 meant "one or more". */
+  function beltPass(lo, hi) {
     var C = UI.course, movers = {}, ids = [], i, j, p;
     var alive = live();
     for (i = 0; i < alive.length; i++) {
       p = alive[i];
       var code = B.codeAt(C, p.c, p.r), sp = B.beltSpeed(code);
       if (!sp) continue;
-      if (speed === 2 && sp !== 2) continue;
+      if (sp < lo || sp > hi) continue;
       var d = B.dirOf(code);
       if (blockedMove(C, p.c, p.r, d)) continue;     // the validator rejects these; belt and braces
       movers[p.id] = { dir: d, to: B.step(p.c, p.r, d) };
@@ -2199,14 +2210,19 @@
   /* Every shot fired this register, resolved against one frozen
      board. Nothing is applied here, which is what lets the step park
      for an option-card question and re-run without double-firing. */
-  function computeLaserHits() {
+  /* `which` is "all" under the classic rules, where the reference card
+     has one entry for lasers and a robot's own gun is part of it, or
+     "board" and "robot" under the 2016 rules, which number them
+     separately. Defaulting to "all" keeps every existing caller -- the
+     rule tests fire this directly -- meaning what it always meant. */
+  function computeLaserHits(which) {
     var C = UI.course, hits = [], i, s2;
-    for (i = 0; i < C.lasers.length; i++) {
+    if (which !== "robot") for (i = 0; i < C.lasers.length; i++) {
       var L = C.lasers[i];
       var t = firstRobotAlong(L.c, L.r, L.d, false, 0);
       if (t) hits.push({ target: t, damage: L.n, from: "a board laser", shooter: null, dir: L.d });
     }
-    var alive = live();
+    var alive = which === "board" ? [] : live();
     for (i = 0; i < alive.length; i++) {
       var p = alive[i];
       if (p.poweredDown) continue;                    // a powered-down robot does not shoot
@@ -2712,7 +2728,7 @@
 
       move: function () {
         if (!G.exec.queue.length) {
-          go("exec", "express");
+          go("exec", elementOrder()[0]);
           /* Let the last robot finish. Everything before it waited only
              a gap, so the tail of the slowest motion is still running. */
           var m = motionOf("drive");
@@ -2745,57 +2761,33 @@
          moved somebody. A pause for a pusher nobody was standing on is
          five wasted seconds a turn, and the player learns to stop
          watching -- which is the opposite of what the beat is for. */
-      express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt", "belt"); },
-      belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt", "belt"); },
-      pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove", "shove"); },
-      gears: function () { return boardBeat(gearPass, null, "presses", 260, "gear", "turn"); },
-      presses: function () { return boardBeat(pressPass, null, "lasers", 300, "shove", "shove"); },
+      express: function () { return beltBeat(2, 2, "express"); },
+      belts: function () { return beltBeat(1, 2, "belts"); },
+      /* Blue conveys one, then a second time if the robot is
+         still on blue; green conveys one, and only green. */
+      blue1: function () { return beltBeat(2, 2, "blue1"); },
+      blue2: function () { return beltBeat(2, 2, "blue2"); },
+      green: function () { return beltBeat(1, 1, "green"); },
+      pushers: function () { return boardBeat(pusherPass, null, afterElement("pushers"), 260, "shove", "shove"); },
+      gears: function () { return boardBeat(gearPass, null, afterElement("gears"), 260, "gear", "turn"); },
+      presses: function () { return boardBeat(pressPass, null, afterElement("presses"), 300, "shove", "shove"); },
+      /* END OF REGISTER, the 2016 game only: a robot standing on
+         a battery when the register ends takes an Energy. */
+      batteries: function () { return boardBeat(batteryPass, null, afterElement("batteries"), 260, "gear", "turn"); },
 
-      lasers: function () {
-        var before = boardSig();
-        var beams = (UI.headless || !UI.mounted) ? null : collectBeams();
+      /* BOARD LASERS AND ROBOT WEAPONS ARE ONE STEP OR TWO.
 
-        /* Compute every shot first, ask whatever needs asking, and
-           only then apply. Nothing has been mutated at the point this
-           parks, so the re-run recomputes the identical hits. */
-        var hits = computeLaserHits(), pending = false, i;
-        for (i = 0; i < hits.length; i++) {
-          if (!hits[i].shooter) continue;
-          var hctx = fire(hits[i].shooter, "onLaserHit",
-            { target: hits[i].target, damage: hits[i].damage, shotDir: hits[i].dir, replaceWith: null });
-          if (hctx.pending) { pending = true; continue; }
-          hits[i].damage = hctx.damage;
-          hits[i].replaceWith = hctx.replaceWith;
-        }
-        if (pending) return park("exec", "lasers");
-        /* From the RESOLVED hits, and BEFORE any of them is applied:
-           a Pressor Beam trades its damage for a shove, so applying
-           first moves the target and the beam ends up drawn one square
-           past its own impact. */
-        var shots = (UI.headless || !UI.mounted) ? null : collectShots(hits);
-        applyLaserHits(hits);
-        go("exec", "burners");
-        if (UI.headless || !UI.mounted) return NEXT;
-        var hit = boardSig() !== before;
-        if (!beams.length && !shots.length) return NEXT;
-        return animate([
-          { type: "sfx", name: "laser" },
-          { type: "beams", beams: beams },
-          /* The beam travels and connects BEFORE the render that puts
-             the damage on the board, so the two read as cause and
-             effect rather than as two things that happened at once. */
-          { type: "shots", shots: shots },
-          { type: "wait", delay: 240 },
-          { type: "render" },
-          { type: "beams", beams: [] },
-          { type: "wait", delay: hit ? 200 : 40 },
-          { type: "shots", shots: [] }
-        ]);
-      },
+         The classic floor fires everything at once -- the reference
+         card has a single "lasers" entry and a robot's own gun is part
+         of it. The 2016 card numbers them separately, board lasers at
+         5 and robot weapons at 6, and the gap matters: a board laser
+         that finishes a robot at 5 means its gun never fires at 6. */
+      lasers: function () { return fireBeat(elementOrder().indexOf("weapons") < 0 ? "all" : "board", "lasers"); },
+      weapons: function () { return fireBeat("robot", "weapons"); },
 
       /* The one element that does not keep its place in the order:
          the rules move it to directly after the lasers. */
-      burners: function () { return boardBeat(burnerPass, null, "touch", 300, "laser", "shove"); },
+      burners: function () { return boardBeat(burnerPass, null, afterElement("burners"), 300, "laser", "shove"); },
 
       touch: function () {
         var before = boardSig();
@@ -2986,6 +2978,109 @@
 
   /* Run one board element, and hand back a beat only if the board
      actually did something. */
+  /* THE ORDER THE FLOOR ACTS IN, per ruleset and as DATA.
+
+     Each step used to name the one after it, which meant the order was
+     spread across eight functions and could only ever be one order. The
+     two games do not agree: the 2016 floor has no presses or jets, runs
+     its belts differently, and ends a register with things the classic
+     floor has no equivalent of. Written down once, in the order each
+     book prints, so the sequence can be read rather than traced.
+
+     Classic (Crash and Burn's reference card, 1-8): express belts, then
+     express and normal together, pushers, gears, presses, lasers, and
+     burners last -- the one element the rules move out of its place.
+
+     Modern (the 2016 reference card, 1-8): blue belts twice, green
+     belts, push panels, gears, board lasers, robot weapons, then end of
+     register -- batteries, then checkpoints. `touch` is the checkpoint
+     step under both names. */
+  var ELEMENT_STEPS = {
+    classic: ["express", "belts", "pushers", "gears", "presses", "lasers", "burners", "touch"],
+    modern: ["blue1", "blue2", "green", "pushers", "gears", "lasers", "weapons", "batteries", "touch"]
+  };
+
+  function elementOrder() { return ELEMENT_STEPS[rulesetOf(houseRules)] || ELEMENT_STEPS.classic; }
+
+  /* The step after this one, or the end of the register. Asking by name
+     rather than by index means a step does not need to know where it
+     sits, which is what lets one step appear in both orders at
+     different places. */
+  function afterElement(name) {
+    var o = elementOrder(), i = o.indexOf(name);
+    return (i >= 0 && i + 1 < o.length) ? o[i + 1] : "endReg";
+  }
+
+  function beltBeat(lo, hi, name) {
+    return boardBeat(function () { beltPass(lo, hi); }, null, afterElement(name), 300, "belt", "belt");
+  }
+
+  /* A robot that ends a register on a battery takes an Energy, to a
+     maximum of ten. The cap is the player mat's track, which has ten
+     spaces on it and nowhere to put an eleventh cube. */
+  var MAX_ENERGY = 10;
+
+  function batteryPass() {
+    var C = UI.course, alive = live(), i;
+    for (i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      if (p.poweredDown) continue;
+      var def = B.elemOf(B.codeAt(C, p.c, p.r));
+      if (!def || !def.energy) continue;
+      if (p.energy >= MAX_ENERGY) continue;
+      /* Math.min is belt and braces for an element worth more than one
+         cube, which nothing prints today -- the guard above already
+         stops a full track, so with every battery worth one this line
+         can never clamp anything. Kept, and known to be unreachable
+         rather than merely unobserved. */
+      p.energy = Math.min(MAX_ENERGY, p.energy + def.energy);
+      log(p.name + " draws an Energy (" + p.energy + ")");
+    }
+  }
+
+  /* One firing step, for whichever guns this ruleset fires now. */
+  function fireBeat(which, name) {
+        var before = boardSig();
+        var beams = (UI.headless || !UI.mounted || which === "robot") ? [] : collectBeams();
+
+        /* Compute every shot first, ask whatever needs asking, and
+           only then apply. Nothing has been mutated at the point this
+           parks, so the re-run recomputes the identical hits. */
+        var hits = computeLaserHits(which), pending = false, i;
+        for (i = 0; i < hits.length; i++) {
+          if (!hits[i].shooter) continue;
+          var hctx = fire(hits[i].shooter, "onLaserHit",
+            { target: hits[i].target, damage: hits[i].damage, shotDir: hits[i].dir, replaceWith: null });
+          if (hctx.pending) { pending = true; continue; }
+          hits[i].damage = hctx.damage;
+          hits[i].replaceWith = hctx.replaceWith;
+        }
+        if (pending) return park("exec", name);
+        /* From the RESOLVED hits, and BEFORE any of them is applied:
+           a Pressor Beam trades its damage for a shove, so applying
+           first moves the target and the beam ends up drawn one square
+           past its own impact. */
+        var shots = (UI.headless || !UI.mounted) ? null : collectShots(hits);
+        applyLaserHits(hits);
+        go("exec", afterElement(name));
+        if (UI.headless || !UI.mounted) return NEXT;
+        var hit = boardSig() !== before;
+        if (!beams.length && !shots.length) return NEXT;
+        return animate([
+          { type: "sfx", name: "laser" },
+          { type: "beams", beams: beams },
+          /* The beam travels and connects BEFORE the render that puts
+             the damage on the board, so the two read as cause and
+             effect rather than as two things that happened at once. */
+          { type: "shots", shots: shots },
+          { type: "wait", delay: 240 },
+          { type: "render" },
+          { type: "beams", beams: [] },
+          { type: "wait", delay: hit ? 200 : 40 },
+          { type: "shots", shots: [] }
+        ]);
+  }
+
   function boardBeat(fn, arg, nextStep, delay, sound, motion) {
     var before = boardSig();
     if (arg === null) fn(); else fn(arg);
@@ -3196,6 +3291,10 @@
          holds four. */
       var maxLives = G.startLives || START_LIVES;
       if (p.lives < 0 || p.lives > maxLives) throw new Error(p.name + " has " + p.lives + " lives");
+      /* The track on the player mat has ten spaces and nowhere to put
+         an eleventh cube. */
+      var en = p.energy || 0;
+      if (en < 0 || en > MAX_ENERGY) throw new Error(p.name + " holds " + en + " Energy");
       if (p.out && p.alive) throw new Error(p.name + " is out of the race and still on the board");
 
       // 3. Flags touched are a prefix: no gaps, ever.
@@ -3530,7 +3629,21 @@
      at the square. */
   function bench(cells, walls, lasers, timers, pushers, burners, merges) {
     var w = cells[0].length, h = cells.length;
+    /* WHICH GAME THIS BENCH BOARD IS, from what the test put on it.
+       A fixture carrying a battery is a 2016 board and the parser
+       refuses it as a classic one -- and making every caller declare
+       an edition would be a word of ceremony on two hundred boards
+       that do not care. Derived the same way the workshop derives it,
+       for the same reason. */
+    var ed = "classic", ri, ci;
+    for (ri = 0; ri < cells.length && ed === "classic"; ri++) {
+      for (ci = 0; ci < cells[ri].length; ci++) {
+        var d = B.ELEMENT_DEFS[String(cells[ri][ci]).charAt(0)];
+        if (d && d.editions && d.editions.length === 1 && d.editions[0] === "modern") { ed = "modern"; break; }
+      }
+    }
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
+      edition: ed, set: ed === "modern" ? "modernBase" : "authored",
       lasers: lasers || [], timers: timers || [], pushers: pushers || [],
       burners: burners || [], merges: merges || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
@@ -3590,6 +3703,7 @@
           return { id: id, st: def.init ? def.init() : {} };
         }),
         poweredDown: !!rb.poweredDown, announceDown: false, ready: false,
+        energy: rb.energy || 0,
         alive: rb.alive !== false, out: false
       });
     }
@@ -3933,11 +4047,16 @@
       /* And the step really is in that order. Reading the source is
          the only way to assert a sequence whose difference is
          invisible without a DOM, and it is the same trick the
-         HAZARD_DEFS check uses. */
-      var src = String(STEP.exec.lasers).replace(/\/\*[\s\S]*?\*\//g, "");
+         HAZARD_DEFS check uses.
+
+         Read off fireBeat rather than off the step: the body moved
+         there when board lasers and robot weapons became separate
+         steps under the 2016 rules, and one reading now covers both
+         of them. */
+      var src = String(fireBeat).replace(/\/\*[\s\S]*?\*\//g, "");
       var iCollect = src.indexOf("collectShots"), iApply = src.indexOf("applyLaserHits");
-      assert(iCollect >= 0 && iApply >= 0, "the lasers step should call both");
-      assert(iCollect < iApply, "the lasers step must collect the beams before applying the hits");
+      assert(iCollect >= 0 && iApply >= 0, "the firing step should call both");
+      assert(iCollect < iApply, "the firing step must collect the beams before applying the hits");
     } },
 
     { name: "a drawn beam never crosses a wall", run: function () {
@@ -6083,6 +6202,93 @@
         "the selected board does not say it is selected");
     } },
 
+    { name: "the 2016 floor acts in its own order, which is not the classic one", run: function () {
+      /* The 2016 reference card numbers eight things: blue belts, green
+         belts, push panels, gears, board lasers, robot weapons, then
+         end of register -- batteries, then checkpoints. It has no
+         presses and no jets, and it separates a board laser from a
+         robot's own gun, which the classic card does not. */
+      var want = ["blue1", "blue2", "green", "pushers", "gears", "lasers", "weapons", "batteries", "touch"];
+      assert(ELEMENT_STEPS.modern.join(",") === want.join(","),
+        "the modern order is " + ELEMENT_STEPS.modern.join(","));
+      for (var i = 0; i < want.length; i++) {
+        assert(STEP.exec[want[i]], "there is no exec step called " + want[i]);
+      }
+      /* The two orders really are different, or one of them is wrong. */
+      assert(ELEMENT_STEPS.modern.join(",") !== ELEMENT_STEPS.classic.join(","),
+        "both rulesets run the same order, so one of them is not its own game");
+      /* And nothing the classic floor has survives into it. */
+      assert(ELEMENT_STEPS.modern.indexOf("presses") < 0 &&
+             ELEMENT_STEPS.modern.indexOf("burners") < 0,
+        "the 2016 floor has no presses and no flame jets");
+    } },
+
+    { name: "a blue belt conveys twice and a green belt only once", run: function () {
+      /* The classic floor runs express alone and then every belt
+         together. The 2016 floor runs blue alone TWICE and then green
+         alone -- so a robot on green moves one, not two, and a robot
+         that rides blue onto green does not get the green move. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        /* Four blue squares in a row: two passes carry it two. */
+        benchGame(bench([["B>", "B>", "B>", "B>"]]), [{ c: 0, r: 0 }]);
+        var p = G.players[0];
+        STEP.exec.blue1(); STEP.exec.blue2();
+        assert(p.c === 2, "blue should convey twice, it reached " + p.c);
+
+        /* Green conveys once, and the blue passes must not touch it.
+           The board carries BOTH colours and a robot on each, because
+           "green only" and "any belt" agree on a board with no blue on
+           it -- which is what made the first version of this pass
+           whatever the filter said. */
+        /* The blue run is TWO squares long, so the robot on it is still
+           standing on blue when the green pass runs. With it one square
+           long the robot has already ridden off onto plain floor by
+           then, and "green only" and "any belt" agree again -- which is
+           exactly how the first version of this passed either way. */
+        benchGame(bench([["b>", "..", "B>", "B>", ".."]]),
+          [{ c: 0, r: 0 }, { c: 2, r: 0 }]);
+        var onGreen = G.players[0], onBlue = G.players[1];
+        STEP.exec.blue1();
+        assert(onGreen.c === 0, "a blue pass moved the robot standing on green");
+        assert(onBlue.c === 3, "the blue pass did not move the robot on blue");
+        STEP.exec.green();
+        assert(onGreen.c === 1, "green should convey one, it reached " + onGreen.c);
+        assert(onBlue.c === 3,
+          "the green pass conveyed a robot standing on BLUE, so it is not green-only");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a robot ending a register on a battery draws an Energy, to a maximum of ten", run: function () {
+      benchGame(bench([["E.", ".."]]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      assert(p.energy === 0, "a robot starts with no Energy");
+      batteryPass();
+      assert(p.energy === 1, "standing on a battery should draw one, it has " + p.energy);
+      batteryPass();
+      assert(p.energy === 2, "and again the next register");
+
+      /* Off the battery, nothing. */
+      p.c = 1;
+      batteryPass();
+      assert(p.energy === 2, "a robot off the battery must not draw");
+
+      /* The track has ten spaces and nowhere to put an eleventh cube --
+         and a robot standing on a battery with a full track draws
+         nothing, so it must not announce that it did. */
+      p.c = 0; p.energy = MAX_ENERGY;
+      var before = G.log.length;
+      batteryPass();
+      assert(p.energy === MAX_ENERGY, "the track filled past its end, to " + p.energy);
+      assert(G.log.length === before, "a full track still announced a draw");
+
+      /* A powered-down robot is shut down and draws nothing. */
+      benchGame(bench([["E."]]), [{ c: 0, r: 0, poweredDown: true }]);
+      batteryPass();
+      assert(G.players[0].energy === 0, "a powered-down robot drew Energy");
+    } },
+
     { name: "the workshop draws a 2016 board, and it survives being put down", run: function () {
       var keep = ED;
       ED = edState(edNew(6, 6), "bench");
@@ -7601,20 +7807,21 @@
          robot carried onto a crusher by a belt is crushed this
          register or next.
 
-         Read off the machine itself, by walking the chain each step
-         hands to, rather than from a list written beside it. */
+         The order is data now, one list per ruleset, so it is read off
+         that -- and then WALKED, because a list nothing follows would
+         be a list that agrees with itself. */
       var want = ["express", "belts", "pushers", "gears", "presses", "lasers", "burners", "touch"];
-      var src = {}, k;
-      for (k in STEP.exec) src[k] = STEP.exec[k].toString();
-      for (var i = 0; i < want.length; i++) {
+      assert(ELEMENT_STEPS.classic.join(",") === want.join(","),
+        "the classic order is " + ELEMENT_STEPS.classic.join(",") + ", not the printed one");
+      var i;
+      for (i = 0; i < want.length; i++) {
         assert(STEP.exec[want[i]], "there is no exec step called " + want[i]);
-        if (i + 1 < want.length) {
-          assert(src[want[i]].indexOf('"' + want[i + 1] + '"') >= 0,
-            want[i] + " does not hand on to " + want[i + 1] + ", so the board's order is not the printed one");
-        }
+        assert(afterElement(want[i]) === (want[i + 1] || "endReg"),
+          want[i] + " hands on to " + afterElement(want[i]) + ", not " + (want[i + 1] || "endReg"));
       }
       /* And the step before them all is the robots moving. */
-      assert(src.move.indexOf('"express"') >= 0, "movement does not hand on to the express belts");
+      assert(STEP.exec.move.toString().indexOf("elementOrder()[0]") >= 0,
+        "movement does not hand on to the first element in the order");
 
       /* THE INTERACTION THE ORDER EXISTS FOR: a belt carries a robot
          onto a crusher, and the crusher comes down the same register.
