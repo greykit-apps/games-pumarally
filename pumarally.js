@@ -6179,6 +6179,36 @@
       ED = keep;
     } },
 
+    { name: "a flag on the workshop map is drawn with its number", run: function () {
+      /* The renderer prints a flag's `n`; the workshop keeps flags as
+         a bare list whose order is the race. Every flag on the map
+         said "undefined" -- clipped to "eff" by the flag art -- until
+         the view numbered them from their place in the list. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.isCourse = true;
+      ED.grid.flags = [];
+      ED.flagNum = 1;
+      edPut("flag", 2, 2, {});
+      edPut("flag", 5, 5, {});
+      var C = edCourseView();
+      var one = tileInner(C, 2, 2), two = tileInner(C, 5, 5);
+      assert(one.indexOf("undefined") < 0 && two.indexOf("undefined") < 0, "a flag on the map is numbered undefined");
+      assert(one.indexOf(">1<") >= 0, "the first flag is not drawn as 1: " + one.slice(0, 200));
+      assert(two.indexOf(">2<") >= 0, "the second flag is not drawn as 2");
+      /* Moving one in the order renumbers the map, not just the list. */
+      edFlagShift(0, 1);
+      C = edCourseView();
+      assert(tileInner(C, 2, 2).indexOf(">2<") >= 0 && tileInner(C, 5, 5).indexOf(">1<") >= 0,
+        "swapping two flags left the old numbers on the map");
+      /* And the number never leaks into what is saved, which is a
+         list of positions whose order is the race. */
+      assert(edSnapshot().indexOf('"n"') < 0, "the flag number leaked into the snapshot");
+      assert(JSON.stringify(edCourseEdit().flags) === "[[5,5],[2,2]]",
+        "the course edit carries something other than positions: " + JSON.stringify(edCourseEdit().flags));
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -11323,6 +11353,13 @@
   function edCourseView() {
     ED.grid.flags = ED.grid.flags || [];
     ED.grid.id = ED.id;
+    /* THE ORDER IS THE NUMBER. The renderer prints a flag's `n`, and a
+       built course carries one -- but the workshop keeps its flags as
+       a bare list whose order is the race, so every flag drawn on the
+       map said "undefined" until this numbered them from their place
+       in it. Done on every draw, because every edit that moves,
+       inserts or removes one renumbers the rest. */
+    for (var i = 0; i < ED.grid.flags.length; i++) ED.grid.flags[i].n = i + 1;
     return ED.grid;
   }
 
