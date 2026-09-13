@@ -1060,8 +1060,13 @@
       ruleset: RULESETS[opts.ruleset] ? opts.ruleset : "classic",
       turn: 1,
       register: 0,
-      phase: "turn",
-      step: "respawn",
+      phase: "draft",
+      step: "draw",
+      /* The draft: who picks a bay, in what order, and what they drew
+         to earn it. Pure JSON, so it rides in the save and a game
+         reloaded mid-draft carries on where it stopped. */
+      draft: { order: [], at: 0, cards: {}, skipped: false },
+      humanPrivilege: opts.humanPrivilege ? 1 : 0,
       players: [],
       deck: [],
       discard: [],
@@ -1098,6 +1103,16 @@
     if (wantDock) bayOrder.push(wantDock);
     for (di = 0; di < C.docks.length; di++) if (C.docks[di] !== wantDock) bayOrder.push(C.docks[di]);
 
+    /* NOBODY IS ON THE BOARD YET.
+
+       The dock is handed out by a draft now, so a robot has no square
+       until it picks one. Carrying a provisional position through the
+       draft would mean two robots on one bay for as long as it took
+       somebody to move, and "one robot per square" is an invariant
+       this game checks on every commit -- so instead the position is
+       absent and says so. `placed` is what the renderer and the
+       invariants read; bayOrder survives as the FALLBACK, used when a
+       draft is skipped. */
     for (var i = 0; i < seats; i++) {
       var dock = bayOrder[i];
       var liv = liveryOrder[i];
@@ -1105,9 +1120,13 @@
         id: i,
         name: LIVERIES[liv].name,
         livery: liv,
+        placed: false,
+        /* -1 is not a square. A robot waiting its turn in the draft is
+           genuinely nowhere, and saying so is what stops it blocking
+           the bay it would otherwise have been sitting on. */
         isBot: opts.humans ? i >= opts.humans : i > 0,
         skill: opts.skill === undefined ? 1 : opts.skill,
-        c: dock.c, r: dock.r,
+        c: -1, r: -1,
         /* Robots start facing the course. The docking bay is stamped
            below the boards, so that is north; when bays move, this
            becomes a per-course field rather than a constant. */
@@ -1115,7 +1134,7 @@
         damage: 0,
         lives: START_LIVES,
         flags: 0,
-        archive: { c: dock.c, r: dock.r, face: N },
+        archive: { c: dock.c, r: dock.r, face: N },   // replaced by takeBay
         hand: [],
         dealtCount: 0,
         options: [],
@@ -1954,6 +1973,44 @@
   /* A robot returns to its archive. If something is standing there,
      it takes the nearest free square instead -- searched outward so
      the result does not depend on player order. */
+  /* Bays nobody has taken yet. */
+  function freeBays() {
+    var C = UI.course, out = [], i, j, taken;
+    for (i = 0; i < C.docks.length; i++) {
+      taken = false;
+      for (j = 0; j < G.players.length; j++) {
+        var p = G.players[j];
+        if (p.placed && p.c === C.docks[i].c && p.r === C.docks[i].r) { taken = true; break; }
+      }
+      if (!taken) out.push(C.docks[i]);
+    }
+    return out;
+  }
+
+  function takeBay(p, dock) {
+    p.c = dock.c; p.r = dock.r;
+    p.face = N;
+    p.archive = { c: dock.c, r: dock.r, face: N };
+    p.placed = true;
+    log(p.name + " takes bay " + dock.n);
+  }
+
+  /* A BOT PICKS THE BAY NEAREST THE FIRST FLAG, and consumes no
+     randomness doing it -- a seeded replay must not drift because the
+     draft asked the generator a question. distField is the same BFS
+     the programmer uses, so the bot values a bay for the same reason
+     it will later value a square. */
+  function botBay(p, free) {
+    var C = UI.course, d = distField(C, 0), best = free[0], bestV = Infinity;
+    for (var i = 0; i < free.length; i++) {
+      var v = d[free[i].r * C.w + free[i].c];
+      if (v === undefined || v === null) v = Infinity;
+      /* Ties break on the printed bay number, which is stable. */
+      if (v < bestV || (v === bestV && free[i].n < best.n)) { bestV = v; best = free[i]; }
+    }
+    return best;
+  }
+
   function freeSpotNear(c, r) {
     var C = UI.course;
     if (!isHole(C, c, r) && !robotAt(c, r)) return { c: c, r: r };
@@ -2040,6 +2097,67 @@
      concerns into a single function.
      ============================================================ */
   var STEP = {
+    /* ============================================================
+       THE DRAFT
+
+       Everyone draws one program card and the fastest priority picks
+       its bay first. It is a real draw from the real deck -- the cards
+       go straight to the discard afterwards, so the 84 stay conserved
+       and the reshuffle at the top of turn one puts them back.
+
+       Robots are UNPLACED until they pick. That is what lets the
+       board show which bays are still free without a robot standing
+       on a square it has not earned.
+       ============================================================ */
+    draft: {
+      draw: function () {
+        var i, p, order = [];
+        for (i = 0; i < G.players.length; i++) {
+          p = G.players[i];
+          var drawn = draw(1);
+          /* A deck that cannot fill the draft is a table error, not a
+             game state -- but fall back rather than throw, because a
+             draft is not worth losing a game over. */
+          var pri = drawn.length ? card(drawn[0]).pri : 0;
+          if (drawn.length) G.discard.push(drawn[0]);
+          G.draft.cards[p.id] = pri;
+          order.push(p.id);
+          log(p.name + " draws priority " + pri);
+        }
+        /* Fastest first. Priorities are unique across the 84, so this
+           never needs a tiebreak. */
+        order.sort(function (a, z) { return G.draft.cards[z] - G.draft.cards[a]; });
+        if (G.humanPrivilege) {
+          /* Seats at this keyboard go first, in the order the draw gave
+             them -- the privilege is jumping the bots, not jumping each
+             other. */
+          var mine = [], theirs = [];
+          for (i = 0; i < order.length; i++) {
+            (isHuman(G.players[order[i]]) ? mine : theirs).push(order[i]);
+          }
+          order = mine.concat(theirs);
+          log("House rule: this keyboard picks first");
+        }
+        G.draft.order = order;
+        G.draft.at = 0;
+        go("draft", "pick");
+        return animate([{ type: "render" }, { type: "wait", delay: 420 }]);
+      },
+
+      pick: function () {
+        if (G.draft.at >= G.draft.order.length) { go("turn", "respawn"); return NEXT; }
+        var p = G.players[G.draft.order[G.draft.at]];
+        if (p.placed) { G.draft.at++; return NEXT; }
+        var free = freeBays();
+        if (!free.length) { go("turn", "respawn"); return NEXT; }
+        if (isHuman(p)) { G.actor = p.id; return WAIT; }
+        takeBay(p, botBay(p, free));
+        G.draft.at++;
+        return animate([{ type: "sfx", name: "place" }, { type: "render" },
+                        { type: "wait", delay: 260 }]);
+      }
+    },
+
     turn: {
       respawn: function () {
         var any = false;
@@ -2668,6 +2786,9 @@
       }
 
       if (!p.alive) continue;
+      /* A robot that has not drafted its bay is nowhere on purpose --
+         it has no square to be off the course, in a pit, or sharing. */
+      if (p.placed === false) continue;
 
       // 6. Nobody stands in a hole or off the course.
       if (B.isVoid(C, p.c, p.r)) throw new Error(p.name + " is off the course at (" + p.c + "," + p.r + ")");
@@ -2949,6 +3070,30 @@
       burners: burners || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
+  }
+
+  /* Drive the headless machine until it reaches a phase. The draft
+     runs entirely through advance(), so a test that wants a seated
+     board asks for one rather than reaching into the steps. */
+  /* Run the draft and NOTHING else.
+
+     Not via advance(): advance() runs as many steps as it can before
+     something waits, and with autoHuman on nothing ever does -- so one
+     call carried the machine through the draft, the first turn, and
+     every turn after it, and the test then measured a finished game.
+     Stepping the draft's own table is what the rest of the rule tests
+     do with beltPass and pusherPass, and it stops where asked.
+
+     autoHuman for the duration so a human seat picks like a bot. */
+  function runDraft(guard) {
+    var was = UI.autoHuman;
+    UI.autoHuman = true;
+    try {
+      for (var i = 0; i < (guard || 60) && G.phase === "draft"; i++) {
+        STEP.draft[G.step]();
+      }
+      return G.phase !== "draft";
+    } finally { UI.autoHuman = was; }
   }
 
   function benchGame(grid, robots, flags) {
@@ -3418,49 +3563,86 @@
       assert(calls === first, "nor a third");
     } },
 
-    { name: "you get the colour and the bay you picked", run: function () {
-      newGame(7, { course: "provingRun", players: 4, humans: 1, livery: 5, bay: 6 });
+    { name: "you get the colour you picked, and no bay until you draft one", run: function () {
+      newGame(7, { course: "provingRun", players: 4, humans: 1, livery: 5 });
       var me = G.players[0];
       assert(me.livery === 5, "seat 0 wears the chosen livery, wears " + me.livery);
       assert(me.name === LIVERIES[5].name, "and is named for it, is " + me.name);
-      var C = UI.course, want = null;
-      for (var d = 0; d < C.docks.length; d++) if (C.docks[d].n === 6) want = C.docks[d];
-      assert(want, "fixture: the course should print a bay 6");
-      assert(me.c === want.c && me.r === want.r,
-        "and starts on it, started at (" + me.c + "," + me.r + ")");
-      assert(me.archive.c === want.c && me.archive.r === want.r,
-        "with the archive there too -- a respawn must not move you to a bay you did not pick");
+      /* A robot with no bay is NOWHERE, not parked on a default. The
+         difference matters: a default position occupies a bay nobody
+         has drafted, and the next robot to take it lands on top. */
+      assert(me.placed === false, "nobody is placed before the draft");
+      assert(me.c === -1 && me.r === -1, "and has no square, has (" + me.c + "," + me.r + ")");
+      assert(G.phase === "draft", "a new game starts in the draft, starts in " + G.phase);
     } },
 
-    { name: "no two robots share a colour or a bay, whatever you pick", run: function () {
+    { name: "the draft seats everyone, once each, on a real bay", run: function () {
+      newGame(11, { course: "provingRun", players: 8, humans: 0 });
+      runDraft();
+      var C = UI.course, seen = {}, i;
+      for (i = 0; i < G.players.length; i++) {
+        var p = G.players[i];
+        assert(p.placed, p.name + " never drafted a bay");
+        var key = p.c + "," + p.r;
+        assert(!seen[key], "two robots drafted (" + key + ")");
+        seen[key] = 1;
+        var onDock = false;
+        for (var d = 0; d < C.docks.length; d++) if (C.docks[d].c === p.c && C.docks[d].r === p.r) onDock = true;
+        assert(onDock, p.name + " is at (" + key + "), which is not a docking bay");
+        assert(p.archive.c === p.c && p.archive.r === p.r,
+          p.name + "'s archive must be the bay it drafted, or a respawn moves it somewhere it never was");
+      }
+    } },
+
+    { name: "the fastest priority drafts first", run: function () {
+      newGame(23, { course: "provingRun", players: 6, humans: 0 });
+      advance();                                   // draw
+      assert(G.draft.order.length === 6, "everyone draws");
+      for (var i = 1; i < G.draft.order.length; i++) {
+        var a = G.draft.cards[G.draft.order[i - 1]], b = G.draft.cards[G.draft.order[i]];
+        assert(a > b, "the order must run fastest first, found " + a + " before " + b);
+      }
+    } },
+
+    { name: "human privilege jumps the bots and nothing else", run: function () {
+      /* Two seats at the keyboard: the privilege puts BOTH ahead of
+         the bots, and leaves their order relative to each other as the
+         draw made it. Jumping each other would be a different rule. */
+      newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 1 });
+      advance();
+      var order = G.draft.order;
+      assert(isHuman(G.players[order[0]]) && isHuman(G.players[order[1]]),
+        "both seats pick before the bots, order was " + order.join(","));
+      var pa = G.draft.cards[order[0]], pb = G.draft.cards[order[1]];
+      assert(pa > pb, "and between themselves the draw still decides, " + pa + " then " + pb);
+
+      /* Off, the same seed puts them wherever the cards did. */
+      newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 0 });
+      advance();
+      var plain = G.draft.order;
+      for (var j = 1; j < plain.length; j++) {
+        assert(G.draft.cards[plain[j - 1]] > G.draft.cards[plain[j]],
+          "without the rule it is priority order and nothing else");
+      }
+    } },
+
+    { name: "no two robots share a colour, whatever you pick", run: function () {
       /* The liveries ARE how you tell robots apart, on the board and in
          the log, so a collision is not a cosmetic problem. Swept over
          every choice rather than spot-checked, because the failure only
          shows for the picks that collide with a default. */
       for (var liv = 0; liv < LIVERIES.length; liv++) {
-        for (var bay = 1; bay <= 8; bay++) {
-          newGame(3, { course: "provingRun", players: 8, humans: 1, livery: liv, bay: bay });
-          var seenL = {}, seenB = {}, i;
-          for (i = 0; i < G.players.length; i++) {
-            var p = G.players[i];
-            assert(!seenL[p.livery], "livery " + p.livery + " used twice (picked " + liv + "/" + bay + ")");
-            assert(!seenB[p.c + "," + p.r], "bay (" + p.c + "," + p.r + ") used twice (picked " + liv + "/" + bay + ")");
-            seenL[p.livery] = 1; seenB[p.c + "," + p.r] = 1;
-          }
-          assert(G.players[0].livery === liv, "and seat 0 still gets its pick");
+        newGame(3, { course: "provingRun", players: 8, humans: 0, livery: liv });
+        runDraft();
+        var seenL = {}, seenB = {}, i;
+        for (i = 0; i < G.players.length; i++) {
+          var p = G.players[i];
+          assert(!seenL[p.livery], "livery " + p.livery + " used twice (picked " + liv + ")");
+          assert(!seenB[p.c + "," + p.r], "bay (" + p.c + "," + p.r + ") used twice (picked " + liv + ")");
+          seenL[p.livery] = 1; seenB[p.c + "," + p.r] = 1;
         }
+        assert(G.players[0].livery === liv, "and seat 0 still gets its pick");
       }
-    } },
-
-    { name: "a bay the course does not print falls back rather than voiding", run: function () {
-      /* Bays are the course's, not the menu's. Asking for one it does
-         not have used to put a robot at undefined,undefined -- off the
-         board, which reads as an instant death before the first card. */
-      newGame(9, { course: "provingRun", players: 2, humans: 1, livery: 0, bay: 99 });
-      var me = G.players[0];
-      assert(typeof me.c === "number" && typeof me.r === "number",
-        "a robot must land on a square, landed at (" + me.c + "," + me.r + ")");
-      assert(!B.isVoid(UI.course, me.c, me.r), "and not in the void");
     } },
 
     { name: "an expansion tile turns its ruleset on", run: function () {
@@ -5372,6 +5554,10 @@
     /* A SEGMENTED CONTROL, not a row of loose buttons. One outline
        around the set says these are alternatives; the hairlines
        between say where each one ends. */
+    /* A bay you may take. The pulse is slow and the outline is the
+       accent, so it reads as an invitation rather than an alarm. */
+    ".pr-cell.pr-bay-open{cursor:pointer;box-shadow:inset 0 0 0 2px var(--pr-accent)}",
+    ".pr-cell.pr-bay-open:hover{background:var(--pr-panel-alt)}",
     ".pr-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--pr-border);",
     "border-radius:3px;overflow:hidden;margin:2px 0}",
     ".pr-seg-b{border:0!important;border-left:1px solid var(--pr-border)!important;",
@@ -5625,6 +5811,27 @@
     else if (inPhase("turn", "program") && actor()) ensureVisible(UI.els.program);
   }
 
+  /* WHICH BAYS ARE OPEN CHANGES; THE TILES DO NOT.
+
+     The grid is built once per course and patched thereafter, so a
+     class added inside tileClasses is a class applied at build time
+     and never again -- the first version lit the bays from there and
+     lit none of them, because at build time the draft had not reached
+     the picking step. Toggled per render instead, over the docks
+     only rather than all 192 squares. */
+  function paintOpenBays() {
+    var C = UI.course;
+    if (!C || !UI.els || !UI.els.grid) return;
+    var me = actor();
+    var choosing = G.phase === "draft" && G.step === "pick" && me && isHuman(me) && !me.placed;
+    for (var i = 0; i < C.docks.length; i++) {
+      var d = C.docks[i];
+      var cell = UI.els.grid.querySelector('[data-c="' + d.c + '"][data-r="' + d.r + '"]');
+      if (!cell) continue;
+      cell.classList.toggle("pr-bay-open", !!choosing && !robotAt(d.c, d.r));
+    }
+  }
+
   function updateAll() {
     if (UI.headless || !UI.mounted || !G) return;
     snapshotPieces();
@@ -5638,6 +5845,7 @@
     renderCurtain();
     updateLog();
     drawBeams();
+    paintOpenBays();
     followPhase();
   }
 
@@ -5678,6 +5886,8 @@
         host.appendChild(el);
         UI.pieceEls[id] = el;
       }
+      /* Nothing to draw for a robot that has not picked a bay. */
+      el.hidden = p.placed === false;
       el.style.color = LIVERIES[p.livery].a;
       el.style.setProperty("--livery-dark", LIVERIES[p.livery].d);
       el.style.left = (p.c * tile) + "px";
@@ -5810,9 +6020,24 @@
     host.innerHTML = out.join("");
   }
 
+  /* What the draft is waiting for, in the one line the HUD has. The
+     priority you drew is in it because that is WHY it is your turn --
+     without it the order looks arbitrary. */
+  function draftHeadline() {
+    if (G.step === "draw") return "Drawing for position";
+    var p = G.players[G.draft.order[G.draft.at]];
+    if (!p) return "Taking positions";
+    var pri = G.draft.cards[p.id];
+    if (isHuman(p) && !p.placed) {
+      return "Priority " + pri + " \u2014 click a lit bay to start there";
+    }
+    return p.name + " is choosing (priority " + pri + ")";
+  }
+
   function renderHud() {
     var h = UI.els.hud;
     var phase = G.gameOver ? "Game over"
+      : G.phase === "draft" ? draftHeadline()
       : G.phase === "turn" && G.step === "program" ? "Program your registers"
       : G.phase === "exec" ? "Register " + (G.register + 1) + " of " + REGISTERS
       : G.phase === "cleanup" ? "End of turn" : "Turn " + G.turn;
@@ -6002,6 +6227,10 @@
 
   function renderProgram() {
     var me = G.players[G.actor === undefined ? 0 : G.actor];
+    /* No hand exists before the first deal, so the programming row is
+       hidden rather than drawn empty -- an empty row of five slots
+       during the draft looks like something you failed to fill in. */
+    if (UI.els.program) UI.els.program.hidden = G.phase === "draft";
     var mine = me && isHuman(me) && me.alive;
     var programming = inPhase("turn", "program") && mine;
     var open = me ? openRegisters(me.damage) : REGISTERS;
@@ -6267,6 +6496,27 @@
     return true;
   }
 
+  /* Take the bay under the pointer, if it is one and it is free. A
+     click anywhere else on the board is not an error -- it is a
+     player looking at the course they are about to race on. */
+  function onDraftPick(c, r) {
+    var p = actor();
+    if (!p || !isHuman(p) || p.placed) return;
+    var free = freeBays();
+    for (var i = 0; i < free.length; i++) {
+      if (free[i].c === c && free[i].r === r) {
+        takeBay(p, free[i]);
+        G.draft.at++;
+        G.actor = undefined;
+        sfx("place");
+        announce("You start on bay " + free[i].n + ".");
+        updateAll();
+        advance();
+        return;
+      }
+    }
+  }
+
   function onCardClick(i) { placeCard(i, undefined); }
 
   function onSlotClick(i) {
@@ -6327,7 +6577,7 @@
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions,
       flagTouch: cfg.flagTouch, ruleset: cfg.ruleset,
-      livery: cfg.livery, bay: cfg.bay
+      livery: cfg.livery, bay: cfg.bay, humanPrivilege: cfg.humanPrivilege
     };
   }
 
@@ -6399,7 +6649,6 @@
       saveRules(); showSetup(); return;
     }
     if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showSetup(); return; }
-    if (a === "bay") { houseRules.bay = +el.dataset.n; saveRules(); showSetup(); return; }
     if (a === "editmap") {
       closeModal();
       root.location.hash = "#edit=" + el.dataset.b + "&from=setup";
@@ -6457,6 +6706,15 @@
     root.__prWired = true;
 
     root.addEventListener("click", function (e) {
+      /* During the draft the BOARD is the control: the bays you may
+         take are lit, and you take one by clicking it. A modal listing
+         "bay 1, bay 2, bay 3" would be asking you to pick a square
+         from a list while the square is right there. */
+      var cell = e.target.closest(".pr-cell[data-c]");
+      if (cell && G && G.phase === "draft" && G.step === "pick") {
+        onDraftPick(+cell.dataset.c, +cell.dataset.r);
+        return;
+      }
       var el = e.target.closest("[data-act]");
       if (el && !el.disabled) dispatchAct(el);
     });
@@ -6641,6 +6899,13 @@
        a checkpoint if it crosses it OR stays on it. Rather than pick a
        winner between two printings of the same game, the strict reading
        is the default and the other is offered by name. */
+    /* The draft is the fair way to hand out the dock and it can hand
+       you the worst bay on the board. This is the escape hatch, named
+       for what it is rather than dressed up as a rule. */
+    humanPrivilege: { label: "Human privilege", control: "toggle", min: 0, max: 1, def: 0, group: "house",
+                      labels: ["Priority decides, same as everyone", "You choose your bay first"],
+                      desc: "Off, the priority draw decides the order and you take your turn in it. On, the seats at this keyboard pick before the bots whatever they drew." },
+
     flagTouch: { label: "Touching a flag", control: "segment", min: 0, max: 1, def: 0, group: "house",
                  labels: ["Must end a register on it", "Crossing it counts"],
                  desc: "The English manual wants you to stop on a flag. The German Crash and Burn book counts crossing it. Euro style is the looser one." }
@@ -6790,7 +7055,8 @@
       startOptions: clampRule("startOptions", h.startOptions),
       flagTouch: clampRule("flagTouch", h.flagTouch),
       livery: Math.max(0, Math.min(LIVERIES.length - 1, (h.livery | 0))),
-      bay: Math.max(1, Math.min(MAX_SEATS, h.bay || 1))
+      bay: Math.max(1, Math.min(MAX_SEATS, h.bay || 1)),
+      humanPrivilege: clampRule("humanPrivilege", h.humanPrivilege)
     };
   }
 
@@ -7144,7 +7410,6 @@
        places, and picking bay 6 on a board that prints five would be
        a choice the board cannot honour. */
     var cfgSeat = resolveConfig(houseRules);
-    var seatDocks = B.buildCourse(houseRules.course).docks;
     out.push('<h3 class="pr-rule-group">Your robot</h3>');
     out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Colour</b>' +
       '<span class="pr-rule-val">' + esc(LIVERIES[cfgSeat.livery].name) + "</span></div>" +
@@ -7158,18 +7423,8 @@
     out.push("</div><div class='pr-rule-desc'>Your robot's colour is also its name, " +
       "on the board and in the log. The other racers take the rest.</div></div>");
 
-    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Docking bay</b>' +
-      '<span class="pr-rule-val">' + Math.min(cfgSeat.bay, seatDocks.length) + "</span></div>" +
-      '<div class="pr-presets">');
-    for (var bn = 0; bn < seatDocks.length; bn++) {
-      var bnum = seatDocks[bn].n;
-      out.push('<button data-act="bay" data-n="' + bnum + '"' +
-        (Math.min(cfgSeat.bay, seatDocks.length) === bnum ? ' class="on"' : "") + ">" + bnum + "</button>");
-    }
-    out.push("</div><div class='pr-rule-desc'>Where you start on the dock. " +
-      (cfgSeat.humans > 1
-        ? "With more than one seat here, this is the first player's."
-        : "The others fill in around you.") + "</div></div>");
+    /* The bay picker is gone: the draft hands the dock out now, and a
+       control that quietly does nothing is worse than no control. */
 
     var groups = [["setup", null], ["house", "House rules"]];
     for (var gi = 0; gi < groups.length; gi++) {
