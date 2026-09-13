@@ -114,8 +114,19 @@
     /* The 2016 edition removed repair and upgrade squares from the
        boards, so these two are classic-only and a modern board
        carrying one is a transcription error rather than a variant. */
+    /* CRASH AND BURN (1997). Both act on a register timer, which is
+       printed on the square as a number -- so the argument slot, which
+       these do not need for a direction, carries WHEN instead. */
+    "L": { name: "oil slick", arg: "none", oil: true, editions: ["classic"] },
+    /* The argument is the COLOUR, and colours come in pairs -- the
+       validator refuses a portal without its twin, because a lone
+       portal is a transcription error that would otherwise render and
+       play as a square that swallows robots. */
+    "t": { name: "portal", arg: "pair", portal: true, editions: ["classic"] },
+    "X": { name: "press", arg: "none", crush: true, editions: ["classic"] },
+    "F": { name: "burner", arg: "none", burn: 1, editions: ["classic"] },
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
-    "W": { name: "upgrade site", arg: "none", repair: 1, option: true, editions: ["classic"] },
+    "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
     "s": { name: "docking bay", arg: "digit", editions: BOTH }
   };
 
@@ -124,6 +135,22 @@
   function beltSpeed(code) { var e = elemOf(code); return e && e.belt || 0; }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
   function isPit(code) { return code.charAt(0) === "o"; }
+  function isOil(code) { var e = elemOf(code); return !!(e && e.oil); }
+  /* '.' always, '1'-'5' one printed register, 'o' the odd ones and 'e'
+     the even ones -- the same 1/3/5 and 2/4 split the pushers use, and
+     for the same reason: the board prints a set of numbers, not one. */
+  function timerAt(g, c, r) {
+    for (var i = 0; i < (g.timers || []).length; i++) {
+      if (g.timers[i].c === c && g.timers[i].r === r) return g.timers[i];
+    }
+    return null;
+  }
+
+  /* register is 0-based; the board prints 1-5. */
+  function activeNow(g, c, r, register) {
+    var t = timerAt(g, c, r);
+    return !!t && t.regs.indexOf(register + 1) >= 0;
+  }
 
   /* ============================================================
      THE PICTURE FORMAT
@@ -145,7 +172,11 @@
        l.  gear ccw       p<  pusher, registers 1/3/5, pushes west
        r.  gear cw        Pv  pusher, registers 2/4,   pushes south
        w.  repair (1 damage)
-       W.  upgrade (1 damage + an option card)
+       W.  upgrade (2 damage OR an option card -- the player chooses)
+       L.  oil slick                        (Crash and Burn)
+       t1  portal, colour 1 (exactly two)   (Crash and Burn)
+       X.  press   -- registers listed in `timers` (Crash and Burn)
+       F.  burner  -- registers listed in `timers` (Crash and Burn)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.
@@ -162,7 +193,24 @@
       cell: new Array(w * h),
       wallN: new Uint8Array(w * (h + 1)),
       wallW: new Uint8Array((w + 1) * h),
+      /* Swing doors live on the lattice beside the walls rather than on
+         the squares, because that is where they are: a closed one IS a
+         wall. The value is the register in which the door stands OPEN,
+         so an absent door and a permanently shut one are the same thing
+         -- which is just a wall, and is spelled that way. */
+      doorN: new Array(w * (h + 1)),
+      doorW: new Array((w + 1) * h),
       lasers: [],
+      /* Registers a press or burner acts in. A SPARSE LIST beside the
+         picture, the way lasers already are, rather than a character in
+         the cell -- the printed sets are arbitrary subsets of 1-5 (2 3 5
+         and 1 3 5 and 2 4 all appear on board G), and a two-character
+         cell has exactly one character to spare. A bitmask would fit but
+         would make the picture unreadable, and the picture is readable
+         on purpose: the transcription workflow is comparing it to a
+         photograph. The validator pairs the two layers 1:1 so they
+         cannot drift. */
+      timers: [],
       docks: []
     };
   }
@@ -176,6 +224,39 @@
     if (d === S) return !!g.wallN[(r + 1) * g.w + c];
     if (d === W) return !!g.wallW[r * (g.w + 1) + c];
     return !!g.wallW[r * (g.w + 1) + c + 1];           // E
+  }
+
+  function doorAt(g, c, r, d) {
+    if (d === N) return g.doorN[r * g.w + c] || "";
+    if (d === S) return g.doorN[(r + 1) * g.w + c] || "";
+    if (d === W) return g.doorW[r * (g.w + 1) + c] || "";
+    return g.doorW[r * (g.w + 1) + c + 1] || "";       // E
+  }
+
+  function setDoor(g, c, r, d, ch) {
+    if (d === N) g.doorN[r * g.w + c] = ch;
+    else if (d === S) g.doorN[(r + 1) * g.w + c] = ch;
+    else if (d === W) g.doorW[r * (g.w + 1) + c] = ch;
+    else g.doorW[r * (g.w + 1) + c + 1] = ch;
+  }
+
+  /* Open only in the registers printed on it. Same vocabulary the
+     presses and burners use, minus '.': a door that is always open is
+     not a door. */
+  function doorOpen(ch, register) {
+    if (!ch) return true;
+    if (ch === "o") return register % 2 === 0;
+    if (ch === "e") return register % 2 === 1;
+    return parseInt(ch, 10) === register + 1;
+  }
+
+  /* The question every mover and every laser actually wants to ask.
+     wallAt alone is not it any more: a shut door stops you just as
+     dead, and asking wallAt is how a robot walks through one. */
+  function blockedAt(g, c, r, d, register) {
+    if (wallAt(g, c, r, d)) return true;
+    var ch = doorAt(g, c, r, d);
+    return !!ch && !doorOpen(ch, register);
   }
 
   function setWall(g, c, r, d, on) {
@@ -225,13 +306,15 @@
         for (c = 0; c < w; c++) {
           var seg = row.substr(3 * c + 1, 2);
           if (seg === "--") g.wallN[r * w + c] = 1;
-          else if (seg !== "  ") E_("picture row " + y + " tile " + c + ": horizontal wall must be '--' or two spaces, got '" + seg + "'");
+          else if (/^([1-5oe])\1$/.test(seg)) g.doorN[r * w + c] = seg.charAt(0);
+          else if (seg !== "  ") E_("picture row " + y + " tile " + c + ": horizontal wall must be '--', a doubled door register (11-55, oo, ee) or two spaces, got '" + seg + "'");
         }
       } else {
         for (c = 0; c <= w; c++) {
           var vc = row.charAt(3 * c);
           if (vc === "|") g.wallW[r * (w + 1) + c] = 1;
-          else if (vc !== " ") E_("picture row " + y + " col " + (3 * c) + ": vertical wall must be '|' or a space, got '" + vc + "'");
+          else if (/[1-5oe]/.test(vc)) g.doorW[r * (w + 1) + c] = vc;
+          else if (vc !== " ") E_("picture row " + y + " col " + (3 * c) + ": vertical wall must be '|', a door register (1-5, o, e) or a space, got '" + vc + "'");
         }
         for (c = 0; c < w; c++) {
           var code = row.substr(3 * c + 1, 2);
@@ -241,6 +324,11 @@
           if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) E_("(" + c + "," + r + ") " + def.name + " needs a direction (^ > v <), got '" + a + "'");
           if (def.arg === "none" && a !== ".") E_("(" + c + "," + r + ") " + def.name + " takes no argument, got '" + a + "'");
           if (def.arg === "digit" && !/[1-8]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a position 1-8, got '" + a + "'");
+          if (def.arg === "pair" && !/[1-9]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a colour 1-9, got '" + a + "'");
+          if (def.arg === "when" && !/[.oe1-5]/.test(a)) {
+            E_("(" + c + "," + r + ") " + def.name + " needs a register: '.' always, " +
+               "1-5 for one, 'o' for 1/3/5 or 'e' for 2/4, got '" + a + "'");
+          }
           if (def.editions && def.editions.indexOf(edition) < 0) {
             E_("(" + c + "," + r + ") is a " + def.name + ", which the " +
                EDITIONS[edition].name + " edition does not print");
@@ -250,6 +338,51 @@
         }
       }
     }
+    /* Portals come in twos. One is a dropped character; three is a
+       colour used twice by mistake. Either reads as a plausible board. */
+    var portals = {};
+    for (var pr = 0; pr < h; pr++) {
+      for (var pc = 0; pc < w; pc++) {
+        var pcode = g.cell[pr * w + pc];
+        if (!pcode || pcode.charAt(0) !== "t") continue;
+        var col = pcode.charAt(1);
+        (portals[col] = portals[col] || []).push(pc + "," + pr);
+      }
+    }
+    for (var col2 in portals) {
+      if (portals[col2].length !== 2) {
+        E_("portal colour " + col2 + " appears " + portals[col2].length +
+           " time(s) at " + portals[col2].join(" and ") + "; portals come in pairs");
+      }
+    }
+
+    var timed = {}, ti;
+    for (ti = 0; ti < (spec.timers || []).length; ti++) {
+      var T = spec.timers[ti];
+      var tcode = (inGrid(g, T.c, T.r) && g.cell[T.r * w + T.c]) || "";
+      var tdef = ELEMENT_DEFS[tcode.charAt(0)];
+      if (!tdef || !(tdef.crush || tdef.burn)) {
+        E_("timer at (" + T.c + "," + T.r + ") is not on a press or a burner");
+      }
+      if (!T.regs || !T.regs.length) E_("timer at (" + T.c + "," + T.r + ") lists no registers");
+      for (var ri = 0; ri < T.regs.length; ri++) {
+        if (!(T.regs[ri] >= 1 && T.regs[ri] <= 5)) {
+          E_("timer at (" + T.c + "," + T.r + ") lists register " + T.regs[ri] + "; registers run 1-5");
+        }
+      }
+      if (timed[T.c + "," + T.r]) E_("two timers at (" + T.c + "," + T.r + ")");
+      timed[T.c + "," + T.r] = 1;
+      g.timers.push({ c: T.c, r: T.r, regs: T.regs.slice().sort() });
+    }
+    for (var tr = 0; tr < h; tr++) {
+      for (var tc = 0; tc < w; tc++) {
+        var cd2 = g.cell[tr * w + tc] || "", d2 = ELEMENT_DEFS[cd2.charAt(0)];
+        if (d2 && (d2.crush || d2.burn) && !timed[tc + "," + tr]) {
+          E_("(" + tc + "," + tr + ") is a " + d2.name + " with no registers; every one is printed with a set");
+        }
+      }
+    }
+
     for (var i = 0; i < (spec.lasers || []).length; i++) {
       var L = spec.lasers[i];
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
@@ -280,13 +413,16 @@
       r = y >> 1;
       var out = "";
       if (y % 2 === 0) {
-        for (c = 0; c < g.w; c++) out += "+" + (g.wallN[r * g.w + c] ? "--" : "  ");
+        for (c = 0; c < g.w; c++) {
+          var dn = g.doorN[r * g.w + c];
+          out += "+" + (g.wallN[r * g.w + c] ? "--" : dn ? dn + dn : "  ");
+        }
         out += "+";
       } else {
         for (c = 0; c < g.w; c++) {
-          out += (g.wallW[r * (g.w + 1) + c] ? "|" : " ") + g.cell[r * g.w + c];
+          out += (g.wallW[r * (g.w + 1) + c] ? "|" : (g.doorW[r * (g.w + 1) + c] || " ")) + g.cell[r * g.w + c];
         }
-        out += g.wallW[r * (g.w + 1) + g.w] ? "|" : " ";
+        out += g.wallW[r * (g.w + 1) + g.w] ? "|" : (g.doorW[r * (g.w + 1) + g.w] || " ");
       }
       rows.push(out);
     }
@@ -322,6 +458,19 @@
       }
       out.push("      ]");
     }
+    /* Emitted only when there are any, so every board without a press
+       or a burner formats exactly as it did before this existed and the
+       byte-for-byte round-trip keeps its meaning. */
+    if (g.timers && g.timers.length) {
+      out.push("      ,");
+      out.push("      timers: [");
+      for (var ti = 0; ti < g.timers.length; ti++) {
+        var T = g.timers[ti];
+        out.push("        { c: " + T.c + ", r: " + T.r + ", regs: [" + T.regs.join(", ") + "] }" +
+          (ti === g.timers.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
     out.push("    }");
     return out.join("\n");
   }
@@ -352,12 +501,20 @@
         var def = ELEMENT_DEFS[code.charAt(0)];
         if (def.arg === "dir") code = code.charAt(0) + DIR_CHARS.charAt(rot(dirOf(code), 1));
         n.cell[idx(n, nc, nr)] = code;
-        for (var d = 0; d < 4; d++) if (wallAt(g, c, r, d)) setWall(n, nc, nr, rot(d, 1), true);
+        for (var d = 0; d < 4; d++) {
+          if (wallAt(g, c, r, d)) setWall(n, nc, nr, rot(d, 1), true);
+          var dch = doorAt(g, c, r, d);
+          if (dch) setDoor(n, nc, nr, rot(d, 1), dch);
+        }
       }
     }
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
       n.lasers.push({ c: g.h - 1 - L.r, r: L.c, d: rot(L.d, 1), n: L.n });
+    }
+    for (var tq = 0; tq < g.timers.length; tq++) {
+      var T2 = g.timers[tq];
+      n.timers.push({ c: g.h - 1 - T2.r, r: T2.c, regs: T2.regs.slice() });
     }
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
@@ -825,6 +982,52 @@
        cell width, not one -- per the note above `maelstrom`, probing
        a beam at a single point reads JPEG noise as a gap and turns a
        1-damage laser into a 2. */
+    /* THE FIRST CRASH AND BURN BOARD, and the tamest of the four: it
+       carries none of the expansion's new elements at all. Six L-shaped
+       three-square pits, two concentric belt loops turned by six gears,
+       and a repair site at each of two corners.
+
+       The pits sit in exact 180-degree rotational symmetry, which is
+       what gave the reading its cross-check -- every pit triple maps
+       onto another under (c,r) -> (11-c,11-r). The tool squares do NOT:
+       the repair sites are at (11,0) and (0,9) and the upgrade is at
+       (6,5), so the symmetry is a property of the holes and not of the
+       board. Worth saying because a symmetric board is exactly the kind
+       of thing that tempts you to "correct" a square you read
+       correctly. */
+    boardE: {
+      name: "Board E", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board. (5,6) is a mottled floor plate with no marking; see maps/MANIFEST.md.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. o. r. b> b> b> b> b> b> r. o. ..|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. .. b^ l. b< b< b< b< l. bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv .. .. o. o. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^|bv b< b< W. o. b^ bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ bv o. .. b> b> b^|bv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. b^ bv o. o. .. .. b^ bv .. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ l. b> b> b> b> l. bv .. .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        "|w. o. b< b< b< b< b< b< b< bv o. ..|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. o. .. .. .. .. .. .. o. o. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. .. .. .. .. .. .. .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: []
+    },
+
     pitMaze: {
       name: "Pit Maze", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1043,6 +1246,19 @@
        and Island: the course cards have not been photographed. All
        three sit on plain floor, which on this board is the scarce
        thing. */
+    /* Flags ours, not the printed course -- the course cards have not
+       been photographed. All three sit on plain floor, away from the
+       two belt loops, so reaching one is a matter of getting off the
+       conveyor rather than of being carried onto it. */
+    boardERun: {
+      name: "Board E Run",
+      blurb: "Two belt loops, six gears, and six holes shaped like elbows.",
+      boards: [{ id: "boardE", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[5, 1], [10, 5], [1, 7]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     pitMazeRun: {
       name: "Pit Maze Run",
       blurb: "Twenty-six holes and the belts that run between them.",
@@ -1113,11 +1329,19 @@
     var ox = at[0], oy = at[1], c, r, d;
     for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) {
       C.cell[idx(C, ox + c, oy + r)] = g.cell[idx(g, c, r)];
-      for (d = 0; d < 4; d++) if (wallAt(g, c, r, d)) setWall(C, ox + c, oy + r, d, true);
+      for (d = 0; d < 4; d++) {
+        if (wallAt(g, c, r, d)) setWall(C, ox + c, oy + r, d, true);
+        var dch2 = doorAt(g, c, r, d);
+        if (dch2) setDoor(C, ox + c, oy + r, d, dch2);
+      }
     }
     for (var i = 0; i < g.lasers.length; i++) {
       var L = g.lasers[i];
       C.lasers.push({ c: L.c + ox, r: L.r + oy, d: L.d, n: L.n });
+    }
+    for (var tt = 0; tt < (g.timers || []).length; tt++) {
+      var T3 = g.timers[tt];
+      C.timers.push({ c: T3.c + ox, r: T3.r + oy, regs: T3.regs.slice() });
     }
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
@@ -1225,12 +1449,13 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
     gridToPic: gridToPic, formatBoard: formatBoard, blankGrid: blankGrid,
-    idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall,
+    idx: idx, inGrid: inGrid, codeAt: codeAt, wallAt: wallAt, setWall: setWall, doorAt: doorAt, setDoor: setDoor,
+    doorOpen: doorOpen, blockedAt: blockedAt,
     buildCourse: buildCourse, isVoid: isVoid,
     validateGrid: validateGrid, validateCourse: validateCourse, validateAll: validateAll
   };

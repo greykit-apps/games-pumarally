@@ -128,7 +128,7 @@ physical cards, against a hook system that is already finished. The gap is a
 number in the source (`OPTION_ROSTER`) that the validator checks, not something
 anyone has to remember.
 
-Two deliberate simplifications, both marked here because no check can see them:
+Two deliberate simplifications, marked here because no check can see them:
 
 - **Losing a card when wrecked** is the player's choice at the table. Here it is
   a fixed preference, because destruction happens deep inside a move where no

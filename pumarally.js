@@ -61,6 +61,7 @@
     violet: "#b47dff",        /* upgrade */
     steel: "#94a0c4",         /* gears, walls */
     concrete: "#9aa1ae",      /* the poured edge of a wall, not its face */
+    concreteEdge: "#4a5160",  /* the shadowed lip where a slab meets the floor */
     /* Hazard stripes: the yellow-and-black the printed board uses for
        anything that will hurt you -- wall faces, pit frames, rams. */
     hazard: "#f2c400",
@@ -178,6 +179,14 @@
   /* Edge midpoints and the tile centre, in viewBox units. Indexed by
      direction, so N/E/S/W is the array order the engine already uses. */
   var EDGE = [[50, 0], [100, 50], [50, 100], [0, 50]];
+
+  var HAZARD_DEFS =
+    '<svg class="pr-defs" width="0" height="0" aria-hidden="true">' +
+      '<defs><pattern id="pr-hz" width="14" height="14" patternUnits="userSpaceOnUse" ' +
+      'patternTransform="rotate(-45)">' +
+        '<rect class="pr-hz-dark" width="14" height="14"/>' +
+        '<rect class="pr-hz-lit" width="7" height="14"/>' +
+      "</pattern></defs></svg>";
 
   function svg(inner, cls) {
     return '<svg class="pr-art' + (cls ? " " + cls : "") + '" viewBox="0 0 100 100" ' +
@@ -445,31 +454,39 @@
      Which registers it fires on is a rule, not decoration, so the
      digits are stamped on the tile rather than left to the legend --
      upright and in a fixed corner whichever way the ram points. */
+  /* A PUSHING PLATFORM, not an arrow.
+
+     The printed board draws a pusher as a barricade-striped plate that
+     slides out of the wall it is bolted to, and that is a better sign
+     than an arrow for a reason beyond fidelity: every other arrow on
+     this board means a conveyor, so an arrow here said "you will be
+     carried" when it means "you will be shoved, on these registers and
+     not the others".
+
+     Geometry is in the mount's frame -- u runs out from the wall, v
+     runs along it -- so one bit of arithmetic serves all four
+     orientations instead of four hand-rotated copies. */
   function pusherSvg(dir, odd) {
     var mount = B.opposite(dir), m = EDGE[mount];
-    var px = -DR[mount] * 36, py = DC[mount] * 36;
-    var qx = DC[dir] * 18, qy = DR[dir] * 18;
-    var reach = 32;
-    /* Ram first, plate over it: the plate stays one unbroken bar and
-       the ram reads as coming OUT of it. Drawn the other way round the
-       ram cuts the plate into two squares floating either side of it. */
+    var ux = DC[dir], uy = DR[dir];            // out from the wall
+    var vx = -uy, vy = ux;                     // along the wall
+    var HALF = 34, BACK = 4, FACE = 46, LIP = 10;
+    function pt(u, v) {
+      return (m[0] + ux * u + vx * v).toFixed(1) + " " +
+             (m[1] + uy * u + vy * v).toFixed(1);
+    }
+    function quad(u0, u1, v) {
+      return "M" + pt(u0, -v) + "L" + pt(u0, v) + "L" + pt(u1, v) + "L" + pt(u1, -v) + "Z";
+    }
     return svg(
-      '<path class="pr-ram" d="M' + m[0] + " " + m[1] + "L" +
-        (m[0] + DC[dir] * reach) + " " + (m[1] + DR[dir] * reach) + '"/>' +
-      pushHead(m[0] + DC[dir] * (reach + 24), m[1] + DR[dir] * (reach + 24), DC[dir], DR[dir], 24) +
-      '<path class="pr-ram-base" d="M' + (m[0] + px) + " " + (m[1] + py) +
-        "L" + (m[0] - px) + " " + (m[1] - py) +
-        "L" + (m[0] - px + qx) + " " + (m[1] - py + qy) +
-        "L" + (m[0] + px + qx) + " " + (m[1] + py + qy) + 'Z"/>',
+      /* the slot it comes out of, so the plate reads as emerging */
+      '<path class="pr-push-slot" d="' + quad(-2, BACK, HALF + 4) + '"/>' +
+      /* the striped deck */
+      '<path class="pr-push-deck" d="' + quad(BACK, FACE, HALF) + '"/>' +
+      /* a steel lip along the leading edge: the part that does the work */
+      '<path class="pr-push-lip" d="' + quad(FACE - LIP, FACE, HALF) + '"/>' +
+      '<path class="pr-push-edge" d="M' + pt(FACE, -HALF) + "L" + pt(FACE, HALF) + '"/>',
       "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
-  }
-
-  function pushHead(x, y, hx, hy, size) {
-    var bx = x - hx * size, by = y - hy * size;
-    var px = -hy * size * 0.85, py = hx * size * 0.85;
-    return '<path class="pr-ram-head" d="M' + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
-           "L" + x.toFixed(1) + " " + y.toFixed(1) +
-           "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + 'Z"/>';
   }
 
   /* Repair is a plate with a cross cut into it; upgrade is the same
@@ -492,10 +509,57 @@
      with walls on all four sides, which is very nearly the opposite
      of what it is. A borrowed convention that contradicts your own is
      worse than no convention. */
+  /* A pit is a hole with a barricade painted round its rim, which is
+     exactly how the printed board marks one. The frame is DIMMED: at
+     full strength the stripe is the loudest thing on the board and a
+     course of pits reads as a warning label rather than as a floor. */
   function pitSvg() {
-    return svg('<rect class="pr-shaft" x="12" y="12" width="76" height="76" rx="2"/>' +
-               '<path class="pr-shaft-2" d="M12 12L88 12L66 34L34 34Z"/>' +
-               '<rect class="pr-void-floor" x="34" y="34" width="32" height="42" rx="1"/>', "pr-pit");
+    return svg('<rect class="pr-hazard-frame" x="5" y="5" width="90" height="90" rx="3"/>' +
+               '<rect class="pr-shaft" x="16" y="16" width="68" height="68" rx="2"/>' +
+               '<path class="pr-shaft-2" d="M16 16L84 16L64 36L36 36Z"/>' +
+               '<rect class="pr-void-floor" x="36" y="36" width="28" height="38" rx="1"/>', "pr-pit");
+  }
+
+  /* A press is a ram seen from underneath: a heavy plate ringed by the
+     shaft it comes down in. A burner is the nozzle and its flame. Both
+     are stamped with the registers they act in, the way a pusher is,
+     because the timing is the whole of what makes them dangerous. */
+  /* A spill: an irregular dark pool with a slick highlight, so it reads
+     as a hazard without borrowing the pit's black hole or the danger
+     red that already means damage. Oil does no damage at all. */
+  /* A portal is a ring of teeth around a throat, and the COLOUR is the
+     whole of what matters -- a robot needs to see at a glance which
+     other square on the board this one is paired with, so the hue is
+     driven off the colour digit rather than the palette. */
+  var PORTAL_HUES = ["#a06cff", "#3fd67a", "#4aa8ff", "#ff7ad1", "#ffd166",
+                     "#ff8a5c", "#7ce0d3", "#c0c6e0", "#ff5f6d"];
+  function portalHue(n) { return PORTAL_HUES[(parseInt(n, 10) - 1) % PORTAL_HUES.length]; }
+
+  function portalSvg(n) {
+    var hue = portalHue(n);
+    return svg('<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
+               '<circle cx="50" cy="50" r="25" fill="none" stroke="' + hue + '" stroke-width="3" opacity=".65"/>' +
+               '<circle cx="50" cy="50" r="13" fill="' + hue + '" opacity=".9"/>' +
+               '<circle cx="50" cy="50" r="6" fill="var(--pr-bg)"/>', "pr-portal");
+  }
+
+  function oilSvg() {
+    return svg('<path class="pr-oil" d="M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z"/>' +
+               '<path class="pr-oil-sheen" d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>',
+               "pr-oil");
+  }
+
+  function pressSvg() {
+    return svg('<circle class="pr-shaft" cx="50" cy="50" r="37"/>' +
+               '<circle class="pr-press-ram" cx="50" cy="50" r="26"/>' +
+               '<circle class="pr-press-bolt" cx="50" cy="50" r="9"/>', "pr-press");
+  }
+
+  function burnerSvg() {
+    return svg('<rect class="pr-plate" x="30" y="62" width="40" height="24" rx="3"/>' +
+               '<path class="pr-flame" d="M50 14C62 32 70 42 70 54C70 66 61 74 50 74C39 74 30 66 30 54C30 42 38 32 50 14Z"/>' +
+               '<path class="pr-flame-core" d="M50 34C57 45 60 50 60 56C60 63 55 68 50 68C45 68 40 63 40 56C40 50 43 45 50 34Z"/>',
+               "pr-burner");
   }
 
   function dockSvg(n) {
@@ -575,10 +639,18 @@
     else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
+    else if (def.oil) out.push(oilSvg());
+    else if (def.portal) out.push(portalSvg(code.charAt(1)));
+    else if (def.crush) out.push(pressSvg());
+    else if (def.burn) out.push(burnerSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
     if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
+    if (def.crush || def.burn) {
+      var t = B.timerAt(C, c, r);
+      out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
+    }
 
     for (var fi = 0; fi < C.flags.length; fi++) {
       if (C.flags[fi].c === c && C.flags[fi].r === r) out.push(flagSvg(C.flags[fi].n));
@@ -622,12 +694,24 @@
     function bar(c, r, vertical) {
       return '<i class="pr-wall' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r + '"></i>';
     }
+    /* A door is drawn on the same lattice as a wall, in the same place,
+       and it has to say two things at once: that the way is barred and
+       that it will not always be. So it keeps the wall's bar and its
+       concrete stroke but goes hollow and amber, with the registers it
+       opens in stamped on it -- a player planning five cards ahead is
+       reading the number, not the colour. */
+    function doorBar(c, r, vertical, ch) {
+      return '<i class="pr-door' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r +
+        '" data-w="' + esc(ch === "o" ? "135" : ch === "e" ? "24" : ch) + '"></i>';
+    }
     function edgeOfCourse(c, r) { return !B.inGrid(C, c, r) || B.isVoid(C, c, r); }
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
         if (B.isVoid(C, c, r)) continue;
         if (B.wallAt(C, c, r, N)) out.push(bar(c, r, false));
+        else if (B.doorAt(C, c, r, N)) out.push(doorBar(c, r, false, B.doorAt(C, c, r, N)));
         if (B.wallAt(C, c, r, W)) out.push(bar(c, r, true));
+        else if (B.doorAt(C, c, r, W)) out.push(doorBar(c, r, true, B.doorAt(C, c, r, W)));
         if (edgeOfCourse(c, r + 1) && B.wallAt(C, c, r, S)) out.push(bar(c, r + 1, false));
         if (edgeOfCourse(c + 1, r) && B.wallAt(C, c, r, E)) out.push(bar(c + 1, r, true));
       }
@@ -861,6 +945,10 @@
       seed: seed,
       rngState: seed | 0,
       courseId: courseId,
+      /* House rules ride in the SAVE, not in localStorage, so a game
+         replays under the rules it was started with even if the setup
+         screen has been changed since. */
+      flagTouch: opts.flagTouch ? 1 : 0,
       turn: 1,
       register: 0,
       phase: "turn",
@@ -1260,7 +1348,21 @@
   /* Bots answer immediately and without consulting rnd(), same
      contract as botProgram: a seeded replay must not drift because a
      bot was offered a different number of choices. */
+  /* Keyed on the descriptor's TAG, never on a function stored in it:
+     G is pure JSON and pendingChoices goes into the save, so a closure
+     parked here would not survive a reload -- the same reason the
+     option-card queue stores ids and not callbacks. */
+  function botBoardPick(p, choice) {
+    if (choice.tag === "upgrade") return p.damage >= 2 ? 0 : 1;   // 0 repair 2, 1 take a card
+    return 0;
+  }
+
   function botPick(p, choice) {
+    /* A board question has no card to carry a preference, so the
+       preference lives with whatever asked. An upgrade site is the
+       only one so far: take the repair while it is worth taking, and
+       the card otherwise. */
+    if (!choice.optionId) return botBoardPick(p, choice);
     var def = OPTION_DEFS[choice.optionId];
     var prefer = def && def.botPrefers !== undefined ? def.botPrefers : 1;
     if (prefer >= choice.labels.length) prefer = choice.labels.length - 1;
@@ -1287,10 +1389,22 @@
      pushes the next. A wall anywhere in the chain stops EVERYTHING,
      including the robot that started the push -- which is the part
      that is easy to get wrong and changes outcomes when it is. */
+  /* Every square a robot passes THROUGH this register, not just the one
+     it stops on. Only the "crossing counts" house rule reads it, but it
+     is recorded either way: making the recording conditional on a rule
+     would mean the rule could not be changed mid-game, and a saved game
+     would carry a trail that silently depended on a setting. */
+  function tread(p) {
+    if (!p.trail) p.trail = [];
+    var last = p.trail[p.trail.length - 1];
+    if (last && last[0] === p.c && last[1] === p.r) return;
+    p.trail.push([p.c, p.r]);
+  }
+
   function stepRobot(p, dir, cause) {
     var C = UI.course, chain = [p], c = p.c, r = p.r, i;
     for (var guard = 0; guard < 10; guard++) {
-      if (B.wallAt(C, c, r, dir)) return false;
+      if (blocked(C, c, r, dir)) return false;
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) break;            // the head walks off the edge
       var occ = robotAt(nx.c, nx.r);
@@ -1303,6 +1417,8 @@
       var m = chain[i];
       var to = B.step(m.c, m.r, dir);
       m.c = to.c; m.r = to.r;
+      tread(m);
+      throughPortal(m);
       if (i > 0) {
         log(chain[i - 1].name + " shoves " + m.name + " " + B.dirName(dir));
         var pctx = fire(chain[i - 1], "onPush", { pushed: m, dir: dir, pushDamage: 0 });
@@ -1331,14 +1447,116 @@
     return { kind: "move", turn: 0, dist: k.move, lateral: 0 };
   }
 
+  /* CRASH AND BURN: portals.
+
+     A robot entering a portal comes out of the other one of the same
+     colour and carries on from there -- the pair counts as one square,
+     so this is not a move and nothing on the way is triggered twice.
+
+     What keeps it finite is the rule that a robot STANDING on a portal
+     switches both off. The robot that just arrived is standing on the
+     far one, so the pair is dead behind it and it cannot bounce back.
+     The same sentence covers the occupied case for free: if anyone is
+     already on either end, the colour is off and the entering robot
+     simply stands on what is now an ordinary square. */
+  function portalExit(p) {
+    var C = UI.course;
+    if (B.isVoid(C, p.c, p.r)) return null;
+    var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
+    if (!el || !el.portal) return null;
+    var colour = code.charAt(1), other = null;
+    for (var r = 0; r < C.h && !other; r++) {
+      for (var c = 0; c < C.w; c++) {
+        if (c === p.c && r === p.r) continue;
+        if (B.isVoid(C, c, r)) continue;
+        var cd = B.codeAt(C, c, r);
+        if (cd.charAt(0) === "t" && cd.charAt(1) === colour) { other = { c: c, r: r }; break; }
+      }
+    }
+    if (!other) return null;
+    if (occupiedBySomeoneElse(p, p.c, p.r) || occupiedBySomeoneElse(p, other.c, other.r)) return null;
+    return other;
+  }
+
+  function occupiedBySomeoneElse(p, c, r) {
+    var q = robotAt(c, r);
+    return !!(q && q !== p);
+  }
+
+  /* Called wherever a robot's position changes, so a robot reaches a
+     portal the same way whether it drove, was shoved, was carried by a
+     belt or skidded there on oil. */
+  function throughPortal(p) {
+    var to = portalExit(p);
+    if (!to) return;
+    p.c = to.c; p.r = to.r;
+    tread(p);
+    log(p.name + " drops through a portal");
+  }
+
+  /* What actually stops a robot or a beam right now. A closed swing door
+     is as solid as a wall and an open one is not there at all, so every
+     LIVE check asks this and not wallAt.
+
+     The bot's distance field and its lookahead deliberately keep asking
+     wallAt, which treats a door as passable. That is the right
+     approximation for planning: the field is computed once per course
+     and cached, so it cannot depend on a register, and a door the bot
+     could cross in some register is better modelled as open than as a
+     wall it will never try. */
+  function blocked(C, c, r, d) { return B.blockedAt(C, c, r, d, G.register); }
+
+  function onOil(p) {
+    var C = UI.course;
+    return !B.isVoid(C, p.c, p.r) && B.isOil(B.codeAt(C, p.c, p.r));
+  }
+
+  /* CRASH AND BURN: oil.
+
+     Two separate effects, and they are easy to conflate. Starting a
+     move on oil costs you a square, because the wheels spin -- a Move 3
+     carries two and a Move 1 carries none at all. ENDING a move on oil
+     makes you slide on, because you cannot stop.
+
+     The slide is not a move, which is the part the rulebook is at pains
+     about: "Ein Roboter rutscht nicht, solange er in Bewegung ist. Erst
+     wenn er seine Bewegung beendet (bremst), gerät er auf einer Öllache
+     ins Rutschen." So it happens once, after the card is finished, and
+     a robot slides only if it actually travelled -- momentum it never
+     had cannot carry it. A robot whose Move 1 was cancelled by the oil
+     stays exactly where it is.
+
+     It stops on the first square without oil, before a wall, or against
+     a robot that is NOT itself on oil. A robot that IS on the same
+     slick gets shoved along instead, which stepRobot's chain already
+     does. */
+  function oilSlide(p, dir) {
+    var C = UI.course;
+    for (var guard = 0; guard < 32; guard++) {
+      if (!p.alive || !onOil(p)) return;
+      if (blocked(C, p.c, p.r, dir)) return;
+      var nx = B.step(p.c, p.r, dir);
+      var occ = B.isVoid(C, nx.c, nx.r) ? null : robotAt(nx.c, nx.r);
+      if (occ && !onOil(occ)) return;                 // a robot with grip stops the slide
+      if (!stepRobot(p, dir, "oil")) return;
+    }
+  }
+
   function runPlan(p, plan) {
     if (plan.kind === "turn") { p.face = B.rot(p.face, plan.turn); return; }
     var dir = plan.lateral ? B.rot(p.face, plan.lateral)
             : plan.dist > 0 ? p.face : B.opposite(p.face);
     var n = Math.abs(plan.dist);
+    if (n > 0 && onOil(p)) n--;                       // wheels spin: one square less
+    var moved = 0;
     for (var i = 0; i < n; i++) {
       if (!p.alive) return;
       if (!stepRobot(p, dir, "move")) break;          // walked into a wall; the rest of the move is lost
+      moved++;
+    }
+    if (moved > 0 && p.alive && onOil(p)) {
+      log(p.name + " skids on the oil");
+      oilSlide(p, dir);
     }
   }
 
@@ -1364,7 +1582,7 @@
       if (!sp) continue;
       if (speed === 2 && sp !== 2) continue;
       var d = B.dirOf(code);
-      if (B.wallAt(C, p.c, p.r, d)) continue;         // the validator rejects these; belt and braces
+      if (blocked(C, p.c, p.r, d)) continue;         // the validator rejects these; belt and braces
       movers[p.id] = { dir: d, to: B.step(p.c, p.r, d) };
       ids.push(p.id);
     }
@@ -1391,6 +1609,8 @@
       if (!mv) continue;
       var b = G.players[ids[i]];
       b.c = mv.to.c; b.r = mv.to.r;
+      tread(b);
+      throughPortal(b);
       if (isHole(C, b.c, b.r)) { destroy(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
       /* Rotate ONLY because a belt carried the robot onto the curve.
          A robot that was already standing there, or was pushed on,
@@ -1421,6 +1641,43 @@
     }
   }
 
+  /* CRASH AND BURN.
+
+     A press destroys whatever is standing on it in the registers
+     printed on it, and a burner damages it. Both read their timing off
+     the square rather than from a rule, because the boards print a
+     different set of numbers on nearly every one.
+
+     The burner's beat is the odd one. "Die Reihenfolge, in der
+     Fabrikelemente in Aktion treten, bleibt bestehen. Mit einer
+     Ausnahme: Brenner treten direkt nach den Lasern in Aktion." --
+     every other element keeps its place and the burner alone moves to
+     after the lasers. Put it with the rest and a robot shot down to its
+     last point of damage burns before the shot that should have killed
+     it, which is the wrong robot destroyed by the wrong thing. */
+  function pressPass() {
+    var C = UI.course, alive = live();
+    for (var i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      var pel = B.elemOf(B.codeAt(C, p.c, p.r));
+      if (!pel || !pel.crush) continue;
+      if (!B.activeNow(C, p.c, p.r, G.register)) continue;
+      log(p.name + " is crushed by a press");
+      destroy(p, "under a press");
+    }
+  }
+
+  function burnerPass() {
+    var C = UI.course, alive = live();
+    for (var i = 0; i < alive.length; i++) {
+      var p = alive[i];
+      var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
+      if (!el || !el.burn || !B.activeNow(C, p.c, p.r, G.register)) continue;
+      log(p.name + " is scorched by a burner");
+      damage(p, el.burn, "burner");
+    }
+  }
+
   function pusherPass() {
     var C = UI.course, alive = live();
     // G.register is 0-based, so index 0/2/4 are the printed registers 1/3/5.
@@ -1444,7 +1701,7 @@
     pierce = pierce || 0;
     if (!skipOrigin) { hit = robotAt(c, r); if (hit) return hit; }
     for (var guard = 0; guard < C.w + C.h + 2; guard++) {
-      if (B.wallAt(C, c, r, dir)) { if (pierce <= 0) return null; pierce--; }
+      if (blocked(C, c, r, dir)) { if (pierce <= 0) return null; pierce--; }
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) return null;
       c = nx.c; r = nx.r;
@@ -1580,8 +1837,28 @@
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
+      /* "A powered-down robot is completely shut down -- it can't fire
+         weapons, tag checkpoints, or update its archive location."
+         A belt can still carry it across a flag, and it must come away
+         with nothing: no score, and no new archive either. Scoring was
+         the louder of the two, but the archive is the one that decides
+         where a robot comes back, so a silent update moves a respawn
+         the player never earned. */
+      if (p.poweredDown) continue;
       var reach = fire(p, "onTouchCheckpoint", { reach: 0 }).reach;
       var spots = [{ c: p.c, r: p.r }];
+
+      /* "Crossing it counts" (Euro): every square walked through this
+         register is a candidate, in the order it was walked, with the
+         square the robot actually stopped on considered last so the
+         archive ends up where the robot is. Off by default -- the
+         English manual wants a robot to END a register on the flag. */
+      if (G.flagTouch && p.trail && p.trail.length > 1) {
+        spots = [];
+        for (var ti = 0; ti < p.trail.length; ti++) spots.push({ c: p.trail[ti][0], r: p.trail[ti][1] });
+        spots.push({ c: p.c, r: p.r });
+      }
+
       for (var d = 0; d < 4 && reach > 0; d++) {
         var nb = B.step(p.c, p.r, d);
         if (!B.isVoid(C, nb.c, nb.r)) spots.push(nb);
@@ -1664,6 +1941,24 @@
       },
 
       deal: function () {
+        /* "Each turn begins by reshuffling the cards from the previous
+           turn and then dealing a hand of program cards to each
+           player." The deck is not a draw pile that persists across
+           turns -- every card that is not sitting in a locked register
+           is gathered and shuffled before each deal, so every turn is
+           dealt from the whole 84 minus whatever damage has pinned
+           down. Keeping a persistent pile instead quietly changed the
+           odds: a card discarded this turn was unavailable next turn
+           until the deck happened to run dry, which is not a rule
+           anyone at the table would recognise.
+
+           It also explains why draw()'s deal-short guard has never
+           fired in any simulation. Eight robots at full health need 72
+           of 84, so a deck reshuffled every turn cannot run out -- the
+           guard is defending against a state the real rules make
+           unreachable, and it stays only as a belt-and-braces. */
+        G.deck = shuffle(G.deck.concat(G.discard));
+        G.discard = [];
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
@@ -1745,6 +2040,10 @@
           if (!cd) continue;
           q.push({ id: p.id, pri: cd.pri });
         }
+        /* A new register, a new trail. It starts at where each robot
+           stands, so a robot that does not move has a trail of one and
+           behaves identically under either rule. */
+        for (var ti = 0; ti < alive.length; ti++) alive[ti].trail = [[alive[ti].c, alive[ti].r]];
         q.sort(function (a, b) { return b.pri - a.pri; });   // highest priority first
         G.exec.queue = q.map(function (x) { return x.id; });
         go("exec", "move");
@@ -1794,7 +2093,8 @@
       express: function () { return boardBeat(beltPass, 2, "belts", 300, "belt", "belt"); },
       belts: function () { return boardBeat(beltPass, 1, "pushers", 300, "belt", "belt"); },
       pushers: function () { return boardBeat(pusherPass, null, "gears", 260, "shove", "shove"); },
-      gears: function () { return boardBeat(gearPass, null, "lasers", 260, "gear", "turn"); },
+      gears: function () { return boardBeat(gearPass, null, "presses", 260, "gear", "turn"); },
+      presses: function () { return boardBeat(pressPass, null, "lasers", 300, "shove", "shove"); },
 
       lasers: function () {
         var before = boardSig();
@@ -1814,7 +2114,7 @@
         }
         if (pending) return park("exec", "lasers");
         applyLaserHits(hits);
-        go("exec", "touch");
+        go("exec", "burners");
         if (UI.headless || !UI.mounted) return NEXT;
         var hit = boardSig() !== before;
         if (!beams.length) return NEXT;
@@ -1827,6 +2127,10 @@
           { type: "wait", delay: hit ? 200 : 40 }
         ]);
       },
+
+      /* The one element that does not keep its place in the order:
+         the rules move it to directly after the lasers. */
+      burners: function () { return boardBeat(burnerPass, null, "touch", 300, "laser", "shove"); },
 
       touch: function () {
         var before = boardSig();
@@ -1856,7 +2160,7 @@
         if (G.gameOver) return NEXT;
         G.register++;
         if (G.register < REGISTERS) { go("exec", "reveal"); return NEXT; }
-        go("cleanup", "repair");
+        go("cleanup", "askRepair");
         return NEXT;
       }
     },
@@ -1864,15 +2168,59 @@
     cleanup: {
       /* Repairs happen here and only here -- never at the touch step,
          where it is tempting to fold them in. */
+      /* Asking is its own step, for the same reason the deal has one:
+         a step that can park for a question has to be safe to re-run,
+         and repairing is not -- coming back through it a second time
+         would repair twice. So this step only ever ASKS, and never
+         touches a robot; cleanup.repair then runs exactly once with
+         every answer already in hand. */
+      askRepair: function () {
+        var C = UI.course, alive = live(), pending = false;
+        for (var i = 0; i < alive.length; i++) {
+          var p = alive[i];
+          if (p.poweredDown) continue;
+          if (!upgradeSite(C, p)) continue;
+          if (askBoard(p, "upgrade", "Upgrade site",
+                "Repair 2 points of damage, or take an option card?",
+                ["Repair 2", "Option card"]) === null) pending = true;
+        }
+        if (pending) return park("cleanup", "repair");
+        go("cleanup", "repair");
+        return NEXT;
+      },
+
       repair: function () {
         var C = UI.course, alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i], el = B.elemOf(B.codeAt(C, p.c, p.r)), onFlag = false;
           for (var f = 0; f < C.flags.length; f++) if (C.flags[f].c === p.c && C.flags[f].r === p.r) onFlag = true;
+
+          /* "Robots on a repair site or checkpoint may now repair 1
+             point of damage, and robots on a two-wrench repair site may
+             either repair 2 points of damage or receive an option
+             card." (p.14, and again on pp.28 and 36.) The either/or is
+             the part this used to get wrong in both halves: it repaired
+             one point rather than two, AND handed over the card as
+             well. */
+          if (upgradeSite(C, p) && !p.poweredDown) {
+            var pick = answerFor(p, "upgrade");
+            /* null means the answer has already been spent on an
+               earlier pass, so this robot is done. Falling through on
+               null treated "already handled" as "chose the repair" and
+               repaired a second time. */
+            if (pick === null) continue;
+            if (pick === 1) {
+              drawOption(p);
+            } else {
+              var n = Math.min(2, p.damage);
+              if (n > 0) { p.damage -= n; log(p.name + " repairs " + n + " damage"); }
+            }
+            continue;
+          }
+
           if ((el && el.repair) || onFlag) {
             if (p.damage > 0) { p.damage--; log(p.name + " repairs 1 damage"); }
           }
-          if (el && el.option) drawOption(p);
         }
         go("cleanup", "stayDown");
         return NEXT;
@@ -1957,7 +2305,7 @@
     for (i = 0; i < alive.length; i++) {
       var p = alive[i];
       if (p.poweredDown) continue;
-      if (B.wallAt(C, p.c, p.r, p.face)) continue;
+      if (blocked(C, p.c, p.r, p.face)) continue;
       var nx = B.step(p.c, p.r, p.face);
       if (B.isVoid(C, nx.c, nx.r)) continue;
       var v = firstRobotAlong(p.c, p.r, p.face, true);
@@ -1969,6 +2317,48 @@
   /* Hand control to the choice queue and remember where to come back
      to. The parked step re-runs from the top once the queue drains,
      so it must be free of side effects up to the question. */
+  /* A QUESTION FROM THE BOARD, not from a card.
+     Until now only an option card could stop and ask something, through
+     ctx.pick inside fire(). But the printed rules have the factory floor
+     asking too -- an upgrade site offers a repair or a card, and it is
+     the player who chooses -- and several expansion elements ask as
+     well. So the queue that already carries card questions carries
+     board questions too, and there is one drain, one renderer and one
+     saved-game format rather than two.
+
+     Returns the answer index, or null when it has parked one. The key
+     is derived the same way a card's is, so a reload mid-question
+     lands on the same question. */
+  function askBoard(player, tag, title, prompt, labels) {
+    var key = choiceKey(player, "board", tag, "");
+    var have = G.optionAnswers[key];
+    if (have !== undefined && have !== "used") return have;
+    if (have === "used") return null;
+    for (var i = 0; i < G.pendingChoices.length; i++) if (G.pendingChoices[i].key === key) return null;
+    G.pendingChoices.push({ key: key, owner: player.id, optionId: null,
+      tag: tag, title: title, prompt: prompt, labels: labels });
+    return null;
+  }
+
+  /* The answer to a board question, once it has been given. Marked
+     used on the way out so a step that runs again cannot apply it
+     twice -- the same guard ctx.pick uses for card questions. */
+  function answerFor(player, tag) {
+    var key = choiceKey(player, "board", tag, "");
+    var have = G.optionAnswers[key];
+    if (have === undefined || have === "used") return null;
+    G.optionAnswers[key] = "used";
+    return have;
+  }
+
+  /* A two-wrench site: the one board element that offers a choice.
+     Asked in one place so the ask step and the apply step can never
+     disagree about which squares are upgrade sites. */
+  function upgradeSite(C, p) {
+    var el = B.elemOf(B.codeAt(C, p.c, p.r));
+    return !!(el && el.option);
+  }
+
   function park(phase, step) {
     G.exec.resumePhase = phase;
     G.exec.resume = step;
@@ -2363,9 +2753,18 @@
     return rows;
   }
 
-  function bench(cells, walls, lasers) {
+  /* A 2x1 board whose only feature is a swing door between the two
+     squares, open in register 3. The picture is spelled out in full
+     because the door IS a picture character, so parsing it is half of
+     what the door tests are testing. */
+  function doorBench() {
+    return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
+  }
+
+  function bench(cells, walls, lasers, timers) {
     var w = cells[0].length, h = cells.length;
-    var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls), lasers: lasers || [] });
+    var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
+      lasers: lasers || [], timers: timers || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -2667,6 +3066,334 @@
       assert(p.damage === 6, "announcing must not repair anything by itself");
       STEP.turn.powerStart();
       assert(p.damage === 0, "damage clears at the start of the powered-down turn");
+    } },
+
+    /* The powered-down shutdown rules. A belt can carry a shut-down
+       robot anywhere, so each of these is reachable in ordinary play
+       and none of them is visible when it goes wrong -- a flag scored
+       by a robot that was switched off looks exactly like a flag
+       scored by one that was not. */
+    { name: "a powered-down robot does not tag a checkpoint", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, poweredDown: true }], [{ c: 0, r: 0, n: 1 }]);
+      checkpointPass();
+      assert(G.players[0].flags === 0,
+        "manual p.29: a powered-down robot cannot tag checkpoints; it scored " + G.players[0].flags);
+    } },
+
+    { name: "a powered-down robot does not update its archive", run: function () {
+      benchGame(bench([["w."]]), [{ c: 0, r: 0, poweredDown: true,
+        archive: { c: 9, r: 9, face: 0 } }]);
+      checkpointPass();
+      assert(G.players[0].archive.c === 9,
+        "manual p.29: a powered-down robot cannot update its archive location; it moved to " +
+        G.players[0].archive.c + "," + G.players[0].archive.r);
+    } },
+
+    { name: "a powered-down robot does not acquire an option card", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, poweredDown: true }]);
+      G.optionDeck = ["brakes"];
+      G.phase = "cleanup"; G.step = "repair";
+      STEP.cleanup.repair();
+      assert(G.players[0].options.length === 0,
+        "manual p.29: a powered-down robot cannot acquire option cards; it took " +
+        G.players[0].options.length);
+    } },
+
+    /* The two-wrench site, manual pp.14, 28 and 36 -- three places say
+       the same thing, and the engine disagreed with all three. It
+       repaired one point instead of two AND dealt the card as well, so
+       it was wrong in both halves and generous in both. */
+    { name: "a two-wrench site repairs 2 when the repair is chosen", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 4 }]);
+      var p = G.players[0];
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      G.optionAnswers[G.pendingChoices[0].key] = 0;      // "Repair 2"
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(p.damage === 2, "two points, not one -- damage is " + p.damage);
+      assert(p.options.length === 0, "and NOT the card as well -- it took " + p.options.length);
+    } },
+
+    { name: "a two-wrench site gives a card instead of the repair", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 4 }]);
+      G.optionDeck = ["brakes"];
+      var p = G.players[0];
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      G.optionAnswers[G.pendingChoices[0].key] = 1;      // "Option card"
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(p.options.length === 1, "the card should have been dealt");
+      assert(p.damage === 4, "and the damage must be UNTOUCHED, it is " + p.damage);
+    } },
+
+    { name: "a one-wrench site still repairs exactly 1 and asks nothing", run: function () {
+      benchGame(bench([["w."]]), [{ c: 0, r: 0, damage: 4 }]);
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      assert(G.pendingChoices.length === 0, "a single wrench is not a choice");
+      STEP.cleanup.repair();
+      assert(G.players[0].damage === 3, "one point off, got " + (4 - G.players[0].damage));
+    } },
+
+    { name: "a parked upgrade question survives a save and does not repair twice", run: function () {
+      benchGame(bench([["W."]]), [{ c: 0, r: 0, damage: 6 }]);
+      G.phase = "cleanup"; G.step = "askRepair";
+      STEP.cleanup.askRepair();
+      var key = G.pendingChoices[0].key;
+      /* pendingChoices rides in the save, so anything parked on it has
+         to be plain JSON -- a closure here would vanish on reload. */
+      G = JSON.parse(JSON.stringify(G));
+      assert(G.pendingChoices[0].key === key, "the same question must come back with the same key");
+      G.optionAnswers[key] = 0;
+      G.pendingChoices.shift();
+      STEP.cleanup.repair();
+      assert(G.players[0].damage === 4, "repaired 2, got " + (6 - G.players[0].damage));
+      STEP.cleanup.repair();                              // a re-run must not apply it again
+      assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
+    } },
+
+    // ---- house rule: what counts as touching a flag -------------------
+    { name: "by default, crossing a flag does not touch it", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 1, r: 0, n: 1 }]);
+      G.flagTouch = 0;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move"); stepRobot(p, E, "move");
+      checkpointPass();
+      assert(p.c === 2, "the robot should have ended two squares along");
+      assert(p.flags === 0, "the English manual wants it to STOP on the flag; it scored " + p.flags);
+    } },
+
+    { name: "Euro style: crossing a flag touches it", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 1, r: 0, n: 1 }]);
+      G.flagTouch = 1;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move"); stepRobot(p, E, "move");
+      checkpointPass();
+      assert(p.flags === 1, "crossing should count under the German reading; it scored " + p.flags);
+    } },
+
+    { name: "Euro style still refuses flags out of order", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }], [{ c: 2, r: 0, n: 1 }, { c: 1, r: 0, n: 2 }]);
+      G.flagTouch = 1;
+      var p = G.players[0];
+      p.trail = [[0, 0]];
+      stepRobot(p, E, "move");                     // crosses flag 2 with flag 1 untouched
+      checkpointPass();
+      assert(p.flags === 0, "flag 2 before flag 1 must score nothing; it scored " + p.flags);
+    } },
+
+    { name: "a robot that never moves behaves the same under either rule", run: function () {
+      for (var mode = 0; mode < 2; mode++) {
+        benchGame(bench([[".."]]), [{ c: 0, r: 0 }], [{ c: 0, r: 0, n: 1 }]);
+        G.flagTouch = mode;
+        G.players[0].trail = [[0, 0]];
+        checkpointPass();
+        assert(G.players[0].flags === 1, "standing on flag 1 scores it whatever the house rule (mode " + mode + ")");
+      }
+    } },
+
+    // ---- Crash and Burn: swing doors ---------------------------------
+    { name: "a swing door blocks when shut and lets you through when open", run: function () {
+      var g = doorBench(); g.id = "bench"; g.name = "Bench"; g.flags = [];
+      assert(B.doorAt(g, 0, 0, E) === "3", "the door should parse onto the east edge of (0,0)");
+      benchGame(g, [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      G.register = 0;
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 0, "register 1: shut, so it behaves as a wall -- got c=" + p.c);
+      G.register = 2;
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 1, "register 3: open -- got c=" + p.c);
+    } },
+
+    { name: "a shut door stops a laser, an open one does not", run: function () {
+      var g = doorBench(); g.id = "bench"; g.name = "Bench"; g.flags = [];
+      benchGame(g, [{ c: 0, r: 0, face: E }, { c: 1, r: 0, face: E }]);
+      G.register = 0;
+      assert(firstRobotAlong(0, 0, E, true) === null, "a shut door should stop the beam");
+      G.register = 2;
+      assert(firstRobotAlong(0, 0, E, true) === G.players[1],
+        "an open door should let it through -- the rulebook says beams use them too");
+    } },
+
+    { name: "a door round-trips through the picture byte for byte", run: function () {
+      var g = doorBench();
+      var rows = B.gridToPic(g);
+      assert(rows[1] === " ..3.. ",
+        "written back out unchanged, got " + JSON.stringify(rows[1]));
+    } },
+
+    { name: "a door survives board rotation", run: function () {
+      var n = B.rotateGrid(doorBench(), 1), found = [];
+      for (var c = 0; c < n.w; c++) {
+        for (var r = 0; r < n.h; r++) {
+          for (var d = 0; d < 4; d++) if (B.doorAt(n, c, r, d) === "3") found.push(c + "," + r);
+        }
+      }
+      assert(found.length === 2,
+        "one door, reported from both sides, survives a quarter turn -- got " + found.join(" "));
+    } },
+
+    { name: "a door is not a wall, and a wall is not a door", run: function () {
+      var g = doorBench();
+      assert(!B.wallAt(g, 0, 0, E), "a door must not report as a wall -- pushers mount on walls");
+      assert(B.blockedAt(g, 0, 0, E, 0), "but it does block in register 1");
+      assert(!B.blockedAt(g, 0, 0, E, 2), "and not in register 3");
+    } },
+
+    // ---- Crash and Burn: portals -------------------------------------
+    { name: "a portal drops you out of its twin and you carry on", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 2 });
+      /* Move 2: into the portal at c1, out at c3, then one more square. */
+      assert(p.c === 4, "should come out of the far portal and finish the move, got c=" + p.c);
+    } },
+
+    { name: "the pair counts as one square, so a robot cannot bounce back", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 3, "one square in, straight out the other side, got c=" + p.c);
+    } },
+
+    { name: "a robot standing on a portal switches the colour off", run: function () {
+      benchGame(bench([["..", "t1", "..", "t1", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 3, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 1, "the far end is occupied, so the colour is dead and this is ordinary floor -- c=" + p.c);
+      assert(G.players[1].c === 3, "and the robot standing there is not disturbed");
+    } },
+
+    { name: "a lone portal is refused as a transcription error", run: function () {
+      var threw = false;
+      try { bench([["..", "t1", ".."]]); } catch (e) { threw = /pairs/.test(e.message); }
+      assert(threw, "a portal colour appearing once must not validate");
+    } },
+
+    // ---- Crash and Burn: oil -----------------------------------------
+    { name: "ending a move on oil slides you off it", run: function () {
+      benchGame(bench([["..", "L.", "L.", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "move", dist: 1 });
+      assert(p.c === 3, "it should slide across both oil squares and stop on the first dry one, got c=" + p.c);
+      assert(p.damage === 0, "oil does no damage");
+    } },
+
+    { name: "starting a move on oil costs a square", run: function () {
+      benchGame(bench([["L.", "..", "..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 3 });
+      assert(G.players[0].c === 2, "a Move 3 off oil carries two, got c=" + G.players[0].c);
+    } },
+
+    { name: "a Move 1 that starts on oil goes nowhere, and does not then skid", run: function () {
+      benchGame(bench([["L.", "L.", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[0].c === 0,
+        "the move is cancelled outright, and momentum it never had cannot carry it -- c=" + G.players[0].c);
+    } },
+
+    { name: "a slide stops against a robot with grip, and shoves one without", run: function () {
+      // the blocker is on dry floor: the slide stops short of it
+      benchGame(bench([["..", "L.", "L.", "..", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 3, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[0].c === 2 && G.players[1].c === 3,
+        "a robot off the oil is not shoved: " + G.players[0].c + "," + G.players[1].c);
+
+      // the blocker is on the same slick: it gets shoved along
+      benchGame(bench([["..", "L.", "L.", "L.", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: E }]);
+      runPlan(G.players[0], { kind: "move", dist: 1 });
+      assert(G.players[1].c === 4 && G.players[0].c === 3,
+        "both should slide, front one first: " + G.players[0].c + "," + G.players[1].c);
+    } },
+
+    { name: "oil does not touch rotation", run: function () {
+      benchGame(bench([["L."]]), [{ c: 0, r: 0, face: N }]);
+      var p = G.players[0];
+      runPlan(p, { kind: "turn", turn: 1 });
+      assert(p.face === E && p.c === 0 && p.r === 0, "a rotate on oil turns and stays put");
+    } },
+
+    // ---- Crash and Burn: presses and burners -------------------------
+    { name: "a timer and its square cannot drift apart", run: function () {
+      var noSet = false, orphan = false;
+      try { bench([["F."]]); } catch (e) { noSet = /no registers/.test(e.message); }
+      assert(noSet, "a burner with no timer entry must be refused");
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
+      catch (e) { orphan = /not on a press or a burner/.test(e.message); }
+      assert(orphan, "a timer pointing at plain floor must be refused");
+    } },
+
+    { name: "a press flattens what stands on it, but only in its registers", run: function () {
+      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [3] }]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 0;  pressPass();
+      assert(p.alive, "register 1 is not register 3 -- it should still be standing");
+      G.register = 2;  pressPass();
+      assert(!p.alive, "register 3 is printed on it, so this should have flattened it");
+    } },
+
+    { name: "a press fires on every register it lists, and no others", run: function () {
+      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 4] }]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 2;  pressPass();
+      assert(p.alive, "register 3 is not in {1,2,4}");
+      G.register = 3;  pressPass();
+      assert(!p.alive, "register 4 is -- the printed sets are arbitrary subsets, not odd/even");
+    } },
+
+    { name: "a burner scorches for one, in its registers only", run: function () {
+      benchGame(bench([["F."]], [], [], [{ c: 0, r: 0, regs: [2, 3, 5] }]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      G.register = 0;  burnerPass();
+      assert(p.damage === 0, "register 1 is not one of {2,3,5}");
+      G.register = 2;  burnerPass();
+      assert(p.damage === 1, "register 3 is, so one point -- got " + p.damage);
+    } },
+
+    /* The ordering rule, and the reason it is worth a test: put the
+       burner back with the other elements and a robot on its last point
+       of damage burns to death before the laser that should have
+       killed it. Same robot destroyed, different cause, and the archive
+       and the shooter's credit both follow the cause. */
+    { name: "burners fire after the lasers, not with the other elements", run: function () {
+      var order = [], seen = {};
+      for (var k in STEP.exec) seen[k] = true;
+      assert(seen.presses && seen.burners, "both steps must exist in the phase machine");
+      /* Walk the machine from gears and record where each lands. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      G.phase = "exec"; G.step = "gears";
+      for (var guard = 0; guard < 8 && G.step && G.step !== "endReg"; guard++) {
+        order.push(G.step);
+        STEP.exec[G.step]();
+      }
+      var gi = order.indexOf("gears"), pi = order.indexOf("presses"),
+          li = order.indexOf("lasers"), bi = order.indexOf("burners"),
+          ti = order.indexOf("touch");
+      assert(gi < pi && pi < li, "presses keep their place among the elements: " + order.join(" -> "));
+      assert(li < bi, "the burner must come AFTER the lasers: " + order.join(" -> "));
+      assert(bi < ti, "and before the flags are touched: " + order.join(" -> "));
+    } },
+
+    { name: "every turn is dealt from a reshuffled deck", run: function () {
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      G.deck = PROGRAM_DECK.map(function (c) { return c.id; });
+      var parked = G.deck.splice(0, 40);        // last turn's cards, face down
+      G.discard = parked;
+      G.phase = "turn"; G.step = "deal";
+      STEP.turn.deal();
+      assert(G.discard.length === 0,
+        "the previous turn's cards must be shuffled back before the deal, not left " +
+        "in a pile until the deck runs dry -- " + G.discard.length + " were still parked");
+      var pool = G.deck.length + G.players[0].hand.length;
+      assert(pool === 84, "the whole deck should be in play, got " + pool);
     } },
 
     { name: "a powered-down robot is dealt no cards", run: function () {
@@ -3404,10 +4131,10 @@
     /* Pushers: a hazard-striped ram on the wall it is bolted to. */
     /* The ram is the moving part and has to out-weigh the plate it
        comes out of, or the tile reads as a wall with a scratch on it. */
-    ".pr-pusher .pr-ram-base{fill:var(--pr-hazard);stroke:var(--pr-hazard-dark);stroke-width:3}",
-    ".pr-pusher .pr-ram{stroke:var(--pr-steel);stroke-width:30;stroke-linecap:butt}",
-    ".pr-pusher .pr-ram-head{fill:var(--pr-steel);stroke:var(--pr-steel);stroke-width:6;",
-    "stroke-linejoin:round}",
+    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.85}",
+    ".pr-pusher .pr-push-deck{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2}",
+    ".pr-pusher .pr-push-lip{fill:var(--pr-steel);opacity:.92}",
+    ".pr-pusher .pr-push-edge{stroke:var(--pr-bg);stroke-width:4;stroke-linecap:round}",
 
     ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
     ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
@@ -3416,6 +4143,9 @@
     ".pr-dock .pr-plate{fill:var(--pr-panel-alt);stroke:var(--pr-border);stroke-width:3}",
     ".pr-dock .pr-num{fill:var(--pr-dim)}",
 
+    /* Dimmed on purpose: at full strength a course of pits reads as a
+       warning label rather than as a floor with holes in it. */
+    ".pr-pit .pr-hazard-frame{fill:none;stroke:url(#pr-hz);stroke-width:9;opacity:.42}",
     ".pr-pit .pr-shaft{fill:#161c2a}",
     ".pr-pit .pr-shaft-2{fill:#20283a}",
     ".pr-pit .pr-void-floor{fill:#000}",
@@ -3426,15 +4156,37 @@
     ".pr-flag .pr-num{fill:#120c00;font-size:44px;font-weight:700}",
     ".pr-emitter .pr-mount{fill:var(--pr-danger)}",
 
-    /* The hazard stripe, shared by everything that will hurt you: the
-       face of a wall, the frame of a pit, the head of a ram. One
-       definition, so they cannot drift apart. */
+    /* The hazard stripe, now meaning "this will move or swallow you" --
+       pit rims and pusher decks -- rather than "this is solid". Walls
+       are concrete. One definition still, in two forms: a CSS gradient
+       for DOM bars and an SVG pattern for tile art, kept at the same
+       pitch so a pit rim and a pusher deck are the same stripe. */
     ".pr-root{--pr-stripe:repeating-linear-gradient(-45deg,var(--pr-hazard) 0 5px,",
-    "var(--pr-hazard-dark) 5px 10px)}",
+    "var(--pr-hazard-dark) 5px 10px);",
+    /* Concrete: aggregate, grain, and a lit top edge. Two directions so
+       a vertical wall is lit down its length rather than across it. */
+    "--pr-concrete-h:repeating-linear-gradient(64deg,rgba(255,255,255,.055) 0 1px,transparent 1px 4px),",
+    "repeating-linear-gradient(-27deg,rgba(0,0,0,.20) 0 1px,transparent 1px 5px),",
+    "linear-gradient(180deg,#99a0ad 0,#7a818e 52%,#5f6674 100%);",
+    "--pr-concrete-v:repeating-linear-gradient(64deg,rgba(255,255,255,.055) 0 1px,transparent 1px 4px),",
+    "repeating-linear-gradient(-27deg,rgba(0,0,0,.20) 0 1px,transparent 1px 5px),",
+    "linear-gradient(90deg,#99a0ad 0,#7a818e 52%,#5f6674 100%)}",
+    ".pr-defs{position:absolute;width:0;height:0;overflow:hidden}",
+    ".pr-hz-dark{fill:var(--pr-hazard-dark)}",
+    ".pr-hz-lit{fill:var(--pr-hazard)}",
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
-    ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
+    ".pr-oil .pr-oil{fill:#0a0d16;stroke:var(--pr-concrete);stroke-width:1.5;opacity:.95}",
+    ".pr-oil .pr-oil-sheen{fill:var(--pr-accent);opacity:.32}",
+    ".pr-press .pr-shaft{fill:var(--pr-bg)}",
+    ".pr-press .pr-press-ram{fill:var(--pr-concrete);stroke:var(--pr-bg);stroke-width:3}",
+    ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
+    ".pr-burner .pr-flame{fill:var(--pr-danger)}",
+    ".pr-burner .pr-flame-core{fill:var(--pr-warn)}",
+        ".pr-rule-group{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--pr-accent);",
+    "font-weight:normal;margin:14px 0 2px;border-top:1px solid var(--pr-border);padding-top:10px}",
+        ".pr-pushreg{position:absolute;left:2px;top:1px;font-size:9px;line-height:1;letter-spacing:.5px;",
     "color:var(--pr-hazard);background:var(--pr-bg);padding:1px 2px;pointer-events:none;z-index:2}",
 
     /* ---- walls ----
@@ -3448,13 +4200,35 @@
        warning is painted on, and it is what gives the bar an outside
        rather than just a colour. The shadow falls both ways, because
        the wall is standing on the line rather than against a side. */
-    ".pr-wall{position:absolute;background:var(--pr-stripe);pointer-events:none;",
-    "box-sizing:border-box;border:2px solid var(--pr-concrete);",
-    "box-shadow:0 0 6px 1px rgba(0,0,0,.7);",
+    /* A wall is POURED CONCRETE, not a hazard stripe. The stripe now
+       belongs to the things that move or swallow you -- pit rims and
+       pusher decks -- and a board where the static walls shouted the
+       same warning as the moving parts had no way to say which was
+       which. The texture is three cheap layers: fine aggregate one way,
+       coarser grain across it, and a vertical shade so the slab has a
+       lit top edge and a shadowed foot. */
+    ".pr-wall{position:absolute;background:var(--pr-concrete-h);pointer-events:none;",
+    "box-sizing:border-box;border:1px solid var(--pr-concrete-edge);",
+    "box-shadow:0 0 6px 1px rgba(0,0,0,.72);",
     "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 2);",
     "width:var(--tile);height:var(--wt)}",
     ".pr-wall.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
+    "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile);",
+    "background:var(--pr-concrete-v)}",
+
+    /* A swing door sits exactly where a wall would, so it inherits the
+       geometry and changes only what it says: hollow rather than solid,
+       amber rather than concrete, and stamped with the registers it
+       opens in. */
+    ".pr-door{position:absolute;pointer-events:none;box-sizing:border-box;",
+    "border:2px dashed var(--pr-warn);background:color-mix(in srgb, var(--pr-warn) 14%, transparent);",
+    "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 2);",
+    "width:var(--tile);height:var(--wt)}",
+    ".pr-door.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
     "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile)}",
+    ".pr-door::after{content:attr(data-w);position:absolute;left:50%;top:50%;",
+    "transform:translate(-50%,-50%);font-size:8px;line-height:1;color:var(--pr-warn);",
+    "background:var(--pr-bg);padding:0 2px;border-radius:2px;letter-spacing:.5px}",
 
     /* Beams cross tiles, so they are their own layer. --off is a
        fraction of a tile, which is what lets several parallel beams
@@ -3988,7 +4762,7 @@
       for (n = 0; n < 40; n++) {
         lit[c + "," + r] = 1;
         if (b.stopC === c && b.stopR === r) break;
-        if (B.wallAt(C, c, r, b.dir)) break;
+        if (blocked(C, c, r, b.dir)) break;
         var nx = B.step(c, r, b.dir);
         if (B.isVoid(C, nx.c, nx.r)) break;
         c = nx.c; r = nx.r;
@@ -4278,13 +5052,18 @@
       if (!host.hidden) { host.hidden = true; host.innerHTML = ""; }
       return;
     }
-    var def = OPTION_DEFS[ch.optionId], out = "<b>" + esc(def.name) + "</b> <span>" + esc(ch.prompt) + "</span>";
+    /* A board question has no option card behind it, so the heading
+       comes from the descriptor. Reading OPTION_DEFS[null].name here
+       threw and took the whole render with it. */
+    var def = ch.optionId ? OPTION_DEFS[ch.optionId] : null;
+    var title = def ? def.name : ch.title;
+    var out = "<b>" + esc(title) + "</b> <span>" + esc(ch.prompt) + "</span>";
     for (var i = 0; i < ch.labels.length; i++) {
       out += ' <button data-act="pick" data-i="' + i + '">' + esc(ch.labels[i]) + "</button>";
     }
     if (host.innerHTML !== out) {
       host.innerHTML = out;
-      announce(def.name + ". " + ch.prompt);
+      announce(title + ". " + ch.prompt);
     }
     host.hidden = false;
   }
@@ -4435,7 +5214,8 @@
     return {
       course: courseId,
       players: cfg.players, humans: cfg.humans,
-      skill: cfg.skill, startOptions: cfg.startOptions
+      skill: cfg.skill, startOptions: cfg.startOptions,
+      flagTouch: cfg.flagTouch
     };
   }
 
@@ -4640,7 +5420,21 @@
              labels: ["Scrapyard", "Circuit", "Grand Prix"],
              desc: "How far ahead the bots look when they program." },
     startOptions: { label: "Starting options", min: 0, max: 3, def: 0,
-                    desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." }
+                    desc: "Option cards each robot begins holding, instead of earning them at upgrade sites." },
+
+    /* HOUSE RULES: variants, not game size. Kept in the same table so
+       they load, save, clamp and ride in the presets exactly as the
+       others do, and separated only by which section draws them.
+
+       flagTouch exists because the books disagree. The English manual
+       is explicit that a robot must END a register phase on the flag to
+       touch it; the German Crash and Burn rulebook says a robot reaches
+       a checkpoint if it crosses it OR stays on it. Rather than pick a
+       winner between two printings of the same game, the strict reading
+       is the default and the other is offered by name. */
+    flagTouch: { label: "Touching a flag", min: 0, max: 1, def: 0, group: "house",
+                 labels: ["Must end a register on it", "Crossing it counts"],
+                 desc: "The English manual wants you to stop on a flag. The German Crash and Burn book counts crossing it. Euro style is the looser one." }
   };
 
   var DIFFICULTY_PRESETS = {
@@ -4688,7 +5482,8 @@
       players: players,
       humans: Math.min(players, clampRule("humans", h.humans)),
       skill: clampRule("skill", h.skill),
-      startOptions: clampRule("startOptions", h.startOptions)
+      startOptions: clampRule("startOptions", h.startOptions),
+      flagTouch: clampRule("flagTouch", h.flagTouch)
     };
   }
 
@@ -4731,12 +5526,16 @@
       body: "Only the ones whose registers are printed on them." },
     { phase: "exec", step: "gears", title: "Gears",
       body: "A quarter turn, the way the hub points." },
+    { phase: "exec", step: "presses", title: "Presses",
+      body: "A press flattens whatever is standing on it, in the registers printed on it. Crash and Burn boards only." },
     { phase: "exec", step: "lasers", title: "Lasers",
       body: "Board lasers and robot lasers fire at the same instant, so a robot destroyed this register still gets its shot off. Walls block. A powered-down robot does not fire." },
+    { phase: "exec", step: "burners", title: "Burners",
+      body: "A burner scorches anything standing on it, in the registers printed on it. It fires after the lasers, not with the other elements. Crash and Burn boards only." },
     { phase: "exec", step: "touch", title: "Flags and repair sites",
       body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
     { phase: "cleanup", step: "repair", title: "Repairs",
-      body: "One damage off if you end the turn on a wrench or a flag. Upgrade sites also deal an option card." },
+      body: "One damage off if you end the turn on a wrench or a flag. A two-wrench upgrade site is a choice: two damage off, or an option card." },
     { phase: "cleanup", step: "discard", title: "Discard",
       body: "Everything except the cards held in locked registers." }
   ];
@@ -4876,13 +5675,19 @@
     out.push("</div><div class='pr-rule-desc'>" +
       esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
 
+    var groups = [["setup", null], ["house", "House rules"]];
+    for (var gi = 0; gi < groups.length; gi++) {
+    var gname = groups[gi][0];
+    if (groups[gi][1]) out.push('<h3 class="pr-rule-group">' + esc(groups[gi][1]) + "</h3>");
     for (var k in SLIDER_DEFS) {
       var d = SLIDER_DEFS[k], v = houseRules[k];
+      if ((d.group || "setup") !== gname) continue;
       var shown = d.labels ? d.labels[v] : v;
       out.push('<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
         '<span class="pr-rule-val">' + esc(String(shown)) + (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>" +
         '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max + '" value="' + v + '">' +
         '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>");
+    }
     }
     var cfg = resolveConfig(houseRules);
     out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
@@ -5715,6 +6520,12 @@
     injectCSS();
     host.classList.add("pr-root");
     host.innerHTML = "";
+    /* The hazard stripe lives in ONE pattern that every tile references,
+       rather than being redrawn per tile: a pit frame and a pusher plate
+       have to be the same stripe at the same pitch or the board looks
+       like two boards. Ids are document-scoped, so this is appended
+       once and reached by url(#...) from inside any tile's svg. */
+    host.insertAdjacentHTML("beforeend", HAZARD_DEFS);
     UI.opts = opts;
 
     houseRules = loadRules();
