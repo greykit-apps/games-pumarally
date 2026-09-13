@@ -582,11 +582,29 @@
                '<circle class="pr-press-bolt" cx="50" cy="50" r="9"/>', "pr-press");
   }
 
-  function burnerSvg() {
-    return svg('<rect class="pr-plate" x="30" y="62" width="40" height="24" rx="3"/>' +
-               '<path class="pr-flame" d="M50 14C62 32 70 42 70 54C70 66 61 74 50 74C39 74 30 66 30 54C30 42 38 32 50 14Z"/>' +
-               '<path class="pr-flame-core" d="M50 34C57 45 60 50 60 56C60 63 55 68 50 68C45 68 40 63 40 56C40 50 43 45 50 34Z"/>',
-               "pr-burner");
+  /* A JET, NOT A SQUARE.
+
+     The printed board draws a flamethrower as a nozzle block bolted to a
+     wall with the fire thrown across the floor in front of it -- which is
+     why the nozzle and the fire are drawn separately here. `nozzle` is
+     true on the square the block stands in, false on the second square of
+     a two-square jet, where there is fire and no hardware.
+
+     Everything is drawn pointing SOUTH and rotated, so one shape serves
+     all four facings and the flame's taper stays correct in each. */
+  function burnerSvg(dir, nozzle) {
+    var deg = (dir - 2) * 90;
+    var art = "";
+    if (nozzle) {
+      art += '<rect class="pr-jet-mount" x="26" y="2" width="48" height="13" rx="3"/>' +
+             '<rect class="pr-jet-neck" x="38" y="13" width="9" height="10"/>' +
+             '<rect class="pr-jet-neck" x="53" y="13" width="9" height="10"/>';
+    }
+    /* Two cones and a body, widening away from the wall: the fire is
+       thrown, and a symmetrical blob would read as a puddle. */
+    art += '<path class="pr-flame" d="M42 20C30 44 22 56 22 68C22 84 34 94 50 94C66 94 78 84 78 68C78 56 70 44 58 20C56 40 44 40 42 20Z"/>' +
+           '<path class="pr-flame-core" d="M50 46C58 60 62 66 62 72C62 81 57 87 50 87C43 87 38 81 38 72C38 66 42 60 50 46Z"/>';
+    return svg('<g transform="rotate(' + deg + ' 50 50)">' + art + "</g>", "pr-burner");
   }
 
   function dockSvg(n) {
@@ -655,6 +673,10 @@
     else if (code.charAt(0) === "s") cls.push("pr-t-dock");
     /* Added, never instead-of: a pusher is on the wall, so the square
        under it keeps its own class and can be a conveyor. */
+    if (B.burnerAt(C, c, r)) {
+      if (cls.indexOf("pr-has") < 0) cls.push("pr-has");
+      cls.push("pr-t-burner");
+    }
     if (B.pusherAt(C, c, r)) {
       if (cls.indexOf("pr-has") < 0) cls.push("pr-has");
       cls.push("pr-t-pusher");
@@ -673,9 +695,18 @@
     else if (def.oil) out.push(oilSvg());
     else if (def.portal) out.push(portalSvg(code.charAt(1)));
     else if (def.crush) out.push(pressSvg());
-    else if (def.burn) out.push(burnerSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
+
+    /* Burners, like pushers, are drawn from the board's list over the
+       tile, because the floor a jet plays over is its own thing -- and on
+       a two-square jet the far square has fire and no nozzle at all. */
+    var fj = B.burnerAt(C, c, r);
+    if (fj) {
+      var isNozzle = fj.c === c && fj.r === r;
+      out.push(burnerSvg(fj.d, isNozzle));
+      if (isNozzle) out.push('<span class="pr-pushreg">' + esc(fj.regs.join("")) + "</span>");
+    }
 
     /* Pushers are drawn from the board's list, over the tile, because
        the tile beneath one can be anything -- including a conveyor. */
@@ -684,7 +715,7 @@
       out.push(pusherSvg(pu.d, true));
       out.push('<span class="pr-pushreg">' + esc(pu.regs.join("")) + "</span>");
     }
-    if (def.crush || def.burn) {
+    if (def.crush) {
       var t = B.timerAt(C, c, r);
       out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
     }
@@ -1732,10 +1763,12 @@
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
-      var code = B.codeAt(C, p.c, p.r), el = B.elemOf(code);
-      if (!el || !el.burn || !B.activeNow(C, p.c, p.r, G.register)) continue;
+      /* A jet is bolted to a wall and plays over the floor in front of it,
+         so this asks whether the robot is IN the fire, not whether it is
+         standing on the nozzle. One jet on board G reaches two squares. */
+      if (!B.burnerFires(C, p.c, p.r, G.register)) continue;
       log(p.name + " is scorched by a burner");
-      damage(p, el.burn, "burner");
+      damage(p, 1, "burner");
     }
   }
 
@@ -2869,10 +2902,11 @@
     return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
   }
 
-  function bench(cells, walls, lasers, timers, pushers) {
+  function bench(cells, walls, lasers, timers, pushers, burners) {
     var w = cells[0].length, h = cells.length;
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
-      lasers: lasers || [], timers: timers || [], pushers: pushers || [] });
+      lasers: lasers || [], timers: timers || [], pushers: pushers || [],
+      burners: burners || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -3691,10 +3725,10 @@
     // ---- Crash and Burn: presses and burners -------------------------
     { name: "a timer and its square cannot drift apart", run: function () {
       var noSet = false, orphan = false;
-      try { bench([["F."]]); } catch (e) { noSet = /no registers/.test(e.message); }
-      assert(noSet, "a burner with no timer entry must be refused");
+      try { bench([["X."]]); } catch (e) { noSet = /no registers/.test(e.message); }
+      assert(noSet, "a press with no timer entry must be refused");
       try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
-      catch (e) { orphan = /not on a press or a burner/.test(e.message); }
+      catch (e) { orphan = /not on a press/.test(e.message); }
       assert(orphan, "a timer pointing at plain floor must be refused");
     } },
 
@@ -3772,12 +3806,111 @@
     } },
 
     { name: "a burner scorches for one, in its registers only", run: function () {
-      benchGame(bench([["F."]], [], [], [{ c: 0, r: 0, regs: [2, 3, 5] }]), [{ c: 0, r: 0 }]);
+      var jet = [{ c: 0, r: 0, d: "E", regs: [2, 3, 5] }];
+      benchGame(bench([["..", ".."]], ["0,0,W"], [], [], [], jet), [{ c: 0, r: 0 }]);
       var p = G.players[0];
       G.register = 0;  burnerPass();
       assert(p.damage === 0, "register 1 is not one of {2,3,5}");
       G.register = 2;  burnerPass();
       assert(p.damage === 1, "register 3 is, so one point -- got " + p.damage);
+    } },
+
+    { name: "a flame jet burns the floor in front of it, not the wall it is on", run: function () {
+      /* The whole point of taking burners out of the picture. A jet is
+         bolted to a wall; the square it scorches is ordinary floor and
+         can be anything, including a conveyor. */
+      var jet = [{ c: 0, r: 0, d: "E", regs: [1] }];
+      var g = bench([["b>", "..", ".."]], ["0,0,W"], [], [], [], jet);
+      assert(B.beltSpeed(B.codeAt(g, 0, 0)) === 1, "the square under the nozzle is still a conveyor");
+      assert(B.burnerAt(g, 0, 0), "and is still in the fire");
+      assert(!B.burnerAt(g, 1, 0), "a one-square jet does not reach the next square");
+      benchGame(g, [{ c: 1, r: 0 }]);
+      G.register = 0; burnerPass();
+      assert(G.players[0].damage === 0, "a robot one square past a one-square jet is not burned");
+    } },
+
+    { name: "a two-square jet burns both squares", run: function () {
+      /* Board G prints one: the cones fill the square the nozzle stands
+         in and the fire lands in the next. Nothing in a single cell
+         could ever have said that, which is why reach is a number. */
+      var jet = [{ c: 0, r: 0, d: "E", regs: [1, 4], len: 2 }];
+      var g = bench([["..", "..", ".."]], ["0,0,W"], [], [], [], jet);
+      assert(B.burnerAt(g, 0, 0) && B.burnerAt(g, 1, 0), "both squares are in the fire");
+      assert(!B.burnerAt(g, 2, 0), "the third is not");
+      benchGame(g, [{ c: 0, r: 0 }, { c: 1, r: 0 }, { c: 2, r: 0 }]);
+      G.register = 0; burnerPass();
+      assert(G.players[0].damage === 1, "the nozzle square burns");
+      assert(G.players[1].damage === 1, "so does the square it reaches");
+      assert(G.players[2].damage === 0, "and nothing beyond it");
+      G.register = 1; burnerPass();
+      assert(G.players[0].damage === 1, "register 2 is not one of {1,4}");
+    } },
+
+    { name: "a jet survives rotation and reaches the same way round", run: function () {
+      /* Every shipped course uses rot 0, so a rotation that dropped the
+         jets -- or turned them without turning their reach -- would play
+         correctly on every board we have and wrongly on the first one
+         that turns. The two-square jet is the one that proves reach
+         rotated with direction rather than staying on an axis. */
+      var g = B.parsePic("boardG", B.BOARD_SPECS.boardG);
+      var t = B.rotateGrid(g, 1);
+      assert(g.burners.length === 7, "test fixture moved: board G should have seven jets");
+      assert(t.burners.length === 7, "a quarter turn lost " + (7 - t.burners.length) + " jet(s)");
+
+      // the two-square jet at (3,3) throwing west lands at (8,3) throwing north
+      var src = null, dst = null;
+      for (var i = 0; i < g.burners.length; i++) if (g.burners[i].len === 2) src = g.burners[i];
+      assert(src && src.c === 3 && src.r === 3 && src.d === W, "fixture: the long jet is (3,3) west");
+      for (var j = 0; j < t.burners.length; j++) if (t.burners[j].len === 2) dst = t.burners[j];
+      assert(dst, "the long jet must survive the turn still two squares long");
+      assert(dst.c === 8 && dst.r === 3, "it should land at (8,3), landed at (" + dst.c + "," + dst.r + ")");
+      assert(dst.d === N, "and throw north, throws " + dst.d);
+      assert(B.wallAt(t, dst.c, dst.r, B.opposite(dst.d)), "and must still have a wall behind it");
+      assert(B.burnerAt(t, 8, 2), "and its second square must be the one it now points at");
+
+      var back = B.rotateGrid(g, 4);
+      assert(JSON.stringify(back.burners) === JSON.stringify(g.burners),
+        "four quarter turns must put every jet back where it started");
+    } },
+
+    { name: "a course carries every board's jets", run: function () {
+      /* The sparse layers have to be stamped as well as the picture, and
+         a course that quietly dropped them would still assemble, still
+         validate and still play -- just without the fire. */
+      var C = B.buildCourse("boardGRun");
+      var g = B.parsePic("boardG", B.BOARD_SPECS.boardG);
+      assert(g.burners.length === 7, "test fixture moved");
+      assert(C.burners.length === g.burners.length,
+        "the course should carry all " + g.burners.length + " jets, has " + C.burners.length);
+      for (var i = 0; i < g.burners.length; i++) {
+        var F = g.burners[i], at = B.burnerAt(C, F.c, F.r);
+        assert(at, "the jet at (" + F.c + "," + F.r + ") is missing from the course");
+        assert(at.d === F.d && at.len === F.len && at.regs.join("") === F.regs.join(""),
+          "and arrived pointing, reaching or firing differently");
+      }
+      /* And the long one still reaches two squares once stamped. */
+      assert(B.burnerAt(C, 2, 3), "the two-square jet must still cover (2,3) in the course");
+    } },
+
+    { name: "a jet with nothing to mount on, or nothing to reach, is refused", run: function () {
+      function refused(cells, walls, jet, want) {
+        var msg = null;
+        try { B.validateGrid("bench", bench(cells, walls, [], [], [], jet), function () {}); }
+        catch (e) { msg = e.message; }
+        return msg !== null && want.test(msg);
+      }
+      assert(refused([["..", ".."]], [], [{ c: 0, r: 0, d: "E", regs: [1] }],
+        /no wall behind it to mount on/), "a jet in open floor must be refused");
+      /* Reach two with a wall in the way: the fire would be painted
+         through something solid. */
+      assert(refused([["..", ".."]], ["0,0,W", "0,0,E"],
+        [{ c: 0, r: 0, d: "E", regs: [1], len: 2 }],
+        /a wall stops it at one/), "a walled-off second square must be refused");
+      /* Reach two off the edge of the board. */
+      assert(refused([[".."]], ["0,0,W"], [{ c: 0, r: 0, d: "E", regs: [1], len: 2 }],
+        /the second is off the board/), "a second square off the board must be refused");
+      assert(refused([["..", ".."]], ["0,0,W"], [{ c: 0, r: 0, d: "E", regs: [1], len: 3 }],
+        /reach 1 or 2/), "a three-square jet must be refused");
     } },
 
     /* The ordering rule, and the reason it is worth a test: put the
@@ -4646,8 +4779,10 @@
     ".pr-press .pr-shaft{fill:var(--pr-bg)}",
     ".pr-press .pr-press-ram{fill:var(--pr-concrete);stroke:var(--pr-bg);stroke-width:3}",
     ".pr-press .pr-press-bolt{fill:var(--pr-danger)}",
-    ".pr-burner .pr-flame{fill:var(--pr-danger)}",
+    ".pr-burner .pr-flame{fill:var(--pr-danger);opacity:.92}",
     ".pr-burner .pr-flame-core{fill:var(--pr-warn)}",
+    ".pr-burner .pr-jet-mount{fill:var(--pr-steel)}",
+    ".pr-burner .pr-jet-neck{fill:var(--pr-steel)}",
         /* A course button is a PICTURE of the board with its name under it.
        The thumbnail reuses the board renderer, so it cannot drift. */
     ".pr-course{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 5px}",
@@ -6446,6 +6581,9 @@
        square under one is a separate thing that can be a conveyor. */
     out.push("<tr><td>" + legendSwatch(pusherSvg(E, true)) + "</td><td>pusher</td><td>" +
       "Shoves you one square, on the registers stamped beside it.</td></tr>");
+    out.push("<tr><td>" + legendSwatch(burnerSvg(S, true)) + "</td><td>flame jet</td><td>" +
+      "Bolted to a wall and thrown across the floor. 1 damage on the registers " +
+      "stamped beside it. Most cover one square; a few reach two.</td></tr>");
     out.push("<tr><td>" + legendSwatch(flagSvg(1)) + "</td><td>flag</td><td>" +
       "Touch them in order. Touching one out of order still moves your archive.</td></tr>");
     out.push("<tr><td>" + legendSwatch(emitterSvg(S)) + "</td><td>board laser</td><td>" +
@@ -6738,7 +6876,13 @@
          1/2/3/4/5 and 2/3/4/5, so the tool has to be able to say any
          subset and the parities are just two of them. */
       pushRegs: [1, 3, 5],
-      mode: "tile",              // tile | wall | laser | pusher
+      /* A jet's registers and how far it throws. Separate from the
+         pusher's set because the two are placed in different passes and
+         sharing one would silently carry a pusher's parity onto a
+         flamethrower. */
+      burnRegs: [2, 4],
+      burnLen: 1,
+      mode: "tile",              // tile | wall | laser | pusher | burner
       underlay: null,            // an object URL, never exported
       opacity: 0.5,
       /* Comparing a trace with a photograph through 50% of each turns
@@ -6764,7 +6908,8 @@
         name: ED.grid.name, notes: ED.grid.notes,
         pic: B.gridToPic(ED.grid),
         lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
-        pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; })
+        pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+        burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; })
       }));
     } catch (e) {}
   }
@@ -6773,7 +6918,8 @@
     try {
       var s = JSON.parse(localStorage.getItem(ED_KEY) || "null");
       if (!s || !s.pic) return null;
-      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [], pushers: s.pushers || [] });
+      var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [],
+                                 pushers: s.pushers || [], burners: s.burners || [] });
       g.name = s.name || "New Board"; g.notes = s.notes || ""; g.origin = "transcribed"; g.flags = [];
       return edState(g, s.id);
     } catch (e) { return null; }
@@ -6909,6 +7055,7 @@
     out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
     out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
     out.push('<button data-act="edmode" data-m="pusher"' + (ED.mode === "pusher" ? ' class="on"' : "") + ">Pushers</button>");
+    out.push('<button data-act="edmode" data-m="burner"' + (ED.mode === "burner" ? ' class="on"' : "") + ">Burners</button>");
     out.push("</div>");
 
     /* A pusher is bolted to a wall and the square under it is its own
@@ -6922,6 +7069,21 @@
     }
     out.push('<button data-act="edpreset" data-p="odd">1/3/5</button>');
     out.push('<button data-act="edpreset" data-p="even">2/4</button>');
+    out.push("</div>");
+
+    /* A jet is wall-mounted like a ram, so it is a mode too -- and it has
+       one thing a ram does not: most cover one square and a few reach a
+       second, which no tile could ever have said. */
+    out.push('<div class="pr-ed-row"><span>Jet fires in</span>');
+    for (var bg = 1; bg <= 5; bg++) {
+      out.push('<button data-act="edbreg" data-n="' + bg + '"' +
+        (ED.burnRegs.indexOf(bg) >= 0 ? ' class="on"' : "") + ">" + bg + "</button>");
+    }
+    out.push('<span>Reaches</span>');
+    for (var bl = 1; bl <= 2; bl++) {
+      out.push('<button data-act="edblen" data-n="' + bl + '"' +
+        (ED.burnLen === bl ? ' class="on"' : "") + ">" + bl + (bl === 1 ? " square" : " squares") + "</button>");
+    }
     out.push("</div>");
 
     out.push('<div class="pr-ed-row"><span>Facing</span>');
@@ -7006,6 +7168,17 @@
       }
       if (found >= 0) ED.grid.lasers.splice(found, 1);
       if (!erase && found < 0) ED.grid.lasers.push({ c: hit.c, r: hit.r, d: ED.dir, n: ED.laserN });
+    } else if (ED.mode === "burner") {
+      var ff = -1;
+      for (var f = 0; f < ED.grid.burners.length; f++) {
+        if (ED.grid.burners[f].c === hit.c && ED.grid.burners[f].r === hit.r) ff = f;
+      }
+      if (ff >= 0) ED.grid.burners.splice(ff, 1);
+      if (!erase && ff < 0) {
+        if (!ED.burnRegs.length) { announce("Pick at least one register for the jet first."); return; }
+        ED.grid.burners.push({ c: hit.c, r: hit.r, d: ED.dir,
+                               regs: ED.burnRegs.slice().sort(), len: ED.burnLen });
+      }
     } else if (ED.mode === "pusher") {
       var fu = -1;
       for (var u = 0; u < ED.grid.pushers.length; u++) {
@@ -7140,6 +7313,14 @@
       ED.mode = "pusher";
       edRenderPanel();
     }
+    else if (a === "edbreg") {
+      var bn = parseInt(b.dataset.n, 10), bat = ED.burnRegs.indexOf(bn);
+      if (bat >= 0) ED.burnRegs.splice(bat, 1); else ED.burnRegs.push(bn);
+      ED.burnRegs.sort();
+      ED.mode = "burner";
+      edRenderPanel();
+    }
+    else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); ED.mode = "burner"; edRenderPanel(); }
     else if (a === "edsolo") { ED.soloLatch = !ED.soloLatch; edSoloPaint(); edRenderPanel(); }
     else if (a === "edop") { ED.opacity = parseInt(b.value, 10) / 100; edRender(); }
     else if (a === "edscale") { ED.uScale = parseInt(b.value, 10) / 100; edRender(); }
@@ -7164,7 +7345,8 @@
     if (ED.errors.length) { announce("Fix the board first: " + ED.errors[0]); edRenderPanel(); return; }
     var spec = { w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), name: ED.grid.name, origin: "authored",
                  lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
-                 pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }) };
+                 pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+                 burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }) };
     B.BOARD_SPECS.__editorTest = spec;
     var spots = [];
     for (var r = 0; r < ED.grid.h && spots.length < 3; r++) {
