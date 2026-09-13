@@ -1398,8 +1398,8 @@
   function optionCardHtml(id) {
     var def = OPTION_DEFS[id];
     if (!def) return "";
-    return '<span class="pr-opt" tabindex="0" role="img" title="' + esc(def.text) +
-      '" aria-label="' + esc(def.name + ". " + def.text) + '">' +
+    return '<span class="pr-opt" tabindex="0" role="img"' + tipAttr(def.text) +
+      ' aria-label="' + esc(def.name + ". " + def.text) + '">' +
       optionArt(id) + "<b>" + esc(def.name) + "</b></span>";
   }
 
@@ -4268,8 +4268,12 @@
           ids[i] + " does not put its name on the face of the card");
         assert(/<svg[^>]*class="pr-oart"/.test(html), ids[i] + " has no art on the card");
         assert(/<(path|circle)\b/.test(html), ids[i] + " draws an empty picture");
-        assert(html.indexOf('title="' + esc(def.text) + '"') >= 0,
+        assert(html.indexOf('data-tip="' + esc(def.text) + '"') >= 0,
           ids[i] + " does not show its effect on the hover");
+        /* Not the native tooltip. Carrying both draws two panels, one
+           of them unstyled and a second late. */
+        assert(html.indexOf("title=") < 0,
+          ids[i] + " still carries a title attribute, so the browser draws its own tooltip too");
         assert(html.indexOf('aria-label="' + esc(def.name + ". " + def.text) + '"') >= 0,
           ids[i] + " does not say what it does to anything but a pointer");
       }
@@ -4281,6 +4285,29 @@
        a player who cannot reach the decision cannot play the rule.
        Both of these were reachable for a bot and unreachable for a
        person, which is the kind of gap no simulation can find. */
+
+    { name: "the tooltip is styled, floats above everything, and reaches a keyboard", run: function () {
+      /* The whole reason for not using title=. A native tooltip cannot
+         be styled, waits about a second, never appears for a keyboard,
+         and does not exist on a touch screen. Each of those is checked
+         against the thing that would have to be true for it. */
+      var css = CSS;                 // already joined where it is declared
+      assert(/\.pr-tip\{[^}]*position:fixed/.test(css),
+        "the tip is not fixed, so a scrolling box will clip it");
+      var z = /\.pr-tip\{[^}]*z-index:(\d+)/.exec(css);
+      assert(z && +z[1] > 50,
+        "the tip sits at or below the curtain, so it would be hidden by one");
+      /* Matched against the LISTENER, not the word. Looking for the
+         bare name passed a build whose pointerover handler had been
+         renamed away, because the comment above it still said
+         "pointerover". */
+      var src = String(wireTips);
+      assert(/addEventListener\(\s*"focusin"/.test(src), "the tip never opens for a keyboard");
+      assert(/addEventListener\(\s*"pointerover"/.test(src), "the tip never opens for a pointer");
+      /* A tip is data -- option card text today, anything tomorrow. */
+      assert(/textContent/.test(String(showTip)) && !/innerHTML/.test(String(showTip)),
+        "the tip writes its text as markup");
+    } },
 
     { name: "a powered-down human is asked whether to stay down", run: function () {
       /* p.28: "Before cards are dealt for the next turn, a player may
@@ -8672,6 +8699,14 @@
     "stroke-linejoin:round;fill:none}",
     ".pr-oart .pr-ofill{fill:currentColor;stroke:none}",
     ".pr-optcell{width:86px}",
+    /* Above the modal and the curtain, because the things it explains
+       can sit on either. */
+    ".pr-tip{position:fixed;z-index:60;max-width:220px;pointer-events:none;",
+    "background:var(--pr-panel-alt);color:var(--pr-text);border:1px solid var(--pr-border);",
+    "border-top:2px solid var(--pr-warn);padding:5px 7px;font-size:11px;line-height:1.35;",
+    "box-shadow:0 6px 18px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);",
+    "transition:opacity .12s ease,transform .12s ease}",
+    ".pr-tip.pr-on{opacity:1;transform:none}",
 
     /* ---- banner ---- */
     ".pr-banner{width:100%;text-align:center;padding:10px;border:1px solid var(--pr-warn);",
@@ -10476,6 +10511,7 @@
       showWizard();
     });
     root.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") hideTip();
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (modalOpen()) {
@@ -10530,6 +10566,103 @@
         onNewGame();
       }
     });
+
+    wireTips(root);
+  }
+
+  /* ============================================================
+     TOOLTIPS
+
+     One floating panel, one set of delegated listeners, and one
+     attribute: anything carrying data-tip gets the same explanation
+     in the same place. That is the whole reason not to use title=.
+     The native tooltip cannot be styled, waits about a second before
+     it appears, never shows for a keyboard, and on a touch screen
+     does not exist at all -- so a card whose only explanation is a
+     title is a card half the people holding it cannot read.
+
+     The panel is position:fixed and lives on the host rather than in
+     the thing it describes, because the things worth explaining sit
+     inside scrolling boxes -- the help table is one -- and a tip
+     parented inside one is clipped by it.
+
+     The text goes in with textContent, never innerHTML. A tip is
+     data: option card text today, and whatever carries the attribute
+     next.
+     ============================================================ */
+  var TIP_GAP = 8;              // clearance between the panel and its anchor
+
+  function tipAttr(text) {
+    return ' data-tip="' + esc(text) + '"';
+  }
+
+  function tipEl() {
+    if (UI.tipEl && UI.tipEl.parentNode) return UI.tipEl;
+    var host = (UI.els && UI.els.host) || document.body;
+    var t = document.createElement("div");
+    t.className = "pr-tip";
+    t.setAttribute("role", "tooltip");
+    t.hidden = true;
+    host.appendChild(t);
+    UI.tipEl = t;
+    return t;
+  }
+
+  function showTip(anchor) {
+    var text = anchor && anchor.getAttribute && anchor.getAttribute("data-tip");
+    if (!text) return;
+    var t = tipEl();
+    t.textContent = text;
+    t.hidden = false;
+    t.classList.remove("pr-on");
+    /* Measured after the text is in and before it is placed: an empty
+       panel measures as an empty panel, and the flip below needs the
+       height this text actually takes. */
+    var box = anchor.getBoundingClientRect(), tb = t.getBoundingClientRect();
+    var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    var top = box.top - tb.height - TIP_GAP;
+    if (top < 4) top = box.bottom + TIP_GAP;                 // no room above: go below
+    if (top + tb.height > vh - 4) top = Math.max(4, vh - 4 - tb.height);
+    var left = box.left + box.width / 2 - tb.width / 2;
+    if (left < 4) left = 4;
+    if (left + tb.width > vw - 4) left = Math.max(4, vw - 4 - tb.width);
+    t.style.left = Math.round(left) + "px";
+    t.style.top = Math.round(top) + "px";
+    t.classList.add("pr-on");
+    UI.tipFor = anchor;
+  }
+
+  function hideTip() {
+    if (!UI.tipEl) return;
+    UI.tipEl.classList.remove("pr-on");
+    UI.tipEl.hidden = true;
+    UI.tipFor = null;
+  }
+
+  function wireTips(root) {
+    /* pointerover/out rather than mouseenter, because one delegated
+       pair covers every element that will ever carry the attribute --
+       including ones that do not exist yet. */
+    root.addEventListener("pointerover", function (e) {
+      var a = e.target.closest && e.target.closest("[data-tip]");
+      if (a !== UI.tipFor) { hideTip(); if (a) showTip(a); }
+    });
+    root.addEventListener("pointerout", function (e) {
+      var a = e.target.closest && e.target.closest("[data-tip]");
+      if (a && a === UI.tipFor && !(e.relatedTarget && a.contains(e.relatedTarget))) hideTip();
+    });
+    /* A keyboard gets the same panel. This is the half a title
+       attribute never had. */
+    root.addEventListener("focusin", function (e) {
+      var a = e.target.closest && e.target.closest("[data-tip]");
+      hideTip(); if (a) showTip(a);
+    });
+    root.addEventListener("focusout", function () { hideTip(); });
+    /* Anything that moves the anchor out from under the panel. */
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("scroll", hideTip, true);
+      window.addEventListener("resize", hideTip);
+    }
   }
 
   /* ============================================================
