@@ -1037,6 +1037,74 @@
       ]
     },
 
+    /* THE THIRD CRASH AND BURN BOARD, and the one the expansion was
+       really built for: every element the 1997 box added is on it.
+
+       Two pairs of portals -- violet and green -- eight flamethrowers
+       on register sets of their own, four oil spills of nineteen
+       squares between them, four pits and four tool plates. Unlike E
+       and F it carries NO perimeter wall at all; every wall on it is
+       interior, and six of those are the bars the flamethrowers are
+       bolted to.
+
+       Read by measurement and then verified square by square in the
+       board workshop against the rectified photograph. Three things
+       nearly escaped the automated pass and are worth knowing about if
+       G ever needs re-reading. The violet portals are small enough
+       against their tile that the tile's MEAN colour is not violet at
+       all -- only a per-pixel test finds them. Two of the pits were
+       swallowed by the oil filter, because a pit is dark too; what
+       separates them is the hazard border on the rim. And all four
+       tool plates were missed outright, and were found by rendering a
+       labelled grid and reading it.
+
+       The 2/3/5 flame spans two squares -- nozzle in one, blob in the
+       next -- so both are burner squares here, each with the same
+       register set. */
+    boardG: {
+      name: "Board G", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board; verified by hand against the photograph.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. .. .. b> b^ .. .. .. b^ w. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< o. .. .. L. .. .. .. .. t2 L. b< ",
+        "+  +  +--+--+  +  +  +  +--+  +  +  +",
+        " .. t1|.. .. L. .. o. .. F. .. L. .. ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. .. F. F.|L. .. .. .. ..|F.|.. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. L. bv b< b< L. L. .. W. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< b< .. .. L. bv .. b^ b< .. .. bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> b^ .. W. .. b> b> b> b^ .. .. b> ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. .. .. .. L. L. L. L. F. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " .. w.|F.|.. .. .. .. .. ..|F.|t1 .. ",
+        "+  +  +  +--+  +  +  +  +  +  +  +  +",
+        " .. .. t2 F. .. o. .. L. .. ..|.. .. ",
+        "+  +  +  +--+  +  +  +  +--+  +  +  +",
+        " b> .. L. L. L. .. .. L. .. .. o. b> ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. .. .. bv b< L. .. .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: []
+      ,
+      timers: [
+        { c: 8, r: 2, regs: [1, 3, 5] },
+        { c: 2, r: 3, regs: [2, 3, 5] },
+        { c: 3, r: 3, regs: [2, 3, 5] },
+        { c: 9, r: 3, regs: [2, 4] },
+        { c: 8, r: 7, regs: [2, 3, 4] },
+        { c: 2, r: 8, regs: [2, 3] },
+        { c: 9, r: 8, regs: [1, 5] },
+        { c: 3, r: 9, regs: [1, 3, 5] }
+      ]
+    },
+
     pitMaze: {
       name: "Pit Maze", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1265,6 +1333,18 @@
       boards: [{ id: "boardF", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[3, 0], [11, 6], [5, 11]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    /* Flags ours, not the printed course. All three on plain floor and
+       clear of the spills, so reaching one is not a matter of luck with
+       an oil slide. */
+    boardGRun: {
+      name: "Board G Run",
+      blurb: "Portals, flamethrowers and four spills of oil.",
+      boards: [{ id: "boardG", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[2, 1], [10, 5], [6, 10]],
       minPlayers: 2, maxPlayers: 8
     },
 
