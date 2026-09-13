@@ -104,7 +104,7 @@
      ============================================================ */
   var ELEMENT_DEFS = {
     ".": { name: "floor", arg: "none", editions: BOTH },
-    "o": { name: "pit", arg: "none", editions: BOTH },
+    "o": { name: "pit", arg: "none", pit: true, editions: BOTH },
     "b": { name: "conveyor", arg: "dir", belt: 1, editions: BOTH },
     "B": { name: "express conveyor", arg: "dir", belt: 2, editions: BOTH },
     "l": { name: "gear (counter-clockwise)", arg: "none", gear: -1, editions: BOTH },
@@ -143,10 +143,66 @@
        live in `burners`, beside the picture. */
     "w": { name: "repair site", arg: "none", repair: 1, editions: ["classic"] },
     "W": { name: "upgrade site", arg: "none", repair: 2, option: true, editions: ["classic"] },
-    "s": { name: "docking bay", arg: "digit", editions: BOTH }
+    "s": { name: "docking bay", arg: "digit", editions: BOTH },
+
+    /* ------------------------------------------------------------
+       THE 2016 GAME, and its expansions.
+
+       These are SQUARES, which is why they are here and the pushers,
+       presses and jets are not. Belts, gears, pits and walls carry
+       over from the classic boards unchanged -- the 2016 board prints
+       green and blue belts, which are the same one-space and
+       two-space conveyors under different paint -- so the only new
+       cells are the ones the older game had no equivalent of.
+
+       Their EFFECTS are not built yet, and the modern ruleset is
+       marked so. A board carrying one can be drawn, validated and
+       saved; it cannot be raced until the rules arrive. That is the
+       same bargain the edition check has always made, and it is why
+       these can land before the engine that reads them.
+       ------------------------------------------------------------ */
+    /* End a register on one and gain an Energy, to a maximum of ten. */
+    "E": { name: "battery", arg: "none", energy: 1, editions: ["modern"] },
+    /* Leaving water costs a space of movement, once per Move card. */
+    "~": { name: "water", arg: "none", water: true, editions: ["modern"] },
+    /* A pit that sits in water. A pit in every respect. */
+    "D": { name: "drain", arg: "none", pit: true, water: true, editions: ["modern"] },
+    /* The only way between levels. The argument is the direction you
+       travel going UP it. */
+    "R": { name: "ramp", arg: "dir", ramp: true, editions: ["modern"] },
+    /* Reveal a card on one and it is replaced from your own deck. */
+    "z": { name: "randomizer", arg: "none", randomize: true, editions: ["modern"] },
+    /* Paired like a portal, and refused the same way when one is
+       missing -- but a different element with different rules, which
+       is why it is not the classic portal wearing new paint. */
+    "T": { name: "teleporter", arg: "pair", teleport: true, editions: ["modern"] }
   };
 
   function elemOf(code) { return ELEMENT_DEFS[code.charAt(0)]; }
+  /* WHETHER A SQUARE'S ARGUMENT IS LEGAL, as a message or null.
+
+     Pulled out of the parser so that anything building a square can
+     ask before writing one -- the workshop's rail is the caller that
+     wanted it. A teleporter went down as "T.", which is not a colour,
+     and the square was simply refused: the click did nothing and said
+     nothing, because the only thing that knew the rule was the parser
+     and the parser never saw it. */
+  function badCellArg(code) {
+    var def = ELEMENT_DEFS[code.charAt(0)];
+    if (!def) return "uses element '" + code.charAt(0) + "', which is not in the legend";
+    var a = code.charAt(1);
+    if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) return def.name + " needs a direction (^ > v <), got '" + a + "'";
+    if (def.arg === "none" && a !== ".") return def.name + " takes no argument, got '" + a + "'";
+    if (def.arg === "digit" && !/[1-8]/.test(a)) return def.name + " needs a position 1-8, got '" + a + "'";
+    if (def.arg === "pair" && !/[1-9]/.test(a)) return def.name + " needs a colour 1-9, got '" + a + "'";
+    if (def.arg === "when" && !/[.oe1-5]/.test(a)) {
+      return def.name + " needs a register: '.' always, 1-5 for one, " +
+             "'o' for 1/3/5 or 'e' for 2/4, got '" + a + "'";
+    }
+    return null;
+  }
+
+
   function dirOf(code) { return DIR_CHARS.indexOf(code.charAt(1)); }
   function beltSpeed(code) { var e = elemOf(code); return e && e.belt || 0; }
 
@@ -202,7 +258,13 @@
     return beltArms(g, c, r).indexOf(side) >= 0;
   }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
-  function isPit(code) { return code.charAt(0) === "o"; }
+  /* A pit is a property, not a letter. The 2016 game prints drains --
+     pits that sit in water -- and its expansions print deep pits, and
+     the rules say each is a pit in every respect including wherever a
+     card says "pit". Asking the element rather than the character is
+     what lets them all be one. */
+  function isPit(code) { var e = elemOf(code); return !!(e && e.pit); }
+  function isWater(code) { var e = elemOf(code); return !!(e && e.water); }
   function isOil(code) { var e = elemOf(code); return !!(e && e.oil); }
   /* '.' always, '1'-'5' one printed register, 'o' the odd ones and 'e'
      the even ones -- the same 1/3/5 and 2/4 split the pushers use, and
@@ -471,14 +533,8 @@
           var def = ELEMENT_DEFS[code.charAt(0)];
           if (!def) E_("(" + c + "," + r + ") uses element '" + code.charAt(0) + "', which is not in the legend");
           var a = code.charAt(1);
-          if (def.arg === "dir" && DIR_CHARS.indexOf(a) < 0) E_("(" + c + "," + r + ") " + def.name + " needs a direction (^ > v <), got '" + a + "'");
-          if (def.arg === "none" && a !== ".") E_("(" + c + "," + r + ") " + def.name + " takes no argument, got '" + a + "'");
-          if (def.arg === "digit" && !/[1-8]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a position 1-8, got '" + a + "'");
-          if (def.arg === "pair" && !/[1-9]/.test(a)) E_("(" + c + "," + r + ") " + def.name + " needs a colour 1-9, got '" + a + "'");
-          if (def.arg === "when" && !/[.oe1-5]/.test(a)) {
-            E_("(" + c + "," + r + ") " + def.name + " needs a register: '.' always, " +
-               "1-5 for one, 'o' for 1/3/5 or 'e' for 2/4, got '" + a + "'");
-          }
+          var argBad = badCellArg(code);
+          if (argBad) E_("(" + c + "," + r + ") " + argBad);
           if (def.editions && def.editions.indexOf(edition) < 0) {
             E_("(" + c + "," + r + ") is a " + def.name + ", which the " +
                EDITIONS[edition].name + " edition does not print");
@@ -488,23 +544,7 @@
         }
       }
     }
-    /* Portals come in twos. One is a dropped character; three is a
-       colour used twice by mistake. Either reads as a plausible board. */
-    var portals = {};
-    for (var pr = 0; pr < h; pr++) {
-      for (var pc = 0; pc < w; pc++) {
-        var pcode = g.cell[pr * w + pc];
-        if (!pcode || pcode.charAt(0) !== "t") continue;
-        var col = pcode.charAt(1);
-        (portals[col] = portals[col] || []).push(pc + "," + pr);
-      }
-    }
-    for (var col2 in portals) {
-      if (portals[col2].length !== 2) {
-        E_("portal colour " + col2 + " appears " + portals[col2].length +
-           " time(s) at " + portals[col2].join(" and ") + "; portals come in pairs");
-      }
-    }
+    checkPairs(g, E_);
 
     var timed = {}, ti;
     for (ti = 0; ti < (spec.timers || []).length; ti++) {
@@ -797,9 +837,43 @@
      go red. A check nobody has watched fail is indistinguishable
      from one that cannot fail.
      ============================================================ */
+  /* ANYTHING PAIRED COMES IN TWOS. One is a dropped character; three
+     is a colour used twice by mistake. Either reads as a plausible
+     board. Keyed on the element as well as the colour, because a
+     classic portal and a modern teleporter are different elements that
+     happen to share the pairing rule -- counting them together would
+     let one of each stand in for a pair.
+
+     Shared by the parser and the grid validator. It used to live in
+     the parser alone, which meant the workshop never ran it: you could
+     draw a lone portal, see a clean board, and only find out when the
+     source came back through the parser. Nobody noticed while no
+     paired element was in the rail. */
+  function checkPairs(g, E_) {
+    var paired = {}, pc, pr;
+    for (pr = 0; pr < g.h; pr++) {
+      for (pc = 0; pc < g.w; pc++) {
+        var pcode = g.cell[pr * g.w + pc];
+        if (!pcode) continue;
+        var pdef = ELEMENT_DEFS[pcode.charAt(0)];
+        if (!pdef || pdef.arg !== "pair") continue;
+        var key = pcode.charAt(0) + pcode.charAt(1);
+        (paired[key] = paired[key] || { name: pdef.name, at: [] }).at.push(pc + "," + pr);
+      }
+    }
+    for (var pk in paired) {
+      if (paired[pk].at.length !== 2) {
+        E_(paired[pk].name + " colour " + pk.charAt(1) + " appears " + paired[pk].at.length +
+           " time(s) at " + paired[pk].at.join(" and ") + "; they come in pairs");
+      }
+    }
+  }
+
   function validateGrid(id, g, warn) {
     var E_ = function (m) { throw new Error("board " + id + ": " + m); };
     var c, r, code;
+
+    checkPairs(g, E_);
 
     for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) {
       code = g.cell[idx(g, c, r)];
@@ -2584,7 +2658,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, badCellArg: badCellArg, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     mergeAt: mergeAt, beltArms: beltArms, beltTurnsFrom: beltTurnsFrom,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,

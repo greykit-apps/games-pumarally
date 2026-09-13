@@ -595,6 +595,63 @@
                      "#ff8a5c", "#7ce0d3", "#c0c6e0", "#ff5f6d"];
   function portalHue(n) { return PORTAL_HUES[(parseInt(n, 10) - 1) % PORTAL_HUES.length]; }
 
+  /* ------------------------------------------------------------
+     THE 2016 SQUARES. Drawn in the same vocabulary as the rest --
+     one 100x100 box, classes rather than inline colour -- so that a
+     modern board reads as the same game in different paint.
+     ------------------------------------------------------------ */
+  function batterySvg() {
+    return svg('<rect class="pr-batt-cell" x="20" y="26" width="26" height="48" rx="3"/>' +
+               '<rect class="pr-batt-cell" x="54" y="26" width="26" height="48" rx="3"/>' +
+               '<path class="pr-batt-bolt" d="M36 36l-9 18h7l-3 12 11-19h-7z"/>' +
+               '<path class="pr-batt-bolt" d="M70 36l-9 18h7l-3 12 11-19h-7z"/>', "pr-batt");
+  }
+
+  function waterSvg() {
+    var out = "", y;
+    for (y = 0; y < 3; y++) {
+      out += '<path class="pr-wave" d="M12 ' + (32 + y * 18) + 'q10-9 20 0t20 0 20 0 16 0"/>';
+    }
+    return svg(out, "pr-water");
+  }
+
+  /* A pit with the water still running into it. */
+  function drainSvg() {
+    return svg('<circle class="pr-drain-hole" cx="50" cy="50" r="30"/>' +
+               '<circle class="pr-drain-rim" cx="50" cy="50" r="30"/>' +
+               '<path class="pr-wave" d="M14 28q9-8 18 0t18 0 18 0 18 0"/>' +
+               '<path class="pr-wave" d="M14 76q9-8 18 0t18 0 18 0 18 0"/>', "pr-drain");
+  }
+
+  /* The argument is the way UP, so the chevrons point up the slope. */
+  function rampSvg(dir) {
+    var out = '<path class="pr-ramp-deck" d="M16 78h68l-14-56H30z"/>';
+    for (var i = 0; i < 3; i++) {
+      out += '<path class="pr-ramp-step" d="M' + (28 + i * 3) + " " + (66 - i * 16) +
+             "h" + (44 - i * 6) + '"/>';
+    }
+    return svg('<g transform="rotate(' + (dir * 90) + ' 50 50)">' + out + "</g>", "pr-ramp");
+  }
+
+  function randomizerSvg() {
+    var out = '<rect class="pr-rand-face" x="20" y="20" width="60" height="60" rx="8"/>';
+    var pips = [[35, 35], [65, 35], [50, 50], [35, 65], [65, 65]];
+    for (var i = 0; i < pips.length; i++) {
+      out += '<circle class="pr-rand-pip" cx="' + pips[i][0] + '" cy="' + pips[i][1] + '" r="6"/>';
+    }
+    return svg(out, "pr-rand");
+  }
+
+  /* Paired like a portal and coloured the same way, drawn differently
+     on purpose: they are not the same element and must not be read as
+     one another at a glance. */
+  function teleporterSvg(n) {
+    var hue = portalHue(n);
+    return svg('<path d="M50 14l31 18v36L50 86 19 68V32z" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
+               '<path d="M50 30l17 10v20L50 70 33 60V40z" fill="' + hue + '" opacity=".55"/>' +
+               '<circle cx="50" cy="50" r="7" fill="var(--pr-bg)"/>', "pr-teleport");
+  }
+
   function portalSvg(n) {
     var hue = portalHue(n);
     return svg('<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
@@ -702,7 +759,13 @@
     else if (def.gear) cls.push("pr-t-gear");
     else if (def.option) cls.push("pr-t-upgrade");
     else if (def.repair) cls.push("pr-t-repair");
-    else if (code.charAt(0) === "o") cls.push("pr-t-pit");
+    else if (def.energy) cls.push("pr-t-battery");
+    else if (def.pit && def.water) cls.push("pr-t-drain");
+    else if (def.water) cls.push("pr-t-water");
+    else if (def.ramp) cls.push("pr-t-ramp");
+    else if (def.randomize) cls.push("pr-t-random");
+    else if (def.teleport) cls.push("pr-t-teleport");
+    else if (def.pit) cls.push("pr-t-pit");
     else if (code.charAt(0) === "s") cls.push("pr-t-dock");
     /* Added, never instead-of: a pusher is on the wall, so the square
        under it keeps its own class and can be a conveyor. */
@@ -727,7 +790,13 @@
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
     else if (def.portal) out.push(portalSvg(code.charAt(1)));
-    else if (code.charAt(0) === "o") out.push(pitSvg());
+    else if (def.energy) out.push(batterySvg());
+    else if (def.pit && def.water) out.push(drainSvg());
+    else if (def.water) out.push(waterSvg());
+    else if (def.ramp) out.push(rampSvg(B.dirOf(code)));
+    else if (def.randomize) out.push(randomizerSvg());
+    else if (def.teleport) out.push(teleporterSvg(code.charAt(1)));
+    else if (def.pit) out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
     /* Burners, like pushers, are drawn from the board's list over the
@@ -3542,6 +3611,29 @@
      Swept off a board with one of everything on it plus all nine card
      faces, so a chrome class can be checked against the whole set
      rather than against whichever bit of art somebody thought of. */
+  /* One square carrying one element, for anything that wants to look
+     at an element rather than at a board. The argument slot is filled
+     with whatever that element needs, and a paired element gets its
+     twin beside it so the validator will accept the board at all. */
+  function legendGrid(code) {
+    var def = B.ELEMENT_DEFS[code];
+    var a = def.arg === "dir" ? ">" : def.arg === "none" ? "." : "1";
+    /* The set has to agree with the edition, the same way a real
+       board's does -- the validator checks that pairing and does not
+       care that this board is two squares wide. */
+    var ed = (def.editions || ["classic"])[0];
+    var cell = code + a;
+    var second = def.arg === "pair" ? cell : "..";
+    /* Declared as the element's OWN edition, or the parser refuses a
+       2016 square on a board it assumes is a classic one. */
+    var g = B.parsePic("legend", {
+      w: 2, h: 1, edition: ed, set: ed === "modern" ? "modernBase" : "authored",
+      pic: ["+  +  +", " " + cell + " " + second + " ", "+  +  +"], lasers: []
+    });
+    g.flags = [];                 // a board has them; a legend square does not
+    return g;
+  }
+
   function artClasses() {
     var seen = {}, src = "", c, r, k, id;
     /* SWEPT OVER EVERY BOARD, not over one that happens to carry a bit
@@ -3558,6 +3650,17 @@
          being checked. */
       src += wallSpans(g, false);
     }
+    /* AND EVERY ELEMENT IN THE LEGEND, printed or not.
+
+       The sweep used to see only what the shipped boards happened to
+       carry, which made its coverage a property of the board set. That
+       was fine while every element was on a board and became wrong the
+       moment the 2016 squares arrived, because no modern board is
+       transcribed yet -- the art existed, was styled, and the sweep
+       could not see any of it. Rendering the legend directly makes the
+       coverage a property of the legend, which is what it was always
+       meant to be. */
+    for (k in B.ELEMENT_DEFS) src += tileInner(legendGrid(k), 0, 0);
     for (k in CARD_KINDS) src += cardArt(k);
     var m, re = /class="([^"]+)"/g;
     while ((m = re.exec(src))) {
@@ -5980,6 +6083,129 @@
         "the selected board does not say it is selected");
     } },
 
+    { name: "the workshop draws a 2016 board, and it survives being put down", run: function () {
+      var keep = ED;
+      ED = edState(edNew(6, 6), "bench");
+      ED.grid.flags = [];
+      assert(edEdition() === "classic", "a blank board is a classic one");
+
+      /* A square only the 2016 game prints settles which game it is.
+         Nobody has to remember to set it. */
+      edSetCell(1, 1, "E.");
+      assert(edEdition() === "modern", "a battery did not make it a modern board");
+      edSetCell(2, 1, "~.");
+      edSetCell(3, 1, "R>");
+
+      /* Every modern tool has to produce a LEGAL square through the
+         tool code the rail actually uses, not only through edSetCell.
+         A teleporter went down as "T." before this, which is not a
+         colour -- the square was refused and the click did nothing
+         anyone could see. */
+      var keepPick = ED.pick;
+      for (var ti = 0; ti < ED_TOOLS.length; ti++) {
+        var tool = ED_TOOLS[ti];
+        if (tool.group !== "Modern") continue;
+        ED.pick = tool.key; ED.tool = tool.key;
+        /* Through the SAME function the click uses. A paint tool goes
+           the belt painter's way, and water carried that flag by
+           mistake -- it came out as a square with a direction on it,
+           which is not a legal battery-or-water, so the click did
+           nothing. Asking edToolCode alone never saw that. */
+        var code = edPaintCode(0, 0);
+        assert(code.charAt(0) === tool.key,
+          tool.label + " builds the code " + code + ", which is not its own square");
+        assert(!B.badCellArg(code), tool.label + " builds " + code + ", which is not a legal square");
+      }
+      ED.pick = keepPick; ED.tool = keepPick;
+
+      /* A teleporter is paired like a portal, and one on its own is
+         a square that swallows robots. */
+      edSetCell(1, 3, "T1");
+      edValidate();
+      var lone = ED.errors.length;
+      edSetCell(3, 3, "T1");
+      edValidate();
+      assert(lone > 0, "a lone teleporter must be refused");
+      assert(!ED.errors.length, "a paired one must be accepted: " + ED.errors.join("; "));
+
+      /* And what it exports is a board the parser accepts, declaring
+         the edition and a set that agrees with it. */
+      var spec = edSpec();
+      assert(spec.edition === "modern", "it exported as " + spec.edition);
+      assert((B.SETS[spec.set] || {}).edition === "modern",
+        "the set " + spec.set + " does not belong to the modern edition");
+      var again = B.parsePic("roundtrip", spec);
+      assert(B.elemOf(B.codeAt(again, 1, 1)).name === "battery", "the battery did not survive the export");
+      assert(B.elemOf(B.codeAt(again, 3, 1)).name === "ramp", "the ramp did not survive the export");
+      ED = keep;
+    } },
+
+    { name: "the workshop's autosave carries what is beside the picture", run: function () {
+      /* Crushers and belt arms live beside the picture, not in it, so
+         a save that carried only the picture lost them -- a long trace
+         coming back as a quietly different board. */
+      var keep = ED;
+      ED = edState(edNew(6, 6), "bench");
+      ED.grid.flags = [];
+      edSetCell(2, 2, "b>");
+      edPut("press", 2, 2, {});
+      edSetArms(2, 2, [N]);
+      edSetCell(4, 4, "E.");
+
+      /* Node has no localStorage at all, and the editor's save is
+         wrapped in a try/catch that would swallow its absence and let
+         this pass having stored nothing. So the store is supplied for
+         the duration rather than borrowed. */
+      var saved = null;
+      var host = typeof self !== "undefined" ? self : global;
+      var had = Object.prototype.hasOwnProperty.call(host, "localStorage");
+      var real = had ? host.localStorage : undefined;
+      host.localStorage = {
+        setItem: function (k, v) { saved = v; },
+        getItem: function () { return saved; },
+        removeItem: function () { saved = null; }
+      };
+      try {
+        edSave();
+        var back = edRestore();
+        assert(back, "the board did not come back at all");
+        assert(B.timerAt(back.grid, 2, 2), "the crusher was lost");
+        assert(B.beltArms(back.grid, 2, 2).length === 1 &&
+               B.beltArms(back.grid, 2, 2)[0] === N, "the belt arm was lost");
+        assert(B.elemOf(B.codeAt(back.grid, 4, 4)).name === "battery", "the battery was lost");
+      } finally {
+        if (had) host.localStorage = real; else { try { delete host.localStorage; } catch (e) {} }
+        ED = keep;
+      }
+    } },
+
+    { name: "art that depends on a stylesheet rule has one", run: function () {
+      /* A tile drawn with classes and no rule behind them renders as
+         nothing at all, and nothing else notices: validateTables asks
+         whether art EXISTS, the chrome test asks whether a name
+         clashes, and neither asks whether the paint arrives.
+
+         The list is written out rather than derived, for the reason
+         the chrome list is: deriving it would mean asking the art
+         itself, which is the thing being checked. Not every art class
+         needs a rule -- a portal, a teleporter and the two gear
+         markers carry their colour inline as an attribute, because the
+         colour is data rather than styling -- so a blanket sweep would
+         report four squares that are working correctly. */
+      var css = CSS;
+      var needRule = ["pr-batt", "pr-batt-cell", "pr-batt-bolt",
+                      "pr-water", "pr-wave", "pr-drain", "pr-drain-hole", "pr-drain-rim",
+                      "pr-ramp", "pr-ramp-deck", "pr-ramp-step",
+                      "pr-rand", "pr-rand-face", "pr-rand-pip",
+                      "pr-oil", "pr-press", "pr-burner"];
+      var bare = [];
+      for (var i = 0; i < needRule.length; i++) {
+        if (css.indexOf("." + needRule[i]) < 0) bare.push(needRule[i]);
+      }
+      assert(!bare.length,
+        bare.join(", ") + " is drawn with no rule behind it, so it renders as nothing");
+    } },
+
     { name: "no chrome class is a name the board art already answers to", run: function () {
       /* Twice now a new layer has taken a class the tile art was
          already using. pr-rail was the conveyor's guard rail, so the
@@ -6014,18 +6240,40 @@
          coverage was a property of a board nobody played, and it went
          when that board did. Every element in the legend has to be
          printed somewhere for the sweep to have seen its art. */
-      var used = {}, bid, c2, r2;
+      var used = {}, haveBoards = {}, bid, c2, r2;
       for (bid in B.BOARD_SPECS) {
         var bg = B.parsePic(bid, B.BOARD_SPECS[bid]);
+        haveBoards[bg.edition] = 1;
         for (r2 = 0; r2 < bg.h; r2++) for (c2 = 0; c2 < bg.w; c2++) {
           var cd = B.codeAt(bg, c2, r2);
           if (cd) used[cd.charAt(0)] = 1;
         }
       }
+      /* AN ELEMENT ITS OWN EDITION HAS BOARDS FOR MUST BE ON ONE.
+
+         This is a transcription check, not an art check -- the art is
+         covered by the legend sweep above and by validateTables. What
+         it catches is an element nobody ever printed: a code invented
+         for a board that was then transcribed without it.
+
+         Scoped by edition because the 2016 squares are real, drawn and
+         styled while no modern board is transcribed yet. Holding them
+         to a board that does not exist would mean either deleting the
+         elements or inventing a board to satisfy a test, and the
+         second is how a plausible wrong board gets into a repo. */
       var missing = [];
-      for (var ek in B.ELEMENT_DEFS) if (!used[ek]) missing.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
+      for (var ek in B.ELEMENT_DEFS) {
+        var eds = B.ELEMENT_DEFS[ek].editions || [];
+        var reachable = false;
+        for (var ei = 0; ei < eds.length; ei++) if (haveBoards[eds[ei]]) reachable = true;
+        if (reachable && !used[ek]) missing.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
+      }
       assert(!missing.length,
-        "no board prints " + missing.join(", ") + ", so the sweep never sees that art");
+        "no board prints " + missing.join(", ") + ", though its edition has boards");
+      /* And the legend sweep really did reach the new squares, or the
+         relaxation above would quietly cover an unstyled element. */
+      assert(art["pr-batt"] && art["pr-water"] && art["pr-ramp"] && art["pr-teleport"],
+        "the legend sweep missed the 2016 squares, so their art is unchecked");
 
       /* And the sweep really does reach ALL of them, not just the first
          one it finds. Oil and portals are printed on exactly one board
@@ -8569,6 +8817,18 @@
     ".pr-t-express,.pr-t-belt{background:var(--pr-panel-alt)}",
     /* Which registers a pusher fires on is a rule, not decoration, so
        it is stamped on the tile instead of left to the legend. */
+    ".pr-batt .pr-batt-cell{fill:var(--pr-steel);stroke:var(--pr-bg);stroke-width:3}",
+    ".pr-batt .pr-batt-bolt{fill:var(--pr-warn)}",
+    ".pr-t-battery{background:var(--pr-panel-alt)}",
+    ".pr-water .pr-wave,.pr-drain .pr-wave{fill:none;stroke:var(--pr-accent);stroke-width:5;",
+    "stroke-linecap:round;opacity:.7}",
+    ".pr-t-water,.pr-t-drain{background:color-mix(in srgb,var(--pr-accent) 16%,var(--pr-panel-alt))}",
+    ".pr-drain .pr-drain-hole{fill:var(--pr-bg)}",
+    ".pr-drain .pr-drain-rim{fill:none;stroke:var(--pr-hazard);stroke-width:4;opacity:.8}",
+    ".pr-ramp .pr-ramp-deck{fill:var(--pr-steel);stroke:var(--pr-bg);stroke-width:3}",
+    ".pr-ramp .pr-ramp-step{fill:none;stroke:var(--pr-bg);stroke-width:4;stroke-linecap:round}",
+    ".pr-rand .pr-rand-face{fill:var(--pr-panel);stroke:var(--pr-violet);stroke-width:4}",
+    ".pr-rand .pr-rand-pip{fill:var(--pr-violet)}",
     ".pr-oil .pr-oil{fill:#0a0d16;stroke:var(--pr-concrete);stroke-width:1.5;opacity:.95}",
     ".pr-oil .pr-oil-sheen{fill:var(--pr-accent);opacity:.32}",
     ".pr-press .pr-shaft{fill:var(--pr-bg)}",
@@ -12841,7 +13101,27 @@
        not face anywhere, so it is the one trap that can stand on any
        square at all -- including a conveyor, which is what every one
        of them on Cannery Row does. */
-    { key: "press", label: "Crusher", kind: "press", regs: "press", drag: true, hot: "z", group: "Ceiling" }
+    { key: "press", label: "Crusher", kind: "press", regs: "press", drag: true, hot: "z", group: "Ceiling" },
+
+    /* THE 2016 SQUARES, kept in a group of their own rather than mixed
+       into Floor. They are a different game: a board carrying one is a
+       modern board and cannot also carry a repair site, and the group
+       heading is what says so before you have placed anything. Putting
+       one down declares the board modern, which is the same bargain
+       dropping a flame jet on a map has always made.
+
+       Six letters were not free -- WASD and QE steer, and the rest are
+       spoken for -- so these share the two that were, three apiece. A
+       key is a place in the rail rather than one tool and both gears
+       have shared G since the beginning, but three is the comfortable
+       limit: the rail's own test refuses a letter that takes more than
+       four presses to come round. N walks the floors, O the rest. */
+    { key: "E", label: "Battery", kind: "tile", hot: "n", group: "Modern" },
+    { key: "~", label: "Water", kind: "tile", hot: "n", group: "Modern" },
+    { key: "D", label: "Drain", kind: "tile", hot: "n", group: "Modern" },
+    { key: "R", label: "Ramp", kind: "tile", dir: true, hot: "o", group: "Modern" },
+    { key: "z", label: "Randomizer", kind: "tile", hot: "o", group: "Modern" },
+    { key: "T", label: "Teleporter", kind: "tile", pair: true, hot: "o", group: "Modern" }
   ];
 
   /* The keys that steer rather than pick, which no tool may answer to:
@@ -12884,6 +13164,7 @@
     var g = B.blankGrid(w, h);
     for (var i = 0; i < w * h; i++) g.cell[i] = "..";
     g.name = "New Board"; g.origin = "transcribed"; g.notes = "";
+    g.edition = "classic";
     g.flags = [];
     return g;
   }
@@ -12891,6 +13172,7 @@
   function edLoadShipped(id) {
     var g = B.parsePic(id, B.BOARD_SPECS[id]);
     g.flags = [];
+    g.edition = g.edition || (B.BOARD_SPECS[id] || {}).edition || "classic";
     return g;
   }
 
@@ -12920,6 +13202,9 @@
          2/4 and 3 -- Cannery Row runs those five down each of its two
          lanes -- so this is its own set and not a parity. */
       pressRegs: [1, 5],
+      /* Which colour a paired square goes down as. Both ends of a pair
+         share one, so this stays put between the two clicks. */
+      pair: 1,
       mode: "tile",              // tile | wall | laser | pusher | burner
       underlay: null,            // an object URL, never exported
       opacity: 0.5,
@@ -12976,7 +13261,18 @@
         pic: B.gridToPic(ED.grid),
         lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
         pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
-        burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; })
+        burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
+        /* THE SPARSE LAYERS GO IN THE SAVE TOO.
+
+           They are beside the picture, not in it, so a save that
+           carried only the picture lost every crusher and every belt
+           arm on reload -- a long trace silently coming back as a
+           different board. The edition rides along for the same
+           reason: it is derived from the squares, and the restore
+           parses before there are any squares to derive it from. */
+        timers: (ED.grid.timers || []).map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+        merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
+        edition: edEdition()
       }));
     } catch (e) {}
   }
@@ -12985,8 +13281,11 @@
     try {
       var s = JSON.parse(localStorage.getItem(ED_KEY) || "null");
       if (!s || !s.pic) return null;
+      var ed = s.edition === "modern" ? "modern" : "classic";
       var g = B.parsePic(s.id, { w: s.w, h: s.h, pic: s.pic, lasers: s.lasers || [],
-                                 pushers: s.pushers || [], burners: s.burners || [] });
+                                 pushers: s.pushers || [], burners: s.burners || [],
+                                 timers: s.timers || [], merges: s.merges || [],
+                                 edition: ed, set: ed === "modern" ? "modernBase" : "authored" });
       g.name = s.name || "New Board"; g.notes = s.notes || ""; g.origin = "transcribed"; g.flags = [];
       return edState(g, s.id);
     } catch (e) { return null; }
@@ -13097,6 +13396,11 @@
     if (t.key === "..") return "..";
     if (t.dir) return t.key + B.DIR_CHARS.charAt(ED.dir);
     if (t.digit) return t.key + ED.digit;
+    /* A paired square carries a COLOUR, and both ends of a pair carry
+       the same one. Without this a teleporter went down as "T." --
+       which is not a colour, so the square was refused and the click
+       did nothing anyone could see. */
+    if (t.pair) return t.key + ED.pair;
     return t.key + ".";
   }
 
@@ -13372,7 +13676,8 @@
     if (t.kind === "tile") {
       g.cell[0] = t.paint && hit ? edPaintCode(hit.c, hit.r)
                 : t.dir ? t.key + B.DIR_CHARS.charAt(ED.dir)
-                : t.digit ? t.key + ED.digit : t.key + ".";
+                : t.digit ? t.key + ED.digit
+                : t.pair ? t.key + ED.pair : t.key + ".";
     } else if (t.kind === "wall") {
       var edge = hit && hit.edge !== null && hit.edge !== undefined ? hit.edge : ED.dir;
       B.setWall(g, 0, 0, edge, true);
@@ -13988,6 +14293,7 @@
     var out = [];
     if (t.dir) out.push(edCompass("eddir", ED.dir, ""));
     if (t.digit) out.push(edNumberRow("Bay", "eddigit", ED.digit, 1, 8));
+    if (t.pair) out.push(edNumberRow("Colour", "edpair", ED.pair, 1, 9));
     if (t.damage) out.push(edNumberRow("Damage", "edlaser", ED.laserN, 1, 3));
     if (t.regs === "push") {
       out.push(edRegRow("Fires in", "edpreg", ED.pushRegs));
@@ -15220,6 +15526,7 @@
     if (a === "edpick") { edPickTool(b.dataset.k); }
     else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
     else if (a === "eddigit") { ED.digit = parseInt(b.dataset.n, 10); edRenderPanel(); }
+    else if (a === "edpair") { ED.pair = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edflagnum") { ED.flagNum = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edpreg") {
@@ -15378,12 +15685,32 @@
   /* The spec the editor exports, in the shape BOARD_SPECS uses. One
      function so applying an edit and exporting the source cannot
      produce two different boards. */
+  /* WHAT GAME THIS BOARD IS, read from what is on it rather than from
+     a setting nobody remembers to change. A square that only one
+     edition prints settles it; a board with none of those is classic,
+     which is what every board in the set is today.
+
+     Derived rather than stored for the reason the belt shape is not:
+     a stored edition and a board full of batteries can disagree, and
+     the one that is wrong is always the stored one. */
+  function edEdition() {
+    var g = ED.grid, only = {}, i, k;
+    for (i = 0; i < g.cell.length; i++) {
+      var def = g.cell[i] && B.elemOf(g.cell[i]);
+      if (!def || !def.editions || def.editions.length !== 1) continue;
+      only[def.editions[0]] = 1;
+    }
+    for (k in only) if (k === "modern") return "modern";
+    return "classic";
+  }
+
   function edSpec() {
     var ship = B.BOARD_SPECS[ED.id] || {};
     return {
       w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid),
-      name: ED.grid.name, edition: ship.edition || "classic",
-      set: ship.set || "authored", origin: ED.grid.origin || "transcribed",
+      name: ED.grid.name, edition: edEdition(),
+      set: ship.set && (B.SETS[ship.set] || {}).edition === edEdition() ? ship.set
+         : (edEdition() === "modern" ? "modernBase" : "authored"), origin: ED.grid.origin || "transcribed",
       lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
       pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
       burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
