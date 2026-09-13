@@ -3222,12 +3222,12 @@
      coordinates because which square is a pit is board data, and a
      test that hard-codes it fails the day the board is re-read. */
   function benchFlagSquares() {
-    var spec = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    var spec = B.composeCourse(B.withFlags(layoutNow(), []), 0);
     return B.flagCandidates(B.buildCourse(spec), B.dockBoxOf(spec));
   }
 
   function benchBadSquare() {
-    var spec = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    var spec = B.composeCourse(B.withFlags(layoutNow(), []), 0);
     var C = B.buildCourse(spec), c, r;
     for (r = 0; r < C.h; r++) {
       for (c = 0; c < C.w; c++) {
@@ -5496,7 +5496,7 @@
                     cells: [{ id: "island", rot: 1 }, { id: "cross", rot: 0 }] };
       var pick = flagPick();
       pick.mode = "hand"; pick.n = 2; pick.chosen = true; pick.hand = [];
-      var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+      var spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
       var C0 = B.buildCourse(spec0), cand = B.flagCandidates(C0, B.dockBoxOf(spec0));
       flagPlace(cand[0].c, cand[0].r);
       flagPlace(cand[cand.length - 1].c, cand[cand.length - 1].r);
@@ -5632,6 +5632,218 @@
       var loose = B.arenaFlags(C, 5, spec), llo = 99, lhi = -99;
       for (i = 0; i < loose.length; i++) { llo = Math.min(llo, loose[i][0]); lhi = Math.max(lhi, loose[i][0]); }
       assert(lhi - llo >= 12, "the lap placement also fits in one board, so the window means nothing");
+    } },
+
+    // ---- the setup wizard ------------------------------------------
+
+    { name: "the wizard's steps are in dependency order", run: function () {
+      /* The order is not presentation. The settings decide which
+         rulebook is in play, the rulebook decides which boards may be
+         laid out, the layout decides where a flag can legally sit, and
+         only then is there a course to name a colour for. A rail that
+         let you answer them in any order would let you place flags on
+         a course that does not exist yet. */
+      var ids = [], i;
+      for (i = 0; i < WIZARD.length; i++) ids.push(WIZARD[i].id);
+      assert(ids.join(",") === "rules,boards,flags,robot,bays",
+        "the steps are in the wrong order: " + ids.join(","));
+      /* The last one is played, not configured -- it is on the rail so
+         the colour screen does not look like the end of setup, and it
+         is never a screen this modal can open. */
+      assert(WIZARD[WIZARD.length - 1].onBoard, "the priority draw is being treated as a modal step");
+      for (i = 0; i < WIZARD.length - 1; i++) {
+        assert(!WIZARD[i].onBoard, WIZARD[i].id + " is marked as happening on the board");
+      }
+    } },
+
+    { name: "a step nobody can answer yet is not reachable", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [null] };
+      assert(wizReachable(0), "the first step should always be reachable");
+      assert(wizReachable(1), "the boards step should be reachable from the settings");
+      assert(!wizReachable(2), "the flags step is reachable with no boards on the course");
+      assert(!wizReachable(3), "the colour step is reachable with no boards on the course");
+      assert(wizBlocker(1), "an empty grid is not blocking the boards step");
+
+      layoutPlace(0, "island");
+      flagPick().mode = "arena";
+      assert(wizReachable(2), "the flags step is still unreachable with a board down: " + wizBlocker(1));
+      assert(wizReachable(3), "the colour step is unreachable with the flags placed");
+
+      /* And by hand with nothing placed blocks the step after it, but
+         not the step it is on -- you have to be able to GET to the
+         screen that takes the clicks. */
+      flagPick().mode = "hand";
+      flagPick().hand = [];
+      assert(wizReachable(2), "the by-hand screen cannot be reached to place anything on it");
+      assert(!wizReachable(3), "the colour step is reachable with no flags placed");
+      assert(wizBlocker(2), "an empty hand is not blocking the flags step");
+    } },
+
+    { name: "wizGo never lands on a step that is not reachable", run: function () {
+      /* The rail greys out what cannot be answered, but the step can
+         also be asked for from a keyboard, from a stale render, or by
+         a screen handing back after its input disappeared. */
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [null] };
+      UI.wizStep = 3;
+      var step = 3;
+      while (step > 0 && !wizReachable(step)) step--;
+      assert(step === 1, "asking for the colour step on an empty course should fall back to the boards, got " + step);
+      layoutPlace(0, "island");
+      flagPick().mode = "arena";
+      step = 3;
+      while (step > 0 && !wizReachable(step)) step--;
+      assert(step === 3, "a finished course should reach the colour step, got " + step);
+    } },
+
+    { name: "every shipped course loads back into the assembler", run: function () {
+      /* Picking a printed course and building one by hand are the same
+         flow now, which only works if a shipped course can be turned
+         back into a layout. One that cannot is not forced into a shape
+         it does not have -- it simply is not offered -- so the
+         assertion is that they ALL round-trip, and a new course that
+         does not would say so here rather than vanishing from the
+         menu. */
+      var n = 0;
+      for (var id in B.COURSES) {
+        if (id.charAt(0) === "_") continue;
+        n++;
+        var L = B.layoutFromCourse(id);
+        assert(L, id + " cannot be expressed as a layout, so it would drop off the menu");
+        var spec = B.composeCourse(B.withFlags(L, B.COURSES[id].flags), B.COURSES[id].flags.length);
+        var want = B.COURSES[id], i;
+        assert(spec.boards.length === want.boards.length,
+          id + " came back with " + spec.boards.length + " of " + want.boards.length + " boards");
+        for (i = 0; i < want.boards.length; i++) {
+          var found = false;
+          for (var j = 0; j < spec.boards.length; j++) {
+            var a = want.boards[i], b = spec.boards[j];
+            if (a.id === b.id && (a.rot || 0) === (b.rot || 0) &&
+                a.at[0] === b.at[0] && a.at[1] === b.at[1]) found = true;
+          }
+          assert(found, id + " lost board " + want.boards[i].id + " at " + want.boards[i].at);
+        }
+        assert(spec.dock.at[0] === want.dock.at[0] && spec.dock.at[1] === want.dock.at[1],
+          id + "'s start area moved to " + spec.dock.at + " from " + want.dock.at);
+        /* And the flag screen recognises it again, which is what makes
+           "Printed" an option at all. */
+        assert(B.defaultFlagsFor(L), id + " is no longer recognised as itself, so it loses its flags");
+      }
+      assert(n > 5, "only " + n + " courses were checked, so this proves little");
+    } },
+
+    { name: "a rulebook that cannot read a board refuses the layout", run: function () {
+      /* Courses used to be picked off a list that greyed out the ones
+         the chosen rulebook could not read. A course is laid out now,
+         so that check has to live where the boards are put down --
+         otherwise a rulebook with no rules for flame jets would
+         happily race a board covered in them. */
+      var keep = houseRules.ruleset;
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "boardH", rot: 0 }] };
+      flagPick().mode = "arena";
+      houseRules.ruleset = "classic";
+      assert(!layoutProblem(), "the classic rulebook refused its own board: " + layoutProblem());
+      assert(!boardBlocker("boardH"), "the classic rulebook greyed out its own board");
+      houseRules.ruleset = "modern";
+      var why = layoutProblem();
+      assert(why && /cannot race this layout/.test(why),
+        "a rulebook with no rules for this board raced it anyway: " + why);
+      var nope = boardBlocker("boardH");
+      assert(nope, "the board is not greyed out in the palette either");
+      /* Named, because "you cannot race this" without saying which
+         square is in the way leaves the player to guess. */
+      assert(/[a-z]/.test(nope) && why.indexOf(nope) >= 0,
+        "the refusal does not name the square that causes it: " + why + " / " + nope);
+      /* Every shipped board is classic-only today -- the modern
+         rulebook is not built and has no squares at all -- so the
+         contrast that proves the mechanism is the RULEBOOK, not the
+         board: the same layout is fine under one and refused under
+         the other. */
+      houseRules.ruleset = keep;
+      for (var bid in B.BOARD_SPECS) {
+        if (B.BOARD_SPECS[bid].w !== 12) continue;
+        assert(!boardBlocker(bid), bid + " is greyed out under the rulebook it belongs to");
+      }
+      assert(!layoutProblem(), "the layout was refused under its own rulebook: " + layoutProblem());
+    } },
+
+    { name: "a start area may straddle two boards", run: function () {
+      /* Cross Town's docking bay sits across the seam. Whole-board
+         columns alone could not express that, so the course dropped
+         off the menu entirely -- silently, because a course that
+         cannot be laid out is simply not listed. */
+      var L = B.layoutFromCourse("crossTown");
+      assert(L, "Cross Town cannot be expressed as a layout");
+      assert(L.dockCol === 0.5, "its start area is at column " + L.dockCol + ", not across the seam");
+      var spec = B.composeCourse(B.withFlags(L, []), 0);
+      assert(spec.dock.at[0] === 6, "the rebuilt dock is at " + spec.dock.at[0] + ", not square six");
+      /* And narrowing the grid still brings it back inside. */
+      UI.layout = L;
+      layoutResize(-1, 0);
+      assert(UI.layout.dockCol <= UI.layout.cols - 1,
+        "the dock is at " + UI.layout.dockCol + " of a " + UI.layout.cols + "-wide grid");
+    } },
+
+    { name: "the picture says which square holds which flag", run: function () {
+      /* The tile art draws a flag faithfully, and at a 22px tile that
+         is an 11px banner with a 5px numeral on it, in the same amber
+         as every conveyor arrow around it. Placing flags by hand was a
+         guessing game until the order was drawn again, large, over the
+         square it belongs to. */
+      var g = bench([["..", "..", ".."], ["..", "..", ".."]]);
+      var plain = gridThumb(g, 20, null);
+      var over = gridThumb(g, 20, { act: "fput", legal: [1, 1, 1, 1, 1, 1],
+                                    marks: { "1,0": 1, "2,1": 2 } });
+      assert(plain.indexOf("pr-thumb-hit") < 0, "a picture with no overlay drew one anyway");
+      assert((over.match(/pr-thumb-hit/g) || []).length >= 6, "the overlay is missing squares");
+      assert((over.match(/mark/g) || []).length >= 2, "the placed flags are not marked");
+      assert(/data-c="1" data-r="0"[^>]*>\s*<b>1<\/b>/.test(over),
+        "flag one's number is not drawn on its square");
+      assert(/data-c="2" data-r="1"[^>]*>\s*<b>2<\/b>/.test(over),
+        "flag two's number is not drawn on its square");
+      assert(/aria-label="flag 1, /.test(over), "the marked square does not announce its flag");
+      /* A marked square stays clickable even when it is not a legal
+         landing square any more, because clicking it is how a flag is
+         taken back. */
+      var boxed = gridThumb(g, 20, { act: "fput", legal: [0, 0, 0, 0, 0, 0], marks: { "1,0": 1 } });
+      assert(!/data-c="1" data-r="0"[^>]*disabled/.test(boxed),
+        "a placed flag cannot be clicked to take it back");
+      /* And the overlay's rows are pinned to the tile size. Sized to
+         their content, one numeral made its row taller than a tile and
+         pushed every row below it out of line with the board. */
+      var rule = CSS.match(/\.pr-thumb-hits\{[^}]*\}/);
+      assert(rule, "the overlay layer has no rule of its own");
+      assert(/grid-auto-rows:var\(--tile\)/.test(rule[0]),
+        "the overlay's rows are free to size themselves, so a marked row drifts: " + rule[0]);
+    } },
+
+    { name: "there is no scattering flags outside Northrup's window", run: function () {
+      /* Random was a mode of its own. Flags thrown anywhere on a
+         four-board course are not a race, so the roll lives inside the
+         window now, where the printed rule keeps it honest. */
+      UI.layout = { cols: 3, rows: 3, dockCol: 1, cells: [] };
+      for (var i = 0; i < 9; i++) UI.layout.cells.push({ id: "island", rot: 0 });
+      var pick = flagPick();
+      pick.mode = "random";                    // an old saved layout
+      pick = flagPick();
+      assert(pick.mode === "northrup", 'a saved "random" was left pointing at nothing');
+      pick.n = 5; pick.chosen = true; pick.rolled = null;
+      var spec = B.composeCourse(B.withFlags(layoutNow(), []), 0), C = B.buildCourse(spec);
+      for (var t = 0; t < 20; t++) {
+        var got = B.northrupFlags(C, 5, spec, Math.random);
+        assert(got.length === 5, "a roll returned " + got.length + " flags");
+        var lo = [99, 99], hi = [-99, -99];
+        for (i = 0; i < got.length; i++) {
+          lo[0] = Math.min(lo[0], got[i][0]); hi[0] = Math.max(hi[0], got[i][0]);
+          lo[1] = Math.min(lo[1], got[i][1]); hi[1] = Math.max(hi[1], got[i][1]);
+        }
+        assert(hi[0] - lo[0] < 12 && hi[1] - lo[1] < 12,
+          "a rolled set spans " + (hi[0] - lo[0] + 1) + " by " + (hi[1] - lo[1] + 1) + " squares");
+      }
+      /* Rolled once, it stays rolled: the screen must show the same
+         course every time it is opened, not a new one per render. */
+      flagRoll();
+      var a = JSON.stringify(flagsResolved()), b = JSON.stringify(flagsResolved());
+      assert(a === b, "the flags changed between two reads of the same screen");
     } },
 
     { name: "a flag is not boxed into a corner made of walls", run: function () {
@@ -6108,12 +6320,25 @@
     /* The tile art is sized off --tile, so a thumbnail cell needs no
        rules of its own beyond losing the board's hover affordances. */
     ".pr-thumb .pr-cell{cursor:default}",
-    ".pr-thumb-hits{position:absolute;inset:0;display:grid}",
+    /* grid-auto-rows, because the overlay's rows would otherwise size
+       to their content: one marked square with a numeral in it made
+       that row taller than a tile and pushed every row below it out of
+       line with the board underneath. */
+    ".pr-thumb-hits{position:absolute;inset:0;display:grid;grid-auto-rows:var(--tile)}",
+    ".pr-no-hits{pointer-events:none}",
     ".pr-thumb-hit{padding:0;min-height:0!important;border:0!important;background:none;",
-    "border-radius:0;cursor:crosshair}",
+    "border-radius:0;cursor:crosshair;display:flex;align-items:center;justify-content:center;",
+    "font:700 calc(var(--tile) * 0.62)/1 ui-monospace,Menlo,Consolas,monospace;color:transparent}",
     ".pr-thumb-hit:disabled{cursor:default}",
     ".pr-thumb-hit:not(:disabled):hover{background:color-mix(in srgb,var(--pr-accent) 35%,transparent)}",
     ".pr-thumb-hit:focus-visible{outline:2px solid var(--pr-accent);outline-offset:-2px}",
+    /* A placed flag, drawn over its square at a size the eye can find
+       in a field of amber arrows: a dark disc, an accent ring and the
+       order in the middle. */
+    ".pr-thumb-hit.mark{color:var(--pr-bg);background:var(--pr-accent);",
+    "box-shadow:0 0 0 2px var(--pr-bg),0 0 0 3px var(--pr-accent),0 0 8px 2px rgba(0,0,0,.8);",
+    "border-radius:50%;z-index:2}",
+    ".pr-thumb-hit.mark:not(:disabled):hover{background:var(--pr-warn)}",
     ".pr-thumb-pick{cursor:crosshair}",
     ".pr-flag-stage{overflow:auto;max-width:100%;max-height:46vh;padding:4px;",
     "border:1px solid var(--pr-border);background:var(--pr-bg);margin:4px 0}",
@@ -6121,6 +6346,25 @@
     ".pr-flag-list span{border:1px solid var(--pr-border);padding:1px 5px;white-space:nowrap}",
     ".pr-flag-list b{color:var(--pr-accent);font-weight:400;margin-right:4px}",
     ".pr-flag-n{min-width:22px;text-align:center;color:var(--pr-accent);font-weight:400}",
+
+    /* THE STEP RAIL. An ordered list, because it is one -- a screen
+       reader gets "3 of 5" from the markup rather than from a picture
+       of a progress bar. Steps already passed are links back; steps
+       not yet reachable are plain text, so the rail never offers a
+       screen that cannot answer its own question. */
+    ".pr-steps{display:flex;flex-wrap:wrap;gap:0;list-style:none;margin:0 0 10px;padding:0;",
+    "counter-reset:pr-step;font-size:11px}",
+    ".pr-steps li{display:flex;align-items:center}",
+    ".pr-steps li+li::before{content:'\\2192';margin:0 6px;color:var(--pr-dim)}",
+    ".pr-steps button,.pr-steps span{counter-increment:pr-step;padding:2px 6px;min-height:0!important;",
+    "border:0!important;background:none;font:inherit}",
+    ".pr-steps button::before,.pr-steps span::before{content:counter(pr-step) ' ';color:var(--pr-dim)}",
+    ".pr-steps button{color:var(--pr-ink);text-decoration:underline;cursor:pointer}",
+    ".pr-steps button:hover{color:var(--pr-accent)}",
+    ".pr-steps .on{color:var(--pr-accent)}",
+    ".pr-steps .on::before{color:var(--pr-accent)}",
+    ".pr-steps .off{color:var(--pr-dim)}",
+    ".pr-course-row{max-height:132px;overflow-y:auto}",
     ".pr-c-both{font-size:9px;letter-spacing:.5px;color:var(--pr-good);font-style:normal}",
     ".pr-c-no{font-size:9px;letter-spacing:.5px;color:var(--pr-dim);font-style:normal}",
     ".pr-rs-years{font-size:9px;color:var(--pr-dim);font-style:normal;margin-left:4px}",
@@ -7510,6 +7754,18 @@
     clearSave();
     UI.wallsChecked = false;
     UI.curtainCleared = null;
+    /* "New game" means another race on the course already on the
+       table, so a composed one is re-run from the spec it was built
+       from rather than resolved by name -- a name a course laid out by
+       hand does not have. */
+    if (UI.opts && UI.opts.courseSpec) {
+      newGame((Math.random() * 1e9) | 0, gameOpts(UI.opts, UI.course.id, UI.opts.courseSpec));
+      UI.beams = null;
+      hideBanner();
+      updateAll();
+      advance();
+      return;
+    }
     /* A course change means a different board, so the whole mount is
        rebuilt rather than patched. */
     if (UI.course && UI.course.id !== chosenCourse(UI.opts)) { mount(UI.els.host, UI.opts); return; }
@@ -7534,15 +7790,48 @@
   function dispatchAct(el) {
     var a = el.dataset.act, i = parseInt(el.dataset.i, 10);
     if (a === "setup") { showSetup(); return; }
+    if (a === "wstep") { wizGo(+el.dataset.n); return; }
+    if (a === "wback") { wizGo((UI.wizStep || 0) - 1); return; }
+    if (a === "wnext") {
+      var at = UI.wizStep || 0;
+      if (wizBlocker(at)) { showWizard(); return; }
+      if (at < WIZARD.length - 2) { saveRules(); saveLayout(); wizGo(at + 1); return; }
+      saveRules(); saveLayout(); closeModal();
+      var flags = flagsResolved(), spec = layoutCourse(flags), named = layoutIsCourse();
+      /* A layout that is a shipped course, raced with that course's
+         own flags, IS that course and is started under its name --
+         the log, the help and the saved game should all say
+         "Exchange Run" rather than "composed". */
+      if (named && JSON.stringify(B.COURSES[named].flags) === JSON.stringify(flags)) {
+        spec.id = named;
+        spec.name = B.COURSES[named].name;
+        spec.blurb = B.COURSES[named].blurb || "";
+      }
+      startComposed(spec);
+      return;
+    }
+    if (a === "lcourse") {
+      /* A shipped course loads INTO the grid rather than bypassing it,
+         so every race goes through the same three screens. */
+      var lay = B.layoutFromCourse(el.dataset.c);
+      if (lay) {
+        UI.layout = lay;
+        UI.layout.pick = { mode: "default", hand: [] };
+        UI.heldBoard = null;
+        houseRules.course = el.dataset.c;
+        syncRulesetToCourse();
+        saveRules(); saveLayout();
+      }
+      showWizard(); return;
+    }
     if (a === "help") { showHelp(); return; }
     if (a === "closemodal") { closeModal(); return; }
     if (a === "helptab") { showHelp(el.dataset.tab); return; }
     if (a === "preset") {
       var pre = DIFFICULTY_PRESETS[el.dataset.name];
       for (var k in pre) houseRules[k] = pre[k];
-      saveRules(); showSetup(); return;
+      saveRules(); showWizard(); return;
     }
-    if (a === "course") { houseRules.course = el.dataset.c; saveRules(); showSetup(); return; }
     if (a === "ruleset") {
       houseRules.ruleset = el.dataset.r;
       /* Switching rulebook can strand you on a course the new one
@@ -7555,7 +7844,7 @@
           if (courseAllowed(cid3, houseRules.ruleset)) { houseRules.course = cid3; break; }
         }
       }
-      saveRules(); showSetup(); return;
+      saveRules(); showWizard(); return;
     }
     if (a === "rule" && el.dataset.v !== undefined) {
       houseRules[el.dataset.k] = clampRule(el.dataset.k, +el.dataset.v);
@@ -7564,31 +7853,27 @@
       if (el.dataset.k === "players" && houseRules.humans > houseRules.players) {
         houseRules.humans = houseRules.players;
       }
-      saveRules(); showSetup(); return;
+      saveRules(); showWizard(); return;
     }
-    if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showSetup(); return; }
-    if (a === "layout") { showLayout(); return; }
-    if (a === "lsize") { layoutResize(+el.dataset.c, +el.dataset.r); saveLayout(); showLayout(); return; }
+    if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showWizard(); return; }
+    if (a === "layout") { wizGo(1); return; }
+    if (a === "lsize") { layoutResize(+el.dataset.c, +el.dataset.r); saveLayout(); showWizard(); return; }
     if (a === "lhold") {
       /* Clicking the held board again puts it down, so the pointer
          user is never stuck holding something. */
       UI.heldBoard = UI.heldBoard === el.dataset.b ? null : el.dataset.b;
-      showLayout(); return;
+      showWizard(); return;
     }
     if (a === "ldrop") {
       if (!UI.heldBoard) return;
       layoutPlace(+el.dataset.i, UI.heldBoard);
       /* The board stays in hand: filling a 2x2 grid with four copies
          of one board should not be four trips to the palette. */
-      saveLayout(); showLayout(); return;
+      saveLayout(); showWizard(); return;
     }
-    if (a === "lrot") { layoutTurn(+el.dataset.i); saveLayout(); showLayout(); return; }
-    if (a === "lclear") { UI.layout.cells[+el.dataset.i] = null; saveLayout(); showLayout(); return; }
-    if (a === "ldock") { UI.layout.dockCol = +el.dataset.c; saveLayout(); showLayout(); return; }
-    if (a === "lrace") {
-      if (layoutProblem()) { showLayout(); return; }
-      saveLayout(); showFlags(); return;
-    }
+    if (a === "lrot") { layoutTurn(+el.dataset.i); saveLayout(); showWizard(); return; }
+    if (a === "lclear") { UI.layout.cells[+el.dataset.i] = null; saveLayout(); showWizard(); return; }
+    if (a === "ldock") { UI.layout.dockCol = +el.dataset.c; saveLayout(); showWizard(); return; }
     if (a === "fn") {
       var pk = flagPick();
       pk.n = Math.max(1, Math.min(flagsMost(layoutBoardCount()), +el.dataset.n));
@@ -7596,21 +7881,13 @@
       /* A shorter race keeps the flags already placed; a longer one
          asks for the rest rather than starting again. */
       if (pk.hand.length > pk.n) pk.hand.length = pk.n;
-      saveLayout(); showFlags(); return;
+      saveLayout(); showWizard(); return;
     }
-    if (a === "fmode") { flagPick().mode = el.dataset.m; saveLayout(); showFlags(); return; }
-    if (a === "froll") { flagRoll(); saveLayout(); showFlags(); return; }
-    if (a === "fundo") { flagPick().hand.pop(); saveLayout(); showFlags(); return; }
-    if (a === "fclear") { flagPick().hand = []; saveLayout(); showFlags(); return; }
-    if (a === "fput") { flagPlace(+el.dataset.c, +el.dataset.r); saveLayout(); showFlags(); return; }
-    if (a === "frace") {
-      if (flagProblem()) { showFlags(); return; }
-      var spec = layoutCourse(flagsResolved());
-      saveLayout();
-      closeModal();
-      startComposed(spec);
-      return;
-    }
+    if (a === "fmode") { flagPick().mode = el.dataset.m; saveLayout(); showWizard(); return; }
+    if (a === "froll") { flagRoll(); saveLayout(); showWizard(); return; }
+    if (a === "fundo") { flagPick().hand.pop(); saveLayout(); showWizard(); return; }
+    if (a === "fclear") { flagPick().hand = []; saveLayout(); showWizard(); return; }
+    if (a === "fput") { flagPlace(+el.dataset.c, +el.dataset.r); saveLayout(); showWizard(); return; }
     if (a === "editmap") {
       closeModal();
       root.location.hash = "#edit=" + el.dataset.b + "&from=setup";
@@ -7622,15 +7899,8 @@
       saveHouseBoards();
       syncRulesetToCourse();
       saveRules();
-      showSetup();
+      showWizard();
       return;
-    }
-    if (a === "start") {
-      /* Belt and braces over the disabled buttons: the menu can be
-         driven from the keyboard and from a restored localStorage that
-         predates a ruleset changing, so the refusal lives here too. */
-      if (!courseAllowed(houseRules.course, rulesetOf(houseRules))) { showSetup(); return; }
-      saveRules(); closeModal(); onNewGame(); return;
     }
     if (a === "tut") { showTutorial(i); return; }
     if (a === "tutskip") { showTutorial(TUTORIAL.length); return; }
@@ -7759,7 +8029,7 @@
           else layoutSwap(UI.drag.i, to);
           UI.drag = null;
           saveLayout();
-          showLayout();
+          showWizard();
           return;
         }
       }
@@ -7776,7 +8046,7 @@
       var el = e.target.closest("[data-act=rule]");
       if (!el) return;
       houseRules[el.dataset.k] = clampRule(el.dataset.k, parseInt(el.value, 10));
-      showSetup();
+      showWizard();
     });
     root.addEventListener("keydown", function (e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -8345,7 +8615,7 @@
      the palette, or a whole assembled course on the flag screen. It is
      the game's own tileClasses and tileInner at a smaller tile, so
      there is no second drawing of a board to drift from the first. */
-  function gridThumb(g, px, pick) {
+  function gridThumb(g, px, over) {
     /* tileInner walks flags and lasers; a bare grid has lasers and no
        flags, so it is given the empty list the renderer expects. */
     g.flags = g.flags || [];
@@ -8355,24 +8625,41 @@
         cells.push('<i class="' + tileClasses(g, c, r).join(" ") + '">' + tileInner(g, c, r) + "</i>");
       }
     }
+
+    /* AN OVERLAY, NOT A SECOND RENDERER.
+
+       The tiles are the game's own drawing of the board and stay
+       exactly that. What goes on top of them is two things the picture
+       cannot say at this size: which squares can be clicked, and which
+       ones hold a flag. The tile art draws a flag faithfully -- at a
+       22px tile that is an 11px banner with a 5px numeral on it, in
+       the same amber as every conveyor arrow around it, which is how
+       "click the squares in order" became a guessing game. So the
+       number is drawn again, large, over the square it belongs to. */
     var hits = "";
-    if (pick) {
-      /* A separate layer of real buttons rather than making the tiles
-         themselves clickable: the tiles are the game's renderer and
-         must stay exactly what the board looks like. */
-      hits = ['<span class="pr-thumb-hits" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">'];
+    if (over) {
+      hits = ['<span class="pr-thumb-hits' + (over.act ? "" : " pr-no-hits") +
+        '" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">'];
       for (r = 0; r < g.h; r++) {
         for (c = 0; c < g.w; c++) {
-          var can = pick.legal[r * g.w + c];
-          hits.push('<button class="pr-thumb-hit' + (can ? "" : " no") + '" data-act="' + pick.act +
-            '" data-c="' + c + '" data-r="' + r + '"' + (can ? "" : " disabled") +
-            ' aria-label="' + esc(describeTile(g, c, r)) + '"></button>');
+          var mark = over.marks ? over.marks[c + "," + r] : 0;
+          var body = mark ? "<b>" + mark + "</b>" : "";
+          if (!over.act) {
+            hits.push('<span class="pr-thumb-hit' + (mark ? " mark" : "") + '">' + body + "</span>");
+            continue;
+          }
+          var can = over.legal[r * g.w + c] || mark;
+          hits.push('<button class="pr-thumb-hit' + (can ? "" : " no") + (mark ? " mark" : "") +
+            '" data-act="' + over.act + '" data-c="' + c + '" data-r="' + r + '"' +
+            (can ? "" : " disabled") +
+            ' aria-label="' + esc((mark ? "flag " + mark + ", " : "") + describeTile(g, c, r)) +
+            '">' + body + "</button>");
         }
       }
       hits.push("</span>");
       hits = hits.join("");
     }
-    return '<span class="pr-thumb' + (pick ? " pr-thumb-pick" : "") +
+    return '<span class="pr-thumb' + (over && over.act ? " pr-thumb-pick" : "") +
         '" style="--tile:' + px + "px;--wt:" + Math.max(2, Math.round(px / 2.5)) +
         "px;width:" + (g.w * px) + "px;height:" + (g.h * px) + 'px">' +
         '<span class="pr-thumb-grid" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">' +
@@ -8412,6 +8699,15 @@
     return { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
   }
 
+  /* Every reader of the layout goes through this, because the wizard
+     asks questions about it before anything has opened the screen that
+     builds one -- the step rail has to know whether the boards step is
+     answered before it can draw the flags step as reachable. */
+  function layoutNow() {
+    if (!UI.layout) UI.layout = loadLayout();
+    return UI.layout;
+  }
+
   function loadLayout() {
     try {
       var raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "null");
@@ -8438,7 +8734,7 @@
   }
 
   function layoutResize(dCols, dRows) {
-    var L = UI.layout;
+    var L = layoutNow();
     var cols = Math.max(1, Math.min(3, L.cols + dCols));
     var rows = Math.max(1, Math.min(3, L.rows + dRows));
     var cells = [];
@@ -8448,7 +8744,7 @@
       }
     }
     L.cols = cols; L.rows = rows; L.cells = cells;
-    if (L.dockCol >= cols) L.dockCol = cols - 1;
+    if (L.dockCol > cols - 1) L.dockCol = cols - 1;
   }
 
   /* The three edits a slot can take. They live here rather than in the
@@ -8484,26 +8780,82 @@
     /* Composed fresh each time so the preview is the course that would
        actually be raced, not an approximation of it. */
     var pick = flagPick();
-    return B.composeCourse(B.withFlags(UI.layout, flags || null), pick.n);
+    return B.composeCourse(B.withFlags(layoutNow(), flags || null), pick.n);
   }
 
   function layoutProblem() {
-    var L = UI.layout, any = false;
+    var L = layoutNow(), any = false;
     for (var i = 0; i < L.cells.length; i++) if (L.cells[i] && L.cells[i].id) any = true;
     if (!any) return "Drop at least one board into the grid.";
     try {
       var spec = layoutCourse();
       B.validateCourse(spec, function () {});
       if (!spec.flags.length) return "No square on this course can hold a flag.";
+      /* THE RULESET MEETS THE BOARDS HERE, and nowhere else now that a
+         course is laid out rather than chosen off a list. A board with
+         a square the chosen rulebook has no rules for cannot be raced
+         under it, and the step that put the board there is the step
+         that has to say so. */
+      var rs = rulesetOf(houseRules);
+      if (B.playableEditions(spec).indexOf(rs) < 0) {
+        var why = B.editionBlocker(spec, rs);
+        return RULESETS[rs].name + " has no " + (why || "rules for a square on this course") +
+          ", so it cannot race this layout.";
+      }
     } catch (e) { return e.message; }
     return null;
   }
 
-  function showLayout() {
-    if (!UI.layout) UI.layout = loadLayout();
-    var L = UI.layout, i, c, r;
-    var out = ['<h2>SHAPE THE COURSE</h2>'];
+  /* Which palette boards the chosen rulebook cannot read, so they are
+     greyed with the reason rather than offered and then refused a
+     screen later. */
+  function boardBlocker(id) {
+    var rs = rulesetOf(houseRules);
+    var one = { id: "_probe", name: "probe", boards: [{ id: id, rot: 0, at: [0, 0] }],
+                flags: [], minPlayers: 2, maxPlayers: 8 };
+    try {
+      if (B.playableEditions(one).indexOf(rs) >= 0) return null;
+      return B.editionBlocker(one, rs);
+    } catch (e) { return null; }
+  }
 
+  function layoutBody() {
+    var L = layoutNow(), i, c, r;
+    var out = [];
+
+    /* START FROM SOMETHING, or from nothing.
+
+       Picking a printed course off the menu and building one by hand
+       used to be two different flows with two different screens after
+       them. They are the same flow now: a shipped course loads into
+       this grid, which means the flag screen can recognise it again
+       and offer the flags it actually ships with. */
+    out.push('<h3 class="pr-rule-group">Start from a course</h3><div class="pr-presets pr-course-row">');
+    var rsCur0 = rulesetOf(houseRules), bySet0 = {}, order0 = [];
+    for (var cid0 in B.COURSES) {
+      if (cid0.charAt(0) === "_") continue;
+      if (!B.layoutFromCourse(cid0)) continue;       // not a shape this grid can hold
+      var setId0 = B.BOARD_SPECS[B.COURSES[cid0].boards[0].id].set || "authored";
+      if (!bySet0[setId0]) { bySet0[setId0] = []; order0.push(setId0); }
+      bySet0[setId0].push(cid0);
+    }
+    for (var si0 = 0; si0 < order0.length; si0++) {
+      var sid0 = order0[si0];
+      if (order0.length > 1) out.push('<span class="pr-set-label">' + esc(B.SETS[sid0].name) + "</span>");
+      for (var ci0 = 0; ci0 < bySet0[sid0].length; ci0++) {
+        var id0 = bySet0[sid0][ci0];
+        var ok0 = courseAllowed(id0, rsCur0), why0 = ok0 ? "" : B.editionBlocker(id0, rsCur0);
+        out.push('<button class="pr-course' + (layoutIsCourse() === id0 ? " on" : "") +
+          '" data-act="lcourse" data-c="' + esc(id0) + '"' + (ok0 ? "" : " disabled") +
+          (why0 ? ' title="' + esc(RULESETS[rsCur0].name + " has no " + why0) + '"' : "") + ">" +
+          courseThumb(id0) +
+          '<span class="pr-course-name">' + esc(B.COURSES[id0].name) + "</span>" +
+          (why0 ? '<i class="pr-c-no">needs ' + esc(why0) + "</i>" : "") + "</button>");
+      }
+    }
+    out.push("</div>");
+
+    out.push('<h3 class="pr-rule-group">Or lay one out</h3>');
     out.push('<div class="pr-ed-row"><span>Grid</span>' +
       '<button data-act="lsize" data-c="-1" data-r="0"' + (L.cols <= 1 ? " disabled" : "") +
         ' aria-label="one column fewer">&minus; wide</button>' +
@@ -8520,12 +8872,15 @@
     out.push('<h3 class="pr-rule-group">Boards</h3><div class="pr-palette">');
     var pal = paletteBoards();
     for (i = 0; i < pal.length; i++) {
-      var held = UI.heldBoard === pal[i];
-      out.push('<button class="pr-pal' + (held ? " on" : "") + '" draggable="true"' +
+      var held = UI.heldBoard === pal[i], nope = boardBlocker(pal[i]);
+      out.push('<button class="pr-pal' + (held ? " on" : "") + '"' +
+        (nope ? " disabled" : ' draggable="true"') +
         ' data-act="lhold" data-b="' + esc(pal[i]) + '"' +
+        (nope ? ' title="' + esc(RULESETS[rulesetOf(houseRules)].name + " has no " + nope) + '"' : "") +
         ' aria-pressed="' + (held ? "true" : "false") + '">' +
         boardThumb(pal[i], 0, 4) +
-        '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) + "</span></button>");
+        '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) + "</span>" +
+        (nope ? '<i class="pr-c-no">needs ' + esc(nope) + "</i>" : "") + "</button>");
     }
     out.push("</div>");
     out.push('<div class="pr-rule-desc">' +
@@ -8559,12 +8914,19 @@
     out.push("</div>");
 
     /* THE DOCK, along the base. */
+    /* Half-board steps, because a start area is allowed to straddle
+       two boards -- one of the shipped courses does exactly that, and
+       whole columns alone could not express it. */
     out.push('<div class="pr-ed-row"><span>Start area</span>' +
-      '<div class="pr-seg" role="radiogroup" aria-label="Which column the docking bay sits under">');
-    for (c = 0; c < L.cols; c++) {
-      out.push('<button class="pr-seg-b' + (L.dockCol === c ? " on" : "") + '" data-act="ldock" data-c="' + c +
-        '" role="radio" aria-checked="' + (L.dockCol === c ? "true" : "false") +
-        '" tabindex="' + (L.dockCol === c ? "0" : "-1") + '">column ' + (c + 1) + "</button>");
+      '<div class="pr-seg" role="radiogroup" aria-label="Where the docking bay sits along the base">');
+    for (c = 0; c <= (L.cols - 1) * 2; c++) {
+      var dv = c / 2, on = L.dockCol === dv;
+      var lab = (dv === Math.floor(dv))
+        ? "column " + (dv + 1)
+        : "across " + (Math.floor(dv) + 1) + " and " + (Math.floor(dv) + 2);
+      out.push('<button class="pr-seg-b' + (on ? " on" : "") + '" data-act="ldock" data-c="' + dv +
+        '" role="radio" aria-checked="' + (on ? "true" : "false") +
+        '" tabindex="' + (on ? "0" : "-1") + '">' + lab + "</button>");
     }
     out.push("</div></div>");
     out.push('<div class="pr-rule-desc">The docking bay goes under the grid. Everyone starts there.</div>');
@@ -8579,10 +8941,28 @@
         pc.docks.length + " bays, " + pc.flags.length + " flags.</div>");
     }
 
-    out.push('<div class="pr-modal-foot">' +
-      '<button data-act="lrace"' + (problem ? " disabled" : "") + ">Place the flags\u2026</button>" +
-      '<button data-act="setup">Back</button></div>');
-    openModal(out.join(""));
+    return out.join("");
+  }
+
+  /* Which shipped course this layout IS, if any -- the same question
+     defaultFlagsFor asks, answered by name so the menu above can show
+     which one is loaded. */
+  function layoutIsCourse() {
+    layoutNow();
+    for (var id in B.COURSES) {
+      if (id.charAt(0) === "_") continue;
+      var L = B.layoutFromCourse(id);
+      if (!L || L.cols !== UI.layout.cols || L.rows !== UI.layout.rows) continue;
+      if (L.dockCol !== UI.layout.dockCol) continue;
+      var same = true;
+      for (var i = 0; i < L.cells.length && same; i++) {
+        var a = L.cells[i], b = UI.layout.cells[i];
+        if (!a !== !b) same = false;
+        else if (a && (a.id !== b.id || (a.rot || 0) !== (b.rot || 0))) same = false;
+      }
+      if (same) return id;
+    }
+    return null;
   }
 
   /* ============================================================
@@ -8617,14 +8997,13 @@
   function flagsMost(boards) { return Math.max(4, boards * 3); }
 
   function layoutBoardCount() {
-    var L = UI.layout, n = 0;
+    var L = layoutNow(), n = 0;
     for (var i = 0; i < L.cells.length; i++) if (L.cells[i] && L.cells[i].id) n++;
     return n;
   }
 
   function flagPick() {
-    if (!UI.layout) UI.layout = loadLayout();
-    var L = UI.layout;
+    var L = layoutNow();
     if (!L.pick) L.pick = { mode: "default", hand: [] };
     if (!L.pick.hand) L.pick.hand = [];
     /* The count follows the course until the player sets one. Growing
@@ -8636,6 +9015,12 @@
       L.pick.forBoards = boards;
       if (L.pick.hand.length > L.pick.n) L.pick.hand.length = L.pick.n;
     }
+    /* "random" was a mode of its own and is not any more: scattering
+       flags anywhere on a four-board course is not a race. The roll
+       lives inside Northrup now, where the window keeps it honest. A
+       saved layout carrying the old name is moved across rather than
+       left pointing at nothing. */
+    if (L.pick.mode === "random") { L.pick.mode = "northrup"; L.pick.rolled = null; }
     if (L.pick.mode === "default" && !B.defaultFlagsFor(L)) L.pick.mode = "arena";
     return L.pick;
   }
@@ -8643,21 +9028,22 @@
   function flagScratch() {
     /* The course with NO flags on it: what "is this square legal" is a
        question about, and what the by-hand picker draws onto. */
-    return B.buildCourse(B.composeCourse(B.withFlags(UI.layout, []), 0));
+    return B.buildCourse(B.composeCourse(B.withFlags(layoutNow(), []), 0));
   }
 
   function flagsResolved() {
     var pick = flagPick();
     if (pick.mode === "hand") return pick.hand.slice(0, pick.n);
-    if (pick.mode === "random") {
-      if (!pick.rolled || pick.rolledN !== pick.n) flagRoll();
-      return pick.rolled.slice(0, pick.n);
-    }
-    var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    var spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
     if (pick.mode === "rally") return B.rallyFlags(B.buildCourse(spec0), pick.n, spec0);
     if (pick.mode === "arena") return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
-    if (pick.mode === "northrup") return B.northrupFlags(B.buildCourse(spec0), pick.n, spec0);
-    var printed = B.defaultFlagsFor(UI.layout);
+    if (pick.mode === "northrup") {
+      /* Deterministic until somebody asks for a different one, so the
+         screen shows the same course each time it is opened. */
+      if (pick.rolled && pick.rolledN === pick.n) return pick.rolled.slice(0, pick.n);
+      return B.northrupFlags(B.buildCourse(spec0), pick.n, spec0);
+    }
+    var printed = B.defaultFlagsFor(layoutNow());
     if (printed && printed.length >= pick.n) return printed.slice(0, pick.n);
     /* A shipped course asked for more flags than it prints falls back
        to the lap, rather than to a shorter race nobody asked for. */
@@ -8670,8 +9056,8 @@
        part of it. Rolling flags off G.rngState would advance the
        previous game's stream from the setup screen -- and before the
        first game there is no G to advance. */
-    var pick = flagPick(), C = flagScratch();
-    pick.rolled = B.randomFlags(C, pick.n, null, B.dockBoxOf(B.composeCourse(B.withFlags(UI.layout, []), 0)));
+    var pick = flagPick(), spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
+    pick.rolled = B.northrupFlags(B.buildCourse(spec0), pick.n, spec0, Math.random);
     pick.rolledN = pick.n;
   }
 
@@ -8690,7 +9076,7 @@
   function flagPlace(c, r) {
     var pick = flagPick();
     if (pick.mode !== "hand") return;
-    var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
+    var spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
     /* The picker greys the squares a flag cannot sit on, but the model
        must refuse them too -- a disabled button is a courtesy, not a
        rule, and this is the only place the rule lives for by-hand. */
@@ -8706,23 +9092,25 @@
     pick.hand.push([c, r]);
   }
 
-  function showFlags() {
+  function flagsBody() {
     var pick = flagPick(), C, i;
-    var printedFlags = B.defaultFlagsFor(UI.layout);
+    var printedFlags = B.defaultFlagsFor(layoutNow());
     try { C = flagScratch(); }
-    catch (e) { showLayout(); return; }
+    catch (e) { return null; }
 
     var have = flagsResolved();
     /* Drawn with the flags on it, because the answer to "is that where
        I want flag two" is the picture and nothing else. */
     var shown = B.buildCourse(layoutCourse(have));
-    var legal = [], dockBox = B.dockBoxOf(B.composeCourse(B.withFlags(UI.layout, []), 0));
+    var legal = [], dockBox = B.dockBoxOf(B.composeCourse(B.withFlags(layoutNow(), []), 0));
     var cand = B.flagCandidates(C, dockBox), c, r;
     for (i = 0; i < C.w * C.h; i++) legal.push(false);
     for (i = 0; i < cand.length; i++) legal[cand[i].r * C.w + cand[i].c] = true;
 
-    var px = Math.max(9, Math.min(22, Math.floor(640 / C.w)));
-    var out = ['<h2>WHERE THE FLAGS GO</h2>'];
+    var px = Math.max(10, Math.min(34, Math.floor(760 / C.w)));
+    var marks = {};
+    for (i = 0; i < have.length; i++) marks[have[i][0] + "," + have[i][1]] = i + 1;
+    var out = [];
 
     /* A stepper rather than a row of radios: the range is one to three
        a board, which on a nine-board course is twenty-seven buttons. */
@@ -8737,7 +9125,7 @@
         " per board; the book suggests about one</span></div>");
 
     var modes = [["rally", "Rally"], ["arena", "Arena"], ["northrup", "Northrup"],
-                 ["random", "Random"], ["hand", "By hand"]];
+                 ["hand", "By hand"]];
     if (printedFlags) modes.unshift(["default", "Printed"]);
     out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
       ' aria-label="How the flags are placed">');
@@ -8748,7 +9136,7 @@
         (pick.mode === modes[i][0] ? "0" : "-1") + '">' + modes[i][1] + "</button>");
     }
     out.push("</div>");
-    if (pick.mode === "random") out.push('<button data-act="froll">Roll again</button>');
+    if (pick.mode === "northrup") out.push('<button data-act="froll">Roll again</button>');
     if (pick.mode === "hand") {
       out.push('<button data-act="fundo"' + (pick.hand.length ? "" : " disabled") + ">Undo</button>");
       out.push('<button data-act="fclear"' + (pick.hand.length ? "" : " disabled") + ">Start over</button>");
@@ -8757,20 +9145,22 @@
 
     var blurbs = {
       hand: "Click the squares in order. Flag one first. Click a flag again to take it back.",
-      random: "Anywhere legal, scattered. Roll again for a different course.",
+
       rally: "Every flag on one board before the next, starting by the docking bay. " +
              "Everyone is in the same place early, and it shows.",
       arena: "A lap of the play area, calling at every board \u2014 one flag in the thick of " +
              "each, one out toward its edge.",
       northrup: "Every flag inside one board's worth of squares. A printed rule of thumb: fast " +
                 "at two or three robots, because nobody is ever far from the next flag \u2014 and " +
-                "slower at four or more, because everybody is in the same twelve squares.",
+                "slower at four or more, because everybody is in the same twelve squares. " +
+                "Roll again to scatter them differently inside the window.",
       "default": "The flags this course is normally raced with."
     };
     out.push('<div class="pr-rule-desc">' + esc(blurbs[pick.mode] || blurbs.arena) + "</div>");
 
     out.push('<div class="pr-flag-stage">' +
-      gridThumb(shown, px, pick.mode === "hand" ? { act: "fput", legal: legal } : null) + "</div>");
+      gridThumb(shown, px, { act: pick.mode === "hand" ? "fput" : null, legal: legal, marks: marks }) +
+      "</div>");
 
     out.push('<div class="pr-flag-list">');
     for (i = 0; i < have.length; i++) {
@@ -8785,14 +9175,129 @@
       : '<div class="pr-ed-ok">' + shown.w + " by " + shown.h + " squares, " + have.length +
         " flag" + (have.length === 1 ? "" : "s") + ", " + shown.docks.length + " bays.</div>");
 
-    out.push('<div class="pr-modal-foot">' +
-      '<button data-act="frace"' + (problem ? " disabled" : "") + ">Start the race</button>" +
-      '<button data-act="layout">Back to the boards</button></div>');
-    openModal(out.join(""));
+    /* EDIT A MAP, from here rather than from a URL. The editor was
+       reachable only at #edit=<board>, which is fine for transcribing
+       a board and useless for "move that pit before we start". An edit
+       shadows the shipped board for this session and comes back here. */
+    var eb = {}, ebs = [];
+    for (i = 0; i < UI.layout.cells.length; i++) {
+      var cell = UI.layout.cells[i];
+      if (cell && cell.id && !eb[cell.id]) { eb[cell.id] = 1; ebs.push(cell.id); }
+    }
+    out.push('<div class="pr-ed-row pr-setup-edit"><span>These maps</span>');
+    for (i = 0; i < ebs.length; i++) {
+      out.push('<button data-act="editmap" data-b="' + esc(ebs[i]) + '">Edit ' +
+        esc(ebs.length > 1 ? B.BOARD_SPECS[ebs[i]].name : "map") +
+        (B.isOverridden(ebs[i]) ? " *" : "") + "</button>");
+    }
+    if (B.overrideIds().length) {
+      out.push('<button data-act="resetmaps">Undo all map edits</button>');
+      out.push('<span class="pr-ed-note">* edited for this session; the shipped board is untouched</span>');
+    }
+    out.push("</div>");
+
+    return out.join("");
   }
 
-  function showSetup() {
-    var out = ['<h2>SET UP A RACE</h2><div class="pr-presets">'];
+  /* ============================================================
+     THE WIZARD
+
+     Setting up a race is five decisions and they were one screen plus
+     two pop-ups hanging off it, in an order nobody could see. They are
+     steps now, in the order the decisions actually depend on each
+     other: the settings decide which rulebook is in play, the rulebook
+     decides which boards may be laid out, the layout decides where a
+     flag can legally sit, and only then is there a course to pick a
+     colour for and a dock to draw bays from.
+
+     The fifth step is not in this modal at all -- the priority draw
+     happens on the board, because it is played rather than configured.
+     It is on the rail anyway, so the last screen before the race does
+     not look like the last screen of the game's setup. */
+  var WIZARD = [
+    { id: "rules",  label: "Settings", title: "SET UP A RACE" },
+    { id: "boards", label: "Boards",   title: "SHAPE THE COURSE" },
+    { id: "flags",  label: "Flags",    title: "WHERE THE FLAGS GO" },
+    { id: "robot",  label: "Robot",    title: "YOUR ROBOT" },
+    { id: "bays",   label: "Bays",     title: "", onBoard: true }
+  ];
+
+  /* What stops you leaving a step, or null. Steps are gated on the
+     step BEFORE them, so the rail can grey out what is not reachable
+     yet rather than letting somebody arrive at a screen that cannot
+     answer its own question. */
+  function wizBlocker(step) {
+    if (WIZARD[step].id === "boards") return layoutProblem();
+    if (WIZARD[step].id === "flags") return flagProblem();
+    return null;
+  }
+
+  function wizReachable(step) {
+    for (var i = 0; i < step && i < WIZARD.length; i++) {
+      if (WIZARD[i].onBoard) return false;
+      if (wizBlocker(i)) return false;
+    }
+    return true;
+  }
+
+  function wizGo(step) {
+    step = Math.max(0, Math.min(WIZARD.length - 2, step));
+    while (step > 0 && !wizReachable(step)) step--;
+    UI.wizStep = step;
+    showWizard();
+  }
+
+  function showSetup() { wizGo(0); }
+
+  function showWizard() {
+    var step = Math.max(0, Math.min(WIZARD.length - 2, UI.wizStep || 0));
+    UI.wizStep = step;
+    var body = null;
+    if (WIZARD[step].id === "rules") body = rulesBody();
+    else if (WIZARD[step].id === "boards") body = layoutBody();
+    else if (WIZARD[step].id === "flags") body = flagsBody();
+    else body = robotBody();
+    /* A step that cannot draw itself is a step whose input is gone --
+       an empty grid has no flags to place -- so it hands back rather
+       than rendering something that cannot be answered. */
+    if (body === null) { UI.wizStep = Math.max(0, step - 1); showWizard(); return; }
+
+    var out = ['<h2>' + esc(WIZARD[step].title) + "</h2>"];
+    out.push('<ol class="pr-steps">');
+    for (var i = 0; i < WIZARD.length; i++) {
+      var here = i === step, can = !WIZARD[i].onBoard && wizReachable(i);
+      out.push("<li>" + (can && !here
+        ? '<button data-act="wstep" data-n="' + i + '">' + esc(WIZARD[i].label) + "</button>"
+        : '<span class="' + (here ? "on" : "off") + '"' + (here ? ' aria-current="step"' : "") + ">" +
+          esc(WIZARD[i].label) + "</span>") + "</li>");
+    }
+    out.push("</ol>");
+    out.push(body);
+
+    var blocker = wizBlocker(step);
+    if (blocker) out.push('<div class="pr-ed-bad">' + esc(blocker) + "</div>");
+
+    var last = step === WIZARD.length - 2;
+    out.push('<div class="pr-modal-foot">' +
+      '<button data-act="wnext"' + (blocker ? " disabled" : "") + ">" +
+        (last ? "Start the race" : "Next: " + esc(WIZARD[step + 1].label)) + "</button>" +
+      (step > 0 ? '<button data-act="wback">Back</button>' : "") +
+      '<button data-act="closemodal">Cancel</button></div>');
+    openModal(out.join(""));
+
+    /* Arrowing through a radio group re-renders the screen under the
+       key, so the focus is put back by VALUE. Restoring by element
+       would reach for one that no longer exists. */
+    if (UI.refocusRule) {
+      var back = UI.els.overlay.querySelector('[data-act="rule"][data-k="' + UI.refocusRule.k +
+        '"][data-v="' + UI.refocusRule.v + '"]');
+      UI.refocusRule = null;
+      if (back) back.focus();
+    }
+  }
+
+  function rulesBody() {
+    var out = ['<div class="pr-presets">'];
     var cur = currentPreset();
     for (var name in DIFFICULTY_PRESETS) {
       out.push('<button data-act="preset" data-name="' + esc(name) + '"' +
@@ -8801,11 +9306,11 @@
     out.push(cur ? "" : '<button class="on" disabled>Custom</button>');
     out.push("</div>");
 
-    /* RULESET first, because it decides which courses are even on the
-       menu. An unbuilt one is shown and greyed with its reason rather
-       than hidden: hiding it says the game has one rulebook, which is
-       not true, and offering it would play the wrong one, which is
-       worse. */
+    /* RULESET first, because it decides which boards are even on the
+       menu a step from now. An unbuilt one is shown and greyed with
+       its reason rather than hidden: hiding it says the game has one
+       rulebook, which is not true, and offering it would play the
+       wrong one, which is worse. */
     var rsCur = rulesetOf(houseRules);
     out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Ruleset</b>' +
       '<span class="pr-rule-val">' + esc(RULESETS[rsCur].name) + "</span></div>" +
@@ -8821,66 +9326,27 @@
     }
     out.push("</div><div class='pr-rule-desc'>" + esc(RULESETS[rsCur].blurb) + "</div></div>");
 
-    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Course</b>' +
-      '<span class="pr-rule-val">' + esc(B.COURSES[houseRules.course].name) + "</span></div>" +
-      '<div class="pr-presets">');
-    /* Grouped by box, because "a course from Armed and Dangerous" is
-       how anyone with the shelf actually picks one. */
-    var bySet = {}, order = [];
-    for (var cid in B.COURSES) {
-      if (cid.charAt(0) === "_") continue;             // the editor's scratch course
-      var setId = B.BOARD_SPECS[B.COURSES[cid].boards[0].id].set || "authored";
-      if (!bySet[setId]) { bySet[setId] = []; order.push(setId); }
-      bySet[setId].push(cid);
-    }
-    for (var si = 0; si < order.length; si++) {
-      var sid = order[si];
-      if (order.length > 1) out.push('<span class="pr-set-label">' + esc(B.SETS[sid].name) + "</span>");
-      for (var ci = 0; ci < bySet[sid].length; ci++) {
-        var id2 = bySet[sid][ci];
-        /* A course the chosen rulebook cannot read is greyed AND says
-           which square shuts it out, so the menu answers "why not"
-           instead of leaving you to guess. */
-        var okHere = courseAllowed(id2, rsCur);
-        var why = okHere ? "" : B.editionBlocker(id2, rsCur);
-        var both = B.playableEditions(id2).length > 1;
-        out.push('<button class="pr-course' + (houseRules.course === id2 ? " on" : "") +
-          '" data-act="course" data-c="' + esc(id2) + '"' + (okHere ? "" : " disabled") +
-          (why ? ' title="' + esc(RULESETS[rsCur].name + " has no " + why) + '"' : "") + ">" +
-          courseThumb(id2) +
-          '<span class="pr-course-name">' + esc(B.COURSES[id2].name) + "</span>" +
-          (both ? '<i class="pr-c-both">either ruleset</i>' : "") +
-          (why ? '<i class="pr-c-no">needs ' + esc(why) + "</i>" : "") + "</button>");
+    var groups = [["setup", null], ["house", "House rules"]];
+    for (var gi = 0; gi < groups.length; gi++) {
+      var gname = groups[gi][0];
+      if (groups[gi][1]) out.push('<h3 class="pr-rule-group">' + esc(groups[gi][1]) + "</h3>");
+      for (var k in SLIDER_DEFS) {
+        var d = SLIDER_DEFS[k], v = houseRules[k];
+        if ((d.group || "setup") !== gname) continue;
+        out.push(ruleControl(k, d, v));
       }
     }
-    /* EDIT THIS MAP, from the menu rather than from a URL. The editor
-       was reachable only at #edit=<board>, which is fine for
-       transcribing a board and useless for "move that pit before we
-       start". Editing here shadows the shipped board for this session
-       and comes straight back to this screen. */
-    var edBoards = B.COURSES[houseRules.course].boards;
-    out.push('<div class="pr-ed-row pr-setup-edit"><span>This map</span>');
-    for (var eb = 0; eb < edBoards.length; eb++) {
-      var ebid = edBoards[eb].id;
-      out.push('<button data-act="editmap" data-b="' + esc(ebid) + '">Edit ' +
-        esc(edBoards.length > 1 ? B.BOARD_SPECS[ebid].name : "map") +
-        (B.isOverridden(ebid) ? " *" : "") + "</button>");
-    }
-    if (B.overrideIds().length) {
-      out.push('<button data-act="resetmaps">Undo all map edits</button>');
-      out.push('<span class="pr-ed-note">* edited for this session; the shipped board is untouched</span>');
-    }
-    out.push("</div>");
+    var cfg = resolveConfig(houseRules);
+    out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
+      (cfg.humans === 1 ? " played here" : " played here in turn") + ".</p>");
+    return out.join("");
+  }
 
-    out.push("</div><div class='pr-rule-desc'>" +
-      esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
-
-    /* YOUR ROBOT. Colour and bay, under the course because the bays
-       belong to the course -- a different one has them in different
-       places, and picking bay 6 on a board that prints five would be
-       a choice the board cannot honour. */
-    var cfgSeat = resolveConfig(houseRules);
-    out.push('<h3 class="pr-rule-group">Your robot</h3>');
+  /* YOUR ROBOT. Colour only: the bay is drawn for on the board a
+     moment later, and a control that quietly does nothing is worse
+     than no control. */
+  function robotBody() {
+    var cfgSeat = resolveConfig(houseRules), out = [];
     out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Colour</b>' +
       '<span class="pr-rule-val">' + esc(LIVERIES[cfgSeat.livery].name) + "</span></div>" +
       '<div class="pr-presets pr-liveries">');
@@ -8893,35 +9359,19 @@
     out.push("</div><div class='pr-rule-desc'>Your robot's colour is also its name, " +
       "on the board and in the log. The other racers take the rest.</div></div>");
 
-    /* The bay picker is gone: the draft hands the dock out now, and a
-       control that quietly does nothing is worse than no control. */
-
-    var groups = [["setup", null], ["house", "House rules"]];
-    for (var gi = 0; gi < groups.length; gi++) {
-    var gname = groups[gi][0];
-    if (groups[gi][1]) out.push('<h3 class="pr-rule-group">' + esc(groups[gi][1]) + "</h3>");
-    for (var k in SLIDER_DEFS) {
-      var d = SLIDER_DEFS[k], v = houseRules[k];
-      if ((d.group || "setup") !== gname) continue;
-      out.push(ruleControl(k, d, v));
-    }
-    }
-    var cfg = resolveConfig(houseRules);
-    out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
-      (cfg.humans === 1 ? " played here" : " played here in turn") + ".</p>");
-    out.push('<div class="pr-modal-foot"><button data-act="start">Start</button>' +
-      '<button data-act="layout">Build a course\u2026</button>' +
-      '<button data-act="closemodal">Cancel</button></div>');
-    openModal(out.join(""));
-    /* Arrowing through a radio group re-renders the screen under the
-       key, so the focus is put back by VALUE. Restoring by element
-       would reach for one that no longer exists. */
-    if (UI.refocusRule) {
-      var back = UI.els.overlay.querySelector('[data-act="rule"][data-k="' + UI.refocusRule.k +
-        '"][data-v="' + UI.refocusRule.v + '"]');
-      UI.refocusRule = null;
-      if (back) back.focus();
-    }
+    /* What is about to be started, in one line, because this is the
+       last screen before the board and the three decisions behind it
+       are no longer on it. */
+    var have = flagsResolved(), spec = layoutCourse(have), C = B.buildCourse(spec);
+    var named = layoutIsCourse();
+    out.push('<div class="pr-rule-desc">' +
+      esc(named ? B.COURSES[named].name : "Your own course") + " \u2014 " +
+      C.w + " by " + C.h + " squares, " + have.length + " flag" + (have.length === 1 ? "" : "s") +
+      ", " + cfgSeat.players + " robots. " +
+      (cfgSeat.humanPrivilege
+        ? "You pick your starting bay first."
+        : "Everyone draws for the order the bays are picked in.") + "</div>");
+    return out.join("");
   }
 
   function helpTabs() {
@@ -9798,7 +10248,11 @@
        silently switched rulebook is a different game. */
     var moved = syncRulesetToCourse();
     saveRules();
-    showSetup();
+    /* Back to the step the edit was started from -- which is the flag
+       screen, because that is where the boards of this layout are
+       listed. Landing on step one would throw away the wizard's place
+       for an edit that changed nothing about the settings. */
+    wizGo(2);
     if (applied) {
       announce(moved
         ? "Map updated. It uses " + RULESETS[moved].name + " squares, so that ruleset is now on."

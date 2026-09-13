@@ -1713,6 +1713,48 @@
     return out;
   }
 
+  /* THE OTHER DIRECTION.
+
+     composeCourse turns a layout into a course. This turns a shipped
+     course back into a layout, so that picking "Exchange Run" off the
+     menu and building something by hand are the same flow with the
+     same screens after it -- and so the flag screen can then recognise
+     the layout as that course and offer its printed flags.
+
+     Returns null for anything that is not a grid of whole boards with
+     the dock along the base, which is what the assembler can express.
+     A course that cannot be expressed is not forced into a shape it
+     does not have; it is simply not editable this way. */
+  function layoutFromCourse(id) {
+    var spec = COURSES[id];
+    if (!spec) return null;
+    var cols = 0, rows = 0, i, b;
+    for (i = 0; i < spec.boards.length; i++) {
+      b = spec.boards[i];
+      var g = specOf(b.id);
+      if (!g || g.w !== 12 || g.h !== 12) return null;
+      if (b.at[0] % 12 || b.at[1] % 12 || b.at[0] < 0 || b.at[1] < 0) return null;
+      cols = Math.max(cols, b.at[0] / 12 + 1);
+      rows = Math.max(rows, b.at[1] / 12 + 1);
+    }
+    if (!cols || !rows || cols > 3 || rows > 3) return null;
+    if (!spec.dock) return null;
+    /* Half a board, not a whole one: the start area is allowed to
+       straddle two boards, and one of the shipped courses does. */
+    if (spec.dock.at[1] !== rows * 12 || spec.dock.at[0] % 6) return null;
+    var dockCol = spec.dock.at[0] / 12;
+    if (dockCol < 0 || dockCol > cols - 1) return null;
+    var cells = [];
+    for (i = 0; i < cols * rows; i++) cells.push(null);
+    for (i = 0; i < spec.boards.length; i++) {
+      b = spec.boards[i];
+      var at = (b.at[1] / 12) * cols + (b.at[0] / 12);
+      if (cells[at]) return null;                    // two boards in one slot
+      cells[at] = { id: b.id, rot: b.rot || 0 };
+    }
+    return { cols: cols, rows: rows, dockCol: dockCol, cells: cells };
+  }
+
   function defaultFlagsFor(layout) {
     var spec;
     try { spec = composeCourse(withFlags(layout, []), 0); }
@@ -1747,8 +1789,8 @@
      only to not landing on top of each other. The separation floor
      relaxes rather than fails, because a small course may not have
      room for the spacing a large one does. */
-  function randomFlags(C, n, rnd, dockBox) {
-    var cand = flagCandidates(C, dockBox);
+  function randomFlags(C, n, rnd, dockBox, box) {
+    var cand = flagCandidates(C, dockBox, box);
     if (!cand.length) return [];
     /* Random still means anywhere legal -- but the corners and the
        outer ring are the worst squares on the course, so they are held
@@ -1902,7 +1944,7 @@
      The window is chosen for the most legal squares it can hold and,
      among equals, the one nearest the dock. Inside it the flags are
      spread, which is the same thing the automatic placement does. */
-  function northrupFlags(C, n, spec) {
+  function northrupFlags(C, n, spec, rnd) {
     var dock = dockBoxOf(spec), best = null;
     var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
     var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
@@ -1917,6 +1959,12 @@
       }
     }
     if (!best) return [];
+    /* Given a source of chance, scatter inside the window instead of
+       spreading through it. The window is the rule; where in it the
+       flags land is the part worth rolling, and it is the only
+       randomness this game offers -- flags thrown anywhere on a
+       four-board course are not a race, they are a commute. */
+    if (rnd) return randomFlags(C, n, rnd, dock, best.box);
     return fillBoards(C, n, spec, [{
       x0: best.box.x0, y0: best.box.y0, x1: best.box.x1, y1: best.box.y1,
       cx: (best.box.x0 + best.box.x1) / 2, cy: (best.box.y0 + best.box.y1) / 2
@@ -2283,6 +2331,7 @@
     randomFlags: randomFlags, defaultFlagsFor: defaultFlagsFor,
     flagCandidates: flagCandidates, flagLegal: flagLegal, dockBoxOf: dockBoxOf,
     withFlags: withFlags, flagRank: flagRank, boardBoxes: boardBoxes, shareOut: shareOut,
+    layoutFromCourse: layoutFromCourse,
     rallyFlags: rallyFlags, arenaFlags: arenaFlags, northrupFlags: northrupFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
