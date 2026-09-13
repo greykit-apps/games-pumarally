@@ -1272,6 +1272,93 @@
        is not reproduced here. Replace this with a transcription
        when reference material is available; nothing in the engine
        depends on its contents beyond the eight numbered squares. */
+
+    /* BOARD H, the flamethrower board -- sixteen burners, more than the rest
+       of the expansion put together. Transcribed from a photograph.
+
+       IT IS THE BOARD THAT MOVED PUSHERS OUT OF THE PICTURE. Nine of its
+       thirteen rams stand on a conveyor: the belt carries you along and the
+       ram on the wall shoves you across it, both in the same register. While
+       a pusher WAS the square, the transcriber had to choose which of the two
+       the square was, and the board came out wrong either way.
+
+       The draft made before that change lost all nine of those conveyors, and
+       lost two rams outright -- at (7,3) and (4,11). Both were found by
+       reading the photograph at magnification, and both are corroborated by
+       the draft's own wall lattice, which already carried a mount at each of
+       those edges with nothing standing on it. A wall in open floor holding
+       up nothing is the anomaly that says a ram was missed.
+
+       Four register sets are the least certain readings on the board and are
+       marked in maps/MANIFEST.md rather than here, because a note in the
+       source would outlive the doubt. */
+    boardH: {
+      name: "Board H", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. W. ..|F.|b^ .. bv .. .. .. ",
+        "+  +  +  +--+  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> b> b^ .. bv ..|bv b< ",
+        "+  +--+  +--+--+  +--+  +  +  +  +  +",
+        " .. .. .. F. F. .. .. .. bv .. bv .. ",
+        "+  +  +  +--+--+  +  +--+  +  +  +  +",
+        " b> b> b> b> b> b> b> b> bv|F.|bv|W. ",
+        "+  +  +  +  +--+  +  +  +  +  +  +  +",
+        " .. .. .. .. F. .. ..|F.|bv|F.|bv .. ",
+        "+--+  +  +  +--+  +  +  +  +  +  +--+",
+        " F. b> b> b> b> bv w. .. bv .. bv F. ",
+        "+--+  +  +  +  +  +  +  +  +  +  +--+",
+        " b> b^ .. .. .. bv o. o. bv .. b> b> ",
+        "+  +  +--+  +  +  +  +  +  +  +  +  +",
+        " .. .. F. W. .. b> b> b> bv|F.|.. o. ",
+        "+  +  +--+  +  +  +  +--+  +  +  +  +",
+        " b< b< b< b< .. .. .. F. bv b< b< b< ",
+        "+  +  +--+  +  +  +  +--+  +--+  +  +",
+        " .. .. F. b^|F. .. .. .. bv .. .. .. ",
+        "+  +  +--+  +  +  +  +  +  +  +  +  +",
+        " b> b> b> b^|F.|.. o. .. bv .. w. b> ",
+        "+--+  +  +  +  +  +  +  +  +  +  +  +",
+        " F. .. .. b^ .. .. b^ .. bv .. b^ .. ",
+        "+--+  +  +  +--+  +  +  +  +  +  +  +"
+      ],
+      lasers: []
+      ,
+      pushers: [
+        { c: 3, r: 1, d: "S", regs: [1, 2, 3, 4] },
+        { c: 9, r: 1, d: "W", regs: [1, 2, 3, 4, 5] },
+        { c: 1, r: 2, d: "S", regs: [1, 2, 3, 4, 5] },
+        { c: 6, r: 2, d: "S", regs: [2, 3, 5] },
+        { c: 4, r: 3, d: "N", regs: [1, 2, 3, 4] },
+        { c: 7, r: 3, d: "S", regs: [1, 2, 3, 5] },
+        { c: 10, r: 3, d: "W", regs: [2, 3, 4, 5] },
+        { c: 8, r: 4, d: "E", regs: [2, 3, 4, 5] },
+        { c: 7, r: 7, d: "N", regs: [1, 2, 3, 4] },
+        { c: 2, r: 8, d: "N", regs: [1, 3, 5] },
+        { c: 9, r: 8, d: "N", regs: [2, 5] },
+        { c: 3, r: 9, d: "W", regs: [2, 3, 4, 5] },
+        { c: 4, r: 11, d: "N", regs: [1, 3, 5] }
+      ]
+      ,
+      timers: [
+        { c: 5, r: 0, regs: [1, 2, 3, 4] },
+        { c: 3, r: 2, regs: [2, 3, 5] },
+        { c: 4, r: 2, regs: [2, 3, 5] },
+        { c: 9, r: 3, regs: [1, 2, 4] },
+        { c: 4, r: 4, regs: [1, 3, 5] },
+        { c: 7, r: 4, regs: [2, 4] },
+        { c: 9, r: 4, regs: [1, 2, 4] },
+        { c: 0, r: 5, regs: [2, 5] },
+        { c: 11, r: 5, regs: [2, 5] },
+        { c: 2, r: 7, regs: [2, 4] },
+        { c: 9, r: 7, regs: [2, 4] },
+        { c: 7, r: 8, regs: [2, 3, 4] },
+        { c: 2, r: 9, regs: [1, 5] },
+        { c: 4, r: 9, regs: [1, 5] },
+        { c: 4, r: 10, regs: [2, 4] },
+        { c: 0, r: 11, regs: [2, 5] }
+      ]
+    },
+
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "classic", set: "authored", origin: "authored",
       notes: "Authored placeholder. Eight start positions; no printed belts.",
@@ -1394,6 +1481,19 @@
     /* Flags ours, not the printed course -- same reason as the others:
        the course cards have not been photographed. All three are on
        plain floor, clear of the belt lanes and the central hole. */
+
+    /* Flags ours, not the printed course -- the course cards have not been
+       photographed. All three on plain floor and clear of a burner's square,
+       because on this board "somewhere safe to stand" is the scarce thing. */
+    boardHRun: {
+      name: "Board H Run",
+      blurb: "Sixteen flamethrowers and a conveyor under half the rams.",
+      boards: [{ id: "boardH", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[2, 0], [11, 6], [5, 9]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     crossRun: {
       name: "Cross Run",
       blurb: "Four belt lanes meet, and the junction is a hole.",
