@@ -1805,9 +1805,16 @@
        1  on the outer row or column
        2  in a corner of it */
   function flagRank(C, c, r) {
+    /* Two or more walls round a square is the PRINTED rule and it
+       comes first: a flag boxed into a wall corner can only be
+       approached from one direction, which is a different objection
+       from the one below and a stronger one. */
+    var walls = 0;
+    for (var d = 0; d < 4; d++) if (wallAt(C, c, r, d)) walls++;
+    if (walls >= 2) return 2;
     var edgeC = (c === 0 || c === C.w - 1), edgeR = (r === 0 || r === C.h - 1);
     if (edgeC && edgeR) return 2;
-    return edgeC || edgeR ? 1 : 0;
+    return edgeC || edgeR || walls ? 1 : 0;
   }
 
   /* The board boxes of a composed spec, in the order they were laid
@@ -1882,6 +1889,38 @@
       return aa - bb || a.y0 - b.y0 || a.x0 - b.x0;
     });
     return fillBoards(C, n, spec, boxes, true);
+  }
+
+  /* NORTHRUP'S RULE, which is printed rather than ours.
+
+     On a big configuration, keeping every flag inside one twelve-by-
+     twelve window -- the size of a single board -- makes for a fast
+     game at two or three players: a robot can get well off course and
+     still not be far from the next flag. At four or more it does the
+     opposite, because everyone is in the same twelve squares.
+
+     The window is chosen for the most legal squares it can hold and,
+     among equals, the one nearest the dock. Inside it the flags are
+     spread, which is the same thing the automatic placement does. */
+  function northrupFlags(C, n, spec) {
+    var dock = dockBoxOf(spec), best = null;
+    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
+    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
+    for (var y = 0; y + 1 <= C.h; y += 4) {
+      for (var x = 0; x + 1 <= C.w; x += 4) {
+        var box = { x0: x, y0: y, x1: Math.min(x + 11, C.w - 1), y1: Math.min(y + 11, C.h - 1) };
+        var room = flagCandidates(C, dock, box).length;
+        var far = Math.abs((box.x0 + box.x1) / 2 - dc) + Math.abs((box.y0 + box.y1) / 2 - dr);
+        if (!best || room > best.room || (room === best.room && far < best.far)) {
+          best = { box: box, room: room, far: far };
+        }
+      }
+    }
+    if (!best) return [];
+    return fillBoards(C, n, spec, [{
+      x0: best.box.x0, y0: best.box.y0, x1: best.box.x1, y1: best.box.y1,
+      cx: (best.box.x0 + best.box.x1) / 2, cy: (best.box.y0 + best.box.y1) / 2
+    }], false);
   }
 
   function fillBoards(C, n, spec, boxes, alternate) {
@@ -2244,7 +2283,7 @@
     randomFlags: randomFlags, defaultFlagsFor: defaultFlagsFor,
     flagCandidates: flagCandidates, flagLegal: flagLegal, dockBoxOf: dockBoxOf,
     withFlags: withFlags, flagRank: flagRank, boardBoxes: boardBoxes, shareOut: shareOut,
-    rallyFlags: rallyFlags, arenaFlags: arenaFlags,
+    rallyFlags: rallyFlags, arenaFlags: arenaFlags, northrupFlags: northrupFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
     overrideIds: overrideIds, isOverridden: isOverridden

@@ -80,6 +80,27 @@ if (opt.unfinished > games * 0.1) {
   console.error(`  error:   ${opt.unfinished} option games hit the turn cap`); failed++;
 }
 
+// And with the bumpers house rule on. It changes what movement means at
+// every edge of the board, which is where a good deal of the game happens, so
+// a sim that only ever runs with it off has never executed the rule at all.
+// The assertion is not "it works" -- it is that the rail actually saves
+// robots, because a rule that changes no outcome is a rule nothing implements.
+const bmp = PR.runSim(games, { bumpers: 1 }, 11);
+const plain = PR.runSim(games, {}, 11);
+const bmpWins = Object.values(bmp.wins).reduce((a, b) => a + b, 0);
+console.log(`sim (bumpers): ${bmp.games} games, avg ${bmp.turns.avg} turns, ${bmpWins} decided, ` +
+  `${bmp.deaths} robots scrapped against ${plain.deaths} without the rail`);
+for (const c of bmp.crashes.slice(0, 10)) {
+  console.error(`  error:   [bumpers] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
+  failed++;
+}
+if (bmpWins === 0) { console.error("  error:   no game with bumpers was ever won"); failed++; }
+if (!(bmp.deaths < plain.deaths)) {
+  console.error(`  error:   bumpers scrapped ${bmp.deaths} robots against ${plain.deaths} without ` +
+    "them -- the rail is saving nobody, so nothing is implementing it");
+  failed++;
+}
+
 // Every course, not just the default one. Adding a board is exactly when a
 // course stops being finishable, and a course nobody has simulated is
 // indistinguishable from one that cannot be won.

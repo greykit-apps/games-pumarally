@@ -769,10 +769,19 @@
      row's S and the last column's E are emitted explicitly -- and so
      is any edge against the void, which on a multi-board course is an
      interior edge with nothing on the other side. */
-  function wallSpans(C) {
+  function wallSpans(C, rails) {
     var out = [], c, r;
     function bar(c, r, vertical) {
       return '<i class="pr-wall' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r + '"></i>';
+    }
+    /* The bumpers rail is drawn, and drawn as ITSELF rather than as a
+       printed wall. It stops a robot exactly as a wall does, so it has
+       to be visible -- a rule you cannot see is a trap -- but it is a
+       house rule laid over the boards, not something printed on them,
+       and a player reading the course should be able to tell which is
+       which. */
+    function rail(c, r, vertical) {
+      return '<i class="pr-fence' + (vertical ? " pr-v" : "") + '" style="--c:' + c + ";--r:" + r + '"></i>';
     }
     /* A door is drawn on the same lattice as a wall, in the same place,
        and it has to say two things at once: that the way is barred and
@@ -794,6 +803,17 @@
         else if (B.doorAt(C, c, r, W)) out.push(doorBar(c, r, true, B.doorAt(C, c, r, W)));
         if (edgeOfCourse(c, r + 1) && B.wallAt(C, c, r, S)) out.push(bar(c, r + 1, false));
         if (edgeOfCourse(c + 1, r) && B.wallAt(C, c, r, E)) out.push(bar(c + 1, r, true));
+        if (rails) {
+          /* Every boundary between a square and the void, including
+             the inside of a ragged layout -- "impossible to fall out"
+             has to mean the hole in the middle too. Skipped where a
+             printed wall is already drawn, so the rail never doubles
+             a bar that is there. */
+          if (edgeOfCourse(c, r - 1) && !B.wallAt(C, c, r, N)) out.push(rail(c, r, false));
+          if (edgeOfCourse(c - 1, r) && !B.wallAt(C, c, r, W)) out.push(rail(c, r, true));
+          if (edgeOfCourse(c, r + 1) && !B.wallAt(C, c, r, S)) out.push(rail(c, r + 1, false));
+          if (edgeOfCourse(c + 1, r) && !B.wallAt(C, c, r, E)) out.push(rail(c + 1, r, true));
+        }
       }
     }
     return out.join("");
@@ -1076,6 +1096,7 @@
          replays under the rules it was started with even if the setup
          screen has been changed since. */
       flagTouch: opts.flagTouch ? 1 : 0,
+      bumpers: opts.bumpers ? 1 : 0,
       /* Which rulebook this game is being played under, in the save
          beside the seed for the same reason: a replay must not change
          games because the menu was changed afterwards. */
@@ -1577,7 +1598,7 @@
   function stepRobot(p, dir, cause) {
     var C = UI.course, chain = [p], c = p.c, r = p.r, i;
     for (var guard = 0; guard < 10; guard++) {
-      if (blocked(C, c, r, dir)) return false;
+      if (blockedMove(C, c, r, dir)) return false;
       var nx = B.step(c, r, dir);
       if (B.isVoid(C, nx.c, nx.r)) break;            // the head walks off the edge
       var occ = robotAt(nx.c, nx.r);
@@ -1679,6 +1700,22 @@
      wall it will never try. */
   function blocked(C, c, r, d) { return B.blockedAt(C, c, r, d, G.register); }
 
+  /* THE BUMPERS HOUSE RULE.
+
+     A rail round the play area, so nothing can be driven, shoved or
+     carried off it. Deliberately NOT folded into blocked(): that
+     function is also what a laser beam asks, and a beam leaving the
+     course hits nothing whether or not there is a rail there -- but
+     asking through blocked() would spend a piercing shot on the edge.
+     So movement asks this one and the beams go on asking the other. */
+  function railed(C, c, r, d) {
+    if (!G || !G.bumpers) return false;
+    var nx = B.step(c, r, d);
+    return !B.inGrid(C, nx.c, nx.r) || B.isVoid(C, nx.c, nx.r);
+  }
+
+  function blockedMove(C, c, r, d) { return blocked(C, c, r, d) || railed(C, c, r, d); }
+
   function onOil(p) {
     var C = UI.course;
     return !B.isVoid(C, p.c, p.r) && B.isOil(B.codeAt(C, p.c, p.r));
@@ -1707,7 +1744,7 @@
     var C = UI.course;
     for (var guard = 0; guard < 32; guard++) {
       if (!p.alive || !onOil(p)) return;
-      if (blocked(C, p.c, p.r, dir)) return;
+      if (blockedMove(C, p.c, p.r, dir)) return;
       var nx = B.step(p.c, p.r, dir);
       var occ = B.isVoid(C, nx.c, nx.r) ? null : robotAt(nx.c, nx.r);
       if (occ && !onOil(occ)) return;                 // a robot with grip stops the slide
@@ -1755,7 +1792,7 @@
       if (!sp) continue;
       if (speed === 2 && sp !== 2) continue;
       var d = B.dirOf(code);
-      if (blocked(C, p.c, p.r, d)) continue;         // the validator rejects these; belt and braces
+      if (blockedMove(C, p.c, p.r, d)) continue;     // the validator rejects these; belt and braces
       movers[p.id] = { dir: d, to: B.step(p.c, p.r, d) };
       ids.push(p.id);
     }
@@ -2912,6 +2949,11 @@
   function ghostMove(C, st, dir) {
     if (st.dead) return;
     if (B.wallAt(C, st.c, st.r, dir)) return;
+    /* The rail is a rule, not one of this model's simplifications. A
+       bot that still read the edge as death under bumpers would refuse
+       the outer ring of every course for no reason the player can
+       see. */
+    if (railed(C, st.c, st.r, dir)) return;
     var nx = B.step(st.c, st.r, dir);
     st.c = nx.c; st.r = nx.r;
     if (isHole(C, st.c, st.r)) st.dead = true;
@@ -2930,6 +2972,7 @@
     if (!sp || (speed === 2 && sp !== 2)) return;
     var d = B.dirOf(code);
     if (B.wallAt(C, st.c, st.r, d)) return;
+    if (railed(C, st.c, st.r, d)) return;
     var nx = B.step(st.c, st.r, d);
     st.c = nx.c; st.r = nx.r;
     if (isHole(C, st.c, st.r)) { st.dead = true; return; }
@@ -5295,8 +5338,9 @@
       assert(spec.boards.length === 2, "the course lost a board: " + spec.boards.length);
       assert(C.w === 24 && C.h === 16, "a 2 by 1 grid with a dock should be 24 by 16, is " + C.w + " by " + C.h);
       assert(spec.boards[0].rot === 1, "the course lost a board's rotation");
-      /* Two boards, so the house default is four flags. */
-      assert(C.flags.length === 4, "a two-board course should carry four flags, has " + C.flags.length);
+      /* One flag a board, floored at three: a two-board course is a
+         three-flag race. */
+      assert(C.flags.length === 3, "a two-board course should carry three flags, has " + C.flags.length);
       assert(C.docks.length >= 8, "a composed course should carry eight bays, has " + C.docks.length);
       for (var i = 0; i < C.flags.length; i++) {
         assert(C.flags[i].r < C.h - 4, "flag " + (i + 1) + " was placed inside the docking bay");
@@ -5563,6 +5607,75 @@
       }
     } },
 
+    { name: "Northrup keeps every flag inside one board's worth of squares", run: function () {
+      /* Printed guidance, not ours: on a big configuration, flags kept
+         within a twelve-by-twelve window make a fast game at two or
+         three robots, because nobody is ever far from the next flag.
+         The window is the whole point -- flags scattered over a 3x3
+         course would be the ordinary placement wearing the name. */
+      var L = { cols: 3, rows: 3, dockCol: 1, cells: [] };
+      for (var i = 0; i < 9; i++) L.cells.push({ id: "island", rot: 0 });
+      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
+      assert(C.w === 36 && C.h === 40, "a 3x3 course with a dock should be 36 by 40");
+      var got = B.northrupFlags(C, 5, spec);
+      assert(got.length === 5, "asked for five flags, got " + got.length);
+      var lo = [got[0][0], got[0][1]], hi = [got[0][0], got[0][1]];
+      for (i = 1; i < got.length; i++) {
+        lo[0] = Math.min(lo[0], got[i][0]); hi[0] = Math.max(hi[0], got[i][0]);
+        lo[1] = Math.min(lo[1], got[i][1]); hi[1] = Math.max(hi[1], got[i][1]);
+      }
+      assert(hi[0] - lo[0] < 12 && hi[1] - lo[1] < 12,
+        "the flags span " + (hi[0] - lo[0] + 1) + " by " + (hi[1] - lo[1] + 1) +
+        " squares, which is wider than one board");
+      /* And the ordinary placement on the same course does NOT, or the
+         window is proving nothing. */
+      var loose = B.arenaFlags(C, 5, spec), llo = 99, lhi = -99;
+      for (i = 0; i < loose.length; i++) { llo = Math.min(llo, loose[i][0]); lhi = Math.max(lhi, loose[i][0]); }
+      assert(lhi - llo >= 12, "the lap placement also fits in one board, so the window means nothing");
+    } },
+
+    { name: "a flag is not boxed into a corner made of walls", run: function () {
+      /* The printed rule, and a different objection from the map's own
+         corners: a flag with two walls round it can be approached from
+         one direction only. */
+      /* Interior squares on both counts, so the answer is about the
+         WALLS: an edge square is already rank 1 whatever is round it,
+         and testing the one-wall case there passes on a build that has
+         stopped counting walls at all. */
+      var row = ["..", "..", "..", "..", ".."];
+      var g = bench([row, row, row, row, row], ["1,1,E", "1,1,S"]);
+      assert(B.flagRank(g, 1, 1) === 2,
+        "a square with two walls is rank " + B.flagRank(g, 1, 1) + ", not a walled corner");
+      /* A wall belongs to both squares it separates, so the far side
+         of one carries it too. */
+      assert(B.flagRank(g, 2, 1) === 1,
+        "the far side of a wall should be second best, is " + B.flagRank(g, 2, 1));
+      assert(B.flagRank(g, 1, 2) === 1,
+        "the square under a wall should be second best, is " + B.flagRank(g, 1, 2));
+      assert(B.flagRank(g, 2, 2) === 0,
+        "an open interior square should be best, is " + B.flagRank(g, 2, 2));
+      assert(B.flagRank(g, 0, 0) === 2, "the corner of the course is still a corner");
+      /* Proving Ground has walled squares and open interior both, so
+         the automatic placements must take the open ones. */
+      var spec = B.composeCourse({ cols: 1, rows: 1, dockCol: 0,
+                                   cells: [{ id: "provingGround", rot: 0 }], flags: [] }, 0);
+      var C = B.buildCourse(spec), boxed = 0, c, r, d, n;
+      for (r = 0; r < 12; r++) for (c = 0; c < 12; c++) {
+        n = 0;
+        for (d = 0; d < 4; d++) if (B.wallAt(C, c, r, d)) n++;
+        if (n >= 2) boxed++;
+      }
+      assert(boxed > 0, "this board has no walled corners, so this proves nothing");
+      var sets = [B.rallyFlags(C, 3, spec), B.arenaFlags(C, 3, spec), B.northrupFlags(C, 3, spec)];
+      for (var s = 0; s < sets.length; s++) {
+        for (var i = 0; i < sets[s].length; i++) {
+          n = 0;
+          for (d = 0; d < 4; d++) if (B.wallAt(C, sets[s][i][0], sets[s][i][1], d)) n++;
+          assert(n < 2, "a flag was boxed in at (" + sets[s][i] + ") behind " + n + " walls");
+        }
+      }
+    } },
+
     { name: "the flags are shared out over the boards, remainder first", run: function () {
       assert(JSON.stringify(B.shareOut(8, 4)) === "[2,2,2,2]", "eight over four is not even");
       assert(JSON.stringify(B.shareOut(9, 4)) === "[3,2,2,2]", "the odd flag went to the wrong board");
@@ -5572,20 +5685,172 @@
     } },
 
     { name: "the flag count follows the course until somebody sets one", run: function () {
+      /* About one a board is what the book suggests, with a floor of
+         three so a small course is still a race. */
       UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
       assert(flagPick().n === 3, "one board should be a three-flag race, got " + flagPick().n);
       UI.layout.cols = 2; UI.layout.cells.push({ id: "cross", rot: 0 });
-      assert(flagPick().n === 4, "two boards should be a four-flag race, got " + flagPick().n);
+      assert(flagPick().n === 3, "two boards should still be floored at three, got " + flagPick().n);
       UI.layout.cols = 4;
       UI.layout.cells.push({ id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 });
-      assert(flagPick().n === 8, "four boards should be an eight-flag race, got " + flagPick().n);
-      /* Two to three a board, so four boards tops out at twelve. */
+      assert(flagPick().n === 4, "four boards should be a four-flag race, got " + flagPick().n);
+      UI.layout.cols = 9; UI.layout.rows = 1;
+      for (var g = 0; g < 5; g++) UI.layout.cells.push({ id: "island", rot: 0 });
+      assert(flagPick().n === 9, "nine boards should be a nine-flag race, got " + flagPick().n);
+      UI.layout.cols = 4; UI.layout.cells.length = 4;
+      /* And the ceiling is three a board, which is where the longer,
+         denser race lives. */
       assert(flagsMost(4) === 12, "the ceiling is not three a board");
       /* Once set by hand it stays set, even as the course changes --
          the number is then a decision rather than a default. */
       flagPick().n = 5; flagPick().chosen = true;
       UI.layout.cells[3] = null;
       assert(flagPick().n === 5, "a chosen count was overwritten when the course changed");
+    } },
+
+    // ---- the bumpers house rule ------------------------------------
+
+    { name: "off, the edge of the course is still a fall", run: function () {
+      /* The control case, and it has to be here: a bumpers test suite
+         that only ever runs with bumpers ON cannot tell a rail from a
+         rule that was always true. */
+      benchGame(bench([["..", "..", ".."]]), [{ c: 2, r: 0, face: E }]);
+      G.bumpers = 0;
+      stepRobot(G.players[0], E, "move");
+      assert(!G.players[0].alive, "a robot drove off the edge and lived");
+      assert(G.players[0].lives === START_LIVES - 1, "it should have lost exactly one life");
+    } },
+
+    { name: "on, a robot cannot be driven off the course", run: function () {
+      benchGame(bench([["..", "..", ".."]]), [{ c: 2, r: 0, face: E }]);
+      G.bumpers = 1;
+      var moved = stepRobot(G.players[0], E, "move");
+      assert(!moved, "the move should have been refused, the way a wall refuses it");
+      assert(G.players[0].alive, "the rail let a robot over the edge");
+      assert(G.players[0].c === 2, "the robot moved anyway, to " + at(G.players[0]));
+      assert(G.players[0].lives === START_LIVES, "it lost a life against a rail");
+    } },
+
+    { name: "on, the rail stops the whole push chain", run: function () {
+      /* A wall anywhere in a chain stops everything including the
+         robot that started the push. The rail IS a wall for this
+         purpose, and the pusher stopping too is the half that is easy
+         to get wrong. */
+      benchGame(bench([["..", "..", ".."]]), [{ c: 1, r: 0, face: E }, { c: 2, r: 0, face: E }]);
+      G.bumpers = 1;
+      var moved = stepRobot(G.players[0], E, "move");
+      assert(!moved, "the push should have been refused");
+      assert(G.players[0].c === 1 && G.players[1].c === 2, "the chain moved into the rail");
+      assert(G.players[0].alive && G.players[1].alive, "the rail scrapped somebody");
+      /* And with it off, the same shove is fatal to the front robot
+         only -- so the assertion above is about the rail and not about
+         push chains in general. */
+      benchGame(bench([["..", "..", ".."]]), [{ c: 1, r: 0, face: E }, { c: 2, r: 0, face: E }]);
+      G.bumpers = 0;
+      stepRobot(G.players[0], E, "move");
+      assert(G.players[0].alive && !G.players[1].alive,
+        "without the rail the shoved robot should go over and the pusher should not");
+    } },
+
+    { name: "on, a belt will not carry a robot over the edge", run: function () {
+      benchGame(bench([["..", "b>", "b>"]]), [{ c: 2, r: 0, face: E }]);
+      G.bumpers = 1;
+      beltPass(1);
+      assert(G.players[0].alive, "the belt carried a robot over the rail");
+      assert(G.players[0].c === 2, "the robot was moved anyway, to " + at(G.players[0]));
+      benchGame(bench([["..", "b>", "b>"]]), [{ c: 2, r: 0, face: E }]);
+      G.bumpers = 0;
+      beltPass(1);
+      assert(!G.players[0].alive, "without the rail the belt should have delivered it to the void");
+    } },
+
+    { name: "on, a pit is still a pit", run: function () {
+      /* The rail fences the play area. It does not fill in the holes
+         inside it, and a house rule that quietly removed every pit
+         from the game would be a different game. */
+      benchGame(bench([["..", "o.", ".."]]), [{ c: 0, r: 0, face: E }]);
+      G.bumpers = 1;
+      stepRobot(G.players[0], E, "move");
+      assert(!G.players[0].alive, "the rail filled in a pit");
+    } },
+
+    { name: "on, the bots know the rail is there", run: function () {
+      /* The ghost model the bots search against is a simplification of
+         the board, not of the RULES. A bot that still read the edge as
+         death under bumpers would refuse the outer ring of every
+         course, for a reason no player could see. */
+      var g = bench([["..", "..", ".."]]);
+      benchGame(g, [{ c: 2, r: 0, face: E }]);
+      G.bumpers = 1;
+      var st = { c: 2, r: 0, face: E, dead: false, flags: 0 };
+      ghostMove(UI.course, st, E);
+      assert(!st.dead && st.c === 2, "the bot thinks the rail is a cliff");
+      G.bumpers = 0;
+      var st2 = { c: 2, r: 0, face: E, dead: false, flags: 0 };
+      ghostMove(UI.course, st2, E);
+      assert(st2.dead, "without the rail the bot should read the edge as death");
+    } },
+
+    { name: "on, the rail is drawn and announced", run: function () {
+      /* A rule the player cannot see is a trap. It is drawn as a rail
+         rather than as a wall, because it is a house rule laid over
+         the boards rather than something printed on one. */
+      var g = bench([["..", "..", ".."]]);
+      benchGame(g, [{ c: 0, r: 0 }]);
+      G.bumpers = 1;
+      var withRail = wallSpans(UI.course, true), without = wallSpans(UI.course, false);
+      assert(withRail.indexOf("pr-fence") >= 0, "nothing was drawn for the rail");
+      assert(without.indexOf("pr-fence") < 0, "a rail was drawn with the rule off");
+      assert(withRail.length > without.length, "the rail added no bars to the picture");
+      /* pr-rail was already taken -- it is the belt art's guard rail,
+         and the bumper bar wearing the same name put a block layout
+         and an opacity on every conveyor on the board. The class a new
+         layer takes has to be one nothing else answers to. */
+      var beltArtSvg = beltSvg(beltArt(bench([["b>", "b>", "b>"]]), 1, 0));
+      assert(beltArtSvg.indexOf("pr-rail") >= 0, "the belt art no longer draws rails, so this proves nothing");
+      assert(beltArtSvg.indexOf("pr-fence") < 0, "the tile art already answers to pr-fence");
+      assert(/bumper rail/.test(describeTile(UI.course, 2, 0)),
+        "the square against the rail does not say so: " + describeTile(UI.course, 2, 0));
+      G.bumpers = 0;
+      assert(!/bumper rail/.test(describeTile(UI.course, 2, 0)),
+        "a rail was announced with the rule off");
+      assert(/edge east/.test(describeTile(UI.course, 2, 0)),
+        "with the rule off the square should say it is on the edge");
+    } },
+
+    { name: "the board the player sees is asked to draw the rail", run: function () {
+      /* wallSpans can draw a rail; that is one fact. Whether the game
+         ASKS it to is another, and the first test cannot see the
+         second -- taking the argument back out of the renderer left
+         every rail assertion green and the rail invisible on screen.
+         Same shape as the hazard-pattern check: read the function that
+         fills the wall layer and look at the call it makes. */
+      var src = String(paintWalls);
+      var m = src.match(/wallSpans\(([^)]*)\)/);
+      assert(m, "nothing draws the wall layer any more");
+      assert(/want/.test(m[1]),
+        "the wall layer is drawn without asking about bumpers: wallSpans(" + m[1] + ")");
+      assert(/bumpers/.test(src), "paintWalls no longer reads the bumpers rule");
+      /* And it has to be repainted AFTER the game exists. mount()
+         builds the grid before it has decided whether this is a new
+         game or a resumed one, so a wall layer drawn only there asks
+         about a G that is not there yet and never draws a rail --
+         which is what happened, with every rail assertion green. */
+      assert(/paintWalls\(/.test(String(updateAll)),
+        "the wall layer is never repainted once the game is known");
+      assert(String(buildGridCells).indexOf("paintWalls") >= 0,
+        "the board no longer paints its walls when it is built");
+    } },
+
+    { name: "on, a beam still leaves the course rather than bouncing", run: function () {
+      /* The rail is deliberately outside blocked(), which is also what
+         a beam asks. Folding it in there would spend a piercing shot
+         on the edge of the board. */
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      G.bumpers = 1;
+      assert(!blocked(UI.course, 2, 0, E), "the rail is being reported to the beams as a wall");
+      assert(railed(UI.course, 2, 0, E), "the rail is not there for movement either");
+      assert(firstRobotAlong(0, 0, E, true) === null, "a beam found a robot outside the course");
     } },
 
     { name: "destroying a robot returns all of its cards to the discard", run: function () {
@@ -5892,6 +6157,17 @@
     ".pr-wall.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 2);",
     "top:calc(var(--r) * var(--tile));width:var(--wt);height:var(--tile);",
     "background:var(--pr-concrete-v)}",
+
+    /* The bumpers rail borrows the wall's geometry and says something
+       different with it: a thin steel bar rather than a concrete slab,
+       because it is a house rule fenced round the play area and not
+       part of any board's printing. */
+    ".pr-fence{position:absolute;pointer-events:none;box-sizing:border-box;",
+    "background:var(--pr-steel);opacity:.85;",
+    "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile) - var(--wt) / 4);",
+    "width:var(--tile);height:calc(var(--wt) / 2)}",
+    ".pr-fence.pr-v{left:calc(var(--c) * var(--tile) - var(--wt) / 4);",
+    "top:calc(var(--r) * var(--tile));width:calc(var(--wt) / 2);height:var(--tile)}",
 
     /* A swing door sits exactly where a wall would, so it inherits the
        geometry and changes only what it says: hollow rather than solid,
@@ -6459,6 +6735,10 @@
 
   function updateAll() {
     if (UI.headless || !UI.mounted || !G) return;
+    /* First, because mount() draws the board before it knows whether
+       this is a new game or a resumed one -- so the wall layer's first
+       honest chance to ask about the bumpers rule is here. */
+    paintWalls(UI.course);
     snapshotPieces();
     renderPieces();
     playFlip();
@@ -7202,7 +7482,7 @@
       courseSpec: spec || null,
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions,
-      flagTouch: cfg.flagTouch, ruleset: cfg.ruleset,
+      flagTouch: cfg.flagTouch, bumpers: cfg.bumpers, ruleset: cfg.ruleset,
       livery: cfg.livery, bay: cfg.bay, humanPrivilege: cfg.humanPrivilege
     };
   }
@@ -7630,6 +7910,16 @@
                       labels: ["Priority decides, same as everyone", "You choose your bay first"],
                       desc: "Off, the priority draw decides the order and you take your turn in it. On, the seats at this keyboard pick before the bots whatever they drew." },
 
+    /* Bumpers turn the edge of the play area into a wall. The edge is
+       not a wall in the printed game -- it is the commonest way to
+       lose a robot, and a good deal of the tension of an express belt
+       running toward it -- so this is a house rule and off by default.
+       With it on, the void beyond the boards stops a robot the way a
+       wall does, which also means it stops the whole push chain. */
+    bumpers: { label: "Bumpers", control: "toggle", min: 0, max: 1, def: 0, group: "house",
+               labels: ["The edge of the course is a fall", "A rail runs round the play area"],
+               desc: "Off, walking off the boards scraps a robot exactly as a pit does. On, the play area is fenced and nothing can be driven, shoved or carried over the edge." },
+
     flagTouch: { label: "Touching a flag", control: "segment", min: 0, max: 1, def: 0, group: "house",
                  labels: ["Must end a register on it", "Crossing it counts"],
                  desc: "The English manual wants you to stop on a flag. The German Crash and Burn book counts crossing it. Euro style is the looser one." }
@@ -7778,6 +8068,7 @@
       skill: clampRule("skill", h.skill),
       startOptions: clampRule("startOptions", h.startOptions),
       flagTouch: clampRule("flagTouch", h.flagTouch),
+      bumpers: clampRule("bumpers", h.bumpers),
       livery: Math.max(0, Math.min(LIVERIES.length - 1, (h.livery | 0))),
       bay: Math.max(1, Math.min(MAX_SEATS, h.bay || 1)),
       humanPrivilege: clampRule("humanPrivilege", h.humanPrivilege)
@@ -8313,13 +8604,16 @@
      ============================================================ */
   /* HOW MANY FLAGS.
 
-     The printed courses do not agree on one number and their own
-     guidance has not been transcribed, so this is a house default
-     rather than a rule: two per board, never fewer than three. One
-     board is the shipped three-flag race; four boards is eight, which
-     is a long evening and still inside the two-to-three-a-board band.
-     The stepper goes up to three a board, which is the top of it. */
-  function flagsWanted(boards) { return Math.max(3, boards * 2); }
+     The book's own guidance, now that it has been read: usually one
+     checkpoint per tile. So the default is one a board -- with a floor
+     of three, because a one-board race to a single flag is over before
+     anybody has programmed a bad turn, and the courses this game ships
+     print three on one board.
+
+     The ceiling is three a board, which is where a longer, denser race
+     lives. The stepper spans the whole range; nothing here is a rule,
+     and the note under it says what the book suggests. */
+  function flagsWanted(boards) { return Math.max(3, boards); }
   function flagsMost(boards) { return Math.max(4, boards * 3); }
 
   function layoutBoardCount() {
@@ -8362,6 +8656,7 @@
     var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
     if (pick.mode === "rally") return B.rallyFlags(B.buildCourse(spec0), pick.n, spec0);
     if (pick.mode === "arena") return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
+    if (pick.mode === "northrup") return B.northrupFlags(B.buildCourse(spec0), pick.n, spec0);
     var printed = B.defaultFlagsFor(UI.layout);
     if (printed && printed.length >= pick.n) return printed.slice(0, pick.n);
     /* A shipped course asked for more flags than it prints falls back
@@ -8439,9 +8734,10 @@
       '<button data-act="fn" data-n="' + (pick.n + 1) + '"' + (pick.n >= most ? " disabled" : "") +
         ' aria-label="one flag more">+</button>' +
       '<span class="pr-ed-note">' + (pick.n / boards).toFixed(1).replace(/\.0$/, "") +
-        " per board; two to three is the usual</span></div>");
+        " per board; the book suggests about one</span></div>");
 
-    var modes = [["rally", "Rally"], ["arena", "Arena"], ["random", "Random"], ["hand", "By hand"]];
+    var modes = [["rally", "Rally"], ["arena", "Arena"], ["northrup", "Northrup"],
+                 ["random", "Random"], ["hand", "By hand"]];
     if (printedFlags) modes.unshift(["default", "Printed"]);
     out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
       ' aria-label="How the flags are placed">');
@@ -8466,6 +8762,9 @@
              "Everyone is in the same place early, and it shows.",
       arena: "A lap of the play area, calling at every board \u2014 one flag in the thick of " +
              "each, one out toward its edge.",
+      northrup: "Every flag inside one board's worth of squares. A printed rule of thumb: fast " +
+                "at two or three robots, because nobody is ever far from the next flag \u2014 and " +
+                "slower at four or more, because everybody is in the same twelve squares.",
       "default": "The flags this course is normally raced with."
     };
     out.push('<div class="pr-rule-desc">' + esc(blurbs[pick.mode] || blurbs.arena) + "</div>");
@@ -9913,7 +10212,25 @@
     }
     UI.els.grid.innerHTML = out.join("");
     UI.els.beams.innerHTML = beamSpans(C);
-    UI.els.walls.innerHTML = wallSpans(C);
+    paintWalls(C);
+  }
+
+  /* THE WALL LAYER, REPAINTED WHEN WHAT IT SAYS CHANGES.
+
+     It cannot simply be drawn once with the rest of the board: mount()
+     builds the grid BEFORE it has decided whether this is a resumed
+     game or a new one, so at that moment there is no G to ask about
+     bumpers and the rail was silently never drawn. Nor should it be
+     rebuilt every render -- it is a few hundred nodes that almost
+     never change. So it remembers what it was drawn for and repaints
+     only when that is no longer true. */
+  function paintWalls(C) {
+    if (!UI.els || !UI.els.walls) return;
+    var want = (G && G.bumpers) ? 1 : 0;
+    if (UI.wallsFor === want && UI.wallsCourse === C) return;
+    UI.wallsFor = want;
+    UI.wallsCourse = C;
+    UI.els.walls.innerHTML = wallSpans(C, !!want);
   }
 
   /* Move the single tab stop, and take focus with it. Arrow keys walk
@@ -9945,7 +10262,17 @@
       parts.push(def.name + (def.arg === "dir" ? " " + B.dirName(B.dirOf(code)) : ""));
     }
     for (var f = 0; f < C.flags.length; f++) if (C.flags[f].c === c && C.flags[f].r === r) parts.push("flag " + C.flags[f].n);
-    for (var d = 0; d < 4; d++) if (B.wallAt(C, c, r, d)) parts.push("wall " + B.dirName(d));
+    for (var d = 0; d < 4; d++) {
+      if (B.wallAt(C, c, r, d)) parts.push("wall " + B.dirName(d));
+      /* The rail stops a robot exactly as a wall does, so a player
+         reading the board by ear has to be told it is there -- and
+         told that it is the house rule rather than board art. */
+      else if (railed(C, c, r, d)) parts.push("bumper rail " + B.dirName(d));
+      else if (!B.inGrid(C, B.step(c, r, d).c, B.step(c, r, d).r) ||
+               B.isVoid(C, B.step(c, r, d).c, B.step(c, r, d).r)) {
+        parts.push("edge " + B.dirName(d));
+      }
+    }
     return parts.join(", ");
   }
 
