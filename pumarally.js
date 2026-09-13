@@ -3317,6 +3317,30 @@
       assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
     } },
 
+    { name: "mounting twice does not bind the input twice", run: function () {
+      /* The bug this guards: mount() clears the host with innerHTML,
+         which leaves listeners on the host itself in place, so a second
+         mount bound a second set and every click dispatched twice.
+         Clicking a card places into firstEmpty, so the repeat filled
+         the NEXT register too -- reported twice before it was caught,
+         because it only appears after a re-mount and only on click.
+
+         No DOM here, so the guard itself is what is asserted: calling
+         setupInput twice on one host must wire it once. */
+      var calls = 0;
+      var fakeHost = {
+        addEventListener: function () { calls++; }
+      };
+      setupInput(fakeHost);
+      var first = calls;
+      assert(first > 0, "the first call must wire something, wired " + first);
+      setupInput(fakeHost);
+      assert(calls === first, "the second call must wire nothing, wired " + (calls - first) + " more");
+      assert(fakeHost.__prWired === true, "and the host is marked so a third call is cheap too");
+      setupInput(fakeHost);
+      assert(calls === first, "nor a third");
+    } },
+
     { name: "you get the colour and the bay you picked", run: function () {
       newGame(7, { course: "provingRun", players: 4, humans: 1, livery: 5, bay: 6 });
       var me = G.players[0];
@@ -6201,7 +6225,27 @@
     else if (a === "new") onNewGame();
   }
 
+  /* ONCE PER HOST, NOT ONCE PER MOUNT.
+
+     mount() clears the host with innerHTML = "", which destroys the
+     children and leaves every listener on the HOST itself exactly
+     where it was. So a second mount on the same element used to bind a
+     second full set, a third a third, and every click then dispatched
+     as many times as the game had been mounted.
+
+     Dragging hid it. A drop nulls UI.drag, so the repeat calls returned
+     early and a dragged card landed once. A CLICK places into
+     firstEmpty, so the repeat placed the next card into the next
+     register -- "putting a card in adds one to the following register",
+     reported twice and not reproducible until you re-mounted first.
+
+     Three paths re-mount: changing the course, leaving the map editor,
+     and test play. All three are ordinary things to do before your
+     first card. */
   function setupInput(root) {
+    if (root.__prWired) return;
+    root.__prWired = true;
+
     root.addEventListener("click", function (e) {
       var el = e.target.closest("[data-act]");
       if (el && !el.disabled) dispatchAct(el);
