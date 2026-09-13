@@ -1306,11 +1306,26 @@
        board uses -- and every mount's wall was confirmed against the
        wall scan independently.
 
-       WHAT IS NOT IN HERE YET, and is known to be missing rather than
-       absent from the board: the WALL-MOUNTED PUSHERS, along row 5 and
-       around (8,9) and (5,10). They are plainly on the photograph and
-       their register sets are not read carefully enough to write down.
-       Held to a second pass rather than guessed.
+       The two pushers on the north wall of row 5 are read off their
+       plates -- 2/4 at (8,5) and 1/3/5 at (9,5).
+
+       ONE WALL WAS HIDDEN BY A PIT. (9,8) is a pit, and a pit's hazard
+       rim sits on the same lattice edge as the wall below it, so the
+       wall scan read 0.43 on the north edge of (9,9) -- inside the band
+       this project already records for a rim rather than for a bar. At
+       magnification the photograph shows two separate bars, and the
+       two-beam laser under it stops dead there, which it could not do
+       without a wall.
+
+       WHAT IS NOT IN HERE, and is known to be missing rather than
+       absent from the board: THREE MORE PUSHERS, at (8,9) on its west
+       wall, (10,9) on its east wall and (5,10) on its west wall. All
+       three are plainly on the photograph, all three have their mount
+       wall confirmed by the wall scan, and the direction each faces is
+       clear. What cannot be read is their REGISTER SETS: at 120 pixels
+       to a square the plates give up about fifteen pixels of digit.
+       (8,9) shows a 2 and (5,10) a 3; (10,9) gives nothing. A set half
+       read is worse than one absent, so they wait for a close-up.
 
        Express against normal conveyor is read from the roller colour --
        silver for express, copper for normal -- and is the likeliest
@@ -1323,7 +1338,7 @@
     canneryRow: {
       name: "Cannery Row", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       unverified: true,
-      notes: "First pass. Lasers scanned; wall-mounted pushers not yet read.",
+      notes: "Second pass. Three pushers still need a close-up for their registers.",
       pic: [
         "+  +  +--+  +--+  +  +--+  +--+  +  +",
         " B> B> B> B> bv b< o. .. .. .. ..|Bv ",
@@ -1343,7 +1358,7 @@
         "|B^|.. .. .. bv b< b^ .. .. Bv .. b^|",
         "+  +  +--+  +  +  +  +  +  +  +--+  +",
         " B^ .. ..|..|bv W. b^ .. .. o. .. b^ ",
-        "+  +  +  +  +  +  +  +--+  +  +  +  +",
+        "+  +  +  +  +  +  +  +--+  +--+  +  +",
         "|B^ ..|.. .. bv .. b^ ..|.. .. ..|b^|",
         "+  +  +  +--+  +  +  +  +  +--+  +  +",
         " B^ w. .. ..|bv|.. b^ .. .. W.|.. b^ ",
@@ -1358,7 +1373,15 @@
         { c: 5, r: 3, d: "N", n: 1 },
         { c: 9, r: 3, d: "S", n: 1 },
         { c: 2, r: 4, d: "S", n: 1 },
-        { c: 1, r: 5, d: "S", n: 1 }
+        { c: 1, r: 5, d: "S", n: 1 },
+        { c: 3, r: 8, d: "E", n: 1 },
+        { c: 9, r: 9, d: "N", n: 2 },
+        { c: 4, r: 10, d: "E", n: 1 }
+      ]
+      ,
+      pushers: [
+        { c: 8, r: 5, d: "S", regs: [2, 4] },
+        { c: 9, r: 5, d: "S", regs: [1, 3, 5] }
       ]
       ,
       timers: [
