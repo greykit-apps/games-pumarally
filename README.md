@@ -108,12 +108,36 @@ hand tool, Space-drag, the middle button or two fingers. `Delete` takes the
 selected thing off and `Esc` steps back to the select tool. Work autosaves, so a
 long transcription survives a reload.
 
-The **course workshop** is the same editor opened on an assembled course from
-the race set-up, and it opens with the flag tool in hand: click a floor square
-for flag 1, again for flag 2, and so on; keys `1`–`9` pick the number in hand.
-The inspector keeps the flags as a numbered list in race order, each with go-to,
-earlier, later and take-off, and a placed flag or trap can be dragged to a new
-square without losing its number, facing or wall.
+The **course workshop** is the same editor opened on an assembled course, and
+it is where every race now begins. It opens with the flag tool in hand: click a
+floor square for flag 1, again for flag 2, and so on; keys `1`–`9` pick the
+number in hand. The inspector keeps the flags as a numbered list in race order,
+each with go-to, earlier, later and take-off, and a placed flag or trap can be
+dragged to a new square without losing its number, facing or wall. Three ways
+out: **exit without saving**, **save to library**, or **save and play**.
+
+## Setting up a race
+
+Two screens and then the workshop. **Settings** picks the ruleset, the number of
+robots and the house rules; **Course** is where a printed course is loaded, one
+is laid out three-by-three by hand, or one is taken off your **library**; and
+`Next` opens the whole thing in the workshop, where the flags go on and the race
+is started.
+
+The library is `localStorage`, one entry per named course, holding the boards
+and their rotations together with the workshop's picture and its flags. Saving
+under a name you have used replaces it, so a course is edited rather than
+duplicated; each card shows the course drawn with its flags on it and offers
+**Race**, **Open** and delete. A stored course whose picture no longer reads is
+dropped from the shelf rather than handed to the workshop.
+
+Two decisions that used to be set-up screens now happen where they can actually
+be answered. **Your colour** is the first thing the game asks, as a pop-up over
+the course you are about to race, one human seat at a time — taking a colour
+swaps it with whoever held it, so the eight stay distinct however many seats
+choose. **Your starting bay** follows immediately: everybody draws a program
+card for priority, fastest first, and picks a lit bay in that order. The
+*Human privilege* house rule puts the seats at this keyboard ahead of the bots.
 
 ## Option cards
 
