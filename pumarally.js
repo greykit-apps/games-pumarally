@@ -1104,11 +1104,20 @@
       turn: 1,
       register: 0,
       phase: "draft",
-      step: "draw",
-      /* The draft: who picks a bay, in what order, and what they drew
-         to earn it. Pure JSON, so it rides in the save and a game
-         reloaded mid-draft carries on where it stopped. */
-      draft: { order: [], at: 0, cards: {}, skipped: false },
+      /* THE COLOUR IS PICKED AT THE TABLE, NOT IN A MENU.
+
+         It used to be a step of the set-up wizard, three screens
+         before anything was on the board -- so the one decision that
+         is purely about your own robot was asked while the question
+         on screen was still which boards to lay out. It is the first
+         thing the game itself asks now, and the bays follow straight
+         after it: pick a colour, draw for position, take a bay. */
+      step: "livery",
+      /* The draft: who picks a colour, who picks a bay, in what order,
+         and what they drew to earn it. Pure JSON, so it rides in the
+         save and a game reloaded mid-draft carries on where it
+         stopped. */
+      draft: { order: [], at: 0, liveryAt: 0, cards: {}, skipped: false },
       humanPrivilege: opts.humanPrivilege ? 1 : 0,
       players: [],
       deck: [],
@@ -2046,6 +2055,48 @@
     return out;
   }
 
+  /* The next human seat still to choose a colour, or null when they
+     all have. Walked from a mark in the draft rather than from a flag
+     on the player, so a game saved between two people picking comes
+     back asking the right one. */
+  function nextLiveryPicker() {
+    for (var i = G.draft.liveryAt; i < G.players.length; i++) {
+      if (isHuman(G.players[i])) return G.players[i];
+    }
+    return null;
+  }
+
+  /* Whether a colour is spoken for by somebody who has already chosen
+     it. Those are the only ones the swap must not touch. */
+  function liveryLocked(lv) {
+    for (var i = 0; i < G.draft.liveryAt && i < G.players.length; i++) {
+      if (G.players[i].livery === lv) return true;
+    }
+    return false;
+  }
+
+  /* TAKING A COLOUR IS A SWAP, NOT AN ASSIGNMENT.
+
+     The liveries ARE how the robots are told apart, on the board and
+     in the log, so two of them sharing one is the single thing this
+     must never do. Whoever was holding the wanted colour takes the
+     picker's instead, which keeps them all distinct however many
+     seats choose. A colour an earlier seat has already chosen is
+     refused rather than swapped away from them. */
+  function takeLivery(p, lv) {
+    lv = Math.max(0, Math.min(LIVERIES.length - 1, lv | 0));
+    if (liveryLocked(lv)) return false;
+    for (var i = 0; i < G.players.length; i++) {
+      var q = G.players[i];
+      if (q === p || q.livery !== lv) continue;
+      q.livery = p.livery;
+      q.name = LIVERIES[q.livery].name;
+    }
+    p.livery = lv;
+    p.name = LIVERIES[lv].name;
+    return true;
+  }
+
   function takeBay(p, dock) {
     p.c = dock.c; p.r = dock.r;
     p.face = N;
@@ -2169,6 +2220,20 @@
        on a square it has not earned.
        ============================================================ */
     draft: {
+      /* WHOSE COLOUR, ASKED ONE SEAT AT A TIME.
+
+         Every human seat picks, in seat order, before anybody draws --
+         two people at one keyboard are two robots, and a colour is not
+         secret, so this needs no curtain. A seat that has picked is
+         locked: the swap below may not take a colour back off somebody
+         who chose it. Bots never pick; they keep whatever is left. */
+      livery: function () {
+        var p = nextLiveryPicker();
+        if (!p) { go("draft", "draw"); return NEXT; }
+        G.actor = p.id;
+        return WAIT;
+      },
+
       draw: function () {
         var i, p, order = [];
         for (i = 0; i < G.players.length; i++) {
@@ -3787,7 +3852,11 @@
 
     { name: "the fastest priority drafts first", run: function () {
       newGame(23, { course: "provingRun", players: 6, humans: 0 });
-      advance();                                   // draw
+      advance();                                   // stops on the colour pick
+      /* Answered the way the screen answers it, keeping what seat 0
+         was dealt -- the draw is what this test is about, and the
+         colours are in front of it now. */
+      onLiveryPick(G.players[0].livery);
       assert(G.draft.order.length === 6, "everyone draws");
       for (var i = 1; i < G.draft.order.length; i++) {
         var a = G.draft.cards[G.draft.order[i - 1]], b = G.draft.cards[G.draft.order[i]];
@@ -3801,6 +3870,8 @@
          draw made it. Jumping each other would be a different rule. */
       newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 1 });
       advance();
+      onLiveryPick(G.players[0].livery);           // two seats, two colours to settle
+      onLiveryPick(G.players[1].livery);
       var order = G.draft.order;
       assert(isHuman(G.players[order[0]]) && isHuman(G.players[order[1]]),
         "both seats pick before the bots, order was " + order.join(","));
@@ -3810,6 +3881,8 @@
       /* Off, the same seed puts them wherever the cards did. */
       newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 0 });
       advance();
+      onLiveryPick(G.players[0].livery);
+      onLiveryPick(G.players[1].livery);
       var plain = G.draft.order;
       for (var j = 1; j < plain.length; j++) {
         assert(G.draft.cards[plain[j - 1]] > G.draft.cards[plain[j]],
@@ -6338,6 +6411,235 @@
       ED = keep;
     } },
 
+    { name: "the game asks for a colour before it asks anything else", run: function () {
+      /* The colour used to be picked in the set-up wizard, three
+         screens before there was a board to see it on. It is the first
+         thing the game itself asks now, and the bays follow straight
+         after -- pick a robot, draw for position, take a bay. */
+      newGame(23, { course: "provingRun", players: 6 });
+      assert(G.phase === "draft" && G.step === "livery",
+        "a new game opens at " + G.phase + "." + G.step + " rather than at the colours");
+      advance();
+      assert(G.phase === "draft" && G.step === "livery", "the machine ran past the colour pick");
+      assert(G.actor === 0, "the colour is being asked of seat " + G.actor);
+      assert(!G.draft.order.length, "position was drawn for before the colours were settled");
+
+      /* Taking one is a SWAP: whoever held it takes the picker's, so
+         the eight stay distinct however many seats choose. */
+      var was = G.players[0].livery, holder = null, i;
+      var want = (was + 3) % LIVERIES.length;
+      for (i = 0; i < G.players.length; i++) if (G.players[i].livery === want) holder = G.players[i];
+      assert(holder && holder !== G.players[0], "nothing held the wanted colour, so this proves no swap");
+      onLiveryPick(want);
+      assert(G.players[0].livery === want, "seat 0 did not get the colour it asked for");
+      assert(G.players[0].name === LIVERIES[want].name, "the name did not follow the colour");
+      assert(holder.livery === was, "the robot that held it was not handed seat 0's");
+      assert(holder.name === LIVERIES[was].name, "the swapped robot kept the wrong name");
+      var seen = {};
+      for (i = 0; i < G.players.length; i++) {
+        assert(!seen[G.players[i].livery], "two robots share a colour after the pick");
+        seen[G.players[i].livery] = 1;
+      }
+      /* And the placement begins the moment it is answered. */
+      assert(G.step === "pick", "after the colour the game is at " + G.step + " rather than picking bays");
+      assert(G.draft.order.length === 6, "nobody drew for position");
+
+      /* TWO SEATS, TWO PICKS, in seat order -- and the second may not
+         take what the first chose. */
+      newGame(23, { course: "provingRun", players: 6, humans: 2 });
+      advance();
+      assert(G.actor === 0, "with two seats the first to be asked is " + G.actor);
+      onLiveryPick(1);
+      assert(G.step === "livery" && G.actor === 1, "the second seat was not asked");
+      assert(liveryLocked(1), "the colour seat 0 chose is not locked");
+      assert(!takeLivery(G.players[1], 1), "the second seat took the first seat's colour");
+      assert(G.players[0].livery === 1, "and took it away from them");
+      onLiveryPick(4);
+      assert(G.players[1].livery === 4 && G.players[0].livery === 1, "the two seats did not keep their picks");
+      assert(G.step === "pick", "two seats settled and the bays did not start");
+
+      /* Nobody to ask is not a question. Every seat botted goes
+         straight through, which is what the sim relies on. */
+      var wasAuto = UI.autoHuman;
+      UI.autoHuman = true;
+      newGame(23, { course: "provingRun", players: 4 });
+      assert(!nextLiveryPicker(), "a table of bots was still going to be asked");
+      advance();
+      assert(G.phase !== "draft" || G.step !== "livery", "a table of bots stopped at the colour pick");
+      UI.autoHuman = wasAuto;
+    } },
+
+    { name: "the set-up is two steps, and the last one opens the workshop", run: function () {
+      /* It was five. A "Flags" screen sat between the boards and the
+         race whose only control was a button to the workshop; a
+         "Robot" screen asked for a colour with no board to see it on;
+         a "Bays" entry named something that was never in the modal. */
+      var ids = WIZARD.map(function (w) { return w.id; });
+      assert(ids.join(",") === "rules,boards", "the rail is " + ids.join(","));
+      assert(wizLast() === WIZARD.length - 1, "the last step is not the last entry in the rail");
+      assert(!WIZARD[wizLast()].onBoard, "the last step is one that never renders");
+      var i;
+      for (i = 0; i < WIZARD.length; i++) {
+        assert(WIZARD[i].label && WIZARD[i].title, WIZARD[i].id + " has no label or no title");
+      }
+      /* Only the course can block, and it blocks on the layout. */
+      assert(wizBlocker(0) === null, "the settings step can refuse to be left");
+      assert(typeof wizBlocker(1) === "string" || wizBlocker(1) === null,
+        "the course step's blocker is neither a reason nor nothing");
+      /* Every function the removed screens were made of is gone with
+         them, rather than left behind unreachable. */
+      assert(typeof flagsBody === "undefined" && typeof robotBody === "undefined",
+        "a screen the rail no longer reaches is still in the file");
+    } },
+
+    { name: "the library keeps a course and gives it back", run: function () {
+      /* A course is an hour of work and there was room for exactly
+         one of them: the layout key holds what you are working on, so
+         starting a second course threw the first away. */
+      var shim = null, glob = null;
+      if (typeof localStorage === "undefined") {
+        shim = {};
+        glob = typeof globalThis !== "undefined" ? globalThis : root;
+        glob.localStorage = {
+          getItem: function (k) { return shim[k] === undefined ? null : shim[k]; },
+          setItem: function (k, v) { shim[k] = String(v); },
+          removeItem: function (k) { delete shim[k]; }
+        };
+      }
+      var keepLayout = UI.layout, keepLib = null;
+      try { keepLib = localStorage.getItem(LIBRARY_KEY); } catch (e) {}
+      try {
+        localStorage.removeItem(LIBRARY_KEY);
+        assert(libLoad().length === 0, "an empty library is not empty");
+
+        var lay = { v: 3, dockCol: 0,
+          cells: [null, null, null, null, null, null, { id: "island", rot: 1 }, null, null] };
+        var g = B.buildCourse(B.composeCourse(B.withFlags(lay, []), 0));
+        lay.edit = { w: g.w, h: g.h, pic: B.gridToPic(g), voids: true, name: "Mine",
+                     flags: [[4, 4], [7, 9]], lasers: [], pushers: [], burners: [], timers: [] };
+
+        var row = libPut("  The  Long   Way  ", lay);
+        assert(row, "saving to the library reported nothing");
+        assert(row.name === "The Long Way", "the name was stored as \"" + row.name + "\"");
+        var items = libLoad();
+        assert(items.length === 1, "one save put " + items.length + " courses on the shelf");
+        assert(items[0].layout.cells[6].id === "island" && items[0].layout.cells[6].rot === 1,
+          "the boards and their rotations did not survive the round trip");
+        assert(items[0].layout.edit && items[0].layout.edit.flags.length === 2,
+          "the flags did not survive the round trip");
+
+        /* SAVING THE SAME NAME TWICE IS ONE COURSE. A library that
+           answers "save" by growing is one nobody keeps using. */
+        lay.edit.flags = [[4, 4]];
+        libPut("the long way", lay);
+        items = libLoad();
+        assert(items.length === 1, "saving the same name again made " + items.length + " courses");
+        assert(items[0].layout.edit.flags.length === 1, "the second save did not replace the first");
+        assert(items[0].name === "the long way", "the name was not taken from the second save");
+
+        /* Taking one off the shelf makes it what is on the table, and
+           editing it there must not rewrite the saved one. */
+        UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, null, null, null] };
+        assert(libOpen(items[0].id), "opening a saved course failed");
+        assert(UI.layout.cells[6] && UI.layout.cells[6].id === "island", "the opened course is not on the table");
+        UI.layout.edit.flags.push([1, 1]);
+        assert(libLoad()[0].layout.edit.flags.length === 1,
+          "editing the course on the table rewrote the saved one");
+        assert(!libOpen("nosuchid"), "a course that is not there opened anyway");
+
+        /* A stored course whose picture no longer reads is dropped
+           from the shelf rather than handed to the workshop, where it
+           would come apart on the first render. */
+        var bad = libLoad();
+        bad[0].layout.cells[6] = { id: "noSuchBoard", rot: 0 };
+        libWrite(bad);
+        assert(libLoad().length === 0, "a course naming a board that does not exist stayed on the shelf");
+
+        libPut("Keeper", lay);
+        libPut("Spare", lay);
+        assert(libLoad().length === 2, "two names made one entry");
+        libDrop(libLoad()[0].id);
+        assert(libLoad().length === 1, "deleting one took " + (2 - libLoad().length) + " off");
+        libDrop("nosuchid");
+        assert(libLoad().length === 1, "deleting something that is not there took a course with it");
+      } finally {
+        try {
+          if (keepLib === null) localStorage.removeItem(LIBRARY_KEY);
+          else localStorage.setItem(LIBRARY_KEY, keepLib);
+        } catch (e) {}
+        UI.layout = keepLayout;
+        if (shim) { try { delete glob.localStorage; } catch (e) { glob.localStorage = undefined; } }
+      }
+    } },
+
+    { name: "the course workshop offers three ways out and no fourth", run: function () {
+      /* Throw it away, keep it, or race it. "Save and go on" used to
+         mean the second and went back to a screen that could only send
+         you here again. */
+      var keep = ED, keepEls = UI.els;
+      UI.els = null;                                  // the bar builds as a string
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      edOpenCourse({ boards: [], dock: null });
+      ED.grid.name = "Bench course";
+
+      var bar = edTopBar();
+      assert(bar.indexOf('data-act="edcdrop"') >= 0, "no way out without saving");
+      assert(bar.indexOf('data-act="edclib"') >= 0, "no way to put it on the shelf");
+      assert(bar.indexOf('data-act="edcplay"') >= 0, "no way to race it");
+      assert(bar.indexOf('data-act="edcsave"') < 0, "the old save-and-go-on is still on the bar");
+      /* With no flags the race is refused on the button rather than
+         after it. */
+      assert(/data-act="edcplay"[^>]*disabled/.test(bar),
+        "a course with no flags offers to race anyway");
+      ED.grid.flags.push({ c: 2, r: 2 });
+      bar = edTopBar();
+      assert(!/data-act="edcplay"[^>]*disabled/.test(bar), "a course with a flag on it still cannot race");
+
+      /* A BOARD is not a course and has no shelf to go on. */
+      ED.isCourse = false;
+      ED.fromSetup = true;
+      bar = edTopBar();
+      assert(bar.indexOf('data-act="edclib"') < 0, "a board offers to be saved to the course library");
+      ED = keep;
+      UI.els = keepEls;
+    } },
+
+    { name: "opening the workshop twice does not bind it twice", run: function () {
+      /* The bug this guards, watched three times over: the third visit
+         to the workshop deleted THREE flags for one click on the cross
+         and undid three steps for one press of undo. edMount clears
+         the host with innerHTML, which leaves the listeners on the
+         host itself in place, so every open bound another set.
+
+         The same bug in the same shape as the one mount() was caught
+         with. No DOM here, so the guard is what is asserted: wiring
+         one host twice must wire it once. */
+      var calls = 0, docCalls = 0;
+      var fakeHost = { addEventListener: function () { calls++; }, classList: { remove: function () {} } };
+      var fakeDoc = { addEventListener: function () { docCalls++; } };
+      edWire(fakeHost, fakeDoc);
+      var first = calls, firstDoc = docCalls;
+      assert(first > 0 && firstDoc > 0,
+        "the first call must wire something, wired " + first + " and " + firstDoc);
+      edWire(fakeHost, fakeDoc);
+      assert(calls === first, "the second call wired " + (calls - first) + " more on the host");
+      assert(docCalls === firstDoc, "the second call wired " + (docCalls - firstDoc) + " more on the document");
+      assert(fakeHost.__prEdWired === true, "and the host is marked so a third call is cheap too");
+      edWire(fakeHost, fakeDoc);
+      assert(calls === first && docCalls === firstDoc, "nor a third");
+
+      /* And because they are never taken off, they fire over the GAME
+         once the workshop has closed -- where nothing they carry means
+         anything and half of it would throw. */
+      var keep = ED;
+      ED = null;
+      edDispatch({ dataset: { act: "edundo" } });
+      edDispatch({ dataset: { act: "edpick", k: "b" } });
+      edDispatch({ dataset: { act: "edcplay" } });
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -7154,12 +7456,20 @@
     "border-radius:50%;z-index:2}",
     ".pr-thumb-hit.mark:not(:disabled):hover{background:var(--pr-warn)}",
     ".pr-thumb-pick{cursor:crosshair}",
-    ".pr-flag-stage{overflow:auto;max-width:100%;max-height:46vh;padding:4px;",
-    "border:1px solid var(--pr-border);background:var(--pr-bg);margin:4px 0}",
-    ".pr-flag-list{display:flex;flex-wrap:wrap;gap:4px;font-size:10px;color:var(--pr-ink);margin:2px 0}",
-    ".pr-flag-list span{border:1px solid var(--pr-border);padding:1px 5px;white-space:nowrap}",
-    ".pr-flag-list b{color:var(--pr-accent);font-weight:400;margin-right:4px}",
-    ".pr-flag-n{min-width:22px;text-align:center;color:var(--pr-accent);font-weight:400}",
+    /* THE LIBRARY, as a shelf of cards. Each one is a picture of the
+       course with its flags on it, its name, what it is made of, and
+       the three things anybody wants to do with it. */
+    ".pr-lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:4px 0}",
+    ".pr-lib-item{border:1px solid var(--pr-border);background:var(--pr-panel);padding:5px;",
+    "display:flex;flex-direction:column;gap:3px}",
+    ".pr-lib-thumb{display:flex;justify-content:center;align-items:center;min-height:52px;",
+    "overflow:hidden;background:var(--pr-bg)}",
+    ".pr-lib-name{font-size:11px;color:var(--pr-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".pr-lib-note{font-size:9px;color:var(--pr-dim)}",
+    ".pr-lib-acts{display:flex;gap:3px;margin-top:auto}",
+    ".pr-lib-acts button{padding:2px 6px;min-height:0!important;font-size:10px;flex:1 1 auto}",
+    ".pr-lib-acts button:last-child{flex:0 0 auto;color:var(--pr-dim)}",
+    ".pr-lib-acts button:last-child:hover:not(:disabled){color:var(--pr-danger);border-color:var(--pr-danger)}",
 
     /* THE STEP RAIL. An ordered list, because it is one -- a screen
        reader gets "3 of 5" from the markup rather than from a picture
@@ -8023,6 +8333,7 @@
     renderProgram();
     renderChoice();
     renderOptions();
+    renderLiveryPick();
     renderCurtain();
     updateLog();
     drawBeams();
@@ -8201,10 +8512,73 @@
     host.innerHTML = out.join("");
   }
 
+  /* WHICH COLOUR, ASKED ON THE BOARD.
+
+     One seat at a time, over the course it is about to be raced on.
+     The colours already spoken for by a seat that has chosen are shown
+     and disabled rather than hidden: "taken" is a different answer
+     from "not a colour", and a row that changes length between seats
+     is a row you have to re-read. */
+  function liveryBody(p) {
+    var out = ['<h2>' + esc(humanSeats() > 1 ? "SEAT " + (p.id + 1) + ", PICK YOUR ROBOT" : "PICK YOUR ROBOT") + "</h2>"];
+    out.push('<div class="pr-presets pr-liveries">');
+    for (var lv = 0; lv < LIVERIES.length; lv++) {
+      var taken = liveryLocked(lv);
+      out.push('<button class="pr-livery' + (p.livery === lv ? " on" : "") +
+        '" data-act="livery" data-n="' + lv + '"' + (taken ? " disabled" : "") +
+        ' title="' + esc(LIVERIES[lv].name) + (taken ? " \u2014 taken" : "") + '">' +
+        '<i class="pr-swatch" style="background:' + LIVERIES[lv].a + '"></i>' +
+        esc(LIVERIES[lv].name) + "</button>");
+    }
+    out.push("</div>");
+    out.push('<div class="pr-rule-desc">Your colour is also your name, on the board and in the log. ' +
+      "The other racers take the rest. Everyone draws for position as soon as the colours are " +
+      "settled, and then picks a starting bay." +
+      (G.humanPrivilege ? " House rule: this keyboard picks its bays first." : "") + "</div>");
+    return out.join("");
+  }
+
+  /* THE MODAL IS A FUNCTION OF THE STEP, and this is the only thing
+     that opens or closes it. Closing it from the button that answers
+     it would mean two owners and a race: the pick advances the
+     machine, the machine settles, and what is on screen follows from
+     where it settled -- the next seat, or nothing. */
+  function renderLiveryPick() {
+    var want = inPhase("draft", "livery") ? actor() : null;
+    if (want && !isHuman(want)) want = null;
+    if (!want) {
+      if (UI.liveryFor !== null && UI.liveryFor !== undefined) {
+        UI.liveryFor = null;
+        if (modalOpen()) closeModal();
+      }
+      return;
+    }
+    if (UI.liveryFor === want.id && modalOpen()) return;
+    UI.liveryFor = want.id;
+    openModal(liveryBody(want), false);
+  }
+
+  function onLiveryPick(lv) {
+    if (!inPhase("draft", "livery")) return;
+    var p = actor();
+    if (!p || !isHuman(p)) return;
+    if (!takeLivery(p, lv)) return;
+    /* Remembered as the default the NEXT game opens on, and only from
+       the first seat -- otherwise a second player at the same keyboard
+       quietly rewrites the first one's preference. */
+    if (p.id === 0) { houseRules.livery = lv; saveRules(); }
+    log(p.name + " takes the wheel");
+    G.draft.liveryAt = p.id + 1;
+    G.actor = undefined;
+    announce("You are " + p.name + ".");
+    advance();
+  }
+
   /* What the draft is waiting for, in the one line the HUD has. The
      priority you drew is in it because that is WHY it is your turn --
      without it the order looks arbitrary. */
   function draftHeadline() {
+    if (G.step === "livery") return "Picking robots";
     if (G.step === "draw") return "Drawing for position";
     var p = G.players[G.draft.order[G.draft.at]];
     if (!p) return "Taking positions";
@@ -8860,33 +9234,13 @@
     if (a === "wnext") {
       var at = UI.wizStep || 0;
       if (wizBlocker(at)) { showWizard(); return; }
-      if (at < WIZARD.length - 2) {
-        saveRules(); saveLayout();
-        /* STRAIGHT INTO THE WORKSHOP. Flags are placed by hand, so the
-           step after the boards is the workshop itself the first time
-           through -- showing a screen whose only control is a button
-           to the workshop would be a door with a door in front of it.
-           Coming back, or arriving by the rail, shows the screen. */
-        if (WIZARD[at + 1].id === "flags" && !flagsResolved().length && !layoutProblem()) {
-          closeModal();
-          root.location.hash = "#edit=course&from=setup";
-          edMountCourse(UI.els.host);
-          return;
-        }
-        wizGo(at + 1); return;
-      }
-      saveRules(); saveLayout(); closeModal();
-      var flags = flagsResolved(), spec = layoutCourse(flags), named = layoutIsCourse();
-      /* A layout that is a shipped course, raced with that course's
-         own flags, IS that course and is started under its name --
-         the log, the help and the saved game should all say
-         "Exchange Run" rather than "composed". */
-      if (named && JSON.stringify(B.COURSES[named].flags) === JSON.stringify(flags)) {
-        spec.id = named;
-        spec.name = B.COURSES[named].name;
-        spec.blurb = B.COURSES[named].blurb || "";
-      }
-      startComposed(spec);
+      if (at < wizLast()) { saveRules(); saveLayout(); wizGo(at + 1); return; }
+      /* THE WAY OUT OF THE SET-UP IS THE WORKSHOP, every time. The
+         course is assembled but it has no flags on it and nobody has
+         looked at it square by square; both of those live in there,
+         and so does the button that starts the race. */
+      saveRules(); saveLayout();
+      openWorkshop();
       return;
     }
     if (a === "lcourse") {
@@ -8935,7 +9289,7 @@
       }
       saveRules(); showWizard(); return;
     }
-    if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showWizard(); return; }
+    if (a === "livery") { onLiveryPick(+el.dataset.n); return; }
     if (a === "layout") { wizGo(1); return; }
     if (a === "lhold") {
       /* Clicking the held board again puts it down, so the pointer
@@ -8971,14 +9325,18 @@
     if (a === "lrotl") { layoutTurn(+el.dataset.i, -1); saveLayout(); showWizard(); return; }
     if (a === "lundo") { if (layoutUndo()) { saveLayout(); } showWizard(); return; }
     if (a === "ldropedit") { layoutDropEdit(); saveLayout(); showWizard(); return; }
-    if (a === "editcourse") {
-      if (layoutProblem()) { showWizard(); return; }
-      saveLayout();
+    if (a === "editcourse") { openWorkshop(); return; }
+    if (a === "libopen") { if (libOpen(el.dataset.i)) openWorkshop(); return; }
+    if (a === "libplay") {
+      if (!libOpen(el.dataset.i)) return;
+      var libWhy = flagProblem();
+      if (libWhy) { announce(libWhy); showWizard(); return; }
+      saveRules();
       closeModal();
-      root.location.hash = "#edit=course&from=setup";
-      edMountCourse(UI.els.host);
+      startComposed(layoutCourse(flagsResolved()));
       return;
     }
+    if (a === "libdrop") { libDrop(el.dataset.i); showWizard(); return; }
     if (a === "lempty") {
       layoutMark();
       for (var ec = 0; ec < B.LAY_BOARDS; ec++) layoutNow().cells[ec] = null;
@@ -8991,11 +9349,6 @@
       /* Indices shift when one is taken out, so a board being carried
          is put down rather than left pointing at its neighbour. */
       UI.heldAt = null;
-      saveLayout(); showWizard(); return;
-    }
-    if (a === "fclearall") {
-      var Lf = layoutNow();
-      if (Lf.edit) Lf.edit.flags = [];
       saveLayout(); showWizard(); return;
     }
     if (a === "editmap") {
@@ -9947,6 +10300,95 @@
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(UI.layout)); } catch (e) {}
   }
 
+  /* ============================================================
+     THE LIBRARY
+
+     A course is an hour of work -- boards laid out, a map gone over
+     square by square, flags placed in the order they will be raced --
+     and until now there was exactly one of them. The layout key holds
+     what you are working on, so starting a second course was throwing
+     the first one away.
+
+     A saved course is the LAYOUT, whole: the boards and their
+     rotations, the block, and the workshop's picture with its flags.
+     Not the built course, because that is derived and would go stale
+     the moment a board's data changed; not the picture alone, because
+     then a saved course could not be taken back into the assembler.
+
+     Everything is read back through migrateLayout, which parses the
+     picture rather than trusting it -- a stored course that no longer
+     reads is dropped from the list rather than taken into the
+     workshop, where it would come apart on the first render.
+     ============================================================ */
+  var LIBRARY_KEY = "pumarally_library_v1";
+
+  function libLoad() {
+    var out = [];
+    try {
+      var raw = JSON.parse(localStorage.getItem(LIBRARY_KEY) || "null");
+      if (!raw || !raw.items || !raw.items.length) return out;
+      for (var i = 0; i < raw.items.length; i++) {
+        var it = raw.items[i];
+        if (!it || !it.name || !it.layout) continue;
+        var lay = migrateLayout(it.layout);
+        if (!lay) continue;
+        out.push({ id: String(it.id || i), name: String(it.name), at: it.at || 0, layout: lay });
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  function libWrite(items) {
+    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify({ v: 1, items: items })); }
+    catch (e) { return false; }
+    return true;
+  }
+
+  /* SAVING UNDER A NAME REPLACES THAT NAME.
+
+     Pressing save twice on the same course is one course, not two --
+     and a library that answers "save" by growing is a library nobody
+     keeps using. The name in the workshop's own field is the name. */
+  function libPut(name, layout) {
+    name = (name || "").replace(/\s+/g, " ").trim() || "Untitled course";
+    var items = libLoad(), i, at = -1;
+    for (i = 0; i < items.length; i++) if (items[i].name.toLowerCase() === name.toLowerCase()) at = i;
+    var row = { id: at >= 0 ? items[at].id : "c" + Date.now().toString(36) + (Math.random() * 1e6 | 0).toString(36),
+                name: name, at: Date.now(), layout: JSON.parse(JSON.stringify(layout)) };
+    if (at >= 0) items[at] = row; else items.push(row);
+    return libWrite(items) ? row : null;
+  }
+
+  function libDrop(id) {
+    var items = libLoad(), out = [], i;
+    for (i = 0; i < items.length; i++) if (items[i].id !== id) out.push(items[i]);
+    libWrite(out);
+  }
+
+  function libFind(id) {
+    var items = libLoad();
+    for (var i = 0; i < items.length; i++) if (items[i].id === id) return items[i];
+    return null;
+  }
+
+  /* Taking one off the shelf: it becomes what the assembler and the
+     workshop are looking at. Editing it on the table must not rewrite
+     the saved one -- saving is a deliberate act and has its own
+     button -- and what actually guarantees that is libLoad parsing the
+     stored text afresh on every call, so nothing here shares
+     structure with the shelf. The copy is a second lock on the same
+     door, for whoever one day gives libLoad a cache. */
+  function libOpen(id) {
+    var row = libFind(id);
+    if (!row) return false;
+    UI.layout = JSON.parse(JSON.stringify(row.layout));
+    UI.heldBoard = null;
+    UI.heldAt = null;
+    UI.layUndo = [];
+    saveLayout();
+    return true;
+  }
+
   /* Boards a player may place. The docking bay is not one of them --
      it is 12x4, it is the start area, and it goes under the grid
      rather than in it. */
@@ -10128,6 +10570,55 @@
 
   function dragKind() { return UI.drag ? DRAG_KINDS[UI.drag.from] : null; }
 
+  /* YOUR OWN COURSES, on the shelf beside the printed ones.
+
+     Each one is drawn with its flags on it, because "which of these is
+     the one I built on Tuesday" is answered by the picture and by
+     nothing in the name. Three verbs, in the order they are wanted:
+     race it, open it, throw it away. */
+  function libraryBody() {
+    var items = libLoad(), out = [], i;
+    if (!items.length) {
+      return '<h3 class="pr-rule-group">Your library</h3>' +
+        '<div class="pr-rule-desc">Nothing saved yet. Courses you save in the workshop appear here, ' +
+        "ready to race again without building them twice.</div>";
+    }
+    items.sort(function (a, z) { return z.at - a.at; });
+    out.push('<h3 class="pr-rule-group">Your library</h3><div class="pr-lib">');
+    for (i = 0; i < items.length; i++) {
+      var it = items[i], thumb = "", note = "", flags = (it.layout.edit && it.layout.edit.flags) || [];
+      try {
+        var spec = B.composeCourse(B.withFlags(it.layout, flags), 0);
+        if (it.layout.edit) { spec.grid = it.layout.edit; spec.flags = flags; }
+        var C = B.buildCourse(spec);
+        var marks = {}, k;
+        for (k = 0; k < flags.length; k++) marks[flags[k][0] + "," + flags[k][1]] = k + 1;
+        thumb = gridThumb(C, Math.max(3, Math.min(9, Math.floor(190 / C.w))),
+          flags.length ? { act: null, legal: null, marks: marks } : null);
+        note = C.w + "\u00d7" + C.h + ", " + flags.length + " flag" + (flags.length === 1 ? "" : "s");
+      } catch (e) {
+        /* A saved course that will not build is shown and refused
+           rather than hidden: a course quietly missing from the shelf
+           reads as one you never saved. */
+        note = "will not build: " + e.message;
+      }
+      out.push('<div class="pr-lib-item">' +
+        '<div class="pr-lib-thumb">' + thumb + "</div>" +
+        '<div class="pr-lib-name">' + esc(it.name) + "</div>" +
+        '<div class="pr-lib-note">' + esc(note) + "</div>" +
+        '<div class="pr-lib-acts">' +
+          '<button data-act="libplay" data-i="' + esc(it.id) + '"' + (thumb && flags.length ? "" : " disabled") +
+            ' title="' + (flags.length ? "Race this course now" : "This course has no flags on it yet") + '">Race</button>' +
+          '<button data-act="libopen" data-i="' + esc(it.id) + '"' + (thumb ? "" : " disabled") +
+            ">Open</button>" +
+          '<button data-act="libdrop" data-i="' + esc(it.id) + '" title="Delete ' + esc(it.name) +
+            '" aria-label="Delete ' + esc(it.name) + '">&times;</button>' +
+        "</div></div>");
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
   function layoutBody() {
     var L = layoutNow(), i, c, r;
     var out = [];
@@ -10163,6 +10654,7 @@
       }
     }
     out.push("</div>");
+    out.push(libraryBody());
 
     /* THE STAGE AND THE SHELF.
 
@@ -10496,10 +10988,17 @@
     return L.pick;
   }
 
-  function flagScratch() {
-    /* The course with NO flags on it: what "is this square legal" is a
-       question about, and what the workshop draws onto. */
-    return B.buildCourse(B.composeCourse(B.withFlags(layoutNow(), []), 0));
+  /* THE ONE DOOR INTO THE WORKSHOP. Three things open it -- the
+     set-up's last step, the button on the course screen, and a course
+     taken out of the library -- and all three have to leave the same
+     state behind them, or the workshop opens on a layout that was
+     never saved. */
+  function openWorkshop() {
+    if (layoutProblem()) { showWizard(); return; }
+    saveLayout();
+    closeModal();
+    root.location.hash = "#edit=course&from=setup";
+    edMountCourse(UI.els.host);
   }
 
   function flagsResolved() {
@@ -10515,79 +11014,36 @@
     return null;
   }
 
-  function flagsBody() {
-    var C, i;
-    try { C = flagScratch(); }
-    catch (e) { return null; }
-
-    var have = flagsResolved();
-    /* Drawn with the flags on it, because the answer to "is that where
-       I want flag two" is the picture and nothing else. */
-    /* An EMPTY list rather than none at all: layoutCourse with no
-       flags composes a placeholder so the course validates, and a
-       placeholder drawn on the picture is a flag the player did not
-       put there. */
-    var shown = B.buildCourse(layoutCourse(have));
-    var px = Math.max(8, Math.min(30, Math.floor(700 / C.w)));
-    var marks = {};
-    for (i = 0; i < have.length; i++) marks[have[i][0] + "," + have[i][1]] = i + 1;
-
-    var out = [];
-    out.push('<div class="pr-rule-desc">' +
-      (have.length
-        ? "These are the flags on this course, in order. Open the workshop to move them, " +
-          "add more, or take some off."
-        : "Flags are placed by hand, on the assembled course. Open the workshop and put them " +
-          "where you want them \u2014 the order you place them in is the order they are raced.") +
-      "</div>");
-
-    out.push('<div class="pr-ed-row">' +
-      '<button data-act="editcourse">' +
-        (have.length ? "Open the workshop\u2026" : "Place the flags\u2026") + "</button>" +
-      (have.length ? '<button data-act="fclearall">Take them all off</button>' : "") +
-      "</div>");
-
-    out.push('<div class="pr-flag-stage">' +
-      gridThumb(shown, px, have.length ? { act: null, legal: null, marks: marks } : null) +
-      "</div>");
-
-    out.push('<div class="pr-flag-list">');
-    for (i = 0; i < have.length; i++) {
-      out.push("<span><b>" + (i + 1) + "</b> column " + (have[i][0] + 1) +
-        " row " + (have[i][1] + 1) + "</span>");
-    }
-    if (!have.length) out.push("<span>No flags yet.</span>");
-    out.push("</div>");
-
-    if (!flagProblem()) {
-      out.push('<div class="pr-ed-ok">' + shown.w + " by " + shown.h + " squares, " + have.length +
-        " flag" + (have.length === 1 ? "" : "s") + ", " + shown.docks.length + " bays.</div>");
-    }
-    return out.join("");
-  }
-
   /* ============================================================
      THE WIZARD
 
      Setting up a race is five decisions and they were one screen plus
      two pop-ups hanging off it, in an order nobody could see. They are
      steps now, in the order the decisions actually depend on each
-     other: the settings decide which rulebook is in play, the rulebook
-     decides which boards may be laid out, the layout decides where a
-     flag can legally sit, and only then is there a course to pick a
-     colour for and a dock to draw bays from.
+     other: the settings decide which rulebook is in play, and the
+     rulebook decides which boards may be laid out. Everything after
+     that happens somewhere the question can actually be answered.
 
-     The fifth step is not in this modal at all -- the priority draw
-     happens on the board, because it is played rather than configured.
-     It is on the rail anyway, so the last screen before the race does
-     not look like the last screen of the game's setup. */
+     IT USED TO BE FIVE. A "Flags" screen sat between the boards and
+     the race whose only real control was a button to the workshop --
+     a door with a door in front of it, showing a picture of flags it
+     could not move. A "Robot" screen asked which colour you wanted
+     three screens before there was a board to see it on. A "Bays"
+     entry named the priority draw, which is played rather than
+     configured and was never in this modal at all. The flags are
+     placed in the workshop, the colour is picked when the game
+     starts, and the bays are drawn for on the board. */
   var WIZARD = [
     { id: "rules",  label: "Settings", title: "SET UP A RACE" },
-    { id: "boards", label: "Boards",   title: "SHAPE THE COURSE" },
-    { id: "flags",  label: "Flags",    title: "WHERE THE FLAGS GO" },
-    { id: "robot",  label: "Robot",    title: "YOUR ROBOT" },
-    { id: "bays",   label: "Bays",     title: "", onBoard: true }
+    { id: "boards", label: "Course",   title: "SHAPE THE COURSE" }
   ];
+
+  /* The last step in the rail, which is the one whose Next button
+     starts the thing rather than turning a page. Written from the
+     length rather than as a number, because it has been wrong twice:
+     the rail used to carry an entry that never rendered, so "last"
+     meant one before the end. */
+  function wizLast() { return WIZARD.length - 1; }
 
   /* What stops you leaving a step, or null. Steps are gated on the
      step BEFORE them, so the rail can grey out what is not reachable
@@ -10595,7 +11051,6 @@
      answer its own question. */
   function wizBlocker(step) {
     if (WIZARD[step].id === "boards") return layoutProblem();
-    if (WIZARD[step].id === "flags") return flagProblem();
     return null;
   }
 
@@ -10608,7 +11063,7 @@
   }
 
   function wizGo(step) {
-    step = Math.max(0, Math.min(WIZARD.length - 2, step));
+    step = Math.max(0, Math.min(wizLast(), step));
     while (step > 0 && !wizReachable(step)) step--;
     UI.wizStep = step;
     showWizard();
@@ -10617,13 +11072,11 @@
   function showSetup() { wizGo(0); }
 
   function showWizard() {
-    var step = Math.max(0, Math.min(WIZARD.length - 2, UI.wizStep || 0));
+    var step = Math.max(0, Math.min(wizLast(), UI.wizStep || 0));
     UI.wizStep = step;
     var body = null;
     if (WIZARD[step].id === "rules") body = rulesBody();
-    else if (WIZARD[step].id === "boards") body = layoutBody();
-    else if (WIZARD[step].id === "flags") body = flagsBody();
-    else body = robotBody();
+    else body = layoutBody();
     /* A step that cannot draw itself is a step whose input is gone --
        an empty grid has no flags to place -- so it hands back rather
        than rendering something that cannot be answered. */
@@ -10644,10 +11097,14 @@
     var blocker = wizBlocker(step);
     if (blocker) out.push('<div class="pr-ed-bad">' + esc(blocker) + "</div>");
 
-    var last = step === WIZARD.length - 2;
+    /* THE LAST STEP LEADS TO THE WORKSHOP, not to the board. A course
+       has no flags until somebody puts them there, and the workshop is
+       where that happens -- so the button says where it goes, and the
+       race is started from in there. */
+    var last = step === wizLast();
     out.push('<div class="pr-modal-foot">' +
       '<button data-act="wnext"' + (blocker ? " disabled" : "") + ">" +
-        (last ? "Start the race" : "Next: " + esc(WIZARD[step + 1].label)) + "</button>" +
+        (last ? "Open the workshop\u2026" : "Next: " + esc(WIZARD[step + 1].label)) + "</button>" +
       (step > 0 ? '<button data-act="wback">Back</button>' : "") +
       '<button data-act="closemodal">Cancel</button></div>');
     openModal(out.join(""));
@@ -10712,35 +11169,6 @@
   /* YOUR ROBOT. Colour only: the bay is drawn for on the board a
      moment later, and a control that quietly does nothing is worse
      than no control. */
-  function robotBody() {
-    var cfgSeat = resolveConfig(houseRules), out = [];
-    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Colour</b>' +
-      '<span class="pr-rule-val">' + esc(LIVERIES[cfgSeat.livery].name) + "</span></div>" +
-      '<div class="pr-presets pr-liveries">');
-    for (var lv = 0; lv < LIVERIES.length; lv++) {
-      out.push('<button class="pr-livery' + (cfgSeat.livery === lv ? " on" : "") +
-        '" data-act="livery" data-n="' + lv + '" title="' + esc(LIVERIES[lv].name) + '">' +
-        '<i class="pr-swatch" style="background:' + LIVERIES[lv].a + '"></i>' +
-        esc(LIVERIES[lv].name) + "</button>");
-    }
-    out.push("</div><div class='pr-rule-desc'>Your robot's colour is also its name, " +
-      "on the board and in the log. The other racers take the rest.</div></div>");
-
-    /* What is about to be started, in one line, because this is the
-       last screen before the board and the three decisions behind it
-       are no longer on it. */
-    var have = flagsResolved(), spec = layoutCourse(have), C = B.buildCourse(spec);
-    var named = layoutIsCourse();
-    out.push('<div class="pr-rule-desc">' +
-      esc(named ? B.COURSES[named].name : "Your own course") + " \u2014 " +
-      C.w + " by " + C.h + " squares, " + have.length + " flag" + (have.length === 1 ? "" : "s") +
-      ", " + cfgSeat.players + " robots. " +
-      (cfgSeat.humanPrivilege
-        ? "You pick your starting bay first."
-        : "Everyone draws for the order the bays are picked in.") + "</div>");
-    return out.join("");
-  }
-
   function helpTabs() {
     return [
       { id: "turn", label: "The turn", build: buildTurnHelp },
@@ -10897,6 +11325,10 @@
     if (i >= TUTORIAL.length) {
       try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch (e) {}
       closeModal();
+      /* The game may have been waiting on a modal of its own -- the
+         colour pick opens on the first settled step, which is before
+         this. Handing the screen back is what puts it up. */
+      updateAll();
       return;
     }
     openModal("<h2>" + esc(TUTORIAL[i][0]) + "</h2><p>" + esc(TUTORIAL[i][1]) + "</p>" +
@@ -11770,6 +12202,14 @@
     /* Never redraw under a hand that is typing the name. */
     var ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && top.contains(ae)) return;
+    top.innerHTML = edTopBar();
+  }
+
+  /* THE BAR, as a string, so the ways out of the workshop can be
+     asked for without a workshop on screen. Which three they are is
+     the whole shape of what this room is for, and a fourth one
+     creeping back would not show up in anything else. */
+  function edTopBar() {
     var out = [], nU = (ED.undo && ED.undo.length) || 0, nF = (ED.grid.flags || []).length;
     out.push('<span class="pr-ed-title">' + (ED.isCourse ? "COURSE WORKSHOP" : "BOARD WORKSHOP") + "</span>");
     if (!ED.isCourse && !ED.fromSetup) {
@@ -11788,15 +12228,17 @@
       '<button data-act="edzoom" data-z="in" title="Zoom in (+)" aria-label="Zoom in">+</button></span>');
     out.push('<span class="pr-ed-gap"></span>');
     if (ED.isCourse) {
-      /* Three ways out, because a course is finished by three
-         different people: one who wants none of it, one who wants to
-         go on through the wizard, and one who has placed the flags
-         here and wants to race. */
-      out.push('<button data-act="edcdrop">Discard changes</button>');
-      out.push('<button data-act="edcsave">Save and go on</button>');
+      /* THREE WAYS OUT, and they are the three things anybody wants
+         at the end of an hour in here: throw it away, keep it, or
+         race it. "Save and go on" used to mean the second, and it
+         went back to a screen that could only send you here again --
+         now keeping it means putting it on the shelf under its name,
+         where it can be raced or reopened without being rebuilt. */
+      out.push('<button data-act="edcdrop">Exit without saving</button>');
+      out.push('<button data-act="edclib">Save to library</button>');
       out.push('<button class="pr-ed-go" data-act="edcplay"' + (nF ? "" : " disabled") +
-        ' title="' + (nF ? "Race this course now" : "Put at least one flag down first") + '">' +
-        "Race now" + (nF ? " (" + nF + " flag" + (nF === 1 ? "" : "s") + ")" : "") + "</button>");
+        ' title="' + (nF ? "Save this course and race it" : "Put at least one flag down first") + '">' +
+        "Save and play" + (nF ? " (" + nF + " flag" + (nF === 1 ? "" : "s") + ")" : "") + "</button>");
     } else if (ED.fromSetup) {
       out.push('<button data-act="edrevert">Discard changes</button>' +
         '<button data-act="edexport">Export source</button>' +
@@ -11806,7 +12248,7 @@
         '<button data-act="edexport">Export</button>' +
         '<button class="pr-ed-go" data-act="edplay">Test play</button>');
     }
-    top.innerHTML = out.join("");
+    return out.join("");
   }
 
   /* THE FLAGS, AS THE RACE: a numbered list in the order they are
@@ -12597,6 +13039,10 @@
                edLib: rail, edDetail: side, edStatus: status, overlay: overlay, sr: sr };
     UI.mounted = false;                 // there is no game here to render
 
+    document.addEventListener("keydown", edKey);
+    document.addEventListener("keyup", edKeyUp);
+    root.addEventListener("blur", edBlur);
+
     stage.addEventListener("click", function (e) { edClick(e, false); });
     stage.addEventListener("contextmenu", function (e) { e.preventDefault(); edClick(e, true); });
 
@@ -12623,20 +13069,6 @@
       edHover(e);
     });
     view.addEventListener("pointerleave", function () { if (ED && !ED.pan && !ED.drag) edHover(null); });
-    document.addEventListener("pointerup", function (e) {
-      if (!ED) return;
-      if (e.pointerType === "touch") edTouchUp(e);
-      if (ED.pan) edPanEnd();
-      else if (ED.drag) edDragEnd();
-      else edPaintEnd();
-    });
-    document.addEventListener("pointercancel", function (e) {
-      if (!ED) return;
-      if (e.pointerType === "touch") edTouchUp(e);
-      if (ED.pan) edPanEnd();
-      if (ED.drag) { ED.drag = null; host.classList.remove("pr-ed-dragging"); }
-      if (ED.stroke) edPaintEnd();
-    });
     /* Ctrl-wheel -- which is also what a trackpad pinch arrives as --
        zooms about the pointer. A plain wheel scrolls, as it does in
        every other scroll box. */
@@ -12683,7 +13115,49 @@
       edKeep(before);
       edAfterEdit();
     });
+    edWire(host, document);
+
+    edValidate();
+    edRender();
+    /* Open on the whole map, as large as the screen allows. */
+    edZoomFit();
+    edRenderPanel();
+  }
+
+  /* THE LISTENERS THAT OUTLIVE THE WORKSHOP, bound once.
+
+     The stage and the viewport are built fresh on every open and
+     their listeners die with them. These do not: the host element is
+     the page, and the document is the document, so binding them per
+     open bound another set every time -- and the workshop is reopened
+     routinely now, so the third visit deleted three flags for one
+     click on the cross and undid three steps for one press of undo.
+
+     The same bug, in the same shape, as the one mount() was caught
+     with: innerHTML clears the children and leaves the listeners on
+     the parent. Guarded the same way, and every handler checks ED as
+     well, because these stay bound over the game once the workshop
+     has closed. */
+  function edWire(host, doc) {
+    if (host.__prEdWired) return;
+    host.__prEdWired = true;
+
+    doc.addEventListener("pointerup", function (e) {
+      if (!ED) return;
+      if (e.pointerType === "touch") edTouchUp(e);
+      if (ED.pan) edPanEnd();
+      else if (ED.drag) edDragEnd();
+      else edPaintEnd();
+    });
+    doc.addEventListener("pointercancel", function (e) {
+      if (!ED) return;
+      if (e.pointerType === "touch") edTouchUp(e);
+      if (ED.pan) edPanEnd();
+      if (ED.drag) { ED.drag = null; host.classList.remove("pr-ed-dragging"); }
+      if (ED.stroke) edPaintEnd();
+    });
     host.addEventListener("dragstart", function (e) {
+      if (!ED) return;
       var item = e.target.closest(".pr-ed-item[draggable=true]");
       if (!item) { e.preventDefault(); return; }
       /* The library entry travels on ED rather than in dataTransfer,
@@ -12716,15 +13190,6 @@
       var b = e.target.closest("[data-act=edimg]");
       if (b) edLoadImage(b.files && b.files[0]);
     });
-    document.addEventListener("keydown", edKey);
-    document.addEventListener("keyup", edKeyUp);
-    root.addEventListener("blur", edBlur);
-
-    edValidate();
-    edRender();
-    /* Open on the whole map, as large as the screen allows. */
-    edZoomFit();
-    edRenderPanel();
   }
 
   function edKey(e) {
@@ -13184,6 +13649,10 @@
   }
 
   function edDispatch(b, e) {
+    /* Bound once and never taken off, so this fires over the GAME too
+       once the workshop has closed. Nothing here means anything then,
+       and half of it would throw. */
+    if (!ED) return;
     var a = b.dataset.act;
     if (a === "edpick") { edPickTool(b.dataset.k); }
     else if (a === "eddir") { ED.dir = parseInt(b.dataset.d, 10); edRenderPanel(); }
@@ -13242,8 +13711,8 @@
     }
     else if (a === "edundo") edUndo();
     else if (a === "edplay") edTestPlay();
-    else if (a === "edcsave") edCourseSave(false);
-    else if (a === "edcplay") edCourseSave(true);
+    else if (a === "edclib") edCourseSave("library");
+    else if (a === "edcplay") edCourseSave("race");
     else if (a === "edcdrop") edCourseDrop();
     else if (a === "edapply") edApply();
     else if (a === "edrevert") edLeaveToSetup();
@@ -13271,7 +13740,12 @@
     };
   }
 
-  function edCourseSave(andRace) {
+  /* `how` is "race" or "library": the same save, and then either the
+     board or the shelf. Both go through here because what is kept is
+     the same thing either way -- a race that saved a different course
+     from the one the library got would be two definitions of "this
+     course", which is how a saved course comes back subtly wrong. */
+  function edCourseSave(how) {
     edValidate();
     if (ED.errors.length) { announce("Fix the course first: " + ED.errors[0]); edRenderPanel(); return; }
     var edit = edCourseEdit();
@@ -13296,7 +13770,15 @@
       L.pick.chosen = true;
     }
     saveLayout();
-    UI.edCourseSaved = andRace ? "race" : "saved";
+    if (how === "library") {
+      var row = libPut(ED.grid.name, L);
+      if (!row) { announce("This browser would not store the course."); edRenderPanel(); return; }
+      UI.edCourseSaved = "library";
+      UI.edLibName = row.name;
+      edLeaveToSetup();
+      return;
+    }
+    UI.edCourseSaved = "race";
     edLeaveToSetup();
   }
 
@@ -13353,18 +13835,29 @@
        screen, because that is where the boards of this layout are
        listed. Landing on step one would throw away the wizard's place
        for an edit that changed nothing about the settings. */
+    if (course === "library") {
+      wizGo(1);
+      announce("\u201c" + (UI.edLibName || "The course") + "\u201d is in your library.");
+      UI.edLibName = null;
+      return;
+    }
     if (course === "race") {
       /* Straight onto the board: the flags are already on the course
-         and the only thing left was to start. */
-      var flags = flagsResolved();
-      if (flags.length) {
+         and the only thing left was to start. Asked as the rule rather
+         than as a count -- an unraceable course has to say why, and a
+         picture with flags on it can still fail to build. */
+      var why = flagProblem();
+      if (!why) {
         closeModal();
-        startComposed(layoutCourse(flags));
+        startComposed(layoutCourse(flagsResolved()));
         return;
       }
+      announce(why);
     }
-    wizGo(course ? 2 : 2);
-    if (course === "saved") announce("Course saved. Its flags are on the flags step.");
+    /* Back to the course screen, which is where everything about this
+       course is: the shelf it may have just been saved to, the boards
+       it is made of, and the door back in here. */
+    wizGo(wizLast());
     if (applied) {
       announce(moved
         ? "Map updated. It uses " + RULESETS[moved].name + " squares, so that ruleset is now on."
