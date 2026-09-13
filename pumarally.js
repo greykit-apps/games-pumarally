@@ -3178,6 +3178,19 @@
       assert(G.players[0].damage === 4, "a second pass repaired again: " + G.players[0].damage);
     } },
 
+    { name: "every mount injects the hazard pattern", run: function () {
+      /* The tile art references url(#pr-hz), which is document-scoped.
+         mount() injected it and edMount() did not, so in the board
+         workshop every striped thing -- pusher decks, pit rims --
+         painted empty. It looked like the art was wrong; it was a
+         definition missing three thousand lines away, and nothing
+         failed. Both mounts are checked against the same source. */
+      var src = String(mount) + String(edMount);
+      var n = (src.match(/HAZARD_DEFS/g) || []).length;
+      assert(n >= 2, "both mount() and edMount() must inject HAZARD_DEFS, found " + n);
+      assert(/id="pr-hz"/.test(HAZARD_DEFS), "and the pattern must carry the id the art asks for");
+    } },
+
     // ---- rulesets and the course menu ---------------------------------
     { name: "a course's rulebooks come from its squares, not from its box", run: function () {
       /* Island is a base-game board, which is a classic product, but
@@ -6468,6 +6481,12 @@
     injectCSS();
     host.classList.add("pr-root", "pr-editing");
     host.innerHTML = "";
+    /* The editor draws the same tiles the board does, so it needs the
+       same pattern. Without this, url(#pr-hz) resolves to nothing here
+       and every striped thing -- pusher decks, pit rims -- paints empty,
+       which reads as "the art is wrong" rather than "a definition is
+       missing three thousand lines away". */
+    host.insertAdjacentHTML("beforeend", HAZARD_DEFS);
 
     var restored = edRestore();
     if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);

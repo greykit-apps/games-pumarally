@@ -982,6 +982,61 @@
        cell width, not one -- per the note above `maelstrom`, probing
        a beam at a single point reads JPEG noise as a gap and turns a
        1-damage laser into a 2. */
+    /* THE SECOND CRASH AND BURN BOARD, and the only one of the four that
+       is genuinely new -- E turned out to be a reprint of Island.
+
+       A double spiral: an express ring running one way and a normal
+       ring inside it running the other, wound around a four-square pit
+       at the centre. Sixteen pushers around the rim, alternating 1/3/5
+       and 2/4 at columns and rows 3, 5, 8 and 10, and four single
+       lasers crossing the middle.
+
+       Read the hard way. The walls, lasers, pushers and pit came off
+       the photograph by measurement and are exact; the belt field --
+       106 squares of it, mixing both speeds with many turns -- was
+       drafted by beltscan and then corrected square by square in the
+       board workshop against the rectified photograph. beltscan gets
+       direction right only where belt runs are long, and this board is
+       made of short ones, so the draft it produced was a starting
+       point rather than an answer. */
+    boardF: {
+      name: "Board F", w: 12, h: 12, edition: "classic", set: "crashAndBurn", origin: "transcribed",
+      notes: "Transcribed from the printed board; belts verified by hand against the photograph.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " w. bv Pv .. pv bv b^ pv .. Pv .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> b> b> b> b> b> bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|P> B> B> B> B> B> B> B> B> Bv bv P<|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " .. B^ b> b> b> b> b> b> bv Bv bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|p> B^ b^ B> B> B> B> Bv bv Bv bv p<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< B^ b^ B^|b> o. o. Bv bv|Bv bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ b^|B^ b^ o. o. B<|bv Bv bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|p> B^ b^ B^ b^ b< b< b< b< Bv bv p<|",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " W. B^ b^ B^ B< B< B< B< B< B< bv .. ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        "|P> B^ b^ b< b< b< b< b< b< b< b< P<|",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B^ B< B< B< B< B< B< B< B< B< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. P^ .. p^ .. B^ p^ .. P^ B^ w. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +"
+      ],
+      lasers: [
+        { c: 5, r: 7, d: "N", n: 1 },
+        { c: 6, r: 8, d: "N", n: 1 },
+        { c: 4, r: 5, d: "E", n: 1 },
+        { c: 3, r: 6, d: "E", n: 1 }
+      ]
+    },
+
     pitMaze: {
       name: "Pit Maze", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1200,6 +1255,19 @@
        and Island: the course cards have not been photographed. All
        three sit on plain floor, which on this board is the scarce
        thing. */
+    /* Flags ours, not the printed course. Only fifteen squares on this
+       board are plain floor -- everything else is belt, pusher or hole --
+       so they go on three of those, spread across the spiral rather
+       than clustered on one rim. */
+    boardFRun: {
+      name: "Board F Run",
+      blurb: "A double spiral wound the wrong way round a hole.",
+      boards: [{ id: "boardF", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[3, 0], [11, 6], [5, 11]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     pitMazeRun: {
       name: "Pit Maze Run",
       blurb: "Twenty-six holes and the belts that run between them.",
