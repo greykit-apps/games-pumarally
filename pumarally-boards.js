@@ -117,6 +117,14 @@
     /* CRASH AND BURN (1997). Both act on a register timer, which is
        printed on the square as a number -- so the argument slot, which
        these do not need for a direction, carries WHEN instead. */
+    /* A pusher whose registers are an arbitrary set rather than one of
+       the two printed parities. Board H carries 1/2/3/4/5 and 2/3/4/5
+       among others, which "odd" and "even" cannot say. The set lives in
+       `timers`, the same sparse list the presses and burners use, so
+       there is one way to spell "acts on these registers" rather than
+       two. p and P stay as they are: the classic parities are most of
+       the boards and reading "p" is better than reading a list. */
+    "u": { name: "pusher (registers listed)", arg: "dir", push: "set", editions: ["classic"] },
     "L": { name: "oil slick", arg: "none", oil: true, editions: ["classic"] },
     /* The argument is the COLOUR, and colours come in pairs -- the
        validator refuses a portal without its twin, because a lone
@@ -152,6 +160,16 @@
     return !!t && t.regs.indexOf(register + 1) >= 0;
   }
 
+  /* Does the pusher on this square fire in this register? The two
+     printed parities answer from the element character; a listed one
+     answers from its timer. register is 0-based, the board prints 1-5. */
+  function pusherFires(g, c, r, register) {
+    var e = elemOf(codeAt(g, c, r));
+    if (!e || !e.push) return false;
+    if (e.push === "set") return activeNow(g, c, r, register);
+    return (e.push === "odd") === (register % 2 === 0);
+  }
+
   /* ============================================================
      THE PICTURE FORMAT
 
@@ -175,6 +193,7 @@
        W.  upgrade (2 damage OR an option card -- the player chooses)
        L.  oil slick                        (Crash and Burn)
        t1  portal, colour 1 (exactly two)   (Crash and Burn)
+       u<  pusher  -- registers listed in `timers` (Crash and Burn)
        X.  press   -- registers listed in `timers` (Crash and Burn)
        F.  burner  -- registers listed in `timers` (Crash and Burn)
        s3  docking bay position 3
@@ -361,8 +380,8 @@
       var T = spec.timers[ti];
       var tcode = (inGrid(g, T.c, T.r) && g.cell[T.r * w + T.c]) || "";
       var tdef = ELEMENT_DEFS[tcode.charAt(0)];
-      if (!tdef || !(tdef.crush || tdef.burn)) {
-        E_("timer at (" + T.c + "," + T.r + ") is not on a press or a burner");
+      if (!tdef || !(tdef.crush || tdef.burn || tdef.push === "set")) {
+        E_("timer at (" + T.c + "," + T.r + ") is not on a press, a burner or a listed pusher");
       }
       if (!T.regs || !T.regs.length) E_("timer at (" + T.c + "," + T.r + ") lists no registers");
       for (var ri = 0; ri < T.regs.length; ri++) {
@@ -377,7 +396,7 @@
     for (var tr = 0; tr < h; tr++) {
       for (var tc = 0; tc < w; tc++) {
         var cd2 = g.cell[tr * w + tc] || "", d2 = ELEMENT_DEFS[cd2.charAt(0)];
-        if (d2 && (d2.crush || d2.burn) && !timed[tc + "," + tr]) {
+        if (d2 && (d2.crush || d2.burn || d2.push === "set") && !timed[tc + "," + tr]) {
           E_("(" + tc + "," + tr + ") is a " + d2.name + " with no registers; every one is printed with a set");
         }
       }
@@ -1609,7 +1628,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherFires: pusherFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,

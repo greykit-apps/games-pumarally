@@ -663,7 +663,7 @@
     var art = beltArt(C, c, r);
     if (art) out.push(beltSvg(art, marksBoundary(C, c, r, art)));
     else if (def.gear) out.push(gearSvg(def.gear));
-    else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push === "odd"));
+    else if (def.push) out.push(pusherSvg(B.dirOf(code), def.push !== "even"));
     else if (def.option) out.push(repairSvg(true));
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
@@ -673,7 +673,12 @@
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
-    if (def.push) out.push('<span class="pr-pushreg">' + (def.push === "odd" ? "135" : "24") + "</span>");
+    if (def.push) {
+      var pt = def.push === "set" ? B.timerAt(C, c, r) : null;
+      out.push('<span class="pr-pushreg">' +
+        (def.push === "set" ? esc(pt ? pt.regs.join("") : "?")
+         : def.push === "odd" ? "135" : "24") + "</span>");
+    }
     if (def.crush || def.burn) {
       var t = B.timerAt(C, c, r);
       out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
@@ -1731,12 +1736,14 @@
 
   function pusherPass() {
     var C = UI.course, alive = live();
-    // G.register is 0-based, so index 0/2/4 are the printed registers 1/3/5.
-    var wantOdd = (G.register % 2 === 0);
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i], el = B.elemOf(B.codeAt(C, p.c, p.r));
       if (!el || !el.push) continue;
-      if ((el.push === "odd") !== wantOdd) continue;
+      /* The two printed parities answer from the element character, a
+         listed pusher from its timer. Asking the board rather than
+         testing "odd" here is what lets board H's 1/2/3/4/5 pushers
+         exist at all. */
+      if (!B.pusherFires(C, p.c, p.r, G.register)) continue;
       var d = B.dirOf(B.codeAt(C, p.c, p.r));
       var uctx = fire(p, "onBoardElement", { kind: "pusher", turn: 0, dir: d, veto: false });
       if (uctx.veto) continue;
@@ -3452,8 +3459,41 @@
       try { bench([["F."]]); } catch (e) { noSet = /no registers/.test(e.message); }
       assert(noSet, "a burner with no timer entry must be refused");
       try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
-      catch (e) { orphan = /not on a press or a burner/.test(e.message); }
+      catch (e) { orphan = /not on a press, a burner or a listed pusher/.test(e.message); }
       assert(orphan, "a timer pointing at plain floor must be refused");
+    } },
+
+    { name: "a pusher can fire on an arbitrary set of registers", run: function () {
+      /* The two printed parities cover most boards, but board H prints
+         pushers on 1/2/3/4/5 and 2/3/4/5 among others, which "odd" and
+         "even" cannot say at all. A listed pusher reads its registers
+         from the same sparse list the presses and burners use. */
+      benchGame(bench([["u>", ".."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 3, 4, 5] }]),
+        [{ c: 0, r: 0, face: N }]);
+      var p = G.players[0];
+      for (var reg = 0; reg < 5; reg++) {
+        p.c = 0; p.r = 0;
+        G.register = reg;
+        pusherPass();
+        assert(p.c === 1, "a pusher listing every register must fire in register " + (reg + 1));
+      }
+      /* And one that lists only two must be silent in the others. */
+      benchGame(bench([["u>", ".."]], [], [], [{ c: 0, r: 0, regs: [2, 5] }]),
+        [{ c: 0, r: 0, face: N }]);
+      p = G.players[0];
+      G.register = 0; pusherPass();
+      assert(p.c === 0, "register 1 is not in {2,5}");
+      G.register = 1; pusherPass();
+      assert(p.c === 1, "register 2 is");
+    } },
+
+    { name: "the printed parities still answer from the element", run: function () {
+      benchGame(bench([["p>", ".."]]), [{ c: 0, r: 0, face: N }]);
+      var p = G.players[0];
+      G.register = 1; pusherPass();
+      assert(p.c === 0, "an odd pusher does not fire in register 2");
+      G.register = 2; pusherPass();
+      assert(p.c === 1, "but does in register 3");
     } },
 
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
