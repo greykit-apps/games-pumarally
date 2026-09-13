@@ -3217,6 +3217,29 @@
 
   function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
+  /* EVERY CLASS THE ART DRAWS WITH.
+
+     Swept off a board with one of everything on it plus all nine card
+     faces, so a chrome class can be checked against the whole set
+     rather than against whichever bit of art somebody thought of. */
+  function artClasses() {
+    var seen = {}, src = "", c, r, k;
+    var g = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+    g.flags = [{ c: 0, r: 0, n: 1 }];
+    for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) src += tileInner(g, c, r);
+    /* Printed walls and doors count as art; the bumpers rail does not
+       -- it is chrome laid over the boards, and is one of the things
+       being checked. */
+    src += wallSpans(g, false);
+    for (k in CARD_KINDS) src += cardArt(k);
+    var m, re = /class="([^"]+)"/g;
+    while ((m = re.exec(src))) {
+      var parts = m[1].split(/\s+/);
+      for (var i = 0; i < parts.length; i++) if (parts[i]) seen[parts[i]] = 1;
+    }
+    return seen;
+  }
+
   /* Squares on the current UI.layout that a flag may legally sit on,
      and one that it may not. Written out rather than named as
      coordinates because which square is a pit is board data, and a
@@ -5401,17 +5424,149 @@
       assert(UI.layout.boards[1].x === 2, "the refused move left the board somewhere new");
     } },
 
-    { name: "turning a board four times returns it to where it started", run: function () {
+    { name: "a board turns both ways, and four of either comes back round", run: function () {
       UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
-      for (var i = 0; i < 4; i++) layoutTurn(0);
-      assert(UI.layout.boards[0].rot === 0, "four quarter-turns did not come back round");
-      layoutTurn(0);
-      assert(UI.layout.boards[0].rot === 1, "the fifth turn did not take");
+      var i;
+      for (i = 0; i < 4; i++) layoutTurn(0, 1);
+      assert(UI.layout.boards[0].rot === 0, "four clockwise quarter-turns did not come back round");
+      for (i = 0; i < 4; i++) layoutTurn(0, -1);
+      assert(UI.layout.boards[0].rot === 0, "four anticlockwise quarter-turns did not come back round");
+      layoutTurn(0, 1);
+      assert(UI.layout.boards[0].rot === 1, "clockwise went the wrong way, to " + UI.layout.boards[0].rot);
+      layoutTurn(0, -1);
+      assert(UI.layout.boards[0].rot === 0, "anticlockwise did not undo clockwise");
+      layoutTurn(0, -1);
+      assert(UI.layout.boards[0].rot === 3,
+        "anticlockwise from square should be three quarters, got " + UI.layout.boards[0].rot);
       /* Turning is a property of the board and not of where it sits,
          so it must survive a move. */
       layoutAdd("cross", 2, 0);
       layoutMove(0, 0, 1);
-      assert(UI.layout.boards[0].rot === 1, "turning was lost when the board moved");
+      assert(UI.layout.boards[0].rot === 3, "turning was lost when the board moved");
+    } },
+
+    { name: "the stage puts nothing over a board until it is selected", run: function () {
+      /* A bar across every board's foot covered a sixth of every map
+         on the stage, permanently, to say what the map says better.
+         Nothing is drawn over the art now until a board is picked,
+         and then it is three things on that board alone. */
+      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
+                                   { id: "cross", rot: 0, x: 2, row: 0 }] };
+      UI.heldBoard = null; UI.heldAt = null; UI.layMenu = null;
+      var rest = layoutStage();
+      assert(rest.indexOf("pr-lay-tool") < 0, "controls are drawn over a board nobody selected");
+      assert(rest.indexOf("pr-lay-menu") < 0, "a menu is drawn with no menu open");
+      assert((rest.match(/pr-lboard/g) || []).length === 2, "the stage lost a board");
+
+      UI.heldAt = 1;
+      var picked = layoutStage();
+      assert((picked.match(/class="pr-lay-tool/g) || []).length === 3,
+        "a selected board should carry three controls, carries " +
+        (picked.match(/class="pr-lay-tool/g) || []).length);
+      assert(/pr-lay-tool tl[^>]*data-act="lrotl" data-i="1"/.test(picked),
+        "the left turn is not in the top-left corner of the selected board");
+      assert(/pr-lay-tool tr[^>]*data-act="lrotr" data-i="1"/.test(picked),
+        "the right turn is not in the top-right corner");
+      /* AND THEY ARE THE ROTATE CARDS' OWN DRAWING. A quarter turn is
+         a quarter turn wherever it appears, and a loop glyph says
+         "ninety degrees of something" without saying of what -- which
+         is the objection the cards already settled. Drawn from the
+         same function, so the two cannot come to mean different
+         things. */
+      var leftPath = turnArrow(false), rightPath = turnArrow(true);
+      assert(leftPath !== rightPath, "the two turns are the same drawing");
+      assert(picked.indexOf(leftPath) >= 0, "the top-left control is not the ROTATE LEFT drawing");
+      assert(picked.indexOf(rightPath) >= 0, "the top-right control is not the ROTATE RIGHT drawing");
+      assert(cardArt("left").indexOf(leftPath) >= 0, "the ROTATE LEFT card is drawn some other way");
+      assert(cardArt("right").indexOf(rightPath) >= 0, "the ROTATE RIGHT card is drawn some other way");
+      /* Not a circle: the shape is a line that turns a corner, which
+         is what makes it ninety degrees of HEADING rather than a spin. */
+      assert(picked.indexOf("&#8634;") < 0 && picked.indexOf("&#8635;") < 0,
+        "a loop glyph is still being used to turn a board");
+      assert(/pr-lay-tool bin[^>]*data-act="lclear" data-i="1"/.test(picked),
+        "the bin is not in the middle");
+      /* On THAT board and no other. */
+      assert(picked.indexOf('data-act="lrotl" data-i="0"') < 0,
+        "the controls were drawn on a board that is not selected");
+      assert(/data-i="1"[^>]*aria-pressed="true"/.test(picked) ||
+             /aria-pressed="true"[^>]*data-i="1"/.test(picked),
+        "the selected board does not say it is selected");
+    } },
+
+    { name: "no chrome class is a name the board art already answers to", run: function () {
+      /* Twice now a new layer has taken a class the tile art was
+         already using. pr-rail was the conveyor's guard rail, so the
+         bumpers bar put a block layout and an opacity on every belt on
+         the board; pr-turn was the gear's arc, so the course stage's
+         turn control restyled every gear. Both were invisible in the
+         source -- the two uses are three thousand lines apart -- and
+         neither showed up as an error.
+
+         The list is written out rather than derived, because deriving
+         it from the chrome would mean deriving it from the same
+         function that would be wrong. A new class not on the list is
+         not covered; the comment is there so the next one gets added. */
+      var art = artClasses();
+      var mine = ["pr-fence", "pr-quarter", "pr-trash", "pr-lay-stage", "pr-lay-dock",
+                  "pr-lay-board", "pr-lay-slot", "pr-lay-tool", "pr-lay-menu", "pr-lay-painted",
+                  "pr-lboard", "pr-thumb", "pr-thumb-grid", "pr-thumb-walls", "pr-thumb-hits",
+                  "pr-thumb-hit", "pr-pal", "pr-lay-shelf"];
+      var clash = [];
+      for (var i = 0; i < mine.length; i++) if (art[mine[i]]) clash.push(mine[i]);
+      assert(!clash.length,
+        "the board art already draws with " + clash.join(", ") + ", so styling " +
+        (clash.length > 1 ? "those" : "that") + " as chrome restyles the board");
+      /* And the sweep has to have found the art, or it is asserting
+         that an empty set contains nothing. */
+      assert(art["pr-rail"] && art["pr-turn"] && art["pr-cshaft"] && art["pr-wall"],
+        "the sweep found no board art, so this proves nothing: " +
+        Object.keys(art).slice(0, 8).join(" "));
+    } },
+
+    { name: "the right-click menu offers the same three things", run: function () {
+      /* A duplicate path, not the only one: the corner controls are
+         real buttons and Tab reaches those, so the menu is a
+         convenience rather than a requirement. */
+      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
+                                   { id: "cross", rot: 0, x: 2, row: 0 }] };
+      UI.heldAt = 0;
+      UI.layMenu = { i: 0, x: 40, y: 30 };
+      var html = layoutStage();
+      var menu = html.match(/<div class="pr-lay-menu"[\s\S]*?<\/div>/);
+      assert(menu, "no menu was drawn");
+      assert(/role="menu"/.test(menu[0]), "the menu does not say it is one");
+      assert(/data-act="lrotl"/.test(menu[0]), "the menu cannot turn left");
+      assert(/data-act="lrotr"/.test(menu[0]), "the menu cannot turn right");
+      assert(menu[0].indexOf(turnArrow(false)) >= 0 && menu[0].indexOf(turnArrow(true)) >= 0,
+        "the menu does not use the ROTATE cards' drawing");
+      assert(/data-act="lclear"/.test(menu[0]), "the menu cannot take the board off");
+      assert((menu[0].match(/role="menuitem"/g) || []).length === 3,
+        "the menu offers a different number of things");
+      /* One menu, on the board it was opened over. */
+      assert((html.match(/pr-lay-menu/g) || []).length === 1, "a menu was drawn on more than one board");
+      UI.layMenu = { i: 1, x: 5, y: 5 };
+      var other = layoutStage();
+      assert(other.indexOf("pr-lay-menu") > other.indexOf('data-i="1"'),
+        "the menu did not move to the board it was opened over");
+      UI.layMenu = null;
+    } },
+
+    { name: "Escape backs out one layer at a time", run: function () {
+      /* Closing the whole wizard because a right-click menu was open
+         would throw away four screens of decisions. */
+      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.heldBoard = null; UI.heldAt = 0; UI.layMenu = { i: 0, x: 1, y: 1 };
+      assert(layEscape(), "Escape did nothing with a menu open");
+      assert(!UI.layMenu, "the menu stayed open");
+      assert(UI.heldAt === 0, "closing the menu also dropped the selection");
+      assert(layEscape(), "Escape did nothing with a board selected");
+      assert(UI.heldAt === null, "the selection stayed");
+      assert(!layEscape(), "Escape consumed a key with nothing left to back out of");
+      /* A board held off the shelf is the same layer as one held off
+         the stage. */
+      UI.heldBoard = "island";
+      assert(layEscape(), "Escape did nothing with a board off the shelf in hand");
+      assert(!UI.heldBoard, "the shelf board stayed in hand");
     } },
 
     { name: "a composed course carries every board it was given", run: function () {
@@ -6334,9 +6489,7 @@
          and the bumper bar wearing the same name put a block layout
          and an opacity on every conveyor on the board. The class a new
          layer takes has to be one nothing else answers to. */
-      var beltArtSvg = beltSvg(beltArt(bench([["b>", "b>", "b>"]]), 1, 0));
-      assert(beltArtSvg.indexOf("pr-rail") >= 0, "the belt art no longer draws rails, so this proves nothing");
-      assert(beltArtSvg.indexOf("pr-fence") < 0, "the tile art already answers to pr-fence");
+      assert(!artClasses()["pr-fence"], "the tile art already answers to pr-fence");
       assert(/bumper rail/.test(describeTile(UI.course, 2, 0)),
         "the square against the rail does not say so: " + describeTile(UI.course, 2, 0));
       G.bumpers = 0;
@@ -7005,18 +7158,41 @@
     ".pr-lay-board .pr-lboard{padding:0;border:0!important;background:none;cursor:grab;",
     "line-height:0;min-height:0!important;display:block}",
     ".pr-lay-board.lifted{opacity:.45}",
-    ".pr-lay-board.lifted .pr-thumb{border-color:var(--pr-accent);border-style:dashed}",
-    /* A bar across the foot of each board rather than two glyphs in
-       its corner: the turn control is the one this screen exists for,
-       so it is a button with a word on it. */
-    ".pr-lay-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:3px;",
-    "padding:1px 2px;background:color-mix(in srgb,var(--pr-bg) 82%,transparent);",
-    "border-top:1px solid var(--pr-border);line-height:1.4}",
-    ".pr-lay-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;",
-    "white-space:nowrap;font-size:9px;color:var(--pr-ink)}",
-    ".pr-lay-bar button{padding:0 4px;min-height:0!important;font-size:9px;",
-    "background:var(--pr-panel);border:1px solid var(--pr-border)!important;flex:0 0 auto}",
-    ".pr-lay-bar button:hover{border-color:var(--pr-accent)!important;color:var(--pr-accent)}",
+    ".pr-lay-board.sel .pr-thumb{border-color:var(--pr-accent);",
+    "box-shadow:0 0 0 1px var(--pr-accent),0 0 10px 2px rgba(0,0,0,.7)}",
+    /* THE CONTROLS SIT ON THE BOARD, and only on the selected one. A
+       bar across every board's foot covered a sixth of every map on
+       the stage, permanently, to say what the map says better. The
+       turns are in the corners they turn toward; the bin is in the
+       middle, where nothing is ever aimed by accident. */
+    ".pr-lay-tool{position:absolute;padding:0;min-height:0!important;width:22px;height:22px;",
+    "display:flex;align-items:center;justify-content:center;line-height:1;",
+    "font:16px ui-monospace,Menlo,Consolas,monospace;color:var(--pr-bg);",
+    "background:var(--pr-accent);border:1px solid var(--pr-bg)!important;border-radius:3px;",
+    "box-shadow:0 0 6px 1px rgba(0,0,0,.75);z-index:4;cursor:pointer}",
+    ".pr-lay-tool:hover{background:var(--pr-warn)}",
+    ".pr-lay-tool:focus-visible{outline:2px solid var(--pr-text);outline-offset:1px}",
+    ".pr-lay-tool.tl{left:3px;top:3px}",
+    ".pr-lay-tool.tr{right:3px;top:3px}",
+    ".pr-lay-tool.bin{left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;",
+    "background:var(--pr-danger);color:var(--pr-text)}",
+    ".pr-lay-tool.bin:hover{background:var(--pr-warn)}",
+    ".pr-trash{width:16px;height:16px;fill:none;stroke:var(--pr-bg);stroke-width:2;",
+    "stroke-linecap:round;stroke-linejoin:round}",
+    /* The turn controls are the ROTATE cards' own drawing, at button
+       size. Same paths, so the card and the control cannot come to
+       mean different things. */
+    ".pr-quarter{width:17px;height:17px;display:block;color:currentColor}",
+    ".pr-quarter .pr-cshaft,.pr-quarter .pr-cmark{stroke:currentColor;stroke-width:11;",
+    "stroke-linecap:round;stroke-linejoin:round;fill:none}",
+    ".pr-lay-menu .pr-quarter{width:13px;height:13px;flex:0 0 auto}",
+    ".pr-lay-menu button{display:flex;align-items:center;gap:5px}",
+    ".pr-lay-menu{position:absolute;z-index:6;display:flex;flex-direction:column;",
+    "background:var(--pr-panel);border:1px solid var(--pr-accent);",
+    "box-shadow:0 2px 12px 2px rgba(0,0,0,.8);min-width:110px;line-height:1.4}",
+    ".pr-lay-menu button{text-align:left;padding:3px 8px;min-height:0!important;",
+    "border:0!important;background:none;font-size:11px;color:var(--pr-ink);white-space:nowrap}",
+    ".pr-lay-menu button:hover{background:var(--pr-accent);color:var(--pr-bg)}",
     /* Landing places are always drawn and light up when something is
        being carried. Drawn only while holding, the one thing this
        screen wants you to know was invisible until you had guessed
@@ -7613,6 +7789,43 @@
 
      Everything is stroked in currentColor, so a card's kind colour
      drives its art exactly the way an element's does on the board. */
+  /* THE QUARTER TURN, as one drawing used in two places.
+
+     Up the card is where the robot is pointing now. The line runs up,
+     turns the corner, and leaves sideways under an arrowhead pointing
+     the way you will be facing -- so the picture is the before and the
+     after, in that order.
+
+     The corner turns only once the line is well clear of the
+     arrowhead's wings. Bending it earlier puts the curve inside the
+     chevron and the two read as one smudge at card size, which is the
+     size that matters.
+
+     An arc was tried first and was worse: a quarter circle says
+     "ninety degrees of something" without saying of what, and both
+     cards came out as the same gesture mirrored rather than as two
+     directions. The same objection applies to the loop glyphs the
+     course stage used to turn boards with, which is why it draws
+     this instead -- one shape, so the card and the control cannot
+     come to mean different things. */
+  function turnArrow(cw) {
+    var TIP = cw ? 80 : 20, Y = 42;
+    var rise = cw ? 32 : 68;                 // the upright, on the far side
+    var corner = cw ? 46 : 54;               // where the bend finishes
+    var shaftEnd = cw ? 67 : 33;             // the chevron's back
+    return '<path class="pr-cshaft" d="M' + rise + " 80L" + rise + " 56Q" + rise + " " + Y +
+      " " + corner + " " + Y + "L" + shaftEnd + " " + Y + '"/>' +
+      chev(TIP, Y, cw ? 1 : -1, 0, 13, "pr-cmark");
+  }
+
+  function turnIcon(cw) {
+    /* pr-quarter and not pr-turn: pr-turn is already the gear art's
+       arc, and a chrome class that an SVG path also answers to restyles
+       every gear on every board. */
+    return '<svg class="pr-quarter" viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
+      turnArrow(cw) + "</svg>";
+  }
+
   function cardArt(kind) {
     var d = CARD_KINDS[kind], i, out = [];
     if (d.move) {
@@ -7674,14 +7887,7 @@
          "ninety degrees of something" without saying of what, and
          both cards came out as the same gesture mirrored rather than
          as two directions. */
-      var cw = d.turn > 0;
-      var TIP = cw ? 80 : 20, Y = 42;
-      var rise = cw ? 32 : 68;                 // the upright, on the far side
-      var corner = cw ? 46 : 54;               // where the bend finishes
-      var shaftEnd = cw ? 67 : 33;             // the chevron's back
-      out.push('<path class="pr-cshaft" d="M' + rise + " 80L" + rise + " 56Q" + rise + " " + Y +
-        " " + corner + " " + Y + "L" + shaftEnd + " " + Y + '"/>');
-      out.push(chev(TIP, Y, cw ? 1 : -1, 0, 13, "pr-cmark"));
+      out.push(turnArrow(d.turn > 0));
     }
     return '<svg class="pr-cart" viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
            out.join("") + "</svg>";
@@ -8146,6 +8352,9 @@
 
   function dispatchAct(el) {
     var a = el.dataset.act, i = parseInt(el.dataset.i, 10);
+    /* A right-click menu closes on the next thing you do, whatever
+       that is -- including the thing you opened it for. */
+    if (UI.layMenu) UI.layMenu = null;
     if (a === "setup") { showSetup(); return; }
     if (a === "wstep") { wizGo(+el.dataset.n); return; }
     if (a === "wback") { wizGo((UI.wizStep || 0) - 1); return; }
@@ -8230,6 +8439,7 @@
       UI.heldBoard = null;
       showWizard(); return;
     }
+    if (a === "lmenuclose") { showWizard(); return; }
     if (a === "ldrop") {
       var dx = +el.dataset.x, drow = +el.dataset.row;
       if (UI.heldAt !== null && UI.heldAt !== undefined) {
@@ -8243,7 +8453,8 @@
       } else return;
       saveLayout(); showWizard(); return;
     }
-    if (a === "lrot") { layoutTurn(+el.dataset.i); saveLayout(); showWizard(); return; }
+    if (a === "lrot" || a === "lrotr") { layoutTurn(+el.dataset.i, 1); saveLayout(); showWizard(); return; }
+    if (a === "lrotl") { layoutTurn(+el.dataset.i, -1); saveLayout(); showWizard(); return; }
     if (a === "lundo") { if (layoutUndo()) { saveLayout(); } showWizard(); return; }
     if (a === "ldropedit") { layoutDropEdit(); saveLayout(); showWizard(); return; }
     if (a === "editcourse") {
@@ -8331,7 +8542,32 @@
     if (root.__prWired) return;
     root.__prWired = true;
 
+    /* RIGHT-CLICK ON A BOARD. The same three things the corner
+       controls offer, put under the pointer, because that is where a
+       right-click expects to find them. The position is recorded
+       against the STAGE rather than the window, so the menu stays put
+       when the render that draws it moves nothing else. */
+    root.addEventListener("contextmenu", function (e) {
+      var bd = e.target.closest(".pr-lay-board");
+      if (!bd || !bd.parentNode) return;
+      e.preventDefault();
+      var box = bd.parentNode.getBoundingClientRect();
+      UI.layMenu = { i: +bd.dataset.i,
+                     x: Math.round(e.clientX - box.left),
+                     y: Math.round(e.clientY - box.top) };
+      UI.heldAt = +bd.dataset.i;
+      UI.heldBoard = null;
+      showWizard();
+    });
+
     root.addEventListener("click", function (e) {
+      /* Anywhere that is not the menu closes it, including a click on
+         the board it belongs to. */
+      if (UI.layMenu && !e.target.closest(".pr-lay-menu") && !e.target.closest("[data-act]")) {
+        UI.layMenu = null;
+        showWizard();
+        return;
+      }
       /* During the draft the BOARD is the control: the bays you may
          take are lit, and you take one by clicking it. A modal listing
          "bay 1, bay 2, bay 3" would be asking you to pick a square
@@ -8457,7 +8693,10 @@
       if (modalOpen()) {
         if (segmentKey(e)) return;
         trapFocus(e);
-        if (e.key === "Escape" && UI.modalDismissable) { e.preventDefault(); closeModal(); }
+        if (e.key === "Escape") {
+          if (layEscape()) { e.preventDefault(); showWizard(); return; }
+          if (UI.modalDismissable) { e.preventDefault(); closeModal(); }
+        }
         return;
       }
 
@@ -9234,11 +9473,26 @@
     return true;
   }
 
-  function layoutTurn(i) {
+  /* WHAT ESCAPE BACKS OUT OF, and in what order: the right-click
+     menu, then whatever is being carried, then nothing -- at which
+     point the key belongs to the modal. Closing the whole wizard
+     because a menu was open would throw away everything behind it, so
+     the order is the point and lives in one place. */
+  function layEscape() {
+    if (UI.layMenu) { UI.layMenu = null; return true; }
+    if (UI.heldBoard || (UI.heldAt !== null && UI.heldAt !== undefined)) {
+      UI.heldBoard = null;
+      UI.heldAt = null;
+      return true;
+    }
+    return false;
+  }
+
+  function layoutTurn(i, dir) {
     var b = layoutNow().boards[i];
     if (!b) return;
     layoutMark();
-    b.rot = (b.rot + 1) % 4;
+    b.rot = (b.rot + (dir < 0 ? 3 : 1)) % 4;
   }
 
   function layoutDrop(i) {
@@ -9412,16 +9666,17 @@
       say = "Holding " + B.BOARD_SPECS[UI.heldBoard].name +
         " \u2014 click one of the lit squares to put it down.";
     } else if (UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt]) {
-      say = "Carrying " + B.BOARD_SPECS[L.boards[UI.heldAt].id].name +
-        " \u2014 click a lit square to move it there.";
+      say = B.BOARD_SPECS[L.boards[UI.heldAt].id].name + " is selected \u2014 turn it with the " +
+        "arrows in its corners, take it off with the bin, or click a lit square to move it there.";
     } else if (!L.boards.length) {
       say = "Drag a board from the right onto one of the marked squares over the starting block. " +
         "Square on, or half a board over either way.";
     } else if (B.laySlots(L.boards, undefined).length) {
-      say = "Turn a board with its own button. Drag it to move it. Add another on any marked square, " +
-        "up to two boards by two.";
+      say = "Click a board to select it, then turn it or take it off. Drag it to move it. " +
+        "Add another on any marked square, up to two boards by two.";
     } else {
-      say = "Two boards by two is as big as a course gets. Turn them, move them, or take one off.";
+      say = "Two boards by two is as big as a course gets. Click one to turn it, move it, " +
+        "or take it off.";
     }
     out.push('<div class="pr-rule-desc">' + esc(say) + "</div>");
 
@@ -9476,6 +9731,14 @@
      and two rows up. A stage that grew as boards went down would slide
      the board out from under the pointer mid-drag, and slide the
      landing places away from the eye that was aiming at them. */
+  /* Drawn rather than typed: the bin glyph is outside the monospace
+     face this game is set in, and a character that resolves to a box
+     is worse than no icon at all. */
+  var TRASH_SVG = '<svg viewBox="0 0 24 24" class="pr-trash" aria-hidden="true">' +
+    '<path d="M4 6.5h16"/><path d="M9.5 6.5V4h5v2.5"/>' +
+    '<path d="M6.5 6.5 7.6 20.5h8.8L17.5 6.5"/>' +
+    '<path d="M10 10v7"/><path d="M14 10v7"/></svg>';
+
   function stageGeom() {
     var minH = -2, halves = B.LAY_HALF + 2, rows = B.LAY_ROWS;
     var px = 10;
@@ -9547,25 +9810,49 @@
     for (i = 0; i < slots.length; i++) out.push(slotHtml(g, slots[i], carrying));
 
     for (i = 0; i < L.boards.length; i++) {
-      var b = L.boards[i], lifted = i === moving;
-      out.push('<div class="pr-lay-board' + (lifted ? " lifted" : "") + '" style="left:' + g.left(b.x) +
-        "px;top:" + g.top(b.row) + "px;width:" + (12 * g.px) + "px;height:" + (12 * g.px) + 'px">' +
+      var b = L.boards[i], sel = i === moving;
+      var name = B.BOARD_SPECS[b.id].name;
+      /* NOTHING OVER THE ART UNTIL IT IS ASKED FOR. The bar that used
+         to sit across every board's foot covered a sixth of every map
+         on the stage, all the time, to say things the map itself says
+         better. Select a board and its controls appear ON it: a turn
+         either way in the top corners, where they point the direction
+         they turn, and the bin in the middle. */
+      out.push('<div class="pr-lay-board' + (sel ? " sel" : "") + '" data-i="' + i +
+        '" style="left:' + g.left(b.x) + "px;top:" + g.top(b.row) + "px;width:" + (12 * g.px) +
+        "px;height:" + (12 * g.px) + 'px">' +
         '<button class="pr-lboard" draggable="true" data-act="lgrab" data-i="' + i + '"' +
-          ' title="Drag to move it, or click to pick it up"' +
-          ' aria-label="' + esc(B.BOARD_SPECS[b.id].name) + ", turned " + (b.rot * 90) +
-          " degrees" + (lifted ? ", lifted" : "") + '. Press to pick it up.">' +
-          boardThumb(b.id, b.rot, g.px) + "</button>" +
-        /* A BAR ACROSS THE FOOT, with the board's name on it and two
-           controls big enough to hit. The turn control used to be a
-           ten-pixel glyph tucked against a ten-pixel delete, which is
-           a coin toss rather than a button. */
-        '<div class="pr-lay-bar">' +
-          '<span class="pr-lay-name">' + esc(B.BOARD_SPECS[b.id].name) + "</span>" +
-          '<button data-act="lrot" data-i="' + i + '" title="Turn a quarter turn"' +
-            ' aria-label="Turn ' + esc(B.BOARD_SPECS[b.id].name) + '">&#8635; turn</button>' +
-          '<button data-act="lclear" data-i="' + i + '" title="Take it off the course"' +
-            ' aria-label="Take ' + esc(B.BOARD_SPECS[b.id].name) + ' off">&times;</button>' +
-        "</div></div>");
+          ' aria-pressed="' + (sel ? "true" : "false") +
+          '" title="Click to select it. Drag to move it. Right-click for turn and remove."' +
+          ' aria-label="' + esc(name) + ", turned " + (b.rot * 90) +
+          " degrees" + (sel ? ", selected" : "") + '. Press to select it.">' +
+          boardThumb(b.id, b.rot, g.px) + "</button>");
+      if (sel) {
+        out.push('<button class="pr-lay-tool tl" data-act="lrotl" data-i="' + i +
+          '" title="Turn it left a quarter" aria-label="Turn ' + esc(name) +
+          ' left a quarter turn">' + turnIcon(false) + "</button>" +
+          '<button class="pr-lay-tool tr" data-act="lrotr" data-i="' + i +
+          '" title="Turn it right a quarter" aria-label="Turn ' + esc(name) +
+          ' right a quarter turn">' + turnIcon(true) + "</button>" +
+          '<button class="pr-lay-tool bin" data-act="lclear" data-i="' + i +
+          '" title="Take it off the course" aria-label="Take ' + esc(name) + ' off">' +
+          TRASH_SVG + "</button>");
+      }
+      if (UI.layMenu && UI.layMenu.i === i) {
+        /* The same three things again, under the pointer, because that
+           is where a right-click expects to find them. Not the only
+           way to reach them: the corner controls are real buttons and
+           Tab reaches those. */
+        out.push('<div class="pr-lay-menu" style="left:' + (UI.layMenu.x - g.left(b.x)) +
+          "px;top:" + (UI.layMenu.y - g.top(b.row)) + 'px" role="menu" aria-label="' + esc(name) + '">' +
+          '<button role="menuitem" data-act="lrotl" data-i="' + i + '">' + turnIcon(false) +
+            "Turn left</button>" +
+          '<button role="menuitem" data-act="lrotr" data-i="' + i + '">' + turnIcon(true) +
+            "Turn right</button>" +
+          '<button role="menuitem" data-act="lclear" data-i="' + i + '">Take it off</button>' +
+          "</div>");
+      }
+      out.push("</div>");
     }
     out.push("</div>");
     return out.join("");
