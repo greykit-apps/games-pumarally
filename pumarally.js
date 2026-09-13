@@ -5468,6 +5468,208 @@
         "a layout naming a board that does not exist was opened");
     } },
 
+    // ---- the course workshop ---------------------------------------
+
+    { name: "a course the workshop touched is built from its own picture", run: function () {
+      /* A board is a printed thing and its picture belongs to it. A
+         course is an arrangement, and a pit moved on the assembled
+         course belongs to the COURSE -- there is no board it could be
+         written back to without changing every other course that board
+         appears in. So an edited course carries its picture and is
+         parsed from that, and stamping the boards again would throw
+         the edit away. */
+      var L = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      var plain = B.composeCourse(B.withFlags(L, [[4, 4]]), 1);
+      var C0 = B.buildCourse(plain);
+      /* Find a floor square and drop a pit on it, the way the workshop
+         does: by editing the picture the course was built from. */
+      var g = B.buildCourse(plain), spot = null, c, r;
+      for (r = 0; r < g.h && !spot; r++) {
+        for (c = 0; c < g.w && !spot; c++) {
+          var el = B.elemOf(B.codeAt(g, c, r));
+          if (el && el.name === "floor" && r < g.h - 4) spot = { c: c, r: r };
+        }
+      }
+      assert(spot, "no floor square to edit, so this proves nothing");
+      g.cell[spot.r * g.w + spot.c] = "o.";
+      var edited = B.composeCourse(B.withFlags(L, [[4, 4]]), 1);
+      edited.grid = {
+        w: g.w, h: g.h, pic: B.gridToPic(g), voids: true,
+        lasers: g.lasers.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), n: x.n }; }),
+        pushers: g.pushers.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), regs: x.regs.slice() }; }),
+        burners: g.burners.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), regs: x.regs.slice(), len: x.len }; }),
+        timers: g.timers.map(function (x) { return { c: x.c, r: x.r, regs: x.regs.slice() }; })
+      };
+      var C1 = B.buildCourse(edited);
+      assert(C1.w === C0.w && C1.h === C0.h, "the edited course changed shape");
+      assert(B.isPit(B.codeAt(C1, spot.c, spot.r)),
+        "the workshop's pit is not on the course that would be raced");
+      assert(!B.isPit(B.codeAt(C0, spot.c, spot.r)), "fixture: it was not a pit before");
+      /* The bays and the flags still come through, because a course
+         that lost its docking bays would fail somewhere far away from
+         here. */
+      assert(C1.docks.length === C0.docks.length,
+        "the edited course has " + C1.docks.length + " bays against " + C0.docks.length);
+      assert(C1.flags.length === 1 && C1.flags[0].n === 1, "the edited course lost its flag");
+      B.validateCourse(edited, function () {});
+    } },
+
+    { name: "an edited course is read for its ruleset the same way", run: function () {
+      /* The ruleset is decided by what is ON the course, and after the
+         workshop that is the picture rather than the boards. Read from
+         the wrong one, a square the workshop put down would change the
+         game silently. So the two paths have to agree on a course
+         nobody has edited. */
+      var L = { v: 2, boards: [{ id: "boardH", rot: 0, x: 0, row: 0 }] };
+      var spec = B.composeCourse(B.withFlags(L, [[2, 2]]), 1);
+      var byBoards = B.playableEditions(spec).slice().sort().join(",");
+      var g = B.buildCourse(spec);
+      spec.grid = {
+        w: g.w, h: g.h, pic: B.gridToPic(g), voids: true,
+        lasers: g.lasers.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), n: x.n }; }),
+        pushers: g.pushers.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), regs: x.regs.slice() }; }),
+        burners: g.burners.map(function (x) { return { c: x.c, r: x.r, d: "NESW".charAt(x.d), regs: x.regs.slice(), len: x.len }; }),
+        timers: g.timers.map(function (x) { return { c: x.c, r: x.r, regs: x.regs.slice() }; })
+      };
+      var byPicture = B.playableEditions(spec).slice().sort().join(",");
+      assert(byPicture === byBoards,
+        "the picture says " + (byPicture || "nothing") + " and the boards say " + (byBoards || "nothing"));
+      assert(byBoards.length, "fixture: this board is playable under something");
+      var fromPic = B.courseElements(spec).length;
+      assert(fromPic > 10, "the picture found only " + fromPic + " elements on a whole board");
+
+      /* Agreeing on an UNEDITED course proves nothing about which of
+         the two it read -- the boards and the picture are the same
+         course. So: blank the picture and keep the boards. If the
+         count does not fall, the boards are still being read and every
+         square the workshop puts down is invisible to the ruleset. */
+      var blank = [], bw = spec.grid.w, bh = spec.grid.h, br, bc;
+      for (br = 0; br <= bh; br++) {
+        var lattice = "", tiles = "";
+        for (bc = 0; bc < bw; bc++) { lattice += "+  "; tiles += " .. "; }
+        blank.push(lattice + "+");
+        if (br < bh) blank.push(new Array(bw + 1).join(" .. "));
+      }
+      spec.grid = { w: bw, h: bh, pic: blank, voids: true,
+                    lasers: [], pushers: [], burners: [], timers: [] };
+      var fromBlank = B.courseElements(spec).length;
+      assert(fromBlank < fromPic,
+        "a course whose picture is bare still reports " + fromBlank + " elements, so the boards " +
+        "are being read instead of the picture");
+    } },
+
+    { name: "a course with a hole in it round-trips through the workshop", run: function () {
+      /* An L-shaped course is mostly void, and so is any course wider
+         than its start area. A board has no void -- every square of
+         one is printed -- so two spaces in a BOARD picture is a
+         dropped character and stays an error. A course picture says it
+         carries holes, and then may have them. Without this the
+         workshop crashed on any course that was not a neat rectangle,
+         reporting it as a problem with the map. */
+      var L = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 },
+                               { id: "cross", rot: 0, x: 2, row: 0 }] };
+      var spec = B.composeCourse(B.withFlags(L, [[4, 4]]), 1);
+      var g = B.buildCourse(spec);
+      assert(g.w === 24 && g.h === 16, "fixture: two boards over a one-board block");
+      /* The far corner of the base has nothing over it -- that is the
+         hole. */
+      assert(B.isVoid(g, 20, 14), "fixture: this course has no hole in it");
+      var pic = B.gridToPic(g);
+      assert(/ {2}/.test(pic[2 * 14 + 1]), "the hole was not written into the picture");
+      /* A board still refuses it. */
+      var threw = false;
+      try { B.parsePic("asBoard", { w: g.w, h: g.h, pic: pic, lasers: [] }); }
+      catch (e) { threw = true; }
+      assert(threw, "a board picture accepted a hole, so a dropped character now reads as void");
+      /* A course reads it back, hole and all. */
+      var again = B.parsePic("asCourse", { w: g.w, h: g.h, pic: pic, voids: true, lasers: [] });
+      assert(B.isVoid(again, 20, 14), "the hole did not survive the round trip");
+      assert(!B.isVoid(again, 0, 14), "the start area came back as a hole");
+      for (var r = 0; r < g.h; r++) {
+        for (var c = 0; c < g.w; c++) {
+          assert(B.isVoid(g, c, r) === B.isVoid(again, c, r),
+            "(" + c + "," + r + ") changed from " + (B.isVoid(g, c, r) ? "void" : "floor"));
+          if (!B.isVoid(g, c, r)) {
+            assert(B.codeAt(g, c, r) === B.codeAt(again, c, r), "(" + c + "," + r + ") came back different");
+          }
+        }
+      }
+      /* And it builds and validates as a course. */
+      spec.grid = { w: g.w, h: g.h, pic: pic, voids: true,
+                    lasers: [], pushers: [], burners: [], timers: [] };
+      for (var q = 0; q < g.lasers.length; q++) {
+        spec.grid.lasers.push({ c: g.lasers[q].c, r: g.lasers[q].r,
+                                d: "NESW".charAt(g.lasers[q].d), n: g.lasers[q].n });
+      }
+      for (q = 0; q < g.pushers.length; q++) {
+        spec.grid.pushers.push({ c: g.pushers[q].c, r: g.pushers[q].r,
+                                 d: "NESW".charAt(g.pushers[q].d), regs: g.pushers[q].regs.slice() });
+      }
+      B.validateCourse(spec, function () {});
+      assert(B.buildCourse(spec).docks.length === 8, "the rebuilt course lost its bays");
+    } },
+
+    { name: "moving a board lets go of the workshop's picture", run: function () {
+      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      flagPick().mode = "arena";
+      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [[0, 0]] };
+      UI.layout.pick.mode = "workshop";
+      /* While it stands, the course that would be raced carries it. */
+      assert(layoutCourse([[1, 1]]).grid, "the edit is not reaching the course that would be raced");
+      layoutTurn(0);
+      assert(!UI.layout.edit, "turning a board kept a picture of the old arrangement");
+      assert(UI.layout.pick.mode !== "workshop",
+        "the flags step is still offering flags from a picture that is gone");
+      /* Adding, moving and taking off do the same, because they all go
+         through the same mark. */
+      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
+      layoutAdd("cross", 2, 0);
+      assert(!UI.layout.edit, "adding a board kept the old picture");
+      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
+      layoutMove(1, 0, 1);
+      assert(!UI.layout.edit, "moving a board kept the old picture");
+      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"], flags: [] };
+      layoutDrop(1);
+      assert(!UI.layout.edit, "taking a board off kept the old picture");
+    } },
+
+    { name: "flags put down in the workshop are the flags raced", run: function () {
+      UI.layout = { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }] };
+      UI.layout.edit = { w: 1, h: 1, pic: ["+  +", " .. ", "+  +"],
+                         flags: [[3, 3], [7, 7], [2, 9], [8, 1]] };
+      UI.layout.pick = { mode: "workshop", hand: [] };
+      var pick = flagPick();
+      assert(pick.mode === "workshop", "the workshop's answer was not kept");
+      /* However many were put down is how many the race is run to --
+         the count follows the workshop rather than the board count. */
+      assert(pick.n === 4, "a four-flag workshop course is a " + pick.n + "-flag race");
+      assert(JSON.stringify(flagsResolved()) === JSON.stringify(UI.layout.edit.flags),
+        "the race is not run to the flags that were put down: " + JSON.stringify(flagsResolved()));
+      /* And with no flags on it, the mode is not offered at all --
+         a placement style that places nothing is not a style. */
+      UI.layout.edit.flags = [];
+      UI.layout.pick.mode = "workshop";
+      assert(flagPick().mode !== "workshop", "an empty workshop course was offered as a placement");
+    } },
+
+    { name: "a saved workshop course survives a reload", run: function () {
+      var g = B.buildCourse(B.composeCourse(
+        { v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }], flags: [] }, 0));
+      var edit = { w: g.w, h: g.h, pic: B.gridToPic(g), voids: true, name: "Mine", flags: [[4, 4]],
+                   lasers: [], pushers: [], burners: [], timers: [] };
+      var up = migrateLayout({ v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }], edit: edit });
+      assert(up && up.edit, "the workshop's picture did not come back");
+      assert(up.edit.pic.length === edit.pic.length, "it came back a different size");
+      assert(JSON.stringify(up.edit.flags) === "[[4,4]]", "it came back without its flags");
+      /* A stored picture that no longer reads is dropped rather than
+         opened: a broken edit would take the wizard down on its first
+         render, and having no edit is the honest answer. */
+      var broken = migrateLayout({ v: 2, boards: [{ id: "island", rot: 0, x: 0, row: 0 }],
+                                   edit: { w: 4, h: 4, pic: ["nonsense"], flags: [] } });
+      assert(broken && !broken.edit, "a picture that will not parse was carried across anyway");
+      assert(broken.boards.length === 1, "and it took the boards with it");
+    } },
+
     // ---- where the flags go ----------------------------------------
     /* Legal squares differ from board to board, so the by-hand tests
        ask the course which ones they are rather than naming
@@ -6796,32 +6998,52 @@
     ".pr-lay-stage{position:relative;flex:0 0 auto;background:var(--pr-bg);",
     "border:1px solid var(--pr-border);padding:0}",
     ".pr-lay-dock,.pr-lay-board,.pr-lay-slot{position:absolute}",
-    ".pr-lay-dock{line-height:0;opacity:.95}",
-    ".pr-lay-dock .pr-thumb{border-color:var(--pr-accent-dim)}",
+    ".pr-lay-dock{line-height:0;outline:1px solid var(--pr-accent);outline-offset:-1px}",
+    ".pr-lay-label{position:absolute;left:2px;top:1px;font-size:8px;line-height:1;",
+    "letter-spacing:1px;color:var(--pr-accent);text-transform:uppercase;pointer-events:none}",
     ".pr-lay-board{line-height:0}",
     ".pr-lay-board .pr-lboard{padding:0;border:0!important;background:none;cursor:grab;",
     "line-height:0;min-height:0!important;display:block}",
     ".pr-lay-board.lifted{opacity:.45}",
     ".pr-lay-board.lifted .pr-thumb{border-color:var(--pr-accent);border-style:dashed}",
-    ".pr-lay-tools{position:absolute;right:1px;top:1px;display:flex;gap:1px;line-height:1}",
-    ".pr-lay-tools button{padding:0 3px;min-height:0!important;font-size:10px;",
-    "background:var(--pr-panel);border:1px solid var(--pr-border)!important}",
-    ".pr-lay-slot{border:1px dashed var(--pr-accent)!important;",
-    "background:color-mix(in srgb,var(--pr-accent) 12%,transparent);color:var(--pr-accent);",
-    "min-height:0!important;padding:0;display:flex;align-items:center;justify-content:center;",
-    "font:700 14px ui-monospace,Menlo,Consolas,monospace;cursor:copy;z-index:3}",
-    ".pr-lay-slot:hover,.pr-lay-slot.pr-over{background:color-mix(in srgb,var(--pr-accent) 34%,transparent)}",
+    /* A bar across the foot of each board rather than two glyphs in
+       its corner: the turn control is the one this screen exists for,
+       so it is a button with a word on it. */
+    ".pr-lay-bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:3px;",
+    "padding:1px 2px;background:color-mix(in srgb,var(--pr-bg) 82%,transparent);",
+    "border-top:1px solid var(--pr-border);line-height:1.4}",
+    ".pr-lay-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;",
+    "white-space:nowrap;font-size:9px;color:var(--pr-ink)}",
+    ".pr-lay-bar button{padding:0 4px;min-height:0!important;font-size:9px;",
+    "background:var(--pr-panel);border:1px solid var(--pr-border)!important;flex:0 0 auto}",
+    ".pr-lay-bar button:hover{border-color:var(--pr-accent)!important;color:var(--pr-accent)}",
+    /* Landing places are always drawn and light up when something is
+       being carried. Drawn only while holding, the one thing this
+       screen wants you to know was invisible until you had guessed
+       it. */
+    ".pr-lay-slot{border:1px dashed var(--pr-accent-dim)!important;",
+    "background:color-mix(in srgb,var(--pr-accent) 5%,transparent);",
+    "color:var(--pr-dim);min-height:0!important;padding:0;display:flex;align-items:center;",
+    "justify-content:center;font:700 18px ui-monospace,Menlo,Consolas,monospace;",
+    "cursor:default;z-index:1}",
+    ".pr-lay-slot.live{border-color:var(--pr-accent)!important;color:var(--pr-accent);",
+    "background:color-mix(in srgb,var(--pr-accent) 12%,transparent);cursor:copy;opacity:1;z-index:3}",
+    ".pr-lay-slot.live:hover,.pr-lay-slot.pr-over{",
+    "background:color-mix(in srgb,var(--pr-accent) 34%,transparent)}",
     ".pr-lay-slot:focus-visible{outline:2px solid var(--pr-accent);outline-offset:1px}",
     ".pr-lay-painted{display:contents}",
     /* Two columns, down the right, scrolling rather than growing --
        the shelf must never be what decides how tall this screen is. */
     ".pr-lay-shelf{flex:1 1 auto;min-width:0}",
     ".pr-lay-shelf-in{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;",
-    "max-height:230px;overflow-y:auto;padding-right:2px}",
+    "max-height:280px;overflow-y:auto;padding-right:2px}",
     ".pr-pal{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px;cursor:grab}",
     ".pr-pal.on{border-color:var(--pr-accent);background:var(--pr-panel-alt)}",
+    ".pr-pal.used{border-color:var(--pr-accent-dim)}",
     ".pr-pal:disabled{cursor:default}",
-    ".pr-pal-name{font-size:9px;color:var(--pr-ink)}",
+    ".pr-pal-name{font-size:9px;color:var(--pr-ink);text-align:center}",
+    ".pr-pal-used{color:var(--pr-accent);font-style:normal}",
+    ".pr-lay-note{font-size:10px;color:var(--pr-dim);margin:2px 0}",
     ".pr-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--pr-border);",
     "border-radius:3px;overflow:hidden;margin:2px 0}",
     ".pr-seg-b{border:0!important;border-left:1px solid var(--pr-border)!important;",
@@ -8022,6 +8244,22 @@
       saveLayout(); showWizard(); return;
     }
     if (a === "lrot") { layoutTurn(+el.dataset.i); saveLayout(); showWizard(); return; }
+    if (a === "lundo") { if (layoutUndo()) { saveLayout(); } showWizard(); return; }
+    if (a === "ldropedit") { layoutDropEdit(); saveLayout(); showWizard(); return; }
+    if (a === "editcourse") {
+      if (layoutProblem()) { showWizard(); return; }
+      saveLayout();
+      closeModal();
+      root.location.hash = "#edit=course&from=setup";
+      edMountCourse(UI.els.host);
+      return;
+    }
+    if (a === "lempty") {
+      layoutMark();
+      layoutNow().boards = [];
+      UI.heldAt = null;
+      saveLayout(); showWizard(); return;
+    }
     if (a === "lclear") {
       var ci = +el.dataset.i;
       layoutDrop(ci);
@@ -8897,7 +9135,19 @@
         if (!bq || !B.BOARD_SPECS[bq.id]) return null;
         out2.boards.push({ id: bq.id, rot: (bq.rot | 0) % 4, x: bq.x | 0, row: bq.row | 0 });
       }
-      return B.layFits(out2.boards) ? out2 : null;
+      if (!B.layFits(out2.boards)) return null;
+      /* The workshop's picture comes back too, and is PARSED on the
+         way in rather than trusted: a stored picture that no longer
+         reads is a course that would take the wizard down on its first
+         render, and the honest answer to that is to have no edit
+         rather than a broken one. */
+      if (raw.edit && raw.edit.pic) {
+        try {
+          B.parsePic("course", raw.edit);
+          out2.edit = raw.edit;
+        } catch (e) { /* dropped */ }
+      }
+      return out2;
     }
     if (!raw.cells || raw.cells.length !== raw.cols * raw.rows) return null;
     var boards = [], c, r;
@@ -8937,11 +9187,36 @@
      the click handler because the pointer path, the keyboard path and
      the rule tests must all be the same operation -- a move that only
      the drop handler knows how to do is a move nothing can test. */
+  /* ONE STEP BACK, ALWAYS.
+
+     Arranging boards is trial and error -- put one down, turn it, see
+     it, take it off again -- and a screen that cannot undo makes the
+     trial expensive. A snapshot is a string, so this costs nothing and
+     survives being handed to JSON. */
+  function layoutMark() {
+    UI.layUndo = UI.layUndo || [];
+    UI.layUndo.push(JSON.stringify(layoutNow().boards));
+    if (UI.layUndo.length > 24) UI.layUndo.shift();
+    /* Marking a change is the one place every board edit passes
+       through, so it is the one place the workshop's picture has to be
+       let go of: a picture of a different arrangement is not an edit
+       of this one. */
+    layoutDropEdit();
+  }
+
+  function layoutUndo() {
+    if (!UI.layUndo || !UI.layUndo.length) return false;
+    layoutNow().boards = JSON.parse(UI.layUndo.pop());
+    UI.heldAt = null;
+    return true;
+  }
+
   function layoutAdd(id, x, row) {
     var L = layoutNow();
     if (L.boards.length >= B.LAY_BOARDS) return false;
     var next = L.boards.concat([{ id: id, rot: 0, x: x, row: row }]);
     if (B.layOverlaps(L.boards, x, row, -1) || !B.layFits(next)) return false;
+    layoutMark();
     L.boards = next;
     return true;
   }
@@ -8951,19 +9226,26 @@
     if (!b) return false;
     if (B.layOverlaps(L.boards, x, row, i)) return false;
     var was = { x: b.x, row: b.row };
+    /* Marked before the move and rolled back after a refusal, so an
+       undo stack never carries a step that did not happen. */
+    layoutMark();
     b.x = x; b.row = row;
-    if (!B.layFits(L.boards)) { b.x = was.x; b.row = was.row; return false; }
+    if (!B.layFits(L.boards)) { b.x = was.x; b.row = was.row; UI.layUndo.pop(); return false; }
     return true;
   }
 
   function layoutTurn(i) {
     var b = layoutNow().boards[i];
-    if (b) b.rot = (b.rot + 1) % 4;
+    if (!b) return;
+    layoutMark();
+    b.rot = (b.rot + 1) % 4;
   }
 
   function layoutDrop(i) {
     var L = layoutNow();
-    if (L.boards[i]) L.boards.splice(i, 1);
+    if (!L.boards[i]) return;
+    layoutMark();
+    L.boards.splice(i, 1);
   }
 
   function layoutBoardCount() { return layoutNow().boards.length; }
@@ -8971,8 +9253,27 @@
   function layoutCourse(flags) {
     /* Composed fresh each time so the preview is the course that would
        actually be raced, not an approximation of it. */
-    var pick = flagPick();
-    return B.composeCourse(B.withFlags(layoutNow(), flags || null), pick.n);
+    var pick = flagPick(), L = layoutNow();
+    var spec = B.composeCourse(B.withFlags(L, flags || null), pick.n);
+    /* A course the workshop has been through is raced from ITS
+       picture, not from the boards under it -- otherwise every edit
+       would be thrown away the moment the course was rebuilt. */
+    if (L.edit) {
+      spec.grid = L.edit;
+      spec.name = L.edit.name || spec.name;
+    }
+    return spec;
+  }
+
+  /* Any change to the BOARDS makes the workshop's picture a picture of
+     a different course, so it goes. Said out loud on the screen rather
+     than discovered afterwards. */
+  function layoutDropEdit() {
+    var L = layoutNow();
+    if (!L.edit) return false;
+    L.edit = null;
+    if (L.pick && L.pick.mode === "workshop") { L.pick.mode = "arena"; L.pick.chosen = false; }
+    return true;
   }
 
   function layoutProblem() {
@@ -9082,32 +9383,68 @@
     out.push('<div class="pr-lay">');
     out.push(layoutStage());
 
-    out.push('<div class="pr-lay-shelf"><div class="pr-lay-shelf-in">');
-    var pal = paletteBoards(), full = L.boards.length >= B.LAY_BOARDS;
+    out.push('<div class="pr-lay-shelf">');
+    out.push('<div class="pr-lay-shelf-in">');
+    var pal = paletteBoards(), full = L.boards.length >= B.LAY_BOARDS, used = {};
+    for (i = 0; i < L.boards.length; i++) used[L.boards[i].id] = (used[L.boards[i].id] || 0) + 1;
     for (i = 0; i < pal.length; i++) {
       var held = UI.heldBoard === pal[i], nope = boardBlocker(pal[i]);
       var off = nope || full;
-      out.push('<button class="pr-pal' + (held ? " on" : "") + '"' +
+      out.push('<button class="pr-pal' + (held ? " on" : "") + (used[pal[i]] ? " used" : "") + '"' +
         (off ? " disabled" : ' draggable="true"') +
         ' data-act="lhold" data-b="' + esc(pal[i]) + '"' +
         (nope ? ' title="' + esc(RULESETS[rulesetOf(houseRules)].name + " has no " + nope) + '"'
-              : full ? ' title="The course is full"' : "") +
+              : full ? ' title="The course is full \u2014 take a board off first"'
+              : ' title="Drag it onto the course, or click to pick it up"') +
         ' aria-pressed="' + (held ? "true" : "false") + '">' +
-        boardThumb(pal[i], 0, 4) +
-        '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) + "</span>" +
+        boardThumb(pal[i], 0, 5) +
+        '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) +
+          (used[pal[i]] ? ' <i class="pr-pal-used">on</i>' : "") + "</span>" +
         (nope ? '<i class="pr-c-no">needs ' + esc(nope) + "</i>" : "") + "</button>");
     }
     out.push("</div></div></div>");
 
-    out.push('<div class="pr-rule-desc">' +
-      (UI.heldBoard
-        ? "Holding " + esc(B.BOARD_SPECS[UI.heldBoard].name) +
-          " \u2014 click a landing place to put it down."
-        : UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt]
-          ? "Carrying " + esc(B.BOARD_SPECS[L.boards[UI.heldAt].id].name) +
-            " \u2014 click a landing place to move it."
-          : "Drag a board onto the starting block, square on or half a board over. " +
-            "Boards snap to each other after that, up to two by two.") + "</div>");
+    /* ONE LINE THAT SAYS WHAT TO DO NEXT, and it is never the same
+       line twice: what this screen wants from you changes completely
+       between an empty stage, a board in hand and a finished course. */
+    var say;
+    if (UI.heldBoard) {
+      say = "Holding " + B.BOARD_SPECS[UI.heldBoard].name +
+        " \u2014 click one of the lit squares to put it down.";
+    } else if (UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt]) {
+      say = "Carrying " + B.BOARD_SPECS[L.boards[UI.heldAt].id].name +
+        " \u2014 click a lit square to move it there.";
+    } else if (!L.boards.length) {
+      say = "Drag a board from the right onto one of the marked squares over the starting block. " +
+        "Square on, or half a board over either way.";
+    } else if (B.laySlots(L.boards, undefined).length) {
+      say = "Turn a board with its own button. Drag it to move it. Add another on any marked square, " +
+        "up to two boards by two.";
+    } else {
+      say = "Two boards by two is as big as a course gets. Turn them, move them, or take one off.";
+    }
+    out.push('<div class="pr-rule-desc">' + esc(say) + "</div>");
+
+    out.push('<div class="pr-ed-row">' +
+      '<button data-act="lundo"' + ((UI.layUndo && UI.layUndo.length) ? "" : " disabled") +
+        '">Undo</button>' +
+      '<button data-act="lempty"' + (L.boards.length ? "" : " disabled") +
+        '">Clear the course</button>' +
+      /* THE WORKSHOP, on the course rather than on a board. This is
+         where "these boards are now a course" becomes true: from here
+         it can be adjusted square by square, given its flags, and
+         raced without coming back through the wizard at all. */
+      '<button data-act="editcourse"' + (layoutProblem() ? " disabled" : "") +
+        ' title="Adjust the assembled course square by square">Open in the workshop\u2026</button>' +
+      (L.edit ? '<button data-act="ldropedit">Undo the workshop edits</button>' : "") +
+      "</div>");
+    if (L.edit) {
+      out.push('<div class="pr-lay-note">This course has been adjusted in the workshop' +
+        (L.edit.flags && L.edit.flags.length
+          ? ", and carries " + L.edit.flags.length + " flag" + (L.edit.flags.length === 1 ? "" : "s") + "."
+          : ".") +
+        " Moving a board would make that a picture of a different course, so it would be let go.</div>");
+    }
 
     /* What this course IS, when it is one. What is wrong with it is
        the wizard's line to write, beside the button it disables --
@@ -9141,7 +9478,7 @@
      landing places away from the eye that was aiming at them. */
   function stageGeom() {
     var minH = -2, halves = B.LAY_HALF + 2, rows = B.LAY_ROWS;
-    var px = 8;
+    var px = 10;
     return {
       minH: minH, halves: halves, rows: rows, px: px,
       w: halves * 6 * px, h: (rows * 12 + 4) * px,
@@ -9150,9 +9487,11 @@
     };
   }
 
-  function slotHtml(g, sl) {
-    return '<button class="pr-lay-slot" data-act="ldrop" data-x="' + sl.x + '" data-row="' + sl.row +
-      '" style="left:' + g.left(sl.x) + "px;top:" + g.top(sl.row) + "px;width:" + (12 * g.px) +
+  function slotHtml(g, sl, live) {
+    return '<button class="pr-lay-slot' + (live ? " live" : "") +
+      '" data-act="ldrop" data-x="' + sl.x + '" data-row="' + sl.row +
+      '"' + (live ? "" : " tabindex=\"-1\" aria-hidden=\"true\"") +
+      ' style="left:' + g.left(sl.x) + "px;top:" + g.top(sl.row) + "px;width:" + (12 * g.px) +
       "px;height:" + (12 * g.px) + 'px" aria-label="Put it down here, ' +
       (sl.row === 0 ? (sl.x === 0 ? "square on the block"
                                   : sl.x === -1 || sl.x === 1 ? "half a board over the block"
@@ -9173,7 +9512,7 @@
     var holder = document.createElement("div");
     holder.className = "pr-lay-painted";
     var html = [];
-    for (var i = 0; i < slots.length; i++) html.push(slotHtml(g, slots[i]));
+    for (var i = 0; i < slots.length; i++) html.push(slotHtml(g, slots[i], true));
     holder.innerHTML = html.join("");
     stage.appendChild(holder);
   }
@@ -9189,30 +9528,43 @@
     var L = layoutNow(), i, g = stageGeom();
     var moving = (UI.heldAt !== null && UI.heldAt !== undefined && L.boards[UI.heldAt] !== undefined)
       ? UI.heldAt : -1;
-    var slots = (UI.heldBoard || moving >= 0) ? B.laySlots(L.boards, moving >= 0 ? moving : undefined) : [];
+    var carrying = !!UI.heldBoard || moving >= 0;
+    /* THE LANDING PLACES ARE ALWAYS DRAWN, faintly, and light up when
+       something is being carried. Shown only while holding, the one
+       thing this screen wants you to know -- that boards go HERE --
+       was invisible until after you had guessed it. */
+    var slots = B.laySlots(L.boards, moving >= 0 ? moving : undefined);
 
-    var out = ['<div class="pr-lay-stage" style="width:' + g.w + "px;height:" + g.h + 'px">'];
+    var out = ['<div class="pr-lay-stage' + (carrying ? " carrying" : "") +
+      '" style="width:' + g.w + "px;height:" + g.h + 'px">'];
 
     /* The block first, so a board dropped over it draws on top. */
     out.push('<div class="pr-lay-dock" style="left:' + g.left(0) + "px;top:" + (g.rows * 12 * g.px) +
-      "px;width:" + (12 * g.px) + "px;height:" + (4 * g.px) + 'px" aria-label="The starting block">' +
-      boardThumb("dockingBay", 0, g.px) + "</div>");
+      "px;width:" + (12 * g.px) + "px;height:" + (4 * g.px) + 'px">' +
+      boardThumb("dockingBay", 0, g.px) +
+      '<span class="pr-lay-label">start</span></div>');
 
-    for (i = 0; i < slots.length; i++) out.push(slotHtml(g, slots[i]));
+    for (i = 0; i < slots.length; i++) out.push(slotHtml(g, slots[i], carrying));
 
     for (i = 0; i < L.boards.length; i++) {
       var b = L.boards[i], lifted = i === moving;
       out.push('<div class="pr-lay-board' + (lifted ? " lifted" : "") + '" style="left:' + g.left(b.x) +
         "px;top:" + g.top(b.row) + "px;width:" + (12 * g.px) + "px;height:" + (12 * g.px) + 'px">' +
         '<button class="pr-lboard" draggable="true" data-act="lgrab" data-i="' + i + '"' +
+          ' title="Drag to move it, or click to pick it up"' +
           ' aria-label="' + esc(B.BOARD_SPECS[b.id].name) + ", turned " + (b.rot * 90) +
           " degrees" + (lifted ? ", lifted" : "") + '. Press to pick it up.">' +
           boardThumb(b.id, b.rot, g.px) + "</button>" +
-        '<div class="pr-lay-tools">' +
-          '<button data-act="lrot" data-i="' + i + '" aria-label="Turn ' +
-            esc(B.BOARD_SPECS[b.id].name) + '">&#8635;</button>' +
-          '<button data-act="lclear" data-i="' + i + '" aria-label="Take ' +
-            esc(B.BOARD_SPECS[b.id].name) + ' off">&times;</button>' +
+        /* A BAR ACROSS THE FOOT, with the board's name on it and two
+           controls big enough to hit. The turn control used to be a
+           ten-pixel glyph tucked against a ten-pixel delete, which is
+           a coin toss rather than a button. */
+        '<div class="pr-lay-bar">' +
+          '<span class="pr-lay-name">' + esc(B.BOARD_SPECS[b.id].name) + "</span>" +
+          '<button data-act="lrot" data-i="' + i + '" title="Turn a quarter turn"' +
+            ' aria-label="Turn ' + esc(B.BOARD_SPECS[b.id].name) + '">&#8635; turn</button>' +
+          '<button data-act="lclear" data-i="' + i + '" title="Take it off the course"' +
+            ' aria-label="Take ' + esc(B.BOARD_SPECS[b.id].name) + ' off">&times;</button>' +
         "</div></div>");
     }
     out.push("</div>");
@@ -9284,6 +9636,20 @@
        a one-board layout into four and racing to three flags is not a
        choice anybody made; it is the old number surviving. */
     var boards = layoutBoardCount();
+    /* A workshop course with nothing on it is not a placement: the
+       mode is dropped BEFORE the count follows it, or the race is
+       silently set to zero flags. */
+    if (L.pick.mode === "workshop" && !(L.edit && L.edit.flags && L.edit.flags.length)) {
+      L.pick.mode = "arena";
+      L.pick.chosen = false;
+    }
+    if (L.pick.mode === "workshop") {
+      /* The workshop's answer is the whole answer: however many flags
+         were put down is how many the race is run to. */
+      L.pick.n = L.edit.flags.length;
+      L.pick.forBoards = boards;
+      return L.pick;
+    }
     if (!L.pick.chosen && L.pick.forBoards !== boards) {
       L.pick.n = flagsWanted(boards);
       L.pick.forBoards = boards;
@@ -9308,7 +9674,9 @@
   function flagsResolved() {
     var pick = flagPick();
     if (pick.mode === "hand") return pick.hand.slice(0, pick.n);
-    var spec0 = B.composeCourse(B.withFlags(layoutNow(), []), 0);
+    var L0 = layoutNow();
+    if (pick.mode === "workshop" && L0.edit && L0.edit.flags) return L0.edit.flags.slice(0, pick.n);
+    var spec0 = B.composeCourse(B.withFlags(L0, []), 0);
     if (pick.mode === "rally") return B.rallyFlags(B.buildCourse(spec0), pick.n, spec0);
     if (pick.mode === "arena") return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
     if (pick.mode === "northrup") {
@@ -9401,6 +9769,11 @@
     var modes = [["rally", "Rally"], ["arena", "Arena"], ["northrup", "Northrup"],
                  ["hand", "By hand"]];
     if (printedFlags) modes.unshift(["default", "Printed"]);
+    /* Offered only when there is something to offer, and first,
+       because a course that has been through the workshop has already
+       answered this question. */
+    var wsFlags = layoutNow().edit && layoutNow().edit.flags;
+    if (wsFlags && wsFlags.length) modes.unshift(["workshop", "From the workshop"]);
     out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
       ' aria-label="How the flags are placed">');
     for (i = 0; i < modes.length; i++) {
@@ -9428,7 +9801,8 @@
                 "at two or three robots, because nobody is ever far from the next flag \u2014 and " +
                 "slower at four or more, because everybody is in the same twelve squares. " +
                 "Roll again to scatter them differently inside the window.",
-      "default": "The flags this course is normally raced with."
+      "default": "The flags this course is normally raced with.",
+      workshop: "The flags you put down in the workshop, in the order you put them."
     };
     out.push('<div class="pr-rule-desc">' + esc(blurbs[pick.mode] || blurbs.arena) + "</div>");
 
@@ -10015,6 +10389,12 @@
      transcription must survive a reload, and an object URL would not
      be valid after one anyway. */
   function edSave() {
+    /* A course is not a board and must not come back as one. The
+       workshop's autosave exists so a forty-minute transcription
+       survives a reload; a course edit lives in the layout instead,
+       and writing it here would hand the next board session a 24x28
+       "board" to trace. */
+    if (ED.isCourse) return;
     try {
       localStorage.setItem(ED_KEY, JSON.stringify({
         id: ED.id, w: ED.grid.w, h: ED.grid.h,
@@ -10040,11 +10420,53 @@
 
   function edValidate() {
     ED.errors = []; ED.warnings = [];
+    if (ED.isCourse) {
+      /* A COURSE, NOT A BOARD. validateGrid is written for a printed
+         board, where every square exists; a course with an L in it is
+         mostly void, and asking the board validator about it produced
+         a crash rather than a verdict. A course is checked the way a
+         course is checked: assembled, with its flags on it. */
+      try {
+        var spec = edCourseSpec();
+        if (!spec.flags.length) {
+          ED.warnings.push("No flags yet. Put at least one down before racing this.");
+          spec.flags = [edFirstFloor()];
+        }
+        B.validateCourse(spec, function (id, m) { ED.warnings.push(m); });
+      } catch (e) {
+        ED.errors.push(e.message);
+      }
+      return;
+    }
     try {
       B.validateGrid(ED.id, ED.grid, function (id, m) { ED.warnings.push(m); });
     } catch (e) {
       ED.errors.push(e.message);
     }
+  }
+
+  /* The course the workshop is looking at, as a spec. */
+  function edCourseSpec() {
+    var edit = edCourseEdit();
+    return {
+      id: "composed", name: ED.grid.name || "Your course", blurb: "",
+      boards: ED.boards, dock: ED.dock, grid: edit,
+      flags: edit.flags, minPlayers: 2, maxPlayers: 8
+    };
+  }
+
+  /* Somewhere a flag could go, for the sake of validating a course
+     that has none yet. Never shown, never raced. */
+  function edFirstFloor() {
+    var g = ED.grid, dk = ED.dock;
+    for (var r = 0; r < g.h; r++) {
+      for (var c = 0; c < g.w; c++) {
+        if (dk && c >= dk.at[0] && c <= dk.at[0] + 11 && r >= dk.at[1] && r <= dk.at[1] + 3) continue;
+        var el = B.elemOf(B.codeAt(g, c, r));
+        if (el && el.name === "floor") return [c, r];
+      }
+    }
+    return [0, 0];
   }
 
   function edSetCell(c, r, code) {
@@ -10165,6 +10587,10 @@
       out.push('<button data-act="edtool" data-k="' + esc(t.key) + '"' +
         (ED.mode === "tile" && ED.tool === t.key ? ' class="on"' : "") + ">" + esc(t.label) + "</button>");
     }
+    if (ED.isCourse) {
+      out.push('<button data-act="edmode" data-m="flag"' + (ED.mode === "flag" ? ' class="on"' : "") +
+        ">Flags</button>");
+    }
     out.push('<button data-act="edmode" data-m="wall"' + (ED.mode === "wall" ? ' class="on"' : "") + ">Walls</button>");
     out.push('<button data-act="edmode" data-m="laser"' + (ED.mode === "laser" ? ' class="on"' : "") + ">Lasers</button>");
     out.push('<button data-act="edmode" data-m="pusher"' + (ED.mode === "pusher" ? ' class="on"' : "") + ">Pushers</button>");
@@ -10228,7 +10654,21 @@
       '<span>(hold Ctrl to flip)</span>' +
       '<button data-act="edclearimg">Remove</button></div>');
 
-    if (ED.fromSetup) {
+    if (ED.isCourse) {
+      /* Three ways out, because a course is finished by three
+         different people: one who wants to go on and place flags, one
+         who has already placed them here and wants to race, and one
+         who wants none of it. */
+      var nF = (ED.grid.flags || []).length;
+      out.push('<div class="pr-ed-row"><span>Course</span>' +
+        '<input type="text" data-act="edname" value="' + esc(ED.grid.name) +
+          '" size="18" aria-label="course name">' +
+        '<button data-act="edcsave">Save and go on</button>' +
+        '<button data-act="edcplay"' + (nF ? "" : " disabled") +
+          ' title="' + (nF ? "Race this course now" : "Put at least one flag down first") + '">' +
+          "Race now" + (nF ? " (" + nF + " flag" + (nF === 1 ? "" : "s") + ")" : "") + "</button>" +
+        '<button data-act="edcdrop">Discard changes</button></div>');
+    } else if (ED.fromSetup) {
       /* One way out that keeps the edit and one that throws it away.
          "Leave editor" on its own would be ambiguous here, and an
          ambiguous exit from twenty minutes of editing is cruel. */
@@ -10248,10 +10688,11 @@
 
     var msg = "";
     if (ED.errors.length) {
-      msg = '<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" + (ED.errors.length > 1 ? "s" : "") + "</b><br>" +
+      msg = '<div class="pr-ed-bad"><b>' + ED.errors.length + " problem" + (ED.errors.length > 1 ? "s" : "") +
+        (ED.isCourse ? " with this course" : "") + "</b><br>" +
         ED.errors.map(esc).join("<br>") + "</div>";
     } else {
-      msg = '<div class="pr-ed-ok">Valid board.' +
+      msg = '<div class="pr-ed-ok">' + (ED.isCourse ? "Valid course." : "Valid board.") +
         (ED.warnings.length ? " " + ED.warnings.length + " warning: " + esc(ED.warnings[0]) : "") + "</div>";
     }
     out.push(msg);
@@ -10284,7 +10725,36 @@
   function edClick(e, erase) {
     var hit = edHit(e);
     if (!hit) return;
-    if (ED.mode === "wall") {
+    if (ED.mode === "flag") {
+      /* Flags are a list, not a square: clicking one already down
+         takes it back, and the ones after it renumber. Same rule as
+         the by-hand picker on the flags screen, because it is the same
+         decision being made in a different room. */
+      ED.grid.flags = ED.grid.flags || [];
+      var gf = -1;
+      for (var g2 = 0; g2 < ED.grid.flags.length; g2++) {
+        if (ED.grid.flags[g2].c === hit.c && ED.grid.flags[g2].r === hit.r) gf = g2;
+      }
+      if (gf >= 0) ED.grid.flags.splice(gf, 1);
+      else if (!erase) {
+        var code0 = B.codeAt(ED.grid, hit.c, hit.r), el0 = B.elemOf(code0);
+        if (!el0 || el0.name !== "floor") {
+          announce("A flag can only sit on plain floor.");
+          return;
+        }
+        /* And not in the start area. The empty squares of the docking
+           strip ARE plain floor, so "floor" alone would let flag one
+           sit where the robots begin -- touched for free by whoever
+           happens to start on it. */
+        var dk = ED.dock;
+        if (dk && hit.c >= dk.at[0] && hit.c <= dk.at[0] + 11 &&
+            hit.r >= dk.at[1] && hit.r <= dk.at[1] + 3) {
+          announce("That is the starting block. A flag there is touched before the race begins.");
+          return;
+        }
+        ED.grid.flags.push({ c: hit.c, r: hit.r });
+      }
+    } else if (ED.mode === "wall") {
       if (hit.edge === null) return;
       B.setWall(ED.grid, hit.c, hit.r, hit.edge, !B.wallAt(ED.grid, hit.c, hit.r, hit.edge));
     } else if (ED.mode === "laser") {
@@ -10323,7 +10793,31 @@
     edRender();
   }
 
-  function edMount(host, bootId, fromSetup) {
+  /* THE WHOLE COURSE, NOT ONE BOARD.
+
+     A board is a printed thing and its picture belongs to it. A course
+     is an arrangement, and once somebody has moved a pit on the
+     assembled course the change belongs to the COURSE -- there is no
+     board it could be written back to without changing every other
+     course that board appears in.
+
+     So the workshop opens on the stitched grid and hands back a
+     picture of it. Flags are offered here and nowhere else in the
+     workshop, because flags are not printed on boards: they are
+     placed on a course, which is exactly what this is. */
+  function edMountCourse(host) {
+    var L = layoutNow();
+    var spec = B.composeCourse(B.withFlags(L, (L.edit && L.edit.flags) || []), 0);
+    var grid;
+    if (L.edit) grid = B.parsePic("course", L.edit);   // L.edit carries voids:true
+    else grid = B.buildCourse(spec);
+    grid.name = (L.edit && L.edit.name) || (layoutIsCourse() ? B.COURSES[layoutIsCourse()].name : "Your course");
+    grid.origin = "authored";
+    grid.flags = ((L.edit && L.edit.flags) || []).map(function (f) { return { c: f[0], r: f[1] }; });
+    edMount(host, null, true, { grid: grid, boards: spec.boards, dock: spec.dock });
+  }
+
+  function edMount(host, bootId, fromSetup, course) {
     injectCSS();
     host.classList.add("pr-root", "pr-editing");
     host.innerHTML = "";
@@ -10335,9 +10829,18 @@
     host.insertAdjacentHTML("beforeend", HAZARD_DEFS);
 
     var restored = edRestore();
-    if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
+    if (course) ED = edState(course.grid, "course");
+    else if (bootId && B.BOARD_SPECS[bootId]) ED = edState(edLoadShipped(bootId), bootId);
     else if (restored) ED = restored;
     else ED = edState(edNew(12, 12), "newBoard");
+    if (course) {
+      ED.isCourse = true;
+      ED.boards = course.boards;
+      ED.dock = course.dock;
+      /* A course is two boards wide before anybody adds a second row,
+         so it opens further out than a single board does. */
+      ED.zoom = 1;
+    }
     /* Opened from the race menu, not from a URL: the edit belongs to
        the game about to start, so it goes back there rather than out
        to a blank page. */
@@ -10345,10 +10848,12 @@
     ED.uScale = ED.uScale || 1;
 
     var hud = el("div", "pr-hud",
-      '<h1 class="pr-title">BOARD WORKSHOP</h1>' +
-      '<span class="pr-phase">' + (fromSetup
-        ? "Change this map for the race you are about to start."
-        : "Trace a photograph, export the source.") + "</span>");
+      '<h1 class="pr-title">' + (course ? "COURSE WORKSHOP" : "BOARD WORKSHOP") + "</h1>" +
+      '<span class="pr-phase">' + (course
+        ? "Adjust the course, put the flags where you want them, then race it."
+        : fromSetup
+          ? "Change this map for the race you are about to start."
+          : "Trace a photograph, export the source.") + "</span>");
     var stage = el("div", "pr-ed-stage");
     var panel = el("div", "pr-ed-panel");
     var overlay = el("div", "pr-overlay");
@@ -10466,6 +10971,9 @@
       if (ta) { ta.select(); try { document.execCommand("copy"); announce("Copied."); } catch (err) {} }
     }
     else if (a === "edplay") edTestPlay();
+    else if (a === "edcsave") edCourseSave(false);
+    else if (a === "edcplay") edCourseSave(true);
+    else if (a === "edcdrop") edCourseDrop();
     else if (a === "edapply") edApply();
     else if (a === "edrevert") edLeaveToSetup();
     else if (a === "edquit") { root.location.hash = ""; root.location.reload(); }
@@ -10477,6 +10985,56 @@
      an unfinished edit is refused here rather than at buildCourse --
      where the message would be about a belt and not about the thing
      you just drew. */
+  /* What the workshop hands back: a picture of the whole course, the
+     sparse layers beside it, the flags on it and the boards it was
+     made from. Everything JSON, so it rides in the layout, in the save
+     and through a reload untouched. */
+  function edCourseEdit() {
+    return {
+      w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), voids: true,
+      name: ED.grid.name,
+      lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+      pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+      burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
+      timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+      flags: (ED.grid.flags || []).map(function (f) { return [f.c, f.r]; })
+    };
+  }
+
+  function edCourseSave(andRace) {
+    edValidate();
+    if (ED.errors.length) { announce("Fix the course first: " + ED.errors[0]); edRenderPanel(); return; }
+    var edit = edCourseEdit();
+    var L = layoutNow();
+    /* Checked BEFORE it is kept: a picture that will not build is a
+       picture that would take the wizard down on its next render, and
+       the place to find that out is while the editor is still open. */
+    try {
+      var probe = edCourseSpec();
+      if (!probe.flags.length) probe.flags = [edFirstFloor()];
+      B.validateCourse(probe, function () {});
+    } catch (e) {
+      announce("That course will not build: " + e.message);
+      edRenderPanel();
+      return;
+    }
+    L.edit = edit;
+    if (edit.flags.length) {
+      L.pick = L.pick || {};
+      L.pick.mode = "workshop";
+      L.pick.n = edit.flags.length;
+      L.pick.chosen = true;
+    }
+    saveLayout();
+    UI.edCourseSaved = andRace ? "race" : "saved";
+    edLeaveToSetup();
+  }
+
+  function edCourseDrop() {
+    UI.edCourseSaved = null;
+    edLeaveToSetup();
+  }
+
   function edApply() {
     edValidate();
     if (ED.errors.length) { announce("Fix the map first: " + ED.errors[0]); edRenderPanel(); return; }
@@ -10509,7 +11067,8 @@
     document.removeEventListener("keydown", edKey);
     document.removeEventListener("keyup", edKeyUp);
     root.removeEventListener("blur", edBlur);
-    var applied = UI.edApplied;
+    var applied = UI.edApplied, course = UI.edCourseSaved;
+    UI.edCourseSaved = null;
     ED = null;
     var host = UI.els.host;
     host.classList.remove("pr-editing");
@@ -10524,7 +11083,18 @@
        screen, because that is where the boards of this layout are
        listed. Landing on step one would throw away the wizard's place
        for an edit that changed nothing about the settings. */
-    wizGo(2);
+    if (course === "race") {
+      /* Straight onto the board: the flags are already on the course
+         and the only thing left was to start. */
+      var flags = flagsResolved();
+      if (flags.length) {
+        closeModal();
+        startComposed(layoutCourse(flags));
+        return;
+      }
+    }
+    wizGo(course ? 2 : 2);
+    if (course === "saved") announce("Course saved. Its flags are on the flags step.");
     if (applied) {
       announce(moved
         ? "Map updated. It uses " + RULESETS[moved].name + " squares, so that ruleset is now on."
@@ -11019,7 +11589,14 @@
     var nodes = document.querySelectorAll("[data-pumarally]");
     var hash = root.location ? root.location.hash : "";
     var edit = /[#&]edit(?:=([A-Za-z0-9_]+))?/.exec(hash);
-    if (edit && nodes.length) { edMount(nodes[0], edit[1], /[#&]from=setup/.test(hash)); return; }
+    if (edit && nodes.length) {
+      /* A course workshop cannot be reopened from a URL: the course it
+         was editing lives in the layout, which this page has not read
+         yet. Reloading on that hash lands on the game, which is where
+         the wizard can be opened again. */
+      if (edit[1] === "course") { root.location.hash = ""; }
+      else { edMount(nodes[0], edit[1], /[#&]from=setup/.test(hash)); return; }
+    }
     for (var i = 0; i < nodes.length; i++) {
       mount(nodes[i], {
         course: nodes[i].getAttribute("data-course") || undefined,
