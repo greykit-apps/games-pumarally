@@ -6676,6 +6676,95 @@
       }
     } },
 
+    { name: "every shipped course puts its flags on squares a flag may go on", run: function () {
+      /* The rules, as given: a flag goes on a CLEAR square, never in
+         the starting block, never in the very corner, and within
+         Northrup's twelve of the flag before it. Nothing checked them,
+         and three shipped courses were breaking them -- Board H had a
+         flag standing on a CONVEYOR, which is not somewhere to stand
+         at all because the belt carries the robot off it at the end of
+         every register; Cross Town had one on a repair site and a
+         third flag sixteen columns from the second. */
+      var ids = Object.keys(B.COURSES).filter(function (k) { return k.charAt(0) !== "_"; });
+      assert(ids.length > 8, "the sweep found " + ids.length + " courses, so it proves little");
+      for (var i = 0; i < ids.length; i++) {
+        var id = ids[i], C = B.COURSES[id], g = B.buildCourse(id), dk = C.dock, f;
+        assert(C.flags.length >= 2, id + " has " + C.flags.length + " flag(s)");
+        for (f = 0; f < C.flags.length; f++) {
+          var c = C.flags[f][0], r = C.flags[f][1], where = id + " flag " + (f + 1) + " at (" + c + "," + r + ")";
+          var el = B.elemOf(B.codeAt(g, c, r));
+          assert(el && el.name === "floor", where + " is on a " + (el ? el.name : "hole in the course"));
+          assert(!dk || !(c >= dk.at[0] && c <= dk.at[0] + 11 && r >= dk.at[1] && r <= dk.at[1] + 3),
+            where + " is in the starting block, so it is touched before the race begins");
+          var k, mounted = false;
+          for (k = 0; k < g.lasers.length; k++) if (g.lasers[k].c === c && g.lasers[k].r === r) mounted = true;
+          for (k = 0; k < g.pushers.length; k++) if (g.pushers[k].c === c && g.pushers[k].r === r) mounted = true;
+          for (k = 0; k < g.burners.length; k++) if (g.burners[k].c === c && g.burners[k].r === r) mounted = true;
+          assert(!mounted, where + " has a wall-mounted trap standing on it");
+          var cc = c % 12, rr = r % 12;
+          assert(!((cc === 0 || cc === 11) && (rr === 0 || rr === 11)), where + " is in the very corner of a board");
+          if (f) {
+            var p = C.flags[f - 1];
+            assert(Math.abs(c - p[0]) <= 12 && Math.abs(r - p[1]) <= 12,
+              where + " is outside Northrup's twelve from flag " + f + " at (" + p[0] + "," + p[1] + ")");
+          }
+          for (k = 0; k < f; k++) {
+            assert(!(C.flags[k][0] === c && C.flags[k][1] === r), where + " is where flag " + (k + 1) + " already is");
+          }
+        }
+      }
+    } },
+
+    { name: "the course menu is two shelves: one board each, or several", run: function () {
+      /* The menu used to group courses by which BOX the first board
+         came out of, which told you nothing you could act on -- a
+         quick game on an Exchange board and a four-board track
+         starting with one sat under the same heading and read as the
+         same kind of thing. */
+      var ids = Object.keys(B.COURSES).filter(function (k) { return k.charAt(0) !== "_"; });
+      var quick = 0, track = 0, byBoard = {}, i;
+      for (i = 0; i < ids.length; i++) {
+        var id = ids[i], C = B.COURSES[id], kind = C.kind;
+        assert(kind === "quick" || kind === "track", id + ' is of kind "' + kind + '"');
+        assert(C.name && C.blurb, id + " has no name or no blurb");
+        /* A course the assembler cannot express drops off the menu
+           silently, which is how a course comes to ship and never be
+           seen. */
+        assert(B.layoutFromCourse(id), id + " is not a shape the course assembler can hold");
+        if (kind === "quick") {
+          quick++;
+          assert(C.boards.length === 1, id + " is a quick game on " + C.boards.length + " boards");
+          byBoard[C.boards[0].id] = (byBoard[C.boards[0].id] || 0) + 1;
+        } else {
+          track++;
+          assert(C.boards.length >= 2, id + " is a race track on one board");
+          /* One flag per board, so the path has to cross every seam --
+             which is the only reason to lay more than one board down. */
+          var seen = {}, f;
+          for (f = 0; f < C.flags.length; f++) {
+            for (var b = 0; b < C.boards.length; b++) {
+              var B0 = C.boards[b];
+              if (C.flags[f][0] >= B0.at[0] && C.flags[f][0] < B0.at[0] + 12 &&
+                  C.flags[f][1] >= B0.at[1] && C.flags[f][1] < B0.at[1] + 12) seen[b] = 1;
+            }
+          }
+          assert(Object.keys(seen).length === Math.min(C.flags.length, C.boards.length),
+            id + " puts its " + C.flags.length + " flags on " + Object.keys(seen).length +
+            " of its " + C.boards.length + " boards");
+        }
+      }
+      assert(quick >= 9 && track >= 3, "the menu offers " + quick + " quick games and " + track + " tracks");
+
+      /* EVERY PLAYABLE BOARD HAS A QUICK GAME. A board nobody can
+         reach without laying out a course by hand is a board that
+         might as well not be transcribed. */
+      for (var bid in B.BOARD_SPECS) {
+        var sp = B.BOARD_SPECS[bid];
+        if (sp.w !== 12 || sp.h !== 12) continue;              // the block is not a board to race
+        assert(byBoard[bid], bid + " has no quick game, so nothing reaches it from the menu");
+      }
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -7527,6 +7616,7 @@
     ".pr-course-row{max-height:132px;overflow-y:auto}",
     ".pr-c-both{font-size:9px;letter-spacing:.5px;color:var(--pr-good);font-style:normal}",
     ".pr-c-no{font-size:9px;letter-spacing:.5px;color:var(--pr-dim);font-style:normal}",
+    ".pr-c-note{display:block;font-size:9px;font-style:normal;color:var(--pr-dim)}",
     ".pr-rs-years{font-size:9px;color:var(--pr-dim);font-style:normal;margin-left:4px}",
     ".pr-rs-n{font-size:9px;color:var(--pr-good);font-style:normal;margin-left:4px}",
     ".pr-rs-no{font-size:9px;color:var(--pr-danger);font-style:normal;margin-left:4px}",
@@ -7823,7 +7913,6 @@
     ".pr-steps{margin:0;padding-left:20px}.pr-steps li{margin:0 0 7px}",
     ".pr-steps b{color:var(--pr-text);font-weight:normal}",
     ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px;align-items:center}",
-    ".pr-set-label{font-size:10px;opacity:.6;width:100%;margin-top:4px}",
 
     /* A SEGMENTED CONTROL, not a row of loose buttons. One outline
        around the set says these are alternatives; the hairlines
@@ -10605,6 +10694,43 @@
 
   function dragKind() { return UI.drag ? DRAG_KINDS[UI.drag.from] : null; }
 
+  /* ONE SHELF OF COURSES, of one kind.
+
+     Grouped by what a course IS -- one board with flags on it, or a
+     larger track across several -- rather than by which box its first
+     board came out of. The box told you nothing you could act on: a
+     quick game on an Exchange board and a four-board track starting
+     with one sat under the same heading and read as the same kind of
+     thing. */
+  function courseShelf(kind, title, blurb) {
+    var rs = rulesetOf(houseRules), ids = [], cid;
+    for (cid in B.COURSES) {
+      if (cid.charAt(0) === "_") continue;
+      if ((B.COURSES[cid].kind || "quick") !== kind) continue;
+      if (!B.layoutFromCourse(cid)) continue;       // not a shape this grid can hold
+      ids.push(cid);
+    }
+    if (!ids.length) return "";
+    var out = ['<h3 class="pr-rule-group">' + esc(title) + "</h3>"];
+    if (blurb) out.push('<div class="pr-rule-desc">' + blurb + "</div>");
+    out.push('<div class="pr-presets pr-course-row">');
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i], C = B.COURSES[id];
+      var ok = courseAllowed(id, rs), why = ok ? "" : B.editionBlocker(id, rs);
+      var g = B.buildCourse(id);
+      out.push('<button class="pr-course' + (layoutIsCourse() === id ? " on" : "") +
+        '" data-act="lcourse" data-c="' + esc(id) + '"' + (ok ? "" : " disabled") +
+        ' title="' + esc(C.blurb || C.name) + '">' +
+        courseThumb(id) +
+        '<span class="pr-course-name">' + esc(C.name) + "</span>" +
+        '<i class="pr-c-note">' + (kind === "track" ? C.boards.length + " boards, " : "") +
+          C.flags.length + " flags</i>" +
+        (why ? '<i class="pr-c-no">needs ' + esc(why) + "</i>" : "") + "</button>");
+    }
+    out.push("</div>");
+    return out.join("");
+  }
+
   /* YOUR OWN COURSES, on the shelf beside the printed ones.
 
      Each one is drawn with its flags on it, because "which of these is
@@ -10660,35 +10786,16 @@
 
     /* START FROM SOMETHING, or from nothing.
 
-       Picking a printed course off the menu and building one by hand
-       used to be two different flows with two different screens after
-       them. They are the same flow now: a shipped course loads into
-       this grid, which means the flag screen can recognise it again
-       and offer the flags it actually ships with. */
-    out.push('<h3 class="pr-rule-group">Start from a course</h3><div class="pr-presets pr-course-row">');
-    var rsCur0 = rulesetOf(houseRules), bySet0 = {}, order0 = [];
-    for (var cid0 in B.COURSES) {
-      if (cid0.charAt(0) === "_") continue;
-      if (!B.layoutFromCourse(cid0)) continue;       // not a shape this grid can hold
-      var setId0 = B.BOARD_SPECS[B.COURSES[cid0].boards[0].id].set || "authored";
-      if (!bySet0[setId0]) { bySet0[setId0] = []; order0.push(setId0); }
-      bySet0[setId0].push(cid0);
-    }
-    for (var si0 = 0; si0 < order0.length; si0++) {
-      var sid0 = order0[si0];
-      if (order0.length > 1) out.push('<span class="pr-set-label">' + esc(B.SETS[sid0].name) + "</span>");
-      for (var ci0 = 0; ci0 < bySet0[sid0].length; ci0++) {
-        var id0 = bySet0[sid0][ci0];
-        var ok0 = courseAllowed(id0, rsCur0), why0 = ok0 ? "" : B.editionBlocker(id0, rsCur0);
-        out.push('<button class="pr-course' + (layoutIsCourse() === id0 ? " on" : "") +
-          '" data-act="lcourse" data-c="' + esc(id0) + '"' + (ok0 ? "" : " disabled") +
-          (why0 ? ' title="' + esc(RULESETS[rsCur0].name + " has no " + why0) + '"' : "") + ">" +
-          courseThumb(id0) +
-          '<span class="pr-course-name">' + esc(B.COURSES[id0].name) + "</span>" +
-          (why0 ? '<i class="pr-c-no">needs ' + esc(why0) + "</i>" : "") + "</button>");
-      }
-    }
-    out.push("</div>");
+       Picking a course off the menu and building one by hand used to
+       be two different flows with two different screens after them.
+       They are the same flow now: a course loads into this grid, so
+       the workshop opens on it and its flags come with it. */
+    out.push(courseShelf("quick", "Quick games",
+      "One board with its flags already down. The shortest way to a game."));
+    out.push(courseShelf("track", "Race tracks",
+      "Two boards or more, with a flag on each, so the path has to cross every seam. " +
+      "Laid out here rather than copied from the printed course cards \u2014 five of the twelve " +
+      "classic boards are transcribed, and the book\u2019s own sample tracks use the others."));
     out.push(libraryBody());
 
     /* THE STAGE AND THE SHELF.
