@@ -79,6 +79,11 @@
      separation at a glance rather than for prettiness. Each carries a
      bright tone for the outline and a dark one for the body, which is
      what lets one drawing serve all eight. */
+  /* Eight liveries, eight docking bays, eight seats. One number, so a
+     board with a ninth bay would be caught by validateTables rather
+     than by a robot with no colour. */
+  var MAX_SEATS = 8;
+
   var LIVERIES = [
     { id: "amber",  name: "Hazard",   a: "#ffb000", d: "#8a5c00" },
     { id: "cyan",   name: "Coolant",  a: "#54f2ff", d: "#1d6a7a" },
@@ -844,6 +849,11 @@
        check is against the number we claim to have transcribed, not
        against 26. Both numbers live in OPTION_ROSTER; closing the gap
        is editing one of them. */
+    if (LIVERIES.length !== MAX_SEATS) {
+      throw new Error("MAX_SEATS is " + MAX_SEATS + " but there are " +
+        LIVERIES.length + " liveries; a seat with no colour cannot be told apart");
+    }
+
     var optionIds = Object.keys(OPTION_DEFS);
     if (optionIds.length !== OPTION_ROSTER.transcribed) {
       throw new Error("option roster declares " + OPTION_ROSTER.transcribed +
@@ -1059,12 +1069,35 @@
       pendingChoices: []
     };
 
+    /* YOUR CHOICE FIRST, EVERYONE ELSE AROUND IT.
+
+       Seat 0 takes the livery and the bay the player picked; the rest
+       fill from what is left, in order. Assigning by seat index and
+       then swapping would be shorter and would let two robots share a
+       colour whenever the pick collided, which is the one thing this
+       must not do -- the liveries ARE how you tell them apart, on the
+       board and in the log.
+
+       With more than one human seated this still means seat 0. The
+       menu says so rather than pretending to offer eight pickers. */
+    var wantLivery = Math.max(0, Math.min(LIVERIES.length - 1, opts.livery | 0));
+    var wantBay = Math.max(1, Math.min(C.docks.length, opts.bay || 1));
+
+    var liveryOrder = [wantLivery];
+    for (var li = 0; li < LIVERIES.length; li++) if (li !== wantLivery) liveryOrder.push(li);
+
+    var bayOrder = [], wantDock = null, di;
+    for (di = 0; di < C.docks.length; di++) if (C.docks[di].n === wantBay) wantDock = C.docks[di];
+    if (wantDock) bayOrder.push(wantDock);
+    for (di = 0; di < C.docks.length; di++) if (C.docks[di] !== wantDock) bayOrder.push(C.docks[di]);
+
     for (var i = 0; i < seats; i++) {
-      var dock = C.docks[i];
+      var dock = bayOrder[i];
+      var liv = liveryOrder[i];
       G.players.push({
         id: i,
-        name: LIVERIES[i].name,
-        livery: i,
+        name: LIVERIES[liv].name,
+        livery: liv,
         isBot: opts.humans ? i >= opts.humans : i > 0,
         skill: opts.skill === undefined ? 1 : opts.skill,
         c: dock.c, r: dock.r,
@@ -3284,6 +3317,51 @@
       assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
     } },
 
+    { name: "you get the colour and the bay you picked", run: function () {
+      newGame(7, { course: "provingRun", players: 4, humans: 1, livery: 5, bay: 6 });
+      var me = G.players[0];
+      assert(me.livery === 5, "seat 0 wears the chosen livery, wears " + me.livery);
+      assert(me.name === LIVERIES[5].name, "and is named for it, is " + me.name);
+      var C = UI.course, want = null;
+      for (var d = 0; d < C.docks.length; d++) if (C.docks[d].n === 6) want = C.docks[d];
+      assert(want, "fixture: the course should print a bay 6");
+      assert(me.c === want.c && me.r === want.r,
+        "and starts on it, started at (" + me.c + "," + me.r + ")");
+      assert(me.archive.c === want.c && me.archive.r === want.r,
+        "with the archive there too -- a respawn must not move you to a bay you did not pick");
+    } },
+
+    { name: "no two robots share a colour or a bay, whatever you pick", run: function () {
+      /* The liveries ARE how you tell robots apart, on the board and in
+         the log, so a collision is not a cosmetic problem. Swept over
+         every choice rather than spot-checked, because the failure only
+         shows for the picks that collide with a default. */
+      for (var liv = 0; liv < LIVERIES.length; liv++) {
+        for (var bay = 1; bay <= 8; bay++) {
+          newGame(3, { course: "provingRun", players: 8, humans: 1, livery: liv, bay: bay });
+          var seenL = {}, seenB = {}, i;
+          for (i = 0; i < G.players.length; i++) {
+            var p = G.players[i];
+            assert(!seenL[p.livery], "livery " + p.livery + " used twice (picked " + liv + "/" + bay + ")");
+            assert(!seenB[p.c + "," + p.r], "bay (" + p.c + "," + p.r + ") used twice (picked " + liv + "/" + bay + ")");
+            seenL[p.livery] = 1; seenB[p.c + "," + p.r] = 1;
+          }
+          assert(G.players[0].livery === liv, "and seat 0 still gets its pick");
+        }
+      }
+    } },
+
+    { name: "a bay the course does not print falls back rather than voiding", run: function () {
+      /* Bays are the course's, not the menu's. Asking for one it does
+         not have used to put a robot at undefined,undefined -- off the
+         board, which reads as an instant death before the first card. */
+      newGame(9, { course: "provingRun", players: 2, humans: 1, livery: 0, bay: 99 });
+      var me = G.players[0];
+      assert(typeof me.c === "number" && typeof me.r === "number",
+        "a robot must land on a square, landed at (" + me.c + "," + me.r + ")");
+      assert(!B.isVoid(UI.course, me.c, me.r), "and not in the void");
+    } },
+
     { name: "an expansion tile turns its ruleset on", run: function () {
       /* The rule the map editor has to obey: drop a flame jet on a map
          and that map is a Crash and Burn map. Maelstrom is classic-only
@@ -5134,6 +5212,8 @@
     ".pr-steps b{color:var(--pr-text);font-weight:normal}",
     ".pr-tabs,.pr-presets{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px;align-items:center}",
     ".pr-set-label{font-size:10px;opacity:.6;width:100%;margin-top:4px}",
+    ".pr-livery{display:inline-flex;align-items:center;gap:5px}",
+    ".pr-livery .pr-swatch{width:10px;height:10px;flex:0 0 10px;border:1px solid var(--pr-border)}",
     ".pr-tabs .on,.pr-presets .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
     ".pr-help-body{min-height:180px}",
     ".pr-modal-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px}",
@@ -6021,7 +6101,8 @@
       course: courseId,
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions,
-      flagTouch: cfg.flagTouch, ruleset: cfg.ruleset
+      flagTouch: cfg.flagTouch, ruleset: cfg.ruleset,
+      livery: cfg.livery, bay: cfg.bay
     };
   }
 
@@ -6083,6 +6164,8 @@
       }
       saveRules(); showSetup(); return;
     }
+    if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showSetup(); return; }
+    if (a === "bay") { houseRules.bay = +el.dataset.n; saveRules(); showSetup(); return; }
     if (a === "editmap") {
       closeModal();
       root.location.hash = "#edit=" + el.dataset.b + "&from=setup";
@@ -6378,6 +6461,11 @@
     for (var k in SLIDER_DEFS) out[k] = SLIDER_DEFS[k].def;
     out.course = "provingRun";          // a choice, not a range
     out.ruleset = "classic";            // likewise
+    /* YOUR robot: which livery it wears and which bay it launches from.
+       Both are indices into things the course decides, so they are
+       clamped rather than defaulted when a course has fewer bays. */
+    out.livery = 0;
+    out.bay = 1;
     return out;
   }
 
@@ -6386,6 +6474,8 @@
     try {
       var s = JSON.parse(localStorage.getItem(RULES_KEY) || "null");
       for (var k in out) if (s && SLIDER_DEFS[k] && typeof s[k] === "number") out[k] = clampRule(k, s[k]);
+      if (s && typeof s.livery === "number") out.livery = Math.max(0, Math.min(LIVERIES.length - 1, s.livery | 0));
+      if (s && typeof s.bay === "number") out.bay = Math.max(1, Math.min(MAX_SEATS, s.bay | 0));
       if (s && s.course && B.COURSES[s.course]) out.course = s.course;
       if (s && RULESETS[s.ruleset]) out.ruleset = s.ruleset;
     } catch (e) {}
@@ -6412,7 +6502,9 @@
       humans: Math.min(players, clampRule("humans", h.humans)),
       skill: clampRule("skill", h.skill),
       startOptions: clampRule("startOptions", h.startOptions),
-      flagTouch: clampRule("flagTouch", h.flagTouch)
+      flagTouch: clampRule("flagTouch", h.flagTouch),
+      livery: Math.max(0, Math.min(LIVERIES.length - 1, (h.livery | 0))),
+      bay: Math.max(1, Math.min(MAX_SEATS, h.bay || 1))
     };
   }
 
@@ -6691,6 +6783,38 @@
 
     out.push("</div><div class='pr-rule-desc'>" +
       esc(B.COURSES[houseRules.course].blurb || "") + "</div></div>");
+
+    /* YOUR ROBOT. Colour and bay, under the course because the bays
+       belong to the course -- a different one has them in different
+       places, and picking bay 6 on a board that prints five would be
+       a choice the board cannot honour. */
+    var cfgSeat = resolveConfig(houseRules);
+    var seatDocks = B.buildCourse(houseRules.course).docks;
+    out.push('<h3 class="pr-rule-group">Your robot</h3>');
+    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Colour</b>' +
+      '<span class="pr-rule-val">' + esc(LIVERIES[cfgSeat.livery].name) + "</span></div>" +
+      '<div class="pr-presets pr-liveries">');
+    for (var lv = 0; lv < LIVERIES.length; lv++) {
+      out.push('<button class="pr-livery' + (cfgSeat.livery === lv ? " on" : "") +
+        '" data-act="livery" data-n="' + lv + '" title="' + esc(LIVERIES[lv].name) + '">' +
+        '<i class="pr-swatch" style="background:' + LIVERIES[lv].a + '"></i>' +
+        esc(LIVERIES[lv].name) + "</button>");
+    }
+    out.push("</div><div class='pr-rule-desc'>Your robot's colour is also its name, " +
+      "on the board and in the log. The other racers take the rest.</div></div>");
+
+    out.push('<div class="pr-rule"><div class="pr-rule-head"><b>Docking bay</b>' +
+      '<span class="pr-rule-val">' + Math.min(cfgSeat.bay, seatDocks.length) + "</span></div>" +
+      '<div class="pr-presets">');
+    for (var bn = 0; bn < seatDocks.length; bn++) {
+      var bnum = seatDocks[bn].n;
+      out.push('<button data-act="bay" data-n="' + bnum + '"' +
+        (Math.min(cfgSeat.bay, seatDocks.length) === bnum ? ' class="on"' : "") + ">" + bnum + "</button>");
+    }
+    out.push("</div><div class='pr-rule-desc'>Where you start on the dock. " +
+      (cfgSeat.humans > 1
+        ? "With more than one seat here, this is the first player's."
+        : "The others fill in around you.") + "</div></div>");
 
     var groups = [["setup", null], ["house", "House rules"]];
     for (var gi = 0; gi < groups.length; gi++) {
