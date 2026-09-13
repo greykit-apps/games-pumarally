@@ -149,6 +149,58 @@
   function elemOf(code) { return ELEMENT_DEFS[code.charAt(0)]; }
   function dirOf(code) { return DIR_CHARS.indexOf(code.charAt(1)); }
   function beltSpeed(code) { var e = elemOf(code); return e && e.belt || 0; }
+
+  /* ============================================================
+     WHICH SIDES OF A BELT SHOW AN INCOMING PATH
+
+     A conveyor is not only a direction. The board PRINTS whether the
+     square is a plain straight, a corner, or a merge -- and that is a
+     rule, not decoration: a robot carried onto a corner or into the
+     arm of a merge is turned a quarter, and a robot carried onto a
+     plain straight from the side is not turned at all.
+
+     This used to be DERIVED, by asking which neighbours pointed at the
+     square. That is wrong wherever the answer is not local. A belt at
+     the rim of a board is printed straight or printed as a merge and
+     STAYS THAT WAY whatever board is laid next to it -- the printing
+     cannot know, and half the boards in the box have belts running off
+     their edges. Derivation made the shape depend on the course, so
+     the same board turned a robot on one course and not on another.
+
+     So the arms are data. `merges` lists the squares whose arms are
+     not the default, each naming ALL of its arms as absolute sides:
+
+         merges: [{ c: 4, r: 2, in: "WS" }]
+
+     The default, for every belt with no entry, is a single arm at its
+     REAR -- a plain straight. A corner is one side arm and no rear; a
+     T-merge is a rear and one side; a crossing is a rear and both.
+     ============================================================ */
+  function mergeAt(g, c, r) {
+    for (var i = 0; i < (g.merges || []).length; i++) {
+      if (g.merges[i].c === c && g.merges[i].r === r) return g.merges[i];
+    }
+    return null;
+  }
+
+  /* The sides a belt accepts a turning path from, as absolute
+     directions. Empty for a square that is not a belt. */
+  function beltArms(g, c, r) {
+    var code = codeAt(g, c, r);
+    if (!beltSpeed(code)) return [];
+    var m = mergeAt(g, c, r);
+    if (!m) return [opposite(dirOf(code))];
+    var out = [], i;
+    for (i = 0; i < m.in.length; i++) out.push(DIR_OF[m.in.charAt(i)]);
+    return out;
+  }
+
+  /* Whether a robot arriving from `side` is turned by the printing.
+     The rear arm is an arm too, and turns nobody, because arriving by
+     it means already facing the way the belt runs. */
+  function beltTurnsFrom(g, c, r, side) {
+    return beltArms(g, c, r).indexOf(side) >= 0;
+  }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
   function isPit(code) { return code.charAt(0) === "o"; }
   function isOil(code) { var e = elemOf(code); return !!(e && e.oil); }
@@ -251,6 +303,13 @@
       doorN: new Array(w * (h + 1)),
       doorW: new Array((w + 1) * h),
       lasers: [],
+      /* Which sides of a belt show an incoming path, for the belts
+         whose arms are not just a rear one: { c, r, in: "WS" }. Beside
+         the picture because a two-character cell has no room for three
+         more bits -- and because the printing is what it is regardless
+         of what is laid next to the board, which is exactly what
+         deriving it from the neighbours got wrong. */
+      merges: [],
       /* Registers a press or burner acts in. A SPARSE LIST beside the
          picture, the way lasers already are, rather than a character in
          the cell -- the printed sets are arbitrary subsets of 1-5 (2 3 5
@@ -452,6 +511,33 @@
       g.timers.push({ c: T.c, r: T.r, regs: T.regs.slice().sort() });
     }
 
+    var merged = {};
+    for (var mi = 0; mi < (spec.merges || []).length; mi++) {
+      var MG = spec.merges[mi];
+      var mcode = (inGrid(g, MG.c, MG.r) && g.cell[MG.r * w + MG.c]) || "";
+      if (!beltSpeed(mcode)) E_("merge at (" + MG.c + "," + MG.r + ") is not on a conveyor");
+      if (merged[MG.c + "," + MG.r]) E_("two merges at (" + MG.c + "," + MG.r + ")");
+      merged[MG.c + "," + MG.r] = 1;
+      if (typeof MG.in !== "string" || !MG.in.length) {
+        E_("merge at (" + MG.c + "," + MG.r + ") names no sides; a belt with no arm at all " +
+           "can never be entered, and a plain straight needs no entry");
+      }
+      var seenSide = {}, si;
+      for (si = 0; si < MG.in.length; si++) {
+        var ch = MG.in.charAt(si), sd = DIR_OF[ch];
+        if (sd === undefined) E_('merge at (' + MG.c + "," + MG.r + ') names side "' + ch + '", which is not a direction');
+        if (seenSide[ch]) E_("merge at (" + MG.c + "," + MG.r + ") names " + dirName(sd) + " twice");
+        seenSide[ch] = 1;
+        /* The side a belt RUNS OUT OF is where it delivers, not
+           somewhere it can be entered from. */
+        if (sd === dirOf(mcode)) {
+          E_("merge at (" + MG.c + "," + MG.r + ") takes an arm from the " + dirName(sd) +
+             ", which is the side it runs out of");
+        }
+      }
+      g.merges.push({ c: MG.c, r: MG.r, in: MG.in });
+    }
+
     for (var i = 0; i < (spec.lasers || []).length; i++) {
       var L = spec.lasers[i];
       g.lasers.push({ c: L.c, r: L.r, d: DIR_OF[L.d], n: L.n });
@@ -574,6 +660,16 @@
     /* Emitted only when there are any, so a board without one formats
        exactly as it did before these existed and the byte-for-byte
        round-trip keeps its meaning. */
+    if (g.merges && g.merges.length) {
+      out.push("      ,");
+      out.push("      merges: [");
+      for (var mf = 0; mf < g.merges.length; mf++) {
+        var MF = g.merges[mf];
+        out.push("        { c: " + MF.c + ", r: " + MF.r + ', in: "' + MF.in + '" }' +
+          (mf === g.merges.length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    }
     if (g.pushers && g.pushers.length) {
       out.push("      ,");
       out.push("      pushers: [");
@@ -654,6 +750,11 @@
       var F2 = g.burners[fq];
       n.burners.push({ c: g.h - 1 - F2.r, r: F2.c, d: rot(F2.d, 1),
                        regs: F2.regs.slice(), len: F2.len });
+    }
+    for (var mq = 0; mq < (g.merges || []).length; mq++) {
+      var M2 = g.merges[mq], sides = "";
+      for (var ms = 0; ms < M2.in.length; ms++) sides += DIR_LETTER[rot(DIR_OF[M2.in.charAt(ms)], 1)];
+      n.merges.push({ c: g.h - 1 - M2.r, r: M2.c, in: sides });
     }
     for (var tq = 0; tq < g.timers.length; tq++) {
       var T2 = g.timers[tq];
@@ -893,6 +994,11 @@
         "+  +  +--+  +--+  +  +--+  +--+  +  +"
       ],
       lasers: []
+      ,
+      merges: [
+        { c: 3, r: 5, in: "NE" },
+        { c: 8, r: 6, in: "SW" }
+      ]
     },
 
     /* THE THIRD TRANSCRIBED OFFICIAL BOARD, and the densest so far:
@@ -953,6 +1059,31 @@
         { c: 3, r: 6, d: "E", n: 1 },
         { c: 5, r: 7, d: "N", n: 1 },
         { c: 6, r: 8, d: "N", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 1, r: 1, in: "N" },
+        { c: 5, r: 1, in: "NW" },
+        { c: 10, r: 1, in: "EW" },
+        { c: 1, r: 2, in: "S" },
+        { c: 9, r: 2, in: "W" },
+        { c: 2, r: 3, in: "S" },
+        { c: 8, r: 3, in: "W" },
+        { c: 3, r: 4, in: "S" },
+        { c: 7, r: 4, in: "W" },
+        { c: 4, r: 5, in: "S" },
+        { c: 10, r: 5, in: "NE" },
+        { c: 1, r: 6, in: "SW" },
+        { c: 7, r: 6, in: "N" },
+        { c: 4, r: 7, in: "E" },
+        { c: 8, r: 7, in: "N" },
+        { c: 3, r: 8, in: "E" },
+        { c: 9, r: 8, in: "N" },
+        { c: 2, r: 9, in: "E" },
+        { c: 10, r: 9, in: "N" },
+        { c: 1, r: 10, in: "EW" },
+        { c: 6, r: 10, in: "ES" },
+        { c: 10, r: 10, in: "S" }
       ]
       ,
       pushers: [
@@ -1031,6 +1162,20 @@
         "+  +  +  +  +  +  +  +  +  +  +  +  +"
       ],
       lasers: []
+      ,
+      merges: [
+        { c: 6, r: 0, in: "W" },
+        { c: 5, r: 4, in: "E" },
+        { c: 7, r: 4, in: "S" },
+        { c: 1, r: 5, in: "S" },
+        { c: 7, r: 5, in: "E" },
+        { c: 8, r: 5, in: "S" },
+        { c: 1, r: 6, in: "W" },
+        { c: 5, r: 6, in: "N" },
+        { c: 8, r: 6, in: "W" },
+        { c: 11, r: 6, in: "N" },
+        { c: 5, r: 11, in: "E" }
+      ]
       ,
       burners: [
         { c: 8, r: 2, d: "S", regs: [1, 3, 5] },
@@ -1116,6 +1261,33 @@
         { c: 6, r: 3, d: "S", n: 1 },
         { c: 6, r: 6, d: "S", n: 1 }
       ]
+      ,
+      merges: [
+        { c: 6, r: 0, in: "E" },
+        { c: 7, r: 0, in: "S" },
+        { c: 10, r: 1, in: "ES" },
+        { c: 4, r: 2, in: "E" },
+        { c: 5, r: 2, in: "N" },
+        { c: 9, r: 2, in: "S" },
+        { c: 10, r: 2, in: "W" },
+        { c: 3, r: 4, in: "E" },
+        { c: 4, r: 4, in: "N" },
+        { c: 9, r: 4, in: "E" },
+        { c: 10, r: 4, in: "S" },
+        { c: 3, r: 5, in: "N" },
+        { c: 7, r: 5, in: "E" },
+        { c: 8, r: 5, in: "S" },
+        { c: 10, r: 5, in: "E" },
+        { c: 8, r: 7, in: "E" },
+        { c: 9, r: 7, in: "S" },
+        { c: 4, r: 9, in: "E" },
+        { c: 6, r: 9, in: "S" },
+        { c: 1, r: 10, in: "W" },
+        { c: 9, r: 10, in: "E" },
+        { c: 10, r: 10, in: "S" },
+        { c: 4, r: 11, in: "N" },
+        { c: 5, r: 11, in: "W" }
+      ]
     },
 
     /* THE FIFTH TRANSCRIBED OFFICIAL BOARD.
@@ -1190,6 +1362,27 @@
         { c: 2, r: 8, d: "E", n: 1 },
         { c: 7, r: 8, d: "E", n: 1 }
       ]
+      ,
+      merges: [
+        { c: 1, r: 1, in: "N" },
+        { c: 5, r: 1, in: "NW" },
+        { c: 10, r: 1, in: "E" },
+        { c: 4, r: 3, in: "E" },
+        { c: 5, r: 3, in: "N" },
+        { c: 3, r: 4, in: "E" },
+        { c: 4, r: 4, in: "N" },
+        { c: 6, r: 4, in: "E" },
+        { c: 7, r: 4, in: "S" },
+        { c: 3, r: 5, in: "N" },
+        { c: 7, r: 5, in: "E" },
+        { c: 4, r: 6, in: "W" },
+        { c: 6, r: 6, in: "S" },
+        { c: 4, r: 7, in: "N" },
+        { c: 5, r: 7, in: "W" },
+        { c: 1, r: 10, in: "W" },
+        { c: 6, r: 10, in: "ES" },
+        { c: 10, r: 10, in: "S" }
+      ]
     },
 
     /* The start area. Robots enter the course from here, so it is
@@ -1250,6 +1443,22 @@
         "+--+  +  +  +--+  +  +  +  +  +  +  +"
       ],
       lasers: []
+      ,
+      merges: [
+        { c: 1, r: 1, in: "N" },
+        { c: 6, r: 1, in: "W" },
+        { c: 10, r: 1, in: "E" },
+        { c: 8, r: 3, in: "NW" },
+        { c: 1, r: 5, in: "S" },
+        { c: 5, r: 5, in: "W" },
+        { c: 1, r: 6, in: "W" },
+        { c: 10, r: 6, in: "N" },
+        { c: 5, r: 7, in: "N" },
+        { c: 8, r: 7, in: "NW" },
+        { c: 3, r: 8, in: "S" },
+        { c: 8, r: 8, in: "NE" },
+        { c: 3, r: 10, in: "SW" }
+      ]
       ,
       pushers: [
         { c: 3, r: 1, d: "S", regs: [1, 2, 3, 4] },
@@ -1377,6 +1586,22 @@
         { c: 3, r: 8, d: "E", n: 1 },
         { c: 9, r: 9, d: "N", n: 2 },
         { c: 4, r: 10, d: "E", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 4, r: 0, in: "E" },
+        { c: 4, r: 1, in: "NE" },
+        { c: 6, r: 1, in: "S" },
+        { c: 6, r: 4, in: "SW" },
+        { c: 4, r: 5, in: "NE" },
+        { c: 11, r: 5, in: "N" },
+        { c: 0, r: 6, in: "S" },
+        { c: 6, r: 6, in: "SW" },
+        { c: 9, r: 6, in: "W" },
+        { c: 11, r: 6, in: "S" },
+        { c: 4, r: 7, in: "NE" },
+        { c: 4, r: 11, in: "N" },
+        { c: 6, r: 11, in: "W" }
       ]
       ,
       pushers: [
@@ -2322,6 +2547,7 @@
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
     ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
+    mergeAt: mergeAt, beltArms: beltArms, beltTurnsFrom: beltTurnsFrom,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
     parsePic: parsePic, rotateGrid: rotateGrid, laserPath: laserPath,
     gridToPic: gridToPic, formatBoard: formatBoard, blankGrid: blankGrid,
