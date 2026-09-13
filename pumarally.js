@@ -2177,18 +2177,28 @@
           hits[i].replaceWith = hctx.replaceWith;
         }
         if (pending) return park("exec", "lasers");
+        /* From the RESOLVED hits, and BEFORE any of them is applied:
+           a Pressor Beam trades its damage for a shove, so applying
+           first moves the target and the beam ends up drawn one square
+           past its own impact. */
+        var shots = (UI.headless || !UI.mounted) ? null : collectShots(hits);
         applyLaserHits(hits);
         go("exec", "burners");
         if (UI.headless || !UI.mounted) return NEXT;
         var hit = boardSig() !== before;
-        if (!beams.length) return NEXT;
+        if (!beams.length && !shots.length) return NEXT;
         return animate([
           { type: "sfx", name: "laser" },
           { type: "beams", beams: beams },
+          /* The beam travels and connects BEFORE the render that puts
+             the damage on the board, so the two read as cause and
+             effect rather than as two things that happened at once. */
+          { type: "shots", shots: shots },
           { type: "wait", delay: 240 },
           { type: "render" },
           { type: "beams", beams: [] },
-          { type: "wait", delay: hit ? 200 : 40 }
+          { type: "wait", delay: hit ? 200 : 40 },
+          { type: "shots", shots: [] }
         ]);
       },
 
@@ -2374,6 +2384,42 @@
       if (B.isVoid(C, nx.c, nx.r)) continue;
       var v = firstRobotAlong(p.c, p.r, p.face, true);
       out.push({ c: nx.c, r: nx.r, dir: p.face, stopC: v ? v.c : -1, stopR: v ? v.r : -1 });
+    }
+    return out;
+  }
+
+  /* THE SHOT THAT CONNECTED.
+
+     collectBeams above lights the board's own beams, which are printed
+     on the cardboard and are there whether or not anybody is standing
+     in them. A robot's laser is the opposite: it is fired every
+     register by every robot, down whatever line it happens to be
+     facing, and almost all of those go nowhere. Drawing them all would
+     put five red lines across the board every register -- constant,
+     meaningless, and by the third turn invisible, which is the state
+     any animation that fires unconditionally ends up in.
+
+     So this draws only the ones that HIT. A beam appearing at all then
+     means something happened, and it says who shot whom, which is the
+     one fact the damage pips in the side panel cannot tell you.
+
+     Takes the resolved hits rather than recomputing, so what is drawn
+     is by construction what was applied -- a beam to a robot that took
+     no damage would be a lie told in the most convincing medium
+     available. */
+  function collectShots(hits) {
+    var out = [];
+    for (var i = 0; i < hits.length; i++) {
+      var h = hits[i];
+      if (!h.shooter || !h.target) continue;       // a board laser, drawn already
+      /* An option card can absorb a shot before it lands, or turn it
+         into a shove or a scramble. Absorbed entirely, nothing hit;
+         anything else did. */
+      if (h.damage <= 0 && !h.replaceWith) continue;
+      var len = Math.abs(h.target.c - h.shooter.c) + Math.abs(h.target.r - h.shooter.r);
+      if (len < 1) continue;                       // cannot shoot the square you stand on
+      out.push({ c: h.shooter.c, r: h.shooter.r, dir: h.dir, len: len,
+                 livery: h.shooter.livery, hitC: h.target.c, hitR: h.target.r });
     }
     return out;
   }
@@ -3028,6 +3074,191 @@
       laserPass();
       assert(G.players[0].damage === 1, "the powered-down robot should still be shot, took " + G.players[0].damage);
       assert(G.players[1].damage === 0, "a powered-down robot must not fire back");
+    } },
+
+    /* The drawn beam is the one thing in the game a player reads as
+       fact without being able to check it, so what gets drawn is
+       asserted rather than eyeballed. */
+    { name: "a shot is drawn only when it connects with a robot", run: function () {
+      // Facing each other across one empty square: one shot each way.
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: W }]);
+      var shots = collectShots(computeLaserHits());
+      assert(shots.length === 2, "two robots shooting each other is two beams, got " + shots.length);
+      assert(shots[0].len === 2 && shots[1].len === 2, "each beam spans the two squares between them");
+      assert(shots[0].c === 0 && shots[0].r === 0, "a beam starts at the SHOOTER, not the target");
+      assert(shots[0].hitC === 2 && shots[0].hitR === 0, "and ends at the robot it hit");
+
+      // Facing empty floor: fired, hit nothing, drawn as nothing.
+      benchGame(bench([["..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+      assert(collectShots(computeLaserHits()).length === 0,
+        "a laser that hits nothing must not be drawn; every robot fires every register");
+
+      // A wall between them: no shot, and so no beam through a wall.
+      benchGame(bench([["..", "..", ".."]], ["1,0,W"]), [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: W }]);
+      assert(collectShots(computeLaserHits()).length === 0, "a walled-off shot must not be drawn");
+
+      // Powered down: does not fire, is still hit, so exactly one beam.
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, face: E, poweredDown: true }, { c: 1, r: 0, face: W }]);
+      var one = collectShots(computeLaserHits());
+      assert(one.length === 1, "a powered-down robot fires nothing but is still shot, got " + one.length);
+      assert(one[0].c === 1, "the beam must come from the one that is still on");
+    } },
+
+    { name: "a beam stops at the first robot, not the one behind it", run: function () {
+      benchGame(bench([["..", "..", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 1, r: 0, face: E }, { c: 2, r: 0, face: E }]);
+      var shots = collectShots(computeLaserHits());
+      var from0 = shots.filter(function (s) { return s.c === 0; });
+      assert(from0.length === 1, "the back robot fires once, got " + from0.length);
+      assert(from0[0].len === 1, "and its beam stops one square along, at the robot in the way");
+      assert(from0[0].hitC === 1, "not at the one behind it");
+    } },
+
+    { name: "a shot absorbed before it lands is not drawn", run: function () {
+      /* No shipped card zeroes a shot in onLaserHit -- Pressor Beam
+         trades the damage for a shove, which still connected and still
+         draws. The guard is for the next card that does, and it is
+         tested with a hand-built hit rather than left to be discovered
+         by the card that needs it. */
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, face: E }, { c: 1, r: 0, face: E }]);
+      var a = G.players[0], b = G.players[1];
+      var base = { target: b, shooter: a, dir: E, from: "test" };
+      function one(over) {
+        var h = {}, k;
+        for (k in base) h[k] = base[k];
+        for (k in over) h[k] = over[k];
+        return collectShots([h]);
+      }
+      assert(one({ damage: 1, replaceWith: null }).length === 1, "an ordinary hit draws");
+      assert(one({ damage: 0, replaceWith: null }).length === 0, "a shot absorbed entirely must not draw");
+      assert(one({ damage: 0, replaceWith: { kind: "push", dir: E, n: 1 } }).length === 1,
+        "a Pressor Beam shove connected, so it draws");
+    } },
+
+    { name: "the beam is collected before the hits are applied", run: function () {
+      /* Applying a hit can MOVE the robot it hit: Pressor Beam trades
+         the damage for a shove, and stepRobot runs inside
+         applyLaserHits. Collect afterwards and the beam is drawn to
+         where the target was shoved to rather than to where it was
+         standing when it was struck -- a beam that ends one square
+         past its own impact. The step does it in the right order;
+         this asserts both that the order matters and that it holds. */
+      benchGame(bench([["..", "..", "..", ".."]]),
+        [{ c: 0, r: 0, face: E }, { c: 1, r: 0, face: E }]);
+      var hits = [{ target: G.players[1], shooter: G.players[0], dir: E, from: "test",
+                    damage: 0, replaceWith: { kind: "push", dir: E, n: 1 } }];
+      var early = collectShots(hits);
+      assert(early.length === 1 && early[0].hitC === 1,
+        "the beam ends where the target was standing when it was struck");
+      applyLaserHits(hits);
+      assert(G.players[1].c === 2, "fixture must actually move the target, or the order proves nothing");
+      var late = collectShots(hits);
+      assert(late.length && late[0].hitC === 2,
+        "collecting late reads the shoved position, which is the bug this order avoids");
+
+      /* And the step really is in that order. Reading the source is
+         the only way to assert a sequence whose difference is
+         invisible without a DOM, and it is the same trick the
+         HAZARD_DEFS check uses. */
+      var src = String(STEP.exec.lasers).replace(/\/\*[\s\S]*?\*\//g, "");
+      var iCollect = src.indexOf("collectShots"), iApply = src.indexOf("applyLaserHits");
+      assert(iCollect >= 0 && iApply >= 0, "the lasers step should call both");
+      assert(iCollect < iApply, "the lasers step must collect the beams before applying the hits");
+    } },
+
+    { name: "a drawn beam never crosses a wall", run: function () {
+      /* The general property, swept over a real board, rather than one
+         fixture that happens to pass. A beam is the one thing in this
+         game a player reads as fact without being able to check it, so
+         a beam through a wall is not a cosmetic slip -- it is the game
+         telling them a wall is not there.
+
+         For every square and every facing on Proving Ground: put a
+         shooter there, put a target on the last square its line can
+         actually reach, and walk the drawn beam square by square
+         asserting there is nothing solid in the way. Then put a target
+         on the first square PAST the wall and assert nothing is drawn
+         at all. */
+      var C0 = B.buildCourse("provingRun");
+      var checked = 0, drawn = 0, refused = 0;
+      for (var r0 = 0; r0 < 12; r0++) {
+        for (var c0 = 0; c0 < 12; c0++) {
+          if (B.isPit(B.codeAt(C0, c0, r0))) continue;
+          for (var d = 0; d < 4; d++) {
+            /* How far the line actually reaches, and the first square
+               beyond the thing that stops it. */
+            var c = c0, r = r0, last = null, past = null;
+            for (var n = 0; n < 24; n++) {
+              if (B.blockedAt(C0, c, r, d, 0)) { past = B.step(c, r, d); break; }
+              var nx = B.step(c, r, d);
+              if (B.isVoid(C0, nx.c, nx.r)) break;
+              c = nx.c; r = nx.r;
+              if (B.isPit(B.codeAt(C0, c, r))) continue;   // nothing can stand here
+              last = { c: c, r: r };
+            }
+            if (last) {
+              benchGame(B.buildCourse("provingRun"),
+                [{ c: c0, r: r0, face: d }, { c: last.c, r: last.r, face: d }]);
+              var shots = collectShots(computeLaserHits());
+              for (var i = 0; i < shots.length; i++) {
+                var s = shots[i], sc = s.c, sr = s.r;
+                for (var k = 0; k < s.len; k++) {
+                  assert(!blocked(UI.course, sc, sr, s.dir),
+                    "beam from (" + s.c + "," + s.r + ") facing " + B.dirName(s.dir) +
+                    " crosses a wall leaving (" + sc + "," + sr + ")");
+                  var sn = B.step(sc, sr, s.dir); sc = sn.c; sr = sn.r;
+                }
+                drawn++;
+              }
+              checked++;
+            }
+            if (past && !B.isVoid(C0, past.c, past.r) && !B.isPit(B.codeAt(C0, past.c, past.r))) {
+              benchGame(B.buildCourse("provingRun"),
+                [{ c: c0, r: r0, face: d }, { c: past.c, r: past.r, face: B.opposite(d) }]);
+              var blockedShots = collectShots(computeLaserHits()).filter(function (s) {
+                return s.c === c0 && s.r === r0;
+              });
+              assert(blockedShots.length === 0,
+                "a shot from (" + c0 + "," + r0 + ") facing " + B.dirName(d) +
+                " is walled off and must not be drawn");
+              refused++;
+            }
+          }
+        }
+      }
+      assert(checked > 100, "the sweep should cover most of the board, covered " + checked);
+      assert(drawn > 100, "and should actually draw beams, drew " + drawn);
+      assert(refused > 10, "and should actually meet walls, met " + refused);
+    } },
+
+    { name: "the one laser that does cross a wall is the card that says so", run: function () {
+      /* High-Power Laser is printed "your laser shoots through one
+         wall", so its beam crossing one is the card working rather
+         than the beam lying. It is the ONLY way any beam in this game
+         passes something solid, and that is asserted here so the
+         exception stays deliberate: if a second one ever appears, this
+         goes red rather than the wall quietly becoming a suggestion. */
+      var cells = [["..", "..", "..", ".."]];
+      benchGame(bench(cells, ["1,0,E"]), [{ c: 0, r: 0, face: E }, { c: 2, r: 0, face: N }]);
+      assert(collectShots(computeLaserHits()).length === 0, "an ordinary laser draws nothing through a wall");
+      benchGame(bench(cells, ["1,0,E"]),
+        [{ c: 0, r: 0, face: E, options: ["highPowerLaser"] }, { c: 2, r: 0, face: N }]);
+      var shots = collectShots(computeLaserHits());
+      assert(shots.length === 1 && shots[0].len === 2, "the high-power beam is drawn to what it hit");
+      benchGame(bench(cells, ["1,0,E", "2,0,E"]),
+        [{ c: 0, r: 0, face: E, options: ["highPowerLaser"] }, { c: 3, r: 0, face: N }]);
+      assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
+    } },
+
+    { name: "a board laser is not drawn as a robot shot", run: function () {
+      /* Board beams are printed on the cardboard and lit by a separate
+         layer that is always there. Drawing them twice would put a
+         travelling beam on top of a static one. */
+      benchGame(bench([["..", "..", ".."]], ["0,0,W"], [{ c: 0, r: 0, d: "E", n: 1 }]),
+        [{ c: 2, r: 0, face: E }]);
+      var hits = computeLaserHits();
+      assert(hits.length === 1 && !hits[0].shooter, "fixture should be one board-laser hit");
+      assert(collectShots(hits).length === 0, "a board laser must not produce a robot beam");
     } },
 
     { name: "lasers are simultaneous: a robot destroyed this register still fires", run: function () {
@@ -4491,6 +4722,46 @@
     "left:calc(var(--c) * var(--tile));top:calc((var(--r) + var(--off)) * var(--tile) - 1px)}",
     ".pr-beam.pr-live{opacity:1;box-shadow:0 0 6px var(--pr-danger)}",
 
+    /* ---- the shot that connected ----
+       Above the walls, below the robots: a board laser is drawn under
+       its own mount because it comes out of one, but this comes out of
+       a robot and stops at a robot, so it should cross the floor and
+       strike the hull rather than being painted over it.
+
+       The beam is the SHOOTER'S colour, not danger red, because the
+       one thing the damage pips cannot tell you is who fired. It grows
+       by WIDTH rather than scaleX: a scaled beam squashes its own
+       muzzle flare and its head, and the head is the part that reads
+       as travel. */
+    ".pr-shots{position:absolute;left:0;top:0;pointer-events:none}",
+    ".pr-shot{position:absolute;height:3px;width:0;margin-top:-1.5px;",
+    "left:calc((var(--c) + .5) * var(--tile));top:calc((var(--r) + .5) * var(--tile));",
+    "transform-origin:0 50%;transform:rotate(var(--rot,0deg));",
+    "background:currentColor;box-shadow:0 0 8px currentColor;",
+    "animation:pr-shot var(--pr-shot-ms,420ms) cubic-bezier(.15,.7,.25,1) forwards}",
+    ".pr-shot::after{content:'';position:absolute;right:-3px;top:-3px;width:9px;height:9px;",
+    "border-radius:50%;background:#fff;box-shadow:0 0 10px currentColor}",
+    "@keyframes pr-shot{0%{width:0;opacity:1}",
+    "30%{width:calc(var(--len) * var(--tile));opacity:1}",
+    "65%{width:calc(var(--len) * var(--tile));opacity:1}",
+    "100%{width:calc(var(--len) * var(--tile));opacity:0}}",
+    /* Held at zero opacity until the beam has actually arrived, so the
+       impact is something the shot causes rather than something that
+       happens at the same time. */
+    ".pr-shot-burst{position:absolute;width:var(--tile);height:var(--tile);",
+    "left:calc(var(--c) * var(--tile));top:calc(var(--r) * var(--tile));",
+    "border:2px solid currentColor;border-radius:50%;box-sizing:border-box;opacity:0;",
+    "animation:pr-burst var(--pr-shot-ms,420ms) ease-out forwards}",
+    "@keyframes pr-burst{0%,28%{transform:scale(.15);opacity:0}",
+    "42%{transform:scale(.6);opacity:1}",
+    "100%{transform:scale(1.2);opacity:0}}",
+    /* Nobody should be made ill by a laser they did not ask for. */
+    "@media (prefers-reduced-motion:reduce){",
+    ".pr-shot{animation:pr-shot-still var(--pr-shot-ms,420ms) steps(1,end) forwards}",
+    "@keyframes pr-shot-still{0%,70%{width:calc(var(--len) * var(--tile));opacity:1}",
+    "100%{opacity:0}}",
+    ".pr-shot-burst{animation:none;opacity:0}}",
+
     /* ---- robots ---- */
     ".pr-pieces{position:absolute;left:0;top:0;pointer-events:none}",
     /* THE SAME SQUARE, TRAVELLED SEVERAL DIFFERENT WAYS.
@@ -4786,6 +5057,7 @@
       if (ev.type === "render") { updateAll(); continue; }
       if (ev.type === "sfx") { sfx(ev.name); continue; }
       if (ev.type === "beams") { UI.beams = ev.beams; drawBeams(); continue; }
+      if (ev.type === "shots") { drawShots(ev.shots); continue; }
       if (ev.type === "wait") {
         var ms = delayFor(ev.delay);
         if (ms <= 0) continue;
@@ -5028,6 +5300,32 @@
       var el = nodes[i];
       el.classList.toggle("pr-live", !!lit[el.dataset.c + "," + el.dataset.r]);
     }
+  }
+
+  /* Long enough to read as a shot rather than a flicker, short enough
+     that five of them at once are still one event. Scaled by the speed
+     setting like every other motion. */
+  var SHOT_MS = 420;
+
+  function drawShots(shots) {
+    var host = UI.els && UI.els.shots;
+    if (!host) return;
+    host.innerHTML = "";                           // also cancels a shot still fading
+    if (!shots || !shots.length) return;
+    var ms = delayFor(SHOT_MS), out = [];
+    for (var i = 0; i < shots.length; i++) {
+      var s = shots[i], hue = LIVERIES[s.livery].a;
+      /* Direction becomes a rotation about the muzzle, so one beam
+         element serves all four facings and the length is a plain
+         width the keyframes can grow. dir 1 (east) is the unrotated
+         one, hence the -1. */
+      out.push('<i class="pr-shot" style="--c:' + s.c + ";--r:" + s.r +
+        ";--len:" + s.len + ";--rot:" + ((s.dir - 1) * 90) + "deg;--pr-shot-ms:" + ms +
+        "ms;color:" + hue + '"></i>');
+      out.push('<i class="pr-shot-burst" style="--c:' + s.hitC + ";--r:" + s.hitR +
+        ";--pr-shot-ms:" + ms + "ms;color:" + hue + '"></i>');
+    }
+    host.innerHTML = out.join("");
   }
 
   function renderHud() {
@@ -7004,6 +7302,10 @@
     UI.els.walls.style.height = h + "px";
     UI.els.pieces.style.width = w + "px";
     UI.els.pieces.style.height = h + "px";
+    if (UI.els.shots) {
+      UI.els.shots.style.width = w + "px";
+      UI.els.shots.style.height = h + "px";
+    }
     if (UI.mounted) renderPieces();
   }
 
@@ -7066,10 +7368,12 @@
     beams.setAttribute("aria-hidden", "true");
     var walls = el("div", "pr-walls");
     walls.setAttribute("aria-hidden", "true");
+    var shots = el("div", "pr-shots");
+    shots.setAttribute("aria-hidden", "true");
     var pieces = el("div", "pr-pieces");
     pieces.setAttribute("aria-hidden", "true");
     stage.appendChild(grid); stage.appendChild(beams);
-    stage.appendChild(walls); stage.appendChild(pieces);
+    stage.appendChild(walls); stage.appendChild(shots); stage.appendChild(pieces);
 
     var side = el("aside", "pr-side");
     var players = el("div", "pr-panel");
@@ -7138,7 +7442,7 @@
 
     UI.els = { host: host, hud: hud, stage: stage, grid: grid, beams: beams, walls: walls,
       program: program,
-               pieces: pieces, side: side, players: playersBody, log: logBody,
+               pieces: pieces, shots: shots, side: side, players: playersBody, log: logBody,
                regs: regs, hand: hand, hint: hint, banner: banner, sr: sr,
                choice: choice, opts: optsRow, main: main, overlay: overlay, curtain: curtain,
                run: controls.querySelector("[data-act=run]"),
