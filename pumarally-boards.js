@@ -709,6 +709,20 @@
         E_("(" + F.c + "," + F.r + ") burner throws " + dirName(F.d) +
            " but has no wall behind it to mount on");
       }
+      /* A WARNING, not a refusal. Every jet on both printed boards sits
+         against exactly one wall, and the extra ones that showed up on
+         first transcription were all the same mistake: a flame's orange
+         passes the wall-yellow test, so the scan counted the fire as a
+         second wall. A corner-mounted jet is perfectly possible on a
+         board we have not seen yet, so this says "look at this" rather
+         than refusing it. */
+      var sides = 0;
+      for (var fd2 = 0; fd2 < 4; fd2++) if (wallAt(g, F.c, F.r, fd2)) sides++;
+      if (sides > 1) {
+        warn(id, "(" + F.c + "," + F.r + ") burner has walls on " + sides +
+             " sides; a flame read as wall yellow is how that usually happens");
+      }
+
       /* A two-square jet whose second square is off the board, or behind a
          wall, is a misread reach -- the fire would be painted onto nothing
          or through something solid. */
@@ -1169,8 +1183,8 @@
         " b< o. .. .. L. .. .. .. .. t2 L. b< ",
         "+  +  +--+--+  +  +  +  +--+  +  +  +",
         " .. t1|.. .. L. .. o. .. .. .. L. .. ",
-        "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. .. .. ..|L. .. .. .. ..|..|.. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. ..|L. .. .. .. .. ..|.. .. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. L. bv b< b< L. L. .. W. ",
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
@@ -1179,9 +1193,9 @@
         " b> b^ .. W. .. b> b> b> b^ .. .. b> ",
         "+  +  +  +  +  +  +  +  +--+  +  +  +",
         " .. .. .. .. L. L. L. L. .. .. .. .. ",
-        "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. w.|..|.. .. .. .. .. ..|..|t1 .. ",
-        "+  +  +  +--+  +  +  +  +  +  +  +  +",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. w.|.. .. .. .. .. .. .. ..|t1 .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. t2 .. .. o. .. L. .. ..|.. .. ",
         "+  +  +  +--+  +  +  +  +--+  +  +  +",
         " b> .. L. L. L. .. .. L. .. .. o. b> ",
