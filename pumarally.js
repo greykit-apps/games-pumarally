@@ -1073,7 +1073,7 @@
 
        The shipped courses go through the same path, which is what
        stops the composed one being a second kind of game. */
-    var courseId = opts.course || "provingRun";
+    var courseId = opts.course || "exchangeRun";
     /* A shipped course is built from its NAME so the built course
        keeps it. Building every course from a spec object looked
        tidier and made C.id "composed" for all of them -- which
@@ -3289,14 +3289,21 @@
      faces, so a chrome class can be checked against the whole set
      rather than against whichever bit of art somebody thought of. */
   function artClasses() {
-    var seen = {}, src = "", c, r, k;
-    var g = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
-    g.flags = [{ c: 0, r: 0, n: 1 }];
-    for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) src += tileInner(g, c, r);
-    /* Printed walls and doors count as art; the bumpers rail does not
-       -- it is chrome laid over the boards, and is one of the things
-       being checked. */
-    src += wallSpans(g, false);
+    var seen = {}, src = "", c, r, k, id;
+    /* SWEPT OVER EVERY BOARD, not over one that happens to carry a bit
+       of everything. It used to be the Proving Ground, an authored
+       board built to contain one of each -- so the sweep's coverage
+       was a property of a board nobody plays rather than of the set,
+       and it went with that board. */
+    for (id in B.BOARD_SPECS) {
+      var g = B.parsePic(id, B.BOARD_SPECS[id]);
+      g.flags = [{ c: 0, r: 0, n: 1 }];
+      for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) src += tileInner(g, c, r);
+      /* Printed walls and doors count as art; the bumpers rail does not
+         -- it is chrome laid over the boards, and is one of the things
+         being checked. */
+      src += wallSpans(g, false);
+    }
     for (k in CARD_KINDS) src += cardArt(k);
     var m, re = /class="([^"]+)"/g;
     while ((m = re.exec(src))) {
@@ -3585,7 +3592,7 @@
          asserting there is nothing solid in the way. Then put a target
          on the first square PAST the wall and assert nothing is drawn
          at all. */
-      var C0 = B.buildCourse("provingRun");
+      var C0 = B.buildCourse("exchangeRun");
       var checked = 0, drawn = 0, refused = 0;
       for (var r0 = 0; r0 < 12; r0++) {
         for (var c0 = 0; c0 < 12; c0++) {
@@ -3603,7 +3610,7 @@
               last = { c: c, r: r };
             }
             if (last) {
-              benchGame(B.buildCourse("provingRun"),
+              benchGame(B.buildCourse("exchangeRun"),
                 [{ c: c0, r: r0, face: d }, { c: last.c, r: last.r, face: d }]);
               var shots = collectShots(computeLaserHits());
               for (var i = 0; i < shots.length; i++) {
@@ -3619,7 +3626,7 @@
               checked++;
             }
             if (past && !B.isVoid(C0, past.c, past.r) && !B.isPit(B.codeAt(C0, past.c, past.r))) {
-              benchGame(B.buildCourse("provingRun"),
+              benchGame(B.buildCourse("exchangeRun"),
                 [{ c: c0, r: r0, face: d }, { c: past.c, r: past.r, face: B.opposite(d) }]);
               var blockedShots = collectShots(computeLaserHits()).filter(function (s) {
                 return s.c === c0 && s.r === r0;
@@ -3821,7 +3828,7 @@
     } },
 
     { name: "you get the colour you picked, and no bay until you draft one", run: function () {
-      newGame(7, { course: "provingRun", players: 4, humans: 1, livery: 5 });
+      newGame(7, { course: "exchangeRun", players: 4, humans: 1, livery: 5 });
       var me = G.players[0];
       assert(me.livery === 5, "seat 0 wears the chosen livery, wears " + me.livery);
       assert(me.name === LIVERIES[5].name, "and is named for it, is " + me.name);
@@ -3834,7 +3841,7 @@
     } },
 
     { name: "the draft seats everyone, once each, on a real bay", run: function () {
-      newGame(11, { course: "provingRun", players: 8, humans: 0 });
+      newGame(11, { course: "exchangeRun", players: 8, humans: 0 });
       runDraft();
       var C = UI.course, seen = {}, i;
       for (i = 0; i < G.players.length; i++) {
@@ -3852,7 +3859,7 @@
     } },
 
     { name: "the fastest priority drafts first", run: function () {
-      newGame(23, { course: "provingRun", players: 6, humans: 0 });
+      newGame(23, { course: "exchangeRun", players: 6, humans: 0 });
       advance();                                   // stops on the colour pick
       /* Answered the way the screen answers it, keeping what seat 0
          was dealt -- the draw is what this test is about, and the
@@ -3869,7 +3876,7 @@
       /* Two seats at the keyboard: the privilege puts BOTH ahead of
          the bots, and leaves their order relative to each other as the
          draw made it. Jumping each other would be a different rule. */
-      newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 1 });
+      newGame(31, { course: "exchangeRun", players: 6, humans: 2, humanPrivilege: 1 });
       advance();
       onLiveryPick(G.players[0].livery);           // two seats, two colours to settle
       onLiveryPick(G.players[1].livery);
@@ -3880,7 +3887,7 @@
       assert(pa > pb, "and between themselves the draw still decides, " + pa + " then " + pb);
 
       /* Off, the same seed puts them wherever the cards did. */
-      newGame(31, { course: "provingRun", players: 6, humans: 2, humanPrivilege: 0 });
+      newGame(31, { course: "exchangeRun", players: 6, humans: 2, humanPrivilege: 0 });
       advance();
       onLiveryPick(G.players[0].livery);
       onLiveryPick(G.players[1].livery);
@@ -3897,7 +3904,7 @@
          every choice rather than spot-checked, because the failure only
          shows for the picks that collide with a default. */
       for (var liv = 0; liv < LIVERIES.length; liv++) {
-        newGame(3, { course: "provingRun", players: 8, humans: 0, livery: liv });
+        newGame(3, { course: "exchangeRun", players: 8, humans: 0, livery: liv });
         runDraft();
         var seenL = {}, seenB = {}, i;
         for (i = 0; i < G.players.length; i++) {
@@ -4233,7 +4240,7 @@
       var offered = 0;
       for (var cid in B.COURSES) if (cid.charAt(0) !== "_" && courseAllowed(cid, "modern")) offered++;
       assert(offered === 0, "an unbuilt ruleset must offer no course, it offered " + offered);
-      assert(!courseAllowed("provingRun", "modern"),
+      assert(!courseAllowed("exchangeRun", "modern"),
         "and must refuse a course even if that course's squares would suit it");
     } },
 
@@ -5193,33 +5200,52 @@
       /* Every printed course uses rotated boards, so this is not an
          abstract property -- get it wrong and a transcribed board is
          correct while the course built from it is not. */
-      var g = B.parsePic("shuntYard", B.BOARD_SPECS.shuntYard);
+      var g = B.parsePic("maelstrom", B.BOARD_SPECS.maelstrom);
       var t = B.rotateGrid(g, 1);
       assert(t.w === g.h && t.h === g.w, "dimensions should swap on an odd quarter turn");
 
-      // (2,2) is an east-running express; a turn clockwise sends it south.
-      assert(B.codeAt(g, 2, 2) === "B>", "test fixture moved: (2,2) should be an east express");
-      assert(B.codeAt(t, 9, 2) === "Bv", "rotated express should run south at (9,2), found " + B.codeAt(t, 9, 2));
+      /* DERIVED, NOT MEMORISED. This used to name specific squares on
+         a specific board, so it broke the moment that board went and
+         told you nothing about rotation when it did. A clockwise turn
+         sends (c,r) to (h-1-r, c) and turns every facing a quarter, so
+         that is what is asserted -- over EVERY belt, laser and pusher
+         on the board rather than over one of each. */
+      var turn = function (c, r) { return { c: g.h - 1 - r, r: c }; };
+      var c2, r2, n = 0;
+      for (r2 = 0; r2 < g.h; r2++) for (c2 = 0; c2 < g.w; c2++) {
+        var code = B.codeAt(g, c2, r2);
+        if (!B.beltSpeed(code)) continue;
+        var at = turn(c2, r2), want = code.charAt(0) + B.DIR_CHARS.charAt(B.rot(B.dirOf(code), 1));
+        assert(B.codeAt(t, at.c, at.r) === want,
+          "belt (" + c2 + "," + r2 + ") " + code + " should turn to " + want + " at (" +
+          at.c + "," + at.r + "), found " + B.codeAt(t, at.c, at.r));
+        n++;
+      }
+      assert(n > 20, "only " + n + " belts swept, so this proves little");
 
-      // The west-facing laser on the east edge becomes a north-facing one on the south edge.
-      var L = null;
-      for (var i = 0; i < t.lasers.length; i++) if (t.lasers[i].c === 5 && t.lasers[i].r === 11) L = t.lasers[i];
-      assert(L, "the laser from (11,6) should land at (5,11) after a clockwise turn");
-      assert(L.d === N, "and should face north, faces " + L.d);
-      assert(B.wallAt(t, 5, 11, B.opposite(N)), "and must still have a wall behind it to mount on");
-
-      /* Pushers are the third wall-mounted layer, and the one nothing
-         else would catch: every shipped course happens to use rot 0,
-         so a rotation that dropped them would play correctly on every
-         board we have and wrongly on the first one that turns. */
-      assert(g.pushers.length === 4, "test fixture moved: shuntYard should have four pushers");
-      assert(t.pushers.length === 4, "a quarter turn lost " + (4 - t.pushers.length) + " pusher(s)");
-      var U = null;
-      for (var u = 0; u < t.pushers.length; u++) if (t.pushers[u].c === 11 && t.pushers[u].r === 0) U = t.pushers[u];
-      assert(U, "the east-pushing ram at (0,0) should land at (11,0) after a clockwise turn");
-      assert(U.d === S, "and should push south, pushes " + U.d);
-      assert(U.regs.join("") === "135", "carrying its own registers, got " + U.regs.join(""));
-      assert(B.wallAt(t, 11, 0, B.opposite(S)), "and must still have a wall behind it to mount on");
+      /* The wall-mounted layers, which are the ones nothing else would
+         catch: every shipped course happens to use rot 0 for most of
+         its boards, so a rotation that dropped them would play
+         correctly nearly everywhere and wrongly on the first turn. */
+      var layer, li, k2;
+      var layers = [["laser", g.lasers, t.lasers], ["pusher", g.pushers, t.pushers]];
+      for (li = 0; li < layers.length; li++) {
+        var what = layers[li][0], from = layers[li][1], to = layers[li][2];
+        assert(from.length, "test fixture moved: this board carries no " + what + "s");
+        assert(to.length === from.length,
+          "a quarter turn lost " + (from.length - to.length) + " " + what + "(s)");
+        for (k2 = 0; k2 < from.length; k2++) {
+          var m0 = from[k2], at2 = turn(m0.c, m0.r), got = null;
+          for (var q = 0; q < to.length; q++) if (to[q].c === at2.c && to[q].r === at2.r) got = to[q];
+          assert(got, what + " from (" + m0.c + "," + m0.r + ") should land at (" +
+            at2.c + "," + at2.r + ")");
+          assert(got.d === B.rot(m0.d, 1), "and should turn a quarter with it");
+          if (m0.regs) assert(got.regs.join("") === m0.regs.join(""), "carrying its own registers");
+          if (m0.n !== undefined) assert(got.n === m0.n, "carrying its own damage");
+          assert(B.wallAt(t, at2.c, at2.r, B.opposite(got.d)),
+            "and must still have a wall behind it to mount on");
+        }
+      }
 
       /* Four turns is identity, which is the property that actually
          matters: a course may rotate a board by any quarter. */
@@ -5229,8 +5255,12 @@
     } },
 
     { name: "two boards assemble side by side without disturbing each other", run: function () {
-      var C = B.buildCourse("crossTown");
-      var g = B.parsePic("shuntYard", B.BOARD_SPECS.shuntYard);
+      var C = B.buildCourse("bigCross");
+      /* The right-hand board comes in upside down on this course, so it
+         is compared against itself TURNED -- which is a better test
+         than the pair of un-turned boards this replaced, because the
+         stamp and the rotation now have to agree. */
+      var g = B.rotateGrid(B.parsePic("pitMaze", B.BOARD_SPECS.pitMaze), 2);
       assert(C.w === 24, "two 12-wide boards make a 24-wide course, got " + C.w);
       // The right-hand board's contents should appear offset by 12, unchanged.
       for (var r = 0; r < 12; r++) {
@@ -5240,7 +5270,7 @@
         }
       }
       // And the left-hand board is still itself.
-      var p = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+      var p = B.parsePic("cross", B.BOARD_SPECS.cross);
       assert(B.codeAt(C, 1, 0) === B.codeAt(p, 1, 0), "the left board was disturbed by the stamp");
 
       /* The sparse layers have to be stamped too, and they are the half
@@ -5262,7 +5292,7 @@
       /* A wall is one lattice slot, so a wall on the east edge of the
          left board and the west edge of the right board are the same
          slot. Stamping must not end up with them disagreeing. */
-      var C = B.buildCourse("crossTown");
+      var C = B.buildCourse("bigCross");
       for (var r = 0; r < C.h; r++) {
         if (B.isVoid(C, 11, r) || B.isVoid(C, 12, r)) continue;
         assert(B.wallAt(C, 11, r, E) === B.wallAt(C, 12, r, W),
@@ -5296,7 +5326,7 @@
       /* The editor's entire value is that its output can be pasted back
          without correction. If parse -> format -> parse is not a fixed
          point, a transcription quietly changes every time it is opened. */
-      var id = "provingGround", spec = B.BOARD_SPECS[id];
+      var id = "exchange", spec = B.BOARD_SPECS[id];
       var g = B.parsePic(id, spec);
       var pic = B.gridToPic(g);
       assert(JSON.stringify(pic) === JSON.stringify(spec.pic),
@@ -5309,12 +5339,21 @@
            cells: the picture round-tripped perfectly and the rams
            vanished, which is the silent half of the failure. */
         pushers: g.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+        burners: g.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
         timers: g.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; })
       });
       /* Same metadata to both: the board DATA is what has to be a fixed
          point, and a re-parse of a bare picture legitimately carries no
-         name or notes of its own. */
-      var meta = { name: spec.name, origin: spec.origin, notes: spec.notes };
+         name, notes, edition or box of its own.
+
+         EDITION AND SET ARE IN HERE NOW, and their absence was a
+         vacuous pass waiting to happen: this test used to run on a
+         board whose set was "authored", which is also what a bare
+         re-parse defaults to, so the two agreed by luck rather than
+         because anything carried them. Pointing it at a base-game
+         board is what surfaced that. */
+      var meta = { name: spec.name, origin: spec.origin, notes: spec.notes,
+                   edition: spec.edition, set: spec.set, unverified: spec.unverified };
       assert(B.formatBoard(id, again, meta) === B.formatBoard(id, g, meta),
         "a second trip through the editor changed the board");
     } },
@@ -5323,7 +5362,7 @@
       /* A wall lives in one lattice slot, so emitting and re-reading it
          must not duplicate or drop it -- the failure a per-tile wall
          list invites, and the reason the format is a picture. */
-      var g = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+      var g = B.parsePic("exchange", B.BOARD_SPECS.exchange);
       var again = B.parsePic("x", { w: g.w, h: g.h, pic: B.gridToPic(g), lasers: [] });
       var walls = 0, c, r, d;
       for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) for (d = 0; d < 4; d++) {
@@ -5600,6 +5639,35 @@
       assert(art["pr-rail"] && art["pr-turn"] && art["pr-cshaft"] && art["pr-wall"],
         "the sweep found no board art, so this proves nothing: " +
         Object.keys(art).slice(0, 8).join(" "));
+
+      /* AND IT SWEEPS THE WHOLE SET. This used to run over a single
+         authored board that carried one of every element -- so the
+         coverage was a property of a board nobody played, and it went
+         when that board did. Every element in the legend has to be
+         printed somewhere for the sweep to have seen its art. */
+      var used = {}, bid, c2, r2;
+      for (bid in B.BOARD_SPECS) {
+        var bg = B.parsePic(bid, B.BOARD_SPECS[bid]);
+        for (r2 = 0; r2 < bg.h; r2++) for (c2 = 0; c2 < bg.w; c2++) {
+          var cd = B.codeAt(bg, c2, r2);
+          if (cd) used[cd.charAt(0)] = 1;
+        }
+      }
+      var missing = [];
+      for (var ek in B.ELEMENT_DEFS) if (!used[ek]) missing.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
+      assert(!missing.length,
+        "no board prints " + missing.join(", ") + ", so the sweep never sees that art");
+
+      /* And the sweep really does reach ALL of them, not just the first
+         one it finds. Oil and portals are printed on exactly one board
+         and docking bays on exactly one other, so their art can only be
+         in here if the sweep went past the board it starts on -- which
+         is the difference between the claim and a sweep that narrowed
+         back to one board and said nothing. */
+      assert(art["pr-oil"] && art["pr-portal"],
+        "the sweep never reached the only board that prints oil and portals");
+      assert(art["pr-t-dock"] || art["pr-dock"] || art["pr-bay"],
+        "the sweep never reached the docking bay, the only board that prints one");
     } },
 
     { name: "the right-click menu offers the same three things", run: function () {
@@ -5718,7 +5786,7 @@
          opened half-broken. */
       assert(!migrateLayout({ cols: 4, rows: 1, dockCol: 0,
         cells: [{ id: "island", rot: 0 }, { id: "cross", rot: 0 },
-                { id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 }] }),
+                { id: "pitMaze", rot: 0 }, { id: "boardG", rot: 0 }] }),
         "a four-wide grid was carried into a model three wide");
       assert(!migrateLayout(null), "nothing at all came across as something");
       assert(!migrateLayout({ v: 3, dockCol: 0,
@@ -6445,7 +6513,7 @@
          screens before there was a board to see it on. It is the first
          thing the game itself asks now, and the bays follow straight
          after -- pick a robot, draw for position, take a bay. */
-      newGame(23, { course: "provingRun", players: 6 });
+      newGame(23, { course: "exchangeRun", players: 6 });
       assert(G.phase === "draft" && G.step === "livery",
         "a new game opens at " + G.phase + "." + G.step + " rather than at the colours");
       advance();
@@ -6475,7 +6543,7 @@
 
       /* TWO SEATS, TWO PICKS, in seat order -- and the second may not
          take what the first chose. */
-      newGame(23, { course: "provingRun", players: 6, humans: 2 });
+      newGame(23, { course: "exchangeRun", players: 6, humans: 2 });
       advance();
       assert(G.actor === 0, "with two seats the first to be asked is " + G.actor);
       onLiveryPick(1);
@@ -6491,7 +6559,7 @@
          straight through, which is what the sim relies on. */
       var wasAuto = UI.autoHuman;
       UI.autoHuman = true;
-      newGame(23, { course: "provingRun", players: 4 });
+      newGame(23, { course: "exchangeRun", players: 4 });
       assert(!nextLiveryPicker(), "a table of bots was still going to be asked");
       advance();
       assert(G.phase !== "draft" || G.step !== "livery", "a table of bots stopped at the colour pick");
@@ -6775,7 +6843,19 @@
              board is not. */
         }
       }
-      assert(quick >= 9 && track >= 3, "the menu offers " + quick + " quick games and " + track + " tracks");
+      /* Counted from the boards rather than pinned to a number: boards
+         come and go -- two authored ones were taken out -- and a
+         hard-coded count turns that into a failing test rather than
+         into the fact that there is one quick game per board, which is
+         the thing actually being claimed. */
+      var playable = 0;
+      for (var pid in B.BOARD_SPECS) {
+        var psp = B.BOARD_SPECS[pid];
+        if (psp.w === 12 && psp.h === 12 && !psp.unverified) playable++;
+      }
+      assert(quick === playable,
+        "the menu offers " + quick + " quick games for " + playable + " playable boards");
+      assert(track >= 3, "the menu offers only " + track + " race tracks");
 
       /* EVERY PLAYABLE BOARD HAS A QUICK GAME. A board nobody can
          reach without laying out a course by hand is a board that
@@ -6814,7 +6894,7 @@
            all -- with one board down there is nowhere else to put it
            and this swept markup that did not contain the bug. */
         UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null,
-          { id: "provingGround", rot: 0 }, { id: "island", rot: 0 }, { id: "cross", rot: 0 }] };
+          { id: "exchange", rot: 0 }, { id: "island", rot: 0 }, { id: "cross", rot: 0 }] };
         var html = layoutStage();
         assert(html.indexOf("pr-lay-dockslot") >= 0,
           "the sweep found no start-here buttons, so it proves nothing about them");
@@ -7059,7 +7139,7 @@
          snapshot and the restore are what have to be right, and both
          are the editor's own serialisation. */
       var keep = ED;
-      ED = edState(B.parsePic("provingGround", B.BOARD_SPECS.provingGround), "provingGround");
+      ED = edState(B.parsePic("exchange", B.BOARD_SPECS.exchange), "exchange");
       ED.grid.flags = [];
       var was = edSnapshot();
 
@@ -7383,8 +7463,8 @@
          layout of exactly that IS Proving Run, so its default flags
          are the ones it ships with rather than whatever the automatic
          placement would invent. */
-      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null] };
-      var got = B.defaultFlagsFor(L), want = B.COURSES.provingRun.flags;
+      var L = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "exchange", rot: 0 }, null, null] };
+      var got = B.defaultFlagsFor(L), want = B.COURSES.exchangeRun.flags;
       assert(got, "the layout matched no shipped course");
       assert(JSON.stringify(got) === JSON.stringify(want),
         "got " + JSON.stringify(got) + ", the course ships " + JSON.stringify(want));
@@ -7397,7 +7477,7 @@
     } },
 
     { name: "a flag may only sit on plain floor outside the dock", run: function () {
-      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "provingGround", rot: 0 }, null, null], flags: [] }, 0);
+      var spec = B.composeCourse({ v: 3, dockCol: 0, cells: [null, null, null, null, null, null, { id: "exchange", rot: 0 }, null, null], flags: [] }, 0);
       var C = B.buildCourse(spec), box = B.dockBoxOf(spec);
       var cand = B.flagCandidates(C, box), i;
       assert(cand.length > 10, "no square on this course can hold a flag");
@@ -9601,7 +9681,7 @@
   function chosenCourse(base) {
     if (base && base.course) return base.course;
     if (houseRules && B.COURSES[houseRules.course]) return houseRules.course;
-    return "provingRun";
+    return "exchangeRun";
   }
 
   /* A composed course is not in COURSES, so the usual "did the course
@@ -10224,7 +10304,7 @@
   function defaultRules() {
     var out = {};
     for (var k in SLIDER_DEFS) out[k] = SLIDER_DEFS[k].def;
-    out.course = "provingRun";          // a choice, not a range
+    out.course = "exchangeRun";          // a choice, not a range
     out.ruleset = "classic";            // likewise
     /* YOUR robot: which livery it wears and which bay it launches from.
        Both are indices into things the course decides, so they are
@@ -10261,7 +10341,7 @@
   function resolveConfig(h) {
     var players = clampRule("players", h.players);
     return {
-      course: B.COURSES[h.course] ? h.course : "provingRun",
+      course: B.COURSES[h.course] ? h.course : "exchangeRun",
       ruleset: rulesetOf(h),
       players: players,
       humans: Math.min(players, clampRule("humans", h.humans)),
@@ -10630,7 +10710,7 @@
     for (var i = 0; i < B.LAY_BOARDS; i++) cells.push(null);
     /* Bottom-left, with the block under it: the corner every course
        built here grows out of. */
-    cells[(B.LAY_ROWS - 1) * B.LAY_COLS] = { id: "provingGround", rot: 0 };
+    cells[(B.LAY_ROWS - 1) * B.LAY_COLS] = { id: "exchange", rot: 0 };
     return { v: 3, cells: cells, dockCol: 0 };
   }
 
