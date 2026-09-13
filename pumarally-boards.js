@@ -128,7 +128,14 @@
        portal is a transcription error that would otherwise render and
        play as a square that swallows robots. */
     "t": { name: "portal", arg: "pair", portal: true, editions: ["classic"] },
-    "X": { name: "press", arg: "none", crush: true, editions: ["classic"] },
+    /* Presses are NOT here either, and Cannery Row is the board that
+       proves it. Every press on it is printed ON A CONVEYOR -- the
+       roller beds run straight through under the disc and the belt's
+       own arrow shows across it -- so the square is a belt AND a
+       press, which no single cell could ever say. They live in
+       `timers`, beside the picture, with the registers each is active
+       in. The same argument as the pushers above, reached the same
+       way: by a board that could not be written down. */
     /* Burners are NOT here either, and for the pushers' reason twice over.
        A flame jet is bolted to a wall and plays over the floor in front of
        it, so the square it scorches is not the jet -- and board G has one
@@ -220,7 +227,6 @@
        W.  upgrade (2 damage OR an option card -- the player chooses)
        L.  oil slick                        (Crash and Burn)
        t1  portal, colour 1 (exactly two)   (Crash and Burn)
-       X.  press   -- registers listed in `timers` (Crash and Burn)
        s3  docking bay position 3
 
      Wall characters: '|' vertical, '--' horizontal, '+' corner.
@@ -431,28 +437,19 @@
     var timed = {}, ti;
     for (ti = 0; ti < (spec.timers || []).length; ti++) {
       var T = spec.timers[ti];
-      var tcode = (inGrid(g, T.c, T.r) && g.cell[T.r * w + T.c]) || "";
-      var tdef = ELEMENT_DEFS[tcode.charAt(0)];
-      if (!tdef || !tdef.crush) {
-        E_("timer at (" + T.c + "," + T.r + ") is not on a press");
+      if (!inGrid(g, T.c, T.r) || !g.cell[T.r * w + T.c]) {
+        E_("press at (" + T.c + "," + T.r + ") is off the board");
       }
-      if (!T.regs || !T.regs.length) E_("timer at (" + T.c + "," + T.r + ") lists no registers");
+      if (isPit(g.cell[T.r * w + T.c])) E_("press at (" + T.c + "," + T.r + ") is over a pit");
+      if (!T.regs || !T.regs.length) E_("press at (" + T.c + "," + T.r + ") lists no registers");
       for (var ri = 0; ri < T.regs.length; ri++) {
         if (!(T.regs[ri] >= 1 && T.regs[ri] <= 5)) {
-          E_("timer at (" + T.c + "," + T.r + ") lists register " + T.regs[ri] + "; registers run 1-5");
+          E_("press at (" + T.c + "," + T.r + ") lists register " + T.regs[ri] + "; registers run 1-5");
         }
       }
-      if (timed[T.c + "," + T.r]) E_("two timers at (" + T.c + "," + T.r + ")");
+      if (timed[T.c + "," + T.r]) E_("two presses at (" + T.c + "," + T.r + ")");
       timed[T.c + "," + T.r] = 1;
       g.timers.push({ c: T.c, r: T.r, regs: T.regs.slice().sort() });
-    }
-    for (var tr = 0; tr < h; tr++) {
-      for (var tc = 0; tc < w; tc++) {
-        var cd2 = g.cell[tr * w + tc] || "", d2 = ELEMENT_DEFS[cd2.charAt(0)];
-        if (d2 && d2.crush && !timed[tc + "," + tr]) {
-          E_("(" + tc + "," + tr + ") is a " + d2.name + " with no registers; every one is printed with a set");
-        }
-      }
     }
 
     for (var i = 0; i < (spec.lasers || []).length; i++) {
@@ -500,6 +497,9 @@
     g.set = set;
     g.origin = spec.origin || "authored";
     g.notes = spec.notes || "";
+    /* Carried onto the grid so the exporter and the menus both see it
+       without reaching back for the spec. */
+    if (spec.unverified) g.unverified = true;
     return g;
   }
 
@@ -552,6 +552,10 @@
     var set = meta.set || g.set || "authored";
     out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h +
              ', edition: "' + edition + '", set: "' + set + '", origin: "' + origin + '",');
+    /* A board still being checked against its photograph says so in its
+       own data, and the exporter has to carry that across or the round
+       trip drops the one field that keeps it out of a race. */
+    if (meta.unverified !== undefined ? meta.unverified : g.unverified) out.push("      unverified: true,");
     if (notes) out.push('      notes: "' + notes + '",');
     out.push("      pic: [");
     for (i = 0; i < pic.length; i++) out.push('        "' + pic[i] + '"' + (i === pic.length - 1 ? "" : ","));
@@ -1397,6 +1401,94 @@
         { c: 4, r: 9, d: "E", regs: [1, 5] },
         { c: 4, r: 10, d: "W", regs: [2, 4] },
         { c: 0, r: 11, d: "N", regs: [2, 5] }
+      ]
+    },
+
+    /* CANNERY ROW -- FIRST PASS, NOT YET VERIFIED.
+
+       Transcribed from IMG_1169, rectified with the corners recorded in
+       maps/MANIFEST.md. The cells are read by eye off the rectified
+       photograph; the walls are wallscan.py at its calibrated cut; the
+       presses are the numbered discs, which is what this board was
+       blocked on for so long -- they are PRESSES, identified from the
+       Crash and Burn factory-floor reference, active in the registers
+       printed on them.
+
+       EVERY PRESS HERE STANDS ON A CONVEYOR, which is why presses
+       stopped being cell elements: the roller beds run straight under
+       the disc and the belt's own arrow shows across it.
+
+       The seven lasers are from laserscan.py, which finds beams by
+       their colour -- red is the one colour nothing else on a classic
+       board uses -- and every mount's wall was confirmed against the
+       wall scan independently.
+
+       WHAT IS NOT IN HERE YET, and is known to be missing rather than
+       absent from the board: the WALL-MOUNTED PUSHERS, along row 5 and
+       around (8,9) and (5,10). They are plainly on the photograph and
+       their register sets are not read carefully enough to write down.
+       Held to a second pass rather than guessed.
+
+       Express against normal conveyor is read from the roller colour --
+       silver for express, copper for normal -- and is the likeliest
+       thing to be wrong on this pass. */
+    /* `unverified` is load-bearing: it keeps this board out of the course
+       assembler and out of the quick games, so nobody can race a map that
+       has not been checked against the photograph. It opens in the
+       workshop, which is where checking it happens. Drop the marker when
+       the second pass lands. */
+    canneryRow: {
+      name: "Cannery Row", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
+      unverified: true,
+      notes: "First pass. Lasers scanned; wall-mounted pushers not yet read.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " B> B> B> B> bv b< o. .. .. .. ..|Bv ",
+        "+  +  +--+  +  +  +  +  +  +--+  +  +",
+        " .. .. .. .. bv b< b< .. .. ..|w. Bv ",
+        "+  +--+  +  +  +  +  +  +  +  +  +  +",
+        "|.. ..|..|.. bv o. b^ ..|..|.. .. Bv|",
+        "+  +  +  +  +  +--+  +  +  +--+  +  +",
+        " ..|.. .. ..|bv .. b^ .. .. .. .. Bv ",
+        "+  +  +--+  +  +--+  +  +--+  +--+  +",
+        "|.. .. .. .. bv b> b^ .. .. .. ..|Bv|",
+        "+  +--+  +--+  +  +  +  +--+--+  +  +",
+        " .. .. .. W. bv b< b^ B< B< B< B< B< ",
+        "+  +  +--+  +  +  +  +  +  +  +  +  +",
+        " B> B> B> B> bv b> b^ .. B> Bv .. b> ",
+        "+  +  +--+--+  +  +  +  +  +  +  +  +",
+        "|B^|.. .. .. bv b< b^ .. .. Bv .. b^|",
+        "+  +  +--+  +  +  +  +  +  +  +--+  +",
+        " B^ .. ..|..|bv W. b^ .. .. o. .. b^ ",
+        "+  +  +  +  +  +  +  +--+  +  +  +  +",
+        "|B^ ..|.. .. bv .. b^ ..|.. .. ..|b^|",
+        "+  +  +  +--+  +  +  +  +  +--+  +  +",
+        " B^ w. .. ..|bv|.. b^ .. .. W.|.. b^ ",
+        "+  +  +--+  +  +  +  +  +--+  +--+  +",
+        " B^ .. .. .. b> b> b^ B< B< B< B< B< ",
+        "+  +  +--+  +  +  +  +--+--+--+  +  +"
+      ],
+      lasers: [
+        { c: 9, r: 0, d: "N", n: 3 },
+        { c: 2, r: 2, d: "W", n: 2 },
+        { c: 8, r: 2, d: "W", n: 1 },
+        { c: 5, r: 3, d: "N", n: 1 },
+        { c: 9, r: 3, d: "S", n: 1 },
+        { c: 2, r: 4, d: "S", n: 1 },
+        { c: 1, r: 5, d: "S", n: 1 }
+      ]
+      ,
+      timers: [
+        { c: 4, r: 1, regs: [1, 5] },
+        { c: 4, r: 3, regs: [2, 4] },
+        { c: 4, r: 5, regs: [3] },
+        { c: 4, r: 7, regs: [2, 4] },
+        { c: 4, r: 9, regs: [1, 5] },
+        { c: 6, r: 2, regs: [1, 5] },
+        { c: 6, r: 4, regs: [2, 4] },
+        { c: 6, r: 6, regs: [3] },
+        { c: 6, r: 8, regs: [2, 4] },
+        { c: 6, r: 10, regs: [1, 5] }
       ]
     },
 
