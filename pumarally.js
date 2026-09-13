@@ -706,7 +706,6 @@
     else if (def.repair) out.push(repairSvg(false));
     else if (def.oil) out.push(oilSvg());
     else if (def.portal) out.push(portalSvg(code.charAt(1)));
-    else if (def.crush) out.push(pressSvg());
     else if (code.charAt(0) === "o") out.push(pitSvg());
     else if (code.charAt(0) === "s") out.push(dockSvg(code.charAt(1)));
 
@@ -727,9 +726,13 @@
       out.push(pusherSvg(pu.d, true));
       out.push('<span class="pr-pushreg">' + esc(pu.regs.join("")) + "</span>");
     }
-    if (def.crush) {
-      var t = B.timerAt(C, c, r);
-      out.push('<span class="pr-pushreg">' + esc(t ? t.regs.join("") : "?") + "</span>");
+    /* A press is drawn from the board's list, over the tile, for the
+       reason pushers are: on Cannery Row every one of them stands on a
+       conveyor. */
+    var pr = B.timerAt(C, c, r);
+    if (pr) {
+      out.push(pressSvg());
+      out.push('<span class="pr-pushreg">' + esc(pr.regs.join("")) + "</span>");
     }
 
     for (var fi = 0; fi < C.flags.length; fi++) {
@@ -1878,8 +1881,6 @@
     var C = UI.course, alive = live();
     for (var i = 0; i < alive.length; i++) {
       var p = alive[i];
-      var pel = B.elemOf(B.codeAt(C, p.c, p.r));
-      if (!pel || !pel.crush) continue;
       if (!B.activeNow(C, p.c, p.r, G.register)) continue;
       log(p.name + " is crushed by a press");
       destroy(p, "under a press");
@@ -4413,13 +4414,41 @@
     } },
 
     // ---- Crash and Burn: presses and burners -------------------------
-    { name: "a timer and its square cannot drift apart", run: function () {
-      var noSet = false, orphan = false;
-      try { bench([["X."]]); } catch (e) { noSet = /no registers/.test(e.message); }
-      assert(noSet, "a press with no timer entry must be refused");
-      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
-      catch (e) { orphan = /not on a press/.test(e.message); }
-      assert(orphan, "a timer pointing at plain floor must be refused");
+    { name: "a press is a thing ON a square, and knows which squares it may not be on", run: function () {
+      /* A PRESS IS NOT A CELL. Cannery Row is the board that settled
+         it: every press on it is printed ON A CONVEYOR -- the roller
+         beds run under the disc and the belt's arrow shows across it
+         -- so the square is a belt AND a press, which no single cell
+         could say. It lives in `timers` beside the picture now, the
+         way pushers and burners always have.
+
+         What is left to refuse is a press that is nowhere, on a hole,
+         or that never fires. Plain floor is FINE -- that is most of
+         them on the other boards. */
+      var off = false, pit = false, noSet = false, twice = false, bad = false;
+      try { bench([[".."]], [], [], [{ c: 3, r: 0, regs: [1] }]); }
+      catch (e) { off = /off the board/.test(e.message); }
+      assert(off, "a press outside the grid must be refused");
+      try { bench([["o."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
+      catch (e) { pit = /over a pit/.test(e.message); }
+      assert(pit, "a press over a pit must be refused -- there is no floor to flatten anything against");
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [] }]); }
+      catch (e) { noSet = /lists no registers/.test(e.message); }
+      assert(noSet, "a press that never fires must be refused");
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [7] }]); }
+      catch (e) { bad = /registers run 1-5/.test(e.message); }
+      assert(bad, "a press firing in register 7 must be refused");
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1] }, { c: 0, r: 0, regs: [2] }]); }
+      catch (e) { twice = /two presses/.test(e.message); }
+      assert(twice, "two presses on one square must be refused");
+      /* And the case the whole change exists for: a press on a belt. */
+      var g = bench([["b>"]], [], [], [{ c: 0, r: 0, regs: [1, 5] }]);
+      assert(B.timerAt(g, 0, 0), "a press on a conveyor was not kept");
+      assert(B.beltSpeed(B.codeAt(g, 0, 0)) === 1, "the conveyor under the press was lost");
+      var art = tileInner(g, 0, 0) + tileClasses(g, 0, 0).join(" ");
+      assert(art.indexOf("pr-t-belt") >= 0, "the belt under the press is not drawn");
+      assert(art.indexOf("pr-press") >= 0 || /pressSvg|pr-art/.test(art), "the press over the belt is not drawn");
+      assert(/>15</.test(art), "the press on a belt does not print its registers");
     } },
 
     { name: "a pusher can fire on an arbitrary set of registers", run: function () {
@@ -4478,7 +4507,7 @@
     } },
 
     { name: "a press flattens what stands on it, but only in its registers", run: function () {
-      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [3] }]), [{ c: 0, r: 0 }]);
+      benchGame(bench([[".."]], [], [], [{ c: 0, r: 0, regs: [3] }]), [{ c: 0, r: 0 }]);
       var p = G.players[0];
       G.register = 0;  pressPass();
       assert(p.alive, "register 1 is not register 3 -- it should still be standing");
@@ -4487,7 +4516,7 @@
     } },
 
     { name: "a press fires on every register it lists, and no others", run: function () {
-      benchGame(bench([["X."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 4] }]), [{ c: 0, r: 0 }]);
+      benchGame(bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 4] }]), [{ c: 0, r: 0 }]);
       var p = G.players[0];
       G.register = 2;  pressPass();
       assert(p.alive, "register 3 is not in {1,2,4}");
@@ -6754,6 +6783,14 @@
       for (var bid in B.BOARD_SPECS) {
         var sp = B.BOARD_SPECS[bid];
         if (sp.w !== 12 || sp.h !== 12) continue;              // the block is not a board to race
+        /* A board still being transcribed is deliberately unreachable:
+           a quick game on a map nobody has checked is a race on a
+           plausible-looking wrong board, which is the one failure this
+           project cannot survive. */
+        if (sp.unverified) {
+          assert(!byBoard[bid], bid + " is unverified and is being offered as a game anyway");
+          continue;
+        }
         assert(byBoard[bid], bid + " has no quick game, so nothing reaches it from the menu");
       }
     } },
@@ -10637,6 +10674,9 @@
     for (var id in B.BOARD_SPECS) {
       var sp = B.BOARD_SPECS[id];
       if (sp.w !== 12 || sp.h !== 12) continue;
+      /* Still being transcribed: it opens in the workshop, where it is
+         checked against the photograph, and nowhere a race can reach. */
+      if (sp.unverified) continue;
       out.push(id);
     }
     return out;
