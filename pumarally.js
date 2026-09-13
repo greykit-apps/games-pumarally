@@ -3180,17 +3180,17 @@
 
     // ---- rulesets and the course menu ---------------------------------
     { name: "a course's rulebooks come from its squares, not from its box", run: function () {
-      /* boardE is printed in a Crash and Burn box, which is a classic
-         product, but that is not WHY it is classic-only. It is
-         classic-only because it carries repair squares, which the 2016
-         rules do not print. The distinction matters the moment a board
-         from a classic box happens to use only shared elements. */
-      var eds = B.playableEditions("boardERun");
-      assert(eds.indexOf("classic") >= 0, "boardE is readable by the classic rules");
+      /* Island is a base-game board, which is a classic product, but
+         that is not WHY it is classic-only. It is classic-only because
+         it carries a repair square, which the 2016 rules do not print.
+         The distinction matters the moment a board from a classic box
+         happens to use only shared elements. */
+      var eds = B.playableEditions("islandRun");
+      assert(eds.indexOf("classic") >= 0, "Island is readable by the classic rules");
       assert(eds.indexOf("modern") < 0, "and not by the modern ones");
-      assert(B.editionBlocker("boardERun", "modern") === "repair site",
+      assert(B.editionBlocker("islandRun", "modern") === "repair site",
         "and the menu must be able to say which square shuts it out, got " +
-        B.editionBlocker("boardERun", "modern"));
+        B.editionBlocker("islandRun", "modern"));
     } },
 
     { name: "an unbuilt ruleset offers nothing and starts nothing", run: function () {
