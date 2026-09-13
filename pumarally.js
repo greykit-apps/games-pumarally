@@ -5744,6 +5744,34 @@
           : ", face down"));
     }
 
+    /* THE REGISTERS ON SCREEN ARE THE REGISTERS IN THE SAVE.
+
+       assertInvariants guards the state and says nothing about the
+       DOM, so a render that leaves a card behind -- or draws one that
+       is not there -- is invisible to every check in the file. That is
+       the shape of the bug reports this row keeps producing: "putting
+       a card in adds one to the next register". Twice now the state
+       has been correct and the complaint has been about what was on
+       screen.
+
+       So the row checks itself, every render, in play as well as in
+       tests. It cannot fix anything -- by the time it runs the damage
+       is done -- but it turns "seems to" into a line in the log naming
+       the register and both cards, which is the difference between a
+       bug that can be chased and one that cannot. */
+    for (i = 0; i < REGISTERS; i++) {
+      var wantC = me ? me.registers[i] : null;
+      var cards = UI.slotEls[i].querySelectorAll(".pr-card");
+      var gotC = cards.length ? cards[0].dataset.card : "";
+      if (cards.length > 1 || gotC !== (wantC === null ? "" : String(wantC))) {
+        log("RENDER BUG: register " + (i + 1) + " holds " +
+            (wantC === null ? "nothing" : "card " + wantC) + " but shows " +
+            (cards.length === 0 ? "nothing"
+             : cards.length > 1 ? cards.length + " cards"
+             : "card " + gotC));
+      }
+    }
+
     /* The deal animation plays for cards that are NEW to the hand, not
        for every card on every render. The hand is rebuilt wholesale,
        so without this the animation restarts each time anything else
