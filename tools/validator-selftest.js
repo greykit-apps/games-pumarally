@@ -15,13 +15,86 @@
 const path = require("path");
 const B = require(path.join(__dirname, "..", "pumarally-boards.js"));
 
+/* THE FIXTURE IS OURS, and lives here rather than in the shipped set.
+
+   Nearly every check below mutates one exact character of a picture --
+   "(1,0) runs east; wall its east edge and it is stranded" -- so it was
+   pinned to a particular board's exact layout while looking like it was
+   pinned to nothing. When that board was removed, half of these went
+   from checking the validator to throwing on undefined, and the two that
+   did not went quietly vacuous instead: the round-trip check next door
+   had been passing for a year only because the board it borrowed and a
+   bare re-parse both defaulted to the same box.
+
+   So the validator's self-test owns its own board. It is authored, from
+   no box, and carries one of everything so that every refusal below has
+   something real to break. Nothing in the shipped set can move it. */
+const FIXTURE = {
+  name: "Proving Ground", w: 12, h: 12, edition: "classic", set: "authored", origin: "authored",
+  notes: "Authored for PumaRally. Every element type appears at least once.",
+  pic: [
+    "+  +  +  +--+  +  +  +  +  +  +  +  +",
+    " .. b> b> b> b> bv .. .. .. o. .. .. ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " .. b^ .. .. .. bv .. l. .. o. .. w. ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " .. b^ .. r. .. bv .. .. .. .. .. .. ",
+    "+  +  +  +  +  +  +  +  +--+  +  +  +",
+    " .. b^ b< b< b< b< .. .. .. .. .. .. ",
+    "+  +  +  +--+  +  +  +  +  +  +  +  +",
+    " .. .. .. .. .. ..|.. .. .. ..|.. W. ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " B> B> B> B> B> B> B> B> B> B> B> Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " .. .. .. .. .. .. bv .. .. .. .. Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " .. .. o. .. .. .. bv b< .. .. .. Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +--+  +",
+    "|.. .. o. o. ..|.. .. .. .. .. ..|Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +--+  +",
+    " .. .. .. o.|.. .. .. .. .. .. .. Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " w. .. .. .. .. .. .. .. .. .. .. Bv ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +",
+    " .. .. .. .. .. .. .. .. .. .. .. .. ",
+    "+  +  +  +  +  +  +  +  +  +  +  +  +"
+  ],
+  lasers: [
+    { c: 3, r: 0, d: "S", n: 1 },
+    { c: 9, r: 4, d: "W", n: 2 },
+    { c: 0, r: 8, d: "E", n: 3 }
+  ]
+  ,
+  pushers: [
+    { c: 8, r: 3, d: "S", regs: [2, 4] },
+    { c: 4, r: 9, d: "E", regs: [1, 3, 5] }
+  ]
+};
+
 const clone = o => JSON.parse(JSON.stringify(o));
+
+/* A square that really is a pit on the course being mutated. Asked of
+   the data rather than remembered: a remembered square stops being a
+   pit the moment the course lays out a different board. */
+function pitOn(courseSpec) {
+  const g = B.buildCourse(courseSpec);
+  for (let r = 0; r < g.h; r++) for (let c = 0; c < g.w; c++) {
+    if (!B.isVoid(g, c, r) && B.isPit(B.codeAt(g, c, r))) return [c, r];
+  }
+  throw new Error("no pit on this course; the flag-in-a-pit check proves nothing");
+}
 let pass = 0;
 const failures = [];
 
 /* Board-level: mutate a copy of the spec, expect parse+validate to throw. */
 function board(label, mutate, want) {
-  const spec = clone(B.BOARD_SPECS.provingGround);
+  const spec = clone(FIXTURE);
+  /* The sparse layers are optional in a spec -- a board with no rams
+     simply omits `pushers` -- and half the checks below mutate one. So
+     the fixture supplies all four rather than depending on whichever
+     board it is built from happening to carry them, which is how this
+     came to be pinned to a board that has since been removed. */
+  for (const k of ["lasers", "pushers", "burners", "timers"]) spec[k] = spec[k] || [];
   mutate(spec);
   let msg = null;
   try {
@@ -32,16 +105,16 @@ function board(label, mutate, want) {
 
 /* Course-level: swap in mutated tables, restore whatever happens. */
 function course(label, mutate, want) {
-  const keepC = clone(B.COURSES.provingRun);
-  const keepB = clone(B.BOARD_SPECS.provingGround);
+  const keepC = clone(B.COURSES.exchangeRun);
+  const keepB = clone(B.BOARD_SPECS.exchange);
   let msg = null;
   try {
-    mutate(B.COURSES.provingRun, B.BOARD_SPECS.provingGround);
-    B.validateCourse("provingRun", () => {});
+    mutate(B.COURSES.exchangeRun, B.BOARD_SPECS.exchange);
+    B.validateCourse("exchangeRun", () => {});
   } catch (e) { msg = e.message; }
   finally {
-    Object.assign(B.COURSES.provingRun, keepC);
-    Object.assign(B.BOARD_SPECS.provingGround, keepB);
+    Object.assign(B.COURSES.exchangeRun, keepC);
+    Object.assign(B.BOARD_SPECS.exchange, keepB);
   }
   record(label, msg, want);
 }
@@ -131,7 +204,7 @@ board("repair site on a modern board",
     // strip the elements the modern edition does not print, so the
     // course check is what fires rather than the element check
     B.BOARD_SPECS.dockingBay.pic = B.BOARD_SPECS.dockingBay.pic.map(r => r.replace(/[wW]\./g, ".."));
-    B.validateCourse("provingRun", () => {});
+    B.validateCourse("exchangeRun", () => {});
   } catch (e) { msg = e.message; }
   finally { Object.assign(B.BOARD_SPECS.dockingBay, keepB); }
   record("mixed-edition course", msg, "a course is one game or the other");
@@ -147,14 +220,34 @@ course("unknown board",   c => { c.boards[0].id = "nope"; },             "which 
 course("no flags",        c => { c.flags = []; },                        "can never be won");
 course("duplicate flags", c => { c.flags = [[9, 2], [9, 2]]; },          "two flags on");
 course("flag off course", c => { c.flags = [[50, 50]]; },                "is off the course");
-course("flag in a pit",   c => { c.flags = [[9, 0]]; },                  "sits in a pit");
+/* (1,9) is a pit on the board this course lays out. Found from the
+   data rather than remembered, because the last remembered square
+   stopped being a pit when the course changed under it. */
+course("flag in a pit",   c => { c.flags = [pitOn(c)]; },                "sits in a pit");
 course("too few bays",    c => { c.maxPlayers = 9; },                    "but seats 9");
 
 // ---- warnings are warnings, not errors -----------------------------------
 {
-  const spec = clone(B.BOARD_SPECS.provingGround);
-  // Make the express run at (0,5) feed the normal belt path instead.
-  spec.pic[11] = spec.pic[11].slice(0, 4) + "b>" + spec.pic[11].slice(6);
+  const spec = clone(B.BOARD_SPECS.exchange);
+  /* Downgrade the square an express belt RUNS INTO, so the one behind
+     it is left feeding a normal belt. Found from the data: the offsets
+     this used to carry were a particular board's, and when the board
+     changed the mutation made two belts meet head-on instead, which
+     the validator refuses outright -- so the check reported the
+     warning machinery broken when nothing was.  */
+  const g0 = B.parsePic("x", spec);
+  let at = null;
+  for (let r = 0; r < g0.h && !at; r++) for (let c = 0; c < g0.w && !at; c++) {
+    const code = B.codeAt(g0, c, r);
+    if (B.beltSpeed(code) !== 2) continue;
+    const nx = B.step(c, r, B.dirOf(code));
+    if (!B.inGrid(g0, nx.c, nx.r)) continue;
+    const nc = B.codeAt(g0, nx.c, nx.r);
+    if (B.beltSpeed(nc) === 2 && B.dirOf(nc) === B.dirOf(code)) at = { c: nx.c, r: nx.r, d: nc.charAt(1) };
+  }
+  if (!at) throw new Error("no express run to downgrade; this check proves nothing");
+  const row = 2 * at.r + 1, col = 3 * at.c + 1;
+  spec.pic[row] = spec.pic[row].slice(0, col) + "b" + at.d + spec.pic[row].slice(col + 2);
   const warns = [];
   try {
     B.validateGrid("test", B.parsePic("test", spec), (id, m) => warns.push(m));
@@ -165,7 +258,7 @@ course("too few bays",    c => { c.maxPlayers = 9; },                    "but se
 
 // ---- rotation round-trips ------------------------------------------------
 {
-  const g = B.parsePic("provingGround", B.BOARD_SPECS.provingGround);
+  const g = B.parsePic("exchange", B.BOARD_SPECS.exchange);
   const four = B.rotateGrid(g, 4);
   const same = g.w === four.w && g.h === four.h &&
     g.cell.every((v, i) => v === four.cell[i]) &&

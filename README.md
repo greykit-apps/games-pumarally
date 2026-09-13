@@ -10,9 +10,10 @@ printed boards remain theirs. Nothing here is scanned — the tiles are original
 drawings and the layouts are hand-transcribed tile data.
 
 > **Status: in development, and playable.** Program five registers and race up
-> to seven robots round the Proving Ground, alone or pass-and-play. The twelve
-> official boards are still to come, and the option deck is 16 of its 26 cards
-> — see [What works today](#what-works-today).
+> to seven robots across seven transcribed factory floors, alone or
+> pass-and-play. Cannery Row is a first pass and not yet raceable, the modern
+> edition is not built, and the option deck is 16 of its 26 cards — see
+> [What works today](#what-works-today).
 
 ## Play
 
@@ -152,8 +153,8 @@ never the very corner, within Northrup's twelve of the flag before it, and no
 two on one square. That check found three real defects when it was first run:
 Board H had a flag standing on a **conveyor**, which is not somewhere to stand
 at all because the belt carries the robot off it at the end of every register,
-and Cross Town had one on a repair site and a third flag sixteen columns from
-the second.
+and a since-removed course had one on a repair site and a third flag sixteen
+columns from the second, outside Northrup's twelve.
 
 The library is `localStorage`, one entry per named course, holding the boards
 and their rotations together with the workshop's picture and its flags. Saving
@@ -247,21 +248,28 @@ Faithfulness is a claim about data, so the data says where it came from.
 
 | Board | Origin | Notes |
 |---|---|---|
-| Proving Ground | **Authored** | Not from any box. Contains one of every element so the engine is exercised end to end. Also the tutorial course. |
-| Shunt Yard | **Authored** | Not from any box either. Exists so that multi-board assembly and rotation are exercised before an official board depends on them. |
+| Exchange, Island, Maelstrom, Pit Maze, Cross | **Transcribed** | The classic base game, read off photographs of the printed boards. |
+| Board G, Board H | **Transcribed** | Crash and Burn. Board E is Island and board F is Maelstrom, both reprints, so neither is transcribed twice. |
+| Cannery Row | **First pass** | Marked `unverified`, which keeps it out of the course assembler and the quick games until it has been checked square by square against the photograph. |
 | Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. To be replaced with a transcription. |
 
-Fourteen courses ship: ten quick games, one per transcribed board plus the
-Shunt Yard turned a quarter over (so `rotateGrid` is exercised by a real course
-and not only by a unit test), and four race tracks — *Cross Town* and
-*Crosscut* at 1×2, *The Long Haul* at 1×3 with the starting block under the
-middle board, and *Four Quarters* at 2×2. The seam between boards and the
-rotation are both under test by a course that is actually played.
+**Two authored boards used to be in here** — a Proving Ground carrying one of
+every element, and a Shunt Yard for exercising assembly and rotation — and both
+are gone. They were scaffolding: written so the engine could be tested before
+any real board existed, and kept long after real boards arrived. What they were
+holding up is held up properly now. The art sweep runs over *every* board
+rather than over one built to contain everything; the rotation test derives its
+own fixtures from whatever board it is given instead of naming squares on a
+particular one; and the validator's self-test owns its fixture outright, in its
+own file, where nothing in the shipped set can move it.
 
-The twelve original boards are transcribed from reference images, one merge
-request each, against a frozen engine. None have landed yet. A board is never
-reconstructed from memory: a plausible-looking wrong map is the one failure a
-game promising faithful layouts cannot survive.
+Ten courses ship: seven quick games, one per verified board, and three race
+tracks — *Crosscut* at 1×2, *The Long Haul* at 1×3 with the starting block
+under the middle board, and *Four Quarters* at 2×2. The seam between boards and
+the rotation are both under test by a course that is actually played.
+
+A board is never reconstructed from memory: a plausible-looking wrong map is
+the one failure a game promising faithful layouts cannot survive.
 
 ## The board format
 

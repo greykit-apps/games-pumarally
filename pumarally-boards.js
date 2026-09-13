@@ -805,123 +805,6 @@
        single official tile is transcribed, and it is correct by
        construction in a way no transcribed board is on day one.
        It doubles as the tutorial course. */
-    provingGround: {
-      name: "Proving Ground", w: 12, h: 12, edition: "classic", set: "authored", origin: "authored",
-      notes: "Authored for PumaRally. Every element type appears at least once.",
-      pic: [
-        "+  +  +  +--+  +  +  +  +  +  +  +  +",
-        " .. b> b> b> b> bv .. .. .. o. .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. b^ .. .. .. bv .. l. .. o. .. w. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. b^ .. r. .. bv .. .. .. .. .. .. ",
-        "+  +  +  +  +  +  +  +  +--+  +  +  +",
-        " .. b^ b< b< b< b< .. .. .. .. .. .. ",
-        "+  +  +  +--+  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. ..|.. .. .. ..|.. W. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " B> B> B> B> B> B> B> B> B> B> B> Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. bv .. .. .. .. Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. o. .. .. .. bv b< .. .. .. Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +--+  +",
-        "|.. .. o. o. ..|.. .. .. .. .. ..|Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +--+  +",
-        " .. .. .. o.|.. .. .. .. .. .. .. Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " w. .. .. .. .. .. .. .. .. .. .. Bv ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. .. .. .. .. .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +"
-      ],
-      lasers: [
-        { c: 3, r: 0, d: "S", n: 1 },
-        { c: 9, r: 4, d: "W", n: 2 },
-        { c: 0, r: 8, d: "E", n: 3 }
-      ]
-      ,
-      pushers: [
-        { c: 8, r: 3, d: "S", regs: [2, 4] },
-        { c: 4, r: 9, d: "E", regs: [1, 3, 5] }
-      ]
-    },
-
-    /* A second authored board, and the reason it exists is coverage
-       rather than content: every official course lays out two to four
-       boards, at least one of them rotated, and until now nothing
-       assembled more than one at rot 0. A seam is where a conveyor
-       runs off one board onto another and where two walls have to
-       agree across the join, and none of that had ever been built.
-
-       Clockwise express loop, gears and repair sites inside it,
-       pushers of both parities in the corners, 1/2/3-damage lasers on
-       three different edges. */
-    shuntYard: {
-      name: "Shunt Yard", w: 12, h: 12, edition: "classic", set: "authored", origin: "authored",
-      notes: "Authored for PumaRally, to exercise multi-board assembly and rotation.",
-      pic: [
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        "|.. .. .. .. .. .. .. .. .. .. .. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. .. .. .. .. .. .. ",
-        "+  +  +  +  +  +  +--+  +  +  +  +  +",
-        " .. .. B> B> B> B> B> B> B> Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ .. .. .. .. .. .. Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ .. o. .. .. .. .. Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. ..|B^ .. .. r. W. .. .. Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ .. .. w. l. .. .. Bv|.. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ .. .. .. .. o. .. Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ .. .. .. .. .. .. Bv .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. B^ B< B< B< B< B< B< B< .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        " .. .. .. .. .. .. .. .. .. .. .. .. ",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +",
-        "|.. .. .. .. .. .. .. .. .. .. .. ..|",
-        "+  +  +  +  +  +  +  +  +  +  +  +  +"
-      ],
-      lasers: [
-        { c: 0, r: 5, d: "E", n: 2 },
-        { c: 11, r: 6, d: "W", n: 1 },
-        { c: 6, r: 0, d: "S", n: 3 }
-      ]
-      ,
-      pushers: [
-        { c: 0, r: 0, d: "E", regs: [1, 3, 5] },
-        { c: 11, r: 0, d: "W", regs: [1, 3, 5] },
-        { c: 0, r: 11, d: "E", regs: [2, 4] },
-        { c: 11, r: 11, d: "W", regs: [2, 4] }
-      ]
-    },
-
-    /* THE FIRST TRANSCRIBED OFFICIAL BOARD, from a photograph of the
-       printed 1994 base-game board.
-
-       Two express spines run north and south through the middle and
-       four conveyor bands cross them, which is the whole board: almost
-       every square is moving, and the only still ground is the pockets
-       the walls make. Five gears -- the two at the top turn clockwise,
-       the three below counter-clockwise. One 1-damage laser, mounted on
-       the wall at the top of column 3 and stopped by the wall three
-       squares down.
-
-       The walls were the hard part and were got wrong twice before
-       this. Twenty-eight of them: sixteen round the frame, at columns
-       3/5/8/10 top and bottom and rows 3/5/8/10 left and right, and
-       twelve inside. Note that the frame is symmetric but the board is
-       not -- (11,10)N and (10,2)W have no opposite number, and checking
-       by symmetry rather than by looking is how they went missing.
-
-       The transcription is the picture below; it is not derived from
-       anything and cannot be regenerated, so correcting it means going
-       back to the photograph. */
     exchange: {
       name: "Exchange", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       notes: "Transcribed from the printed board.",
@@ -1553,36 +1436,6 @@
      of the flag before it.
      ============================================================ */
   var COURSES = {
-    provingRun: {
-      name: "Proving Ground",
-      kind: "quick",
-      blurb: "One of everything, and nothing to be ashamed of losing to.",
-      intro: true,
-      boards: [{ id: "provingGround", rot: 0, at: [0, 0] }],
-      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[9, 2], [1, 10], [8, 6]],
-      minPlayers: 2, maxPlayers: 8
-    },
-
-    shuntRun: {
-      name: "Shunt Yard",
-      kind: "quick",
-      blurb: "One express loop, and everything you own is on it.",
-      boards: [{ id: "shuntYard", rot: 0, at: [0, 0] }],
-      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[5, 1], [10, 10], [3, 6]],
-      minPlayers: 2, maxPlayers: 8
-    },
-
-    /* The first official board, under a course of our own.
-
-       The printed courses that use Exchange -- Risky Exchange and the
-       rest -- place their flags at positions printed on the course
-       cards, and those have not been photographed. Inventing them and
-       calling them by their printed names would be the one failure a
-       game promising faithful layouts cannot survive, so this is an
-       authored layout over a transcribed board, and says so. The
-       official courses land when the cards do. */
     exchangeRun: {
       name: "Exchange",
       kind: "quick",
@@ -1677,38 +1530,6 @@
       minPlayers: 2, maxPlayers: 8
     },
 
-    /* Two boards side by side. The seam down the middle is the thing
-       under test: walls have to agree across it and a conveyor running
-       off one board has to meet whatever is on the other. */
-    crossTown: {
-      name: "Cross Town",
-      kind: "track",
-      blurb: "Two factory floors and the gap between them.",
-      boards: [
-        { id: "provingGround", rot: 0, at: [0, 0] },
-        { id: "shuntYard", rot: 0, at: [12, 0] }
-      ],
-      /* Squarely under the left board. This course is ours rather than
-         printed, and its block used to straddle the seam -- which the
-         assembler no longer expresses, and a course it cannot express
-         drops off its menu silently. */
-      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      /* Flag 2 used to stand on a REPAIR SITE -- not a clear square,
-         and a checkpoint that also mends you is two rules on one
-         tile -- and flag 3 was sixteen columns from it, outside
-         Northrup's twelve. */
-      flags: [[9, 2], [16, 6], [5, 10]],
-      minPlayers: 2, maxPlayers: 8
-    },
-
-    /* The same board a quarter-turn over, which is how the printed
-       courses use them and the only thing that exercises rotateGrid
-       against a real course rather than a unit test. */
-    /* ---- RACE TRACKS: larger courses, on the configurations the
-       rulebook builds its own on. ---- */
-
-    /* 1x2. The Pit Maze comes in upside down, so the two belt systems
-       run into each other at the seam rather than alongside. */
     bigCross: {
       name: "Crosscut",
       kind: "track",
@@ -1722,16 +1543,17 @@
     /* 1x3, the long one: out along the top, across the middle, and
        back down the far end. The block sits under the MIDDLE board, so
        the first flag is a genuine choice of direction rather than a
-       queue. */
+       queue. Pit Maze comes in upside down, so its belts run into the
+       Exchange's rather than alongside them. */
     longHaul: {
       name: "The Long Haul",
       kind: "track",
       blurb: "Three floors end to end, and the starting block in the middle of them.",
-      boards: [{ id: "provingGround", rot: 0, at: [0, 0] },
+      boards: [{ id: "cross", rot: 0, at: [0, 0] },
                { id: "exchange", rot: 1, at: [12, 0] },
-               { id: "shuntYard", rot: 2, at: [24, 0] }],
+               { id: "pitMaze", rot: 2, at: [24, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [12, 12] },
-      flags: [[4, 2], [16, 9], [28, 3]],
+      flags: [[33, 2], [21, 9], [9, 3]],
       minPlayers: 2, maxPlayers: 8
     },
 
@@ -1745,16 +1567,6 @@
                { id: "pitMaze", rot: 0, at: [0, 12] }, { id: "island", rot: 3, at: [12, 12] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 24] },
       flags: [[8, 4], [19, 16], [7, 21], [19, 9]],
-      minPlayers: 2, maxPlayers: 8
-    },
-
-    sidelong: {
-      name: "Shunt Yard, sideways",
-      kind: "quick",
-      blurb: "The same board a quarter-turn over, which plays nothing like it.",
-      boards: [{ id: "shuntYard", rot: 1, at: [0, 0] }],
-      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
-      flags: [[10, 5], [1, 1], [6, 8]],
       minPlayers: 2, maxPlayers: 8
     }
   };
