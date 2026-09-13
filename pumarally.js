@@ -6209,6 +6209,135 @@
       ED = keep;
     } },
 
+    { name: "the ghost follows the hand, not only the pointer", run: function () {
+      /* The ghost is a picture of the thing in hand. Hanging it off
+         the POINTER meant a ram turned north went on previewing
+         itself facing east until the hand moved to another square --
+         so the one control whose whole job is to say "this is what
+         you are about to place" disagreed with the compass beside it. */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.isCourse = true;
+      ED.grid.flags = [];
+      ED.hover = { c: 3, r: 3, edge: null };
+
+      edPickQuiet("pusher");
+      ED.dir = N;
+      edRenderPanel();
+      var north = ED.ghostHTML;
+      assert(north, "a ram over a floor square previews nothing at all");
+      edFace(S);
+      assert(ED.ghostHTML && ED.ghostHTML !== north, "facing the ram south left the ghost facing north");
+      edFace(N);
+      assert(ED.ghostHTML === north, "facing it back again did not bring the same picture back");
+      edSpin(1);
+      assert(ED.ghostHTML !== north, "a quarter turn left the ghost as it was");
+
+      /* A setting that is not a facing. The registers are stamped on
+         the square the map draws, so they are on the ghost too. */
+      ED.dir = N;
+      edRenderPanel();
+      var odd = ED.ghostHTML;
+      ED.pushRegs = [2, 4];
+      edRenderPanel();
+      assert(ED.ghostHTML !== odd, "changing which registers the ram fires in left the ghost as it was");
+
+      /* And picking something else up, which is the biggest change of
+         all -- it does not go through edRenderPanel, so it says so
+         itself. Compared with the ghost as it stands THIS INSTANT:
+         against the older one the assertion passes whether or not the
+         pick repainted anything, because the registers already moved
+         it on. */
+      var ram = ED.ghostHTML;
+      edPickQuiet("burner");
+      assert(ED.ghostHTML && ED.ghostHTML !== ram, "picking up the jet left the ram on the pointer");
+
+      /* The edge under the pointer still decides a wall, and the flag
+         still carries the number in hand: neither was broken, and
+         both go through the same recompute now. */
+      edPickQuiet("wall");
+      ED.hover = { c: 3, r: 3, edge: N };
+      edRenderPanel();
+      var top = ED.ghostHTML;
+      ED.hover = { c: 3, r: 3, edge: E };
+      edRenderPanel();
+      assert(ED.ghostHTML !== top, "the wall ghost is the same picture on two different edges");
+
+      edPickQuiet("flag");
+      ED.hover = { c: 3, r: 3, edge: null };
+      ED.flagNum = 1;
+      edRenderPanel();
+      assert(ED.ghostHTML && ED.ghostHTML.indexOf(">1<") >= 0, "the flag ghost is not numbered 1");
+      ED.grid.flags = [{ c: 6, r: 6 }];
+      ED.flagNum = 2;
+      edRenderPanel();
+      assert(ED.ghostHTML.indexOf(">2<") >= 0, "the number in hand did not reach the flag ghost");
+
+      /* Nothing is previewed where a click would pick something UP --
+         the square already shows what would come off it -- and the
+         hand and the select tool preview nothing anywhere. */
+      ED.grid.flags.push({ c: 3, r: 3 });
+      edRenderPanel();
+      assert(ED.ghostHTML === null, "a flag was previewed on top of a flag");
+      ED.grid.flags.pop();
+      edPickQuiet("sel");
+      assert(ED.ghostHTML === null, "the select tool put something on the pointer");
+      edPickQuiet("pan");
+      assert(ED.ghostHTML === null, "the hand put something on the pointer");
+      /* And with the pointer off the map there is nowhere to put one. */
+      edPickQuiet("pusher");
+      ED.hover = null;
+      edRenderPanel();
+      assert(ED.ghostHTML === null, "a ghost survived the pointer leaving the map");
+      ED = keep;
+    } },
+
+    { name: "the rail's icon says what the tool lays, not which registers it fires in", run: function () {
+      /* A ram and a jet stamp the registers they fire in across the
+         square. At rail size that is three digits over a 20px
+         picture: unreadable, and answering a question the rail was
+         not asked. The rail says WHAT you are about to put down. */
+      var keep = ED;
+      ED = edState(edNew(4, 4), "bench");
+      ED.grid.flags = [];
+      ED.pushRegs = [1, 3, 5];
+      ED.burnRegs = [2, 4];
+      ED.dir = N;
+      var css = CSS, kinds = ["pusher", "burner"], i;
+      for (i = 0; i < kinds.length; i++) {
+        var btn = edRailButton(edToolByKey(kinds[i]));
+        /* The badge IS in the markup -- the rail draws the square with
+           the board's own renderer, and the board stamps the registers
+           on it. Asserting that first is what stops the rule below
+           from being a rule that hides something nobody draws. */
+        assert(btn.indexOf("pr-pushreg") >= 0,
+          "the rail's " + kinds[i] + " draws no register badge, so hiding one proves nothing");
+        assert(/<button class="pr-ed-item[ "]/.test(btn),
+          "the rail's " + kinds[i] + " does not wear the class the rule is scoped to");
+      }
+      assert(/\.pr-ed-item \.pr-pushreg\{display:none\}/.test(css),
+        "nothing hides the register badge on the rail's icons");
+
+      /* Scoped to the RAIL. The ghost and the big tile are pictures of
+         the square as the map draws it, registers and all, so a rule
+         that reached either of them would be taking the badge off the
+         board rather than off an icon. */
+      var hides = css.match(/[^{};]*\.pr-pushreg\{display:none\}/g) || [];
+      assert(hides.length, "the sweep found no rule hiding the badge, so this proves nothing");
+      for (i = 0; i < hides.length; i++) {
+        assert(!/pr-ed-ghost|pr-ed-big|pr-thumb-grid|^\s*\.pr-pushreg/.test(hides[i]),
+          "a rule hides the registers beyond the rail: " + hides[i]);
+      }
+      /* And the square drawn large still carries them, which is the
+         same fact from the other side. */
+      ED.grid.pushers.push({ c: 1, r: 1, d: N, regs: [1, 3, 5] });
+      B.setWall(ED.grid, 1, 1, S, true);
+      var big = edBigTile({ c: 1, r: 1, part: "tile" });
+      assert(big.indexOf("pr-ed-big") >= 0 && big.indexOf("pr-pushreg") >= 0,
+        "the square drawn large lost the registers the map shows");
+      ED = keep;
+    } },
+
     { name: "the workshop can step back, and not over nothing", run: function () {
       /* Tracing a board is an hour of small mistakes, and before this
          the only way back from one was to draw over it -- which works
@@ -7525,6 +7654,15 @@
     ".pr-ed-key{font:9px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--pr-dim);",
     "border:1px solid var(--pr-border);border-radius:3px;padding:1px 3px;min-width:14px;text-align:center}",
     ".pr-ed-item.on .pr-ed-key{color:var(--pr-accent);border-color:var(--pr-accent)}",
+    /* A ram and a jet stamp the registers they fire in across the
+       square, which at rail size is three digits over a 20px picture
+       -- unreadable, and answering a question the rail was not asked.
+       The rail says WHAT you are about to put down; which registers it
+       fires in is a setting, and settings live in the inspector. Same
+       reason .pr-leg-art hides them in the help legend. The ghost and
+       the big tile keep theirs, because both are pictures of the
+       square as the map draws it. */
+    ".pr-ed-item .pr-pushreg{display:none}",
     /* THE MAP is a scroll box, so panning is scrolling and the browser
        does the work; the stage is drawn once at the game's tile size
        and scaled, so zooming rebuilds nothing. The flex-and-margin
@@ -11324,9 +11462,9 @@
     }
     hits.innerHTML = out.join("");
     host.appendChild(hits);
-    /* The ghost of the thing in hand went with the old stage; the
-       next pointer move puts it back. */
-    ED.ghostHTML = null;
+    /* The ghost went with the old stage. edRenderPanel below puts it
+       back, so it survives an edit rather than waiting for the next
+       pointer move. */
     host.classList.toggle("pr-ed-solo", edSolo());
     edApplyZoom();
     edRenderPanel();
@@ -11369,6 +11507,14 @@
      the bar; everything about a SQUARE, or about the thing in hand,
      is in the inspector; what is under the pointer is on the line. */
   function edRenderPanel() {
+    /* THE GHOST IS THE THING IN HAND, so it goes stale exactly when
+       this runs -- turning the compass, changing a register, picking
+       up something else. Hanging it off the POINTER instead meant a
+       ram turned north went on previewing itself facing east until
+       the hand moved to another square. Ahead of the guard, because
+       what the ghost would show is a fact about ED rather than about
+       the screen. */
+    edGhostPaint();
     if (!UI.els || !UI.els.edLib) return;
     edRenderTop();
     edRenderLib();
@@ -11388,17 +11534,27 @@
         group = t.group;
         out.push('<div class="pr-ed-gh">' + esc(group) + "</div>");
       }
-      out.push('<button class="pr-ed-item' + (on ? " on" : "") + '"' +
-        (t.drag ? ' draggable="true"' : "") +
-        ' data-act="edpick" data-k="' + esc(t.key) + '"' +
-        ' aria-pressed="' + (on ? "true" : "false") + '"' +
-        ' title="' + esc(t.label) + (t.hot ? " (" + t.hot.toUpperCase() + ")" : "") + '">' +
-        edToolThumb(t) +
-        '<span class="pr-ed-item-name">' + esc(t.label) + "</span>" +
-        (t.hot ? '<kbd class="pr-ed-key">' + esc(t.hot.toUpperCase()) + "</kbd>" : "") +
-        "</button>");
+      out.push(edRailButton(t));
     }
     UI.els.edLib.innerHTML = out.join("");
+  }
+
+  /* ONE RAIL BUTTON, as a string. Separate from the loop so what the
+     rail actually puts on screen can be asked for without a screen --
+     the class it carries is what the sheet's rules are scoped to, and
+     a rule scoped to a class nothing wears is a rule that does
+     nothing. */
+  function edRailButton(t) {
+    var on = ED.pick === t.key;
+    return '<button class="pr-ed-item' + (on ? " on" : "") + '"' +
+      (t.drag ? ' draggable="true"' : "") +
+      ' data-act="edpick" data-k="' + esc(t.key) + '"' +
+      ' aria-pressed="' + (on ? "true" : "false") + '"' +
+      ' title="' + esc(t.label) + (t.hot ? " (" + t.hot.toUpperCase() + ")" : "") + '">' +
+      edToolThumb(t) +
+      '<span class="pr-ed-item-name">' + esc(t.label) + "</span>" +
+      (t.hot ? '<kbd class="pr-ed-key">' + esc(t.hot.toUpperCase()) + "</kbd>" : "") +
+      "</button>";
   }
 
   var ED_SELECT_SVG = '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">' +
@@ -11521,20 +11677,28 @@
     return edToolView(edTool(), hit);
   }
 
+  /* WHAT THE GHOST SHOWS RIGHT NOW, worked out before anything is
+     touched, and kept on ED so it can be compared with what is
+     already on screen -- and so the rule tests can ask what the
+     pointer would be showing without a pointer or a screen. Null when
+     there is nothing to preview. */
   function edGhostPaint() {
+    var hit = ED.hover, g = edGhostView(hit);
+    var would = g ? edClickWould(ED.drag ? ED.drag.part.kind : edTool().kind, hit) : "take";
+    /* A click that picks something UP previews nothing: the square
+       already shows the thing that would come off it. */
+    var html = g && would !== "take" ? edThumbHTML(g, TILE, Math.round(TILE * 0.19)) : null;
+    var was = ED.ghostHTML;
+    ED.ghostHTML = html;
+
     var host = UI.els && UI.els.edBoard;
     if (!host) return;
     var ghost = host.querySelector(".pr-ed-ghost");
-    var hit = ED.hover, g = edGhostView(hit);
-    var would = g ? edClickWould(ED.drag ? ED.drag.part.kind : edTool().kind, hit) : "take";
-    if (would === "take") {
-      if (ghost) ghost.hidden = true;
-      ED.ghostHTML = null;
-      return;
-    }
-    if (!ghost) { ghost = el("div", "pr-ed-ghost"); host.appendChild(ghost); }
-    var html = edThumbHTML(g, TILE, Math.round(TILE * 0.19));
-    if (html !== ED.ghostHTML) { ghost.innerHTML = html; ED.ghostHTML = html; }
+    if (!html) { if (ghost) ghost.hidden = true; return; }
+    /* A render rebuilds the stage and takes the ghost with it, so a
+       ghost that is not there has nothing to have kept. */
+    if (!ghost) { ghost = el("div", "pr-ed-ghost"); host.appendChild(ghost); was = null; }
+    if (html !== was) ghost.innerHTML = html;
     ghost.classList.toggle("pr-ed-ghost-no", would === "no");
     ghost.style.left = hit.c * TILE + "px";
     ghost.style.top = hit.r * TILE + "px";
@@ -12638,7 +12802,6 @@
         e.preventDefault();
         edPickTool(pick);
         announce(edTool().label + " in hand.");
-        edGhostPaint();
       }
     }
   }
@@ -12721,6 +12884,7 @@
     ED.sel = null;
     edRenderLib();
     edRenderDetail();
+    edGhostPaint();
   }
 
   function edPickTool(k) {
