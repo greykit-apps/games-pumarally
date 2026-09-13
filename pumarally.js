@@ -4854,6 +4854,38 @@
         "dropped: " + missing.join(", "));
     } },
 
+    { name: "nothing repaints a chosen segment's label to match its fill", run: function () {
+      /* The failure this guards is not a bad token -- every token
+         cleared its contrast floor while this was broken. It is the
+         cascade: a looser rule later in the sheet coloured any `.on`
+         it could reach, the chosen segment button among them, and
+         painted the label the same accent as its own fill. 1:1, and
+         the label was simply gone.
+
+         Six rules in this sheet colour a bare `.on`. Narrowing the one
+         that collided fixes today; the pairing below is pinned so the
+         next one cannot. */
+      var css = CSS;
+      var m = css.match(/\.pr-seg-b\.on\{([^}]*)\}/);
+      assert(m, "the chosen segment button has no rule of its own");
+      var decl = {}, parts = m[1].split(";"), i;
+      for (i = 0; i < parts.length; i++) {
+        var kv = parts[i].split(":");
+        if (kv.length > 1) decl[kv[0].trim()] = kv.slice(1).join(":").trim();
+      }
+      assert(decl.background && decl.color, "the chosen button must state both its fill and its label");
+      assert(decl.background.indexOf(decl.color.replace("!important", "")) < 0 &&
+             decl.color.replace("!important", "") !== decl.background.replace("!important", ""),
+        "the chosen button paints its label the same colour as its fill");
+      assert(/!important$/.test(decl.background) && /!important$/.test(decl.color),
+        "unpinned, so any of the sheet's looser `.on` rules can repaint it");
+
+      /* And the rule that actually collided stays narrowed, because a
+         pinned colour still leaves the border to fight over. */
+      assert(/\.pr-ed-row \.on:not\(\.pr-seg-b\)\{/.test(css),
+        "the editor-row rule reaches segment buttons again");
+    } },
+
     { name: "every motion leaves room for the next one to start", run: function () {
       /* The stagger is not an animation: it is the arithmetic between
          two numbers. exec.move waits only GAP before releasing the
@@ -5119,6 +5151,135 @@
     } },
 
     // ---- conservation ----------------------------------------------
+    // ---- the course assembler --------------------------------------
+    /* The assembler is UI, but its MODEL is not, and the model is where
+       a layout can go quietly wrong -- a grid that grew and dropped the
+       boards already in it, an empty grid that races anyway, a dock
+       offered as a board to place. Each of these is reachable without
+       a DOM. */
+
+    { name: "a board dragged out of the grid is not mistaken for a card", run: function () {
+      /* The two drags travel as the same {from, i} pair. While they
+         were told apart by shape alone, a placed board could be picked
+         up and never dropped -- the dragover gate read it as a program
+         card, found no register slot under the pointer and refused the
+         drop, silently. */
+      assert(DRAG_KINDS.slot === "card", "a card dragged out of a register is a card");
+      assert(DRAG_KINDS.lslot === "board", "a board dragged out of the grid is a board");
+      assert(DRAG_KINDS.hand === "card" && DRAG_KINDS.palette === "board",
+        "the other two drags are misclassified");
+      var seen = {}, k, kinds = 0;
+      for (k in DRAG_KINDS) {
+        assert(DRAG_KINDS[k] === "card" || DRAG_KINDS[k] === "board", k + " carries nothing known");
+        if (!seen[DRAG_KINDS[k]]) { seen[DRAG_KINDS[k]] = 1; kinds++; }
+      }
+      assert(kinds === 2, "every drag was classified the same way, so the gate cannot tell them apart");
+      UI.drag = { from: "lslot", i: 0 };
+      assert(dragKind() === "board", "the gate would refuse to drop a board it is holding");
+      UI.drag = { from: "slot", i: 0 };
+      assert(dragKind() === "card", "the gate would drop a program card into the board grid");
+      UI.drag = null;
+      assert(dragKind() === null, "a drag that is not happening has no kind");
+    } },
+
+    { name: "the palette offers only full boards, never the docking bay", run: function () {
+      var pal = paletteBoards(), i;
+      assert(pal.length > 1, "the palette is empty, so this proves nothing");
+      for (i = 0; i < pal.length; i++) {
+        var sp = B.BOARD_SPECS[pal[i]];
+        assert(sp.w === 12 && sp.h === 12,
+          pal[i] + " is " + sp.w + "x" + sp.h + " and must not be placeable in the grid");
+      }
+      assert(pal.indexOf("dockingBay") < 0, "the docking bay is the start area, not a board to place");
+    } },
+
+    { name: "growing the grid keeps every board where it was", run: function () {
+      UI.layout = { cols: 2, rows: 1, dockCol: 0,
+                    cells: [{ id: "island", rot: 1 }, { id: "cross", rot: 0 }] };
+      layoutResize(0, 1);                        // one row taller
+      assert(UI.layout.cols === 2 && UI.layout.rows === 2, "the grid did not grow");
+      assert(UI.layout.cells.length === 4, "the cell list did not follow the grid");
+      assert(UI.layout.cells[0] && UI.layout.cells[0].id === "island" && UI.layout.cells[0].rot === 1,
+        "the board in the top-left moved or lost its rotation");
+      assert(UI.layout.cells[1] && UI.layout.cells[1].id === "cross",
+        "the board in the top-right moved");
+      assert(!UI.layout.cells[2] && !UI.layout.cells[3], "the new row should be empty");
+      UI.layout.cells[2] = { id: "pitMaze", rot: 3 };
+      layoutResize(1, 0);                        // one column wider
+      assert(UI.layout.cells[0].id === "island" && UI.layout.cells[1].id === "cross",
+        "widening the grid moved the top row");
+      /* The second row is the half that moves when a resize reads the
+         old cells at the NEW stride, and the top row alone cannot see
+         it -- for a one-row grid the two strides are the same number. */
+      assert(UI.layout.cells[3] && UI.layout.cells[3].id === "pitMaze" && UI.layout.cells[3].rot === 3,
+        "widening the grid re-indexed the second row");
+      assert(!UI.layout.cells[4] && !UI.layout.cells[5], "the new column should be empty");
+    } },
+
+    { name: "the grid will not shrink past one board or grow past nine", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
+      layoutResize(-1, -1);
+      assert(UI.layout.cols === 1 && UI.layout.rows === 1, "the grid shrank below 1 by 1");
+      for (var i = 0; i < 6; i++) layoutResize(1, 1);
+      assert(UI.layout.cols === 3 && UI.layout.rows === 3, "the grid grew past 3 by 3");
+      assert(UI.layout.cells.length === 9, "the cell list disagrees with the grid");
+    } },
+
+    { name: "narrowing the grid brings the dock back inside it", run: function () {
+      UI.layout = { cols: 3, rows: 1, dockCol: 2, cells: [null, null, { id: "island", rot: 0 }] };
+      layoutResize(-1, 0);
+      assert(UI.layout.dockCol < UI.layout.cols,
+        "the dock is under column " + UI.layout.dockCol + " of a " + UI.layout.cols + "-wide grid");
+    } },
+
+    { name: "an empty grid is not a course", run: function () {
+      UI.layout = { cols: 2, rows: 1, dockCol: 0, cells: [null, null] };
+      /* The MESSAGE and not merely a refusal: with the guard removed an
+         empty grid is still refused, by the validator, in its own words
+         -- so a test that accepts any refusal passes on a build that
+         has lost the check it is there to protect. */
+      assert(layoutProblem() === "Drop at least one board into the grid.",
+        "an empty grid should be refused in its own words, got: " + layoutProblem());
+      layoutPlace(1, "island");
+      assert(!layoutProblem(), "a grid with a board on it was refused: " + layoutProblem());
+    } },
+
+    { name: "dropping a board on an occupied slot swaps the two", run: function () {
+      UI.layout = { cols: 2, rows: 1, dockCol: 0,
+                    cells: [{ id: "island", rot: 2 }, { id: "cross", rot: 1 }] };
+      layoutSwap(0, 1);
+      assert(UI.layout.cells[0].id === "cross" && UI.layout.cells[0].rot === 1,
+        "the swap lost the board or its rotation");
+      assert(UI.layout.cells[1].id === "island" && UI.layout.cells[1].rot === 2,
+        "the swap dropped the board it displaced");
+      UI.layout.cells[1] = null;
+      layoutSwap(0, 1);                          // onto an empty slot: a move
+      assert(!UI.layout.cells[0] && UI.layout.cells[1].id === "cross",
+        "moving a board to an empty slot should leave the old slot empty");
+    } },
+
+    { name: "turning a board four times returns it to where it started", run: function () {
+      UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
+      for (var i = 0; i < 4; i++) layoutTurn(0);
+      assert(UI.layout.cells[0].rot === 0, "four quarter-turns did not come back round");
+      layoutTurn(0);
+      assert(UI.layout.cells[0].rot === 1, "the fifth turn did not take");
+    } },
+
+    { name: "a composed course carries every board it was given", run: function () {
+      UI.layout = { cols: 2, rows: 1, dockCol: 1,
+                    cells: [{ id: "island", rot: 1 }, { id: "cross", rot: 0 }] };
+      var spec = layoutCourse(), C = B.buildCourse(spec);
+      assert(spec.boards.length === 2, "the course lost a board: " + spec.boards.length);
+      assert(C.w === 24 && C.h === 16, "a 2 by 1 grid with a dock should be 24 by 16, is " + C.w + " by " + C.h);
+      assert(spec.boards[0].rot === 1, "the course lost a board's rotation");
+      assert(C.flags.length === 3, "a composed course should carry three flags, has " + C.flags.length);
+      assert(C.docks.length >= 8, "a composed course should carry eight bays, has " + C.docks.length);
+      for (var i = 0; i < C.flags.length; i++) {
+        assert(C.flags[i].r < C.h - 4, "flag " + (i + 1) + " was placed inside the docking bay");
+      }
+    } },
+
     { name: "destroying a robot returns all of its cards to the discard", run: function () {
       benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
       var p = G.players[0];
@@ -5133,13 +5294,17 @@
 
   function ruleTests() {
     var keepG = G, keepC = UI.course, keepH = UI.headless;
+    /* The assembler tests edit UI.layout in place, and a player may be
+       halfway through building a course when the console is opened. */
+    var keepL = UI.layout;
     UI.headless = true;
     var out = { total: RULE_TESTS.length, passed: 0, failed: [] };
     for (var i = 0; i < RULE_TESTS.length; i++) {
       try { RULE_TESTS[i].run(); out.passed++; }
       catch (e) { out.failed.push({ name: RULE_TESTS[i].name, error: e.message }); }
     }
-    G = keepG; UI.course = keepC; UI.headless = keepH; UI.wallsChecked = false;
+    G = keepG; UI.course = keepC; UI.headless = keepH; UI.layout = keepL;
+    UI.wallsChecked = false;
     return out;
   }
 
@@ -5666,12 +5831,34 @@
        accent, so it reads as an invitation rather than an alarm. */
     ".pr-cell.pr-bay-open{cursor:pointer;box-shadow:inset 0 0 0 2px var(--pr-accent)}",
     ".pr-cell.pr-bay-open:hover{background:var(--pr-panel-alt)}",
+    /* ---- the course assembler ---- */
+    ".pr-palette{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}",
+    ".pr-pal{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px;cursor:grab}",
+    ".pr-pal.on{border-color:var(--pr-accent);background:var(--pr-panel-alt)}",
+    ".pr-pal-name{font-size:9px;color:var(--pr-ink)}",
+    ".pr-lgrid{display:inline-grid;gap:6px;margin:4px 0;padding:6px;",
+    "border:1px solid var(--pr-border);background:var(--pr-panel)}",
+    ".pr-lslot{min-width:74px;min-height:74px;display:flex;flex-direction:column;align-items:center;",
+    "justify-content:center;gap:2px;border:1px dashed var(--pr-border-lit);background:none;padding:3px}",
+    ".pr-lslot.empty{color:var(--pr-dim);font-size:9px;cursor:pointer}",
+    ".pr-lslot.filled{border-style:solid;border-color:var(--pr-border)}",
+    ".pr-lslot.pr-over{border-color:var(--pr-accent);border-style:solid}",
+    ".pr-lboard{padding:0;border:0!important;background:none;cursor:grab;line-height:0}",
+    ".pr-lslot-bar{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--pr-ink)}",
+    ".pr-lslot-bar button{padding:1px 5px;min-height:0;font-size:10px}",
     ".pr-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--pr-border);",
     "border-radius:3px;overflow:hidden;margin:2px 0}",
     ".pr-seg-b{border:0!important;border-left:1px solid var(--pr-border)!important;",
     "border-radius:0!important;background:var(--pr-panel);padding:5px 11px;min-width:34px}",
     ".pr-seg-b:first-child{border-left:0!important}",
-    ".pr-seg-b.on{background:var(--pr-accent);color:var(--pr-bg)}",
+    /* !important on both halves, like the border above it: a chosen
+       segment button is accent-on-dark, and half a dozen looser rules
+       in this sheet colour any `.on` they can reach. One of them did
+       repaint the label the accent -- the same colour as the fill --
+       and the label went to 1:1 while every token still cleared its
+       contrast floor. Scoping that one rule fixes today; pinning the
+       pair here is what stops the next one. */
+    ".pr-seg-b.on{background:var(--pr-accent)!important;color:var(--pr-bg)!important}",
     ".pr-seg-b:disabled{opacity:.3;cursor:default}",
     ".pr-seg-b:not(.on):not(:disabled):hover{background:var(--pr-panel-alt)}",
 
@@ -5708,7 +5895,11 @@
     ".pr-ed-row span{opacity:.7}",
     ".pr-setup-edit{margin-top:6px;flex-wrap:wrap}",
     ".pr-ed-note{font-size:10px;opacity:.55;width:100%}",
-    ".pr-ed-row .on{border-color:var(--pr-accent);color:var(--pr-accent)}",
+    /* :not(.pr-seg-b) because a segmented control paints its chosen
+       button accent-on-dark, and this rule -- written for the editor's
+       bare toolbar toggles and later in the sheet -- otherwise repaints
+       the label the same accent as the fill it sits on. */
+    ".pr-ed-row .on:not(.pr-seg-b){border-color:var(--pr-accent);color:var(--pr-accent)}",
     ".pr-ed-row input[type=text]{background:var(--pr-panel);border:1px solid var(--pr-border);",
     "color:var(--pr-text);font:inherit;padding:3px 6px}",
     ".pr-ed-row input[type=range]{width:90px;accent-color:var(--pr-accent)}",
@@ -6683,10 +6874,11 @@
      already built and rendered that course. Working it out twice is
      how the board on screen ends up being a different one from the
      board the rules are running on. */
-  function gameOpts(base, courseId) {
+  function gameOpts(base, courseId, spec) {
     var cfg = resolveConfig(houseRules);
     return {
       course: courseId,
+      courseSpec: spec || null,
       players: cfg.players, humans: cfg.humans,
       skill: cfg.skill, startOptions: cfg.startOptions,
       flagTouch: cfg.flagTouch, ruleset: cfg.ruleset,
@@ -6698,6 +6890,18 @@
     if (base && base.course) return base.course;
     if (houseRules && B.COURSES[houseRules.course]) return houseRules.course;
     return "provingRun";
+  }
+
+  /* A composed course is not in COURSES, so the usual "did the course
+     change" test has nothing to compare -- the whole mount is rebuilt
+     and the game started from the spec. */
+  function startComposed(spec) {
+    stopQueue();
+    clearSave();
+    UI.wallsChecked = false;
+    UI.curtainCleared = null;
+    UI.composed = spec;
+    mount(UI.els.host, { courseSpec: spec });
   }
 
   function onNewGame() {
@@ -6762,6 +6966,32 @@
       saveRules(); showSetup(); return;
     }
     if (a === "livery") { houseRules.livery = +el.dataset.n; saveRules(); showSetup(); return; }
+    if (a === "layout") { showLayout(); return; }
+    if (a === "lsize") { layoutResize(+el.dataset.c, +el.dataset.r); saveLayout(); showLayout(); return; }
+    if (a === "lhold") {
+      /* Clicking the held board again puts it down, so the pointer
+         user is never stuck holding something. */
+      UI.heldBoard = UI.heldBoard === el.dataset.b ? null : el.dataset.b;
+      showLayout(); return;
+    }
+    if (a === "ldrop") {
+      if (!UI.heldBoard) return;
+      layoutPlace(+el.dataset.i, UI.heldBoard);
+      /* The board stays in hand: filling a 2x2 grid with four copies
+         of one board should not be four trips to the palette. */
+      saveLayout(); showLayout(); return;
+    }
+    if (a === "lrot") { layoutTurn(+el.dataset.i); saveLayout(); showLayout(); return; }
+    if (a === "lclear") { UI.layout.cells[+el.dataset.i] = null; saveLayout(); showLayout(); return; }
+    if (a === "ldock") { UI.layout.dockCol = +el.dataset.c; saveLayout(); showLayout(); return; }
+    if (a === "lrace") {
+      if (layoutProblem()) { showLayout(); return; }
+      var spec = layoutCourse();
+      saveLayout();
+      closeModal();
+      startComposed(spec);
+      return;
+    }
     if (a === "editmap") {
       closeModal();
       root.location.hash = "#edit=" + el.dataset.b + "&from=setup";
@@ -6842,6 +7072,25 @@
        payload is still set, because a drag with an empty one is not a
        drag at all on Firefox. */
     root.addEventListener("dragstart", function (e) {
+      /* The assembler rides the same channel the program cards do:
+         what is being dragged lives on UI, because Safari will not let
+         a dragover handler read dataTransfer. */
+      var pal = e.target.closest(".pr-pal[draggable=true]");
+      var lb = e.target.closest(".pr-lboard[draggable=true]");
+      if (pal || lb) {
+        /* "lslot" and not "slot": a program card dragged out of a
+           register is also {from:"slot", i}, and the two drags share
+           one dragover handler. Telling them apart by shape alone is
+           what left placed boards undraggable. */
+        UI.drag = pal ? { from: "palette", board: pal.dataset.b }
+                      : { from: "lslot", i: +lb.dataset.i };
+        (pal || lb).classList.add("pr-dragging");
+        try {
+          e.dataTransfer.setData("text/plain", "board");
+          e.dataTransfer.effectAllowed = "move";
+        } catch (err) {}
+        return;
+      }
       var el = e.target.closest(".pr-card[draggable=true]");
       if (!el) { e.preventDefault(); return; }
       UI.drag = el.dataset.hand !== undefined
@@ -6860,6 +7109,14 @@
     });
     root.addEventListener("dragover", function (e) {
       if (!UI.drag) return;
+      if (dragKind() === "board") {
+        var ls = e.target.closest("[data-slot],.pr-lslot");
+        if (!ls) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        ls.classList.add("pr-over");
+        return;
+      }
       var slot = e.target.closest(".pr-slot");
       if (!slot) return;
       e.preventDefault();                       // preventDefault here is what ALLOWS the drop
@@ -6867,11 +7124,26 @@
       if (!slot.classList.contains("pr-over")) slot.classList.add("pr-over");
     });
     root.addEventListener("dragleave", function (e) {
-      var slot = e.target.closest(".pr-slot");
+      var slot = e.target.closest(".pr-slot,.pr-lslot");
       if (slot) slot.classList.remove("pr-over");
     });
     root.addEventListener("drop", function (e) {
       if (!UI.drag) return;
+      var ls = e.target.closest(".pr-lslot,[data-slot]");
+      if (ls && UI.layout && dragKind() === "board") {
+        e.preventDefault();
+        var to = ls.dataset.slot !== undefined ? +ls.dataset.slot : +ls.dataset.i;
+        if (!isNaN(to)) {
+          /* Dropping a placed board on another slot SWAPS them, so a
+             layout can be rearranged without emptying it first. */
+          if (UI.drag.from === "palette") layoutPlace(to, UI.drag.board);
+          else layoutSwap(UI.drag.i, to);
+          UI.drag = null;
+          saveLayout();
+          showLayout();
+          return;
+        }
+      }
       var slot = e.target.closest(".pr-slot");
       if (!slot) return;
       e.preventDefault();
@@ -7434,6 +7706,230 @@
     return html;
   }
 
+  /* A SINGLE BOARD, ROTATED, at thumbnail size. courseThumb draws a
+     whole course and cannot show one board turned -- which is most of
+     what the assembler needs to show. Cached on id, rotation and
+     scale, because nine boards times four rotations is a lot of DOM
+     to rebuild on every drag. */
+  function boardThumb(id, rot, px) {
+    UI.bthumbs = UI.bthumbs || {};
+    var key = id + ":" + rot + ":" + px;
+    if (UI.bthumbs[key]) return UI.bthumbs[key];
+    var g;
+    try { g = B.rotateGrid(B.parsePic(id, B.specOf(id)), rot || 0); }
+    catch (e) { return ""; }
+    /* tileInner walks flags and lasers; a bare grid has lasers and no
+       flags, so it is given the empty list the renderer expects. */
+    g.flags = g.flags || [];
+    var cells = [], c, r;
+    for (r = 0; r < g.h; r++) {
+      for (c = 0; c < g.w; c++) {
+        cells.push('<i class="' + tileClasses(g, c, r).join(" ") + '">' + tileInner(g, c, r) + "</i>");
+      }
+    }
+    var html =
+      '<span class="pr-thumb" style="--tile:' + px + "px;--wt:" + Math.max(2, Math.round(px / 2.5)) +
+        "px;width:" + (g.w * px) + "px;height:" + (g.h * px) + 'px">' +
+        '<span class="pr-thumb-grid" style="grid-template-columns:repeat(' + g.w + "," + px + 'px)">' +
+          cells.join("") + "</span>" +
+        '<span class="pr-thumb-walls">' + wallSpans(g) + "</span>" +
+      "</span>";
+    UI.bthumbs[key] = html;
+    return html;
+  }
+
+  /* ============================================================
+     THE COURSE ASSEMBLER
+
+     A layout is a grid of slots plus which column the dock sits
+     under. Boards are all 12x12 so a slot IS a board position -- there
+     is no free placement to snap, because there is nowhere else a
+     board could go. That is why this is a grid of drop targets rather
+     than a canvas with collision.
+
+     Every gesture has a pointer form and a keyboard form. Dragging is
+     the obvious way to move a board and is unavailable to anyone not
+     using a mouse, so a board can also be SELECTED and then placed
+     with a second click -- the same two steps, reachable by Tab.
+     ============================================================ */
+  var LAYOUT_KEY = "pumarally_layout_v1";
+
+  function defaultLayout() {
+    return { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "provingGround", rot: 0 }] };
+  }
+
+  function loadLayout() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "null");
+      if (raw && raw.cells && raw.cells.length === raw.cols * raw.rows) return raw;
+    } catch (e) {}
+    return defaultLayout();
+  }
+
+  function saveLayout() {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(UI.layout)); } catch (e) {}
+  }
+
+  /* Boards a player may place. The docking bay is not one of them --
+     it is 12x4, it is the start area, and it goes under the grid
+     rather than in it. */
+  function paletteBoards() {
+    var out = [];
+    for (var id in B.BOARD_SPECS) {
+      var sp = B.BOARD_SPECS[id];
+      if (sp.w !== 12 || sp.h !== 12) continue;
+      out.push(id);
+    }
+    return out;
+  }
+
+  function layoutResize(dCols, dRows) {
+    var L = UI.layout;
+    var cols = Math.max(1, Math.min(3, L.cols + dCols));
+    var rows = Math.max(1, Math.min(3, L.rows + dRows));
+    var cells = [];
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        cells.push(c < L.cols && r < L.rows ? L.cells[r * L.cols + c] : null);
+      }
+    }
+    L.cols = cols; L.rows = rows; L.cells = cells;
+    if (L.dockCol >= cols) L.dockCol = cols - 1;
+  }
+
+  /* The three edits a slot can take. They live here rather than in the
+     click handler because the pointer path, the keyboard path and the
+     rule tests must all be the same operation -- a swap that only the
+     drop handler knows how to do is a swap nothing can test. */
+  /* What each kind of drag is carrying. Two of these travel as
+     {from, i} and are otherwise indistinguishable -- a program card
+     pulled out of a register is "slot", a board pulled out of the
+     assembler grid is "lslot" -- and they share one dragover handler,
+     so the gate reads this table rather than re-deriving the answer
+     from the payload's shape. */
+  var DRAG_KINDS = { hand: "card", slot: "card", palette: "board", lslot: "board" };
+
+  function dragKind() { return UI.drag ? DRAG_KINDS[UI.drag.from] : null; }
+
+  function layoutPlace(to, id) {
+    UI.layout.cells[to] = { id: id, rot: 0 };
+  }
+
+  function layoutSwap(from, to) {
+    var L = UI.layout, tmp = L.cells[to];
+    L.cells[to] = L.cells[from];
+    L.cells[from] = tmp;
+  }
+
+  function layoutTurn(i) {
+    var cell = UI.layout.cells[i];
+    if (cell) cell.rot = (cell.rot + 1) % 4;
+  }
+
+  function layoutCourse() {
+    /* Composed fresh each time so the preview is the course that would
+       actually be raced, not an approximation of it. */
+    return B.composeCourse(UI.layout, 3);
+  }
+
+  function layoutProblem() {
+    var L = UI.layout, any = false;
+    for (var i = 0; i < L.cells.length; i++) if (L.cells[i] && L.cells[i].id) any = true;
+    if (!any) return "Drop at least one board into the grid.";
+    try {
+      var spec = layoutCourse();
+      B.validateCourse(spec, function () {});
+      if (!spec.flags.length) return "No square on this course can hold a flag.";
+    } catch (e) { return e.message; }
+    return null;
+  }
+
+  function showLayout() {
+    if (!UI.layout) UI.layout = loadLayout();
+    var L = UI.layout, i, c, r;
+    var out = ['<h2>SHAPE THE COURSE</h2>'];
+
+    out.push('<div class="pr-ed-row"><span>Grid</span>' +
+      '<button data-act="lsize" data-c="-1" data-r="0"' + (L.cols <= 1 ? " disabled" : "") +
+        ' aria-label="one column fewer">&minus; wide</button>' +
+      '<button data-act="lsize" data-c="1" data-r="0"' + (L.cols >= 3 ? " disabled" : "") +
+        ' aria-label="one column more">+ wide</button>' +
+      '<button data-act="lsize" data-c="0" data-r="-1"' + (L.rows <= 1 ? " disabled" : "") +
+        ' aria-label="one row fewer">&minus; tall</button>' +
+      '<button data-act="lsize" data-c="0" data-r="1"' + (L.rows >= 3 ? " disabled" : "") +
+        ' aria-label="one row more">+ tall</button>' +
+      '<span class="pr-ed-note">' + L.cols + " by " + L.rows + " boards</span></div>");
+
+    /* THE PALETTE. Held-then-placed as well as dragged, so the whole
+       assembler works from the keyboard. */
+    out.push('<h3 class="pr-rule-group">Boards</h3><div class="pr-palette">');
+    var pal = paletteBoards();
+    for (i = 0; i < pal.length; i++) {
+      var held = UI.heldBoard === pal[i];
+      out.push('<button class="pr-pal' + (held ? " on" : "") + '" draggable="true"' +
+        ' data-act="lhold" data-b="' + esc(pal[i]) + '"' +
+        ' aria-pressed="' + (held ? "true" : "false") + '">' +
+        boardThumb(pal[i], 0, 4) +
+        '<span class="pr-pal-name">' + esc(B.BOARD_SPECS[pal[i]].name) + "</span></button>");
+    }
+    out.push("</div>");
+    out.push('<div class="pr-rule-desc">' +
+      (UI.heldBoard
+        ? "Holding " + esc(B.BOARD_SPECS[UI.heldBoard].name) + " \u2014 click a slot to place it."
+        : "Drag a board into the grid, or click one to pick it up.") + "</div>");
+
+    /* THE GRID. */
+    out.push('<h3 class="pr-rule-group">Layout</h3>');
+    out.push('<div class="pr-lgrid" style="grid-template-columns:repeat(' + L.cols + ',auto)">');
+    for (r = 0; r < L.rows; r++) {
+      for (c = 0; c < L.cols; c++) {
+        var cell = L.cells[r * L.cols + c], at = r * L.cols + c;
+        if (cell && cell.id) {
+          out.push('<div class="pr-lslot filled" data-slot="' + at + '">' +
+            '<button class="pr-lboard" draggable="true" data-act="lrot" data-i="' + at + '"' +
+            ' aria-label="' + esc(B.BOARD_SPECS[cell.id].name) + ", turned " + (cell.rot * 90) +
+            ' degrees. Press to turn it.">' + boardThumb(cell.id, cell.rot, 5) + "</button>" +
+            '<div class="pr-lslot-bar"><span>' + esc(B.BOARD_SPECS[cell.id].name) + "</span>" +
+            '<button data-act="lrot" data-i="' + at + '" aria-label="Turn this board">&#8635;</button>' +
+            '<button data-act="lclear" data-i="' + at + '" aria-label="Take this board out">&times;</button>' +
+            "</div></div>");
+        } else {
+          out.push('<button class="pr-lslot empty" data-act="ldrop" data-i="' + at + '"' +
+            ' aria-label="Empty slot, column ' + (c + 1) + " row " + (r + 1) +
+            (UI.heldBoard ? ". Press to place the held board." : ". Drag a board here.") +
+            '"><span>drop a board</span></button>');
+        }
+      }
+    }
+    out.push("</div>");
+
+    /* THE DOCK, along the base. */
+    out.push('<div class="pr-ed-row"><span>Start area</span>' +
+      '<div class="pr-seg" role="radiogroup" aria-label="Which column the docking bay sits under">');
+    for (c = 0; c < L.cols; c++) {
+      out.push('<button class="pr-seg-b' + (L.dockCol === c ? " on" : "") + '" data-act="ldock" data-c="' + c +
+        '" role="radio" aria-checked="' + (L.dockCol === c ? "true" : "false") +
+        '" tabindex="' + (L.dockCol === c ? "0" : "-1") + '">column ' + (c + 1) + "</button>");
+    }
+    out.push("</div></div>");
+    out.push('<div class="pr-rule-desc">The docking bay goes under the grid. Everyone starts there.</div>');
+
+    var problem = layoutProblem();
+    if (problem) {
+      out.push('<div class="pr-ed-bad">' + esc(problem) + "</div>");
+    } else {
+      var prev = layoutCourse(), pc = B.buildCourse(prev);
+      out.push('<div class="pr-ed-ok">' + pc.w + " by " + pc.h + " squares, " +
+        prev.boards.length + " board" + (prev.boards.length > 1 ? "s" : "") + ", " +
+        pc.docks.length + " bays, " + pc.flags.length + " flags.</div>");
+    }
+
+    out.push('<div class="pr-modal-foot">' +
+      '<button data-act="lrace"' + (problem ? " disabled" : "") + ">Race on this</button>" +
+      '<button data-act="setup">Back</button></div>');
+    openModal(out.join(""));
+  }
+
   function showSetup() {
     var out = ['<h2>SET UP A RACE</h2><div class="pr-presets">'];
     var cur = currentPreset();
@@ -7553,6 +8049,7 @@
     out.push('<p class="pr-rule-desc">' + cfg.players + " robots, " + cfg.humans +
       (cfg.humans === 1 ? " played here" : " played here in turn") + ".</p>");
     out.push('<div class="pr-modal-foot"><button data-act="start">Start</button>' +
+      '<button data-act="layout">Build a course\u2026</button>' +
       '<button data-act="closemodal">Cancel</button></div>');
     openModal(out.join(""));
     /* Arrowing through a radio group re-renders the screen under the
@@ -8650,11 +9147,14 @@
        than resuming it. The saved spec is what gets built when there
        is one. */
     var resumed = loadGame();
-    var wantSpec = null;
-    if (resumed && resumed.courseSpec &&
+    var wantSpec = opts.courseSpec || null;
+    if (!wantSpec && resumed && resumed.courseSpec &&
         (!opts.course || resumed.courseId === courseId)) {
       wantSpec = resumed.courseSpec;
     }
+    /* A spec passed in is a fresh course, so an old save of a
+       different one must not be resumed on top of it. */
+    if (opts.courseSpec) resumed = null;
 
     try {
       validateTables();
@@ -8813,7 +9313,7 @@
       log("Resumed from a saved game.");
     } else {
       UI.wallsChecked = false;
-      newGame((Math.random() * 1e9) | 0, gameOpts(opts, courseId));
+      newGame((Math.random() * 1e9) | 0, gameOpts(opts, courseId, wantSpec));
     }
     updateAll();
     advance();
