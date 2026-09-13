@@ -299,6 +299,26 @@ the entire transcription workflow.
 Flags are **not** in here. They are tokens the *course* places, exactly as in
 the box, which is why one board serves many courses.
 
+Neither is **the shape of a conveyor**. A belt is not only a direction: the
+board prints whether a square is a plain straight, a corner or a merge, and
+that is a *rule* — a robot carried onto a corner, or into the arm of a merge,
+turns a quarter, and one carried onto a plain straight from the side does not
+turn at all. So the arms are data, in a `merges` list naming the sides that
+show a path coming in:
+
+    merges: [{ c: 4, r: 2, in: "WS" }]
+
+A belt with no entry has one arm at its rear — a plain straight. A corner is
+one side and no rear; a T is a rear and one side; a crossing is a rear and both.
+
+**This used to be derived** by asking which neighbours pointed at the square,
+which is wrong wherever the answer is not local. A belt at the rim of a board is
+printed straight, or printed as a merge, and stays that way whatever board is
+laid beside it — the printing cannot know. Derivation made a square's shape
+depend on the course, so the same board turned a robot on one course and not on
+another. In the workshop a belt now carries three toggles, **Behind**, **From
+the left** and **From the right**, and painting a run writes the corner it turns.
+
 Neither are **pushers, flame jets, lasers or crushers**. Each is a thing standing
 *on* a square rather than the square itself, so each lives in a sparse list
 beside the picture. A pusher is bolted to a wall and the square beneath it can

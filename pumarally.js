@@ -342,20 +342,25 @@
      exist only for art -- they are exactly "which adjacent belts of
      my speed point at me", computed here rather than stored, which is
      one fewer thing to transcribe and one fewer thing to get wrong. */
+  /* WHAT THE BOARD PRINTS, not what the neighbours imply.
+
+     This used to scan the four neighbours and call any belt pointing
+     in an arm. That made a square's shape depend on what was laid
+     beside it, so a belt at a board's rim drew as a straight alone and
+     as a merge in a course -- and the turn rule followed the drawing,
+     which means the same board turned a robot on one course and not on
+     another. The printing does not work that way: a rim belt is
+     printed straight or printed as a merge and stays so.
+
+     `ins` is still the TRAVEL direction into the tile, which is the
+     opposite of the side the arm is on. */
   function beltArt(C, c, r) {
     var code = B.codeAt(C, c, r);
     var speed = B.beltSpeed(code);
     if (!speed) return null;
-    var exit = B.dirOf(code), ins = [];
-    for (var d = 0; d < 4; d++) {
-      if (d === exit) continue;
-      var nb = B.step(c, r, d);
-      if (B.isVoid(C, nb.c, nb.r)) continue;
-      var ncode = B.codeAt(C, nb.c, nb.r);
-      if (B.beltSpeed(ncode) !== speed) continue;
-      if (B.dirOf(ncode) === B.opposite(d)) ins.push(B.opposite(d));  // travel direction into this tile
-    }
-    return { speed: speed, exit: exit, ins: ins };
+    var arms = B.beltArms(C, c, r), ins = [], i;
+    for (i = 0; i < arms.length; i++) ins.push(B.opposite(arms[i]));
+    return { speed: speed, exit: B.dirOf(code), ins: ins };
   }
 
   /* A run carries a head only when it is a plain straight, so where
@@ -1834,11 +1839,17 @@
       tread(b);
       throughPortal(b);
       if (isHole(C, b.c, b.r)) { destroy(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
-      /* Rotate ONLY because a belt carried the robot onto the curve.
-         A robot that was already standing there, or was pushed on,
-         does not turn. */
+      /* Rotate ONLY because a belt carried the robot onto the curve,
+         and only where the board PRINTS an arm on the side it came in
+         by. A robot already standing there, or pushed on, does not
+         turn -- and neither does one carried in from the side of a
+         belt printed as a plain straight, which is what a T junction
+         at the rim of a board looks like when the belt feeding it is
+         on the next board along. This used to turn on the geometry
+         alone, so any perpendicular arrival spun the robot whatever
+         the square actually said. */
       var landed = B.codeAt(C, b.c, b.r);
-      if (B.beltSpeed(landed)) {
+      if (B.beltSpeed(landed) && B.beltTurnsFrom(C, b.c, b.r, B.opposite(mv.dir))) {
         var turn = B.turnBetween(mv.dir, B.dirOf(landed));
         if (turn === 1 || turn === -1) {
           var bctx = fire(b, "onBoardElement", { kind: "beltCurve", turn: turn, veto: false });
@@ -3205,11 +3216,16 @@
     return B.parsePic("door", { w: 2, h: 1, pic: ["+  +  +", " ..3.. ", "+  +  +"], lasers: [] });
   }
 
-  function bench(cells, walls, lasers, timers, pushers, burners) {
+  /* `merges` says which belts print an arm somewhere other than their
+     rear -- a corner, a T, a crossing. A bench board that wants a
+     curve has to SAY so now, because the shape is printed data rather
+     than something inferred from whichever neighbours happen to point
+     at the square. */
+  function bench(cells, walls, lasers, timers, pushers, burners, merges) {
     var w = cells[0].length, h = cells.length;
     var g = B.parsePic("bench", { w: w, h: h, pic: benchPic(cells, walls),
       lasers: lasers || [], timers: timers || [], pushers: pushers || [],
-      burners: burners || [] });
+      burners: burners || [], merges: merges || [] });
     g.id = "bench"; g.name = "Bench"; g.flags = [];
     return g;
   }
@@ -3400,7 +3416,11 @@
     } },
 
     { name: "a curve rotates a robot the conveyor carried onto it", run: function () {
-      benchGame(bench([["b>", "bv"], ["..", ".."]]), [{ c: 0, r: 0, face: N }]);
+      /* (1,0) exits south and prints its one arm on the WEST side, which
+         is what makes it a corner rather than a straight fed from the
+         side. The shape is data now, so the fixture states it. */
+      benchGame(bench([["b>", "bv"], ["..", ".."]], [], [], [], [], [],
+        [{ c: 1, r: 0, in: "W" }]), [{ c: 0, r: 0, face: N }]);
       beltPass(1);
       assert(G.players[0].c === 1 && G.players[0].r === 0, "should be on the curve, is " + at(G.players[0]));
       assert(G.players[0].face === E, "travelling east onto a south-exiting curve is a right turn, so north becomes east");
@@ -4762,7 +4782,8 @@
       benchGame(bench([["r.", ".."]]), [{ c: 0, r: 0, face: N, options: ["gyroscopicStabilizer"] }]);
       gearPass();
       assert(G.players[0].face === N, "the gear should not have turned it");
-      benchGame(bench([["b>", "bv"], ["..", ".."]]), [{ c: 0, r: 0, face: N, options: ["gyroscopicStabilizer"] }]);
+      benchGame(bench([["b>", "bv"], ["..", ".."]], [], [], [], [], [],
+        [{ c: 1, r: 0, in: "W" }]), [{ c: 0, r: 0, face: N, options: ["gyroscopicStabilizer"] }]);
       beltPass(1);
       assert(G.players[0].face === E, "a conveyor curve still turns it; facing is " + G.players[0].face);
     } },
@@ -4896,7 +4917,9 @@
       }
 
       /* A 2x2 loop: four turns, no straight, no head anywhere. */
-      var loop = bench([["b>", "bv"], ["b^", "b<"]]);
+      var loop = bench([["b>", "bv"], ["b^", "b<"]], [], [], [], [], [],
+        [{ c: 1, r: 0, in: "W" }, { c: 1, r: 1, in: "N" },
+         { c: 0, r: 1, in: "E" }, { c: 0, r: 0, in: "S" }]);
       var c, r, marked = 0;
       for (r = 0; r < 2; r++) for (c = 0; c < 2; c++) {
         assert(isTurn(loop, c, r), "the fixture must be all turns; (" + c + "," + r + ") is not");
@@ -4907,13 +4930,15 @@
       /* Two curves in a row inside an otherwise ordinary run: the
          join between them is marked, and the turn that feeds a plain
          straight is not -- that straight's own head is right there. */
-      var esses = bench([["..", "b>", "bv"], ["..", "..", "b<"], ["..", "..", ".."]]);
+      var esses = bench([["..", "b>", "bv"], ["..", "..", "b<"], ["..", "..", ".."]],
+        [], [], [], [], [], [{ c: 2, r: 0, in: "W" }, { c: 2, r: 1, in: "N" }]);
       assert(isTurn(esses, 2, 0) && isTurn(esses, 2, 1), "fixture needs two curves in a row");
       assert(heads(tileInner(esses, 2, 0)) === 1, "curve into curve marks the join");
       assert(heads(tileInner(esses, 1, 0)) === 1, "a plain straight keeps its own head");
 
       /* And a turn running into a headed straight adds nothing. */
-      var into = bench([["bv", "..", ".."], ["b>", "b>", ".."]]);
+      var into = bench([["bv", "..", ".."], ["b>", "b>", ".."]],
+        [], [], [], [], [], [{ c: 0, r: 1, in: "N" }]);
       assert(isTurn(into, 0, 1), "fixture needs a turn feeding a straight");
       assert(heads(tileInner(into, 0, 1)) === 0, "no second head beside a straight's own");
 
@@ -4983,7 +5008,8 @@
       assert(rails(art(straight, 1, 0)) === 2, "a belt has two rails");
 
       /* Arrives travelling east, leaves north: a left turn. */
-      var corner = bench([["..", "b^", ".."], ["b>", "b^", ".."]]);
+      var corner = bench([["..", "b^", ".."], ["b>", "b^", ".."]],
+        [], [], [], [], [], [{ c: 1, r: 1, in: "W" }]);
       assert(curves(art(corner, 1, 1)) === 1, "a curve must be drawn curved");
       /* The rails used to be a fatter stroke of the centreline with the
          bed laid over it, and on a turn the bed's inner edge swallowed
@@ -4992,7 +5018,9 @@
       assert(rails(art(corner, 1, 1)) === 2, "and it keeps BOTH rails round the bend");
 
       /* Two feeds, one straight and one turning, one way out. */
-      var merge = bench([["..", "bv", ".."], ["b>", "bv", ".."]]);
+      /* A rear arm AND a side arm: that is what a merge is. */
+      var merge = bench([["..", "bv", ".."], ["b>", "bv", ".."]],
+        [], [], [], [], [], [{ c: 1, r: 1, in: "NW" }]);
       var m = art(merge, 1, 1);
       assert(shafts(m) === 2, "a merge draws one shaft per feed, got " + shafts(m));
       assert(curves(m) === 1, "and exactly the side feed bends, got " + curves(m));
@@ -7127,6 +7155,176 @@
       ED.underlay = "x";
       assert(edUnderlayPaint() !== "none", "with a photograph loaded the controls do nothing at all");
       ED = keep;
+    } },
+
+    { name: "a belt turns a robot only where the board prints a path in", run: function () {
+      /* THE SHAPE IS PRINTED, NOT INFERRED. A conveyor is not only a
+         direction: the board prints whether the square is a plain
+         straight, a corner or a merge, and that is a rule -- a robot
+         carried onto a corner or into the arm of a merge turns a
+         quarter, and one carried onto a plain straight from the side
+         does not turn at all.
+
+         This used to be read off the NEIGHBOURS, which is wrong
+         wherever the answer is not local. A belt at the rim of a board
+         is printed straight, or printed as a merge, and stays so
+         whatever is laid beside it -- so the old rule turned a robot
+         on one course and not on another, from the same board. */
+      var arrive = function (g) {
+        benchGame(g, [{ c: 0, r: 0, face: N }]);
+        G.register = 0;
+        beltPass(1);
+        return G.players[0];
+      };
+
+      /* A corner: one arm, on the west side, no straight-through. */
+      var corner = bench([["b>", "bv"], ["..", ".."]], [], [], [], [], [],
+        [{ c: 1, r: 0, in: "W" }]);
+      var p = arrive(corner);
+      assert(p.c === 1 && p.r === 0, "the belt did not carry it onto the corner");
+      assert(p.face === E, "carried east onto a south-exiting corner is a right turn; facing " + p.face);
+
+      /* THE SAME GEOMETRY, printed straight. Nothing about the two
+         squares differs except what (1,0) says about itself, and that
+         is the whole point: no turn. */
+      var tee = bench([["b>", "bv"], ["..", ".."]]);
+      assert(!B.mergeAt(tee, 1, 0), "the fixture must leave (1,0) a plain straight");
+      p = arrive(tee);
+      assert(p.c === 1 && p.r === 0, "the belt did not carry it onto the straight");
+      assert(p.face === N, "carried into the side of a plain straight, it must not turn; facing " + p.face);
+
+      /* A merge takes a rear arm AND a side one, and turns only what
+         comes in by the side. (1,1) runs south, fed from the north by
+         (1,0) -- its rear -- and from the west by (0,1). */
+      var merge = bench([["..", "bv", ".."], ["b>", "bv", ".."], ["..", "..", ".."]],
+        [], [], [], [], [], [{ c: 1, r: 1, in: "NW" }]);
+      benchGame(merge, [{ c: 0, r: 1, face: N }]);
+      G.register = 0; beltPass(1);
+      var side = G.players[0];
+      assert(side.c === 1 && side.r === 1, "the side feed did not carry it onto the merge");
+      assert(side.face === E, "the side arm of a merge turns what comes in by it; facing " + side.face);
+      benchGame(merge, [{ c: 1, r: 0, face: N }]);
+      G.register = 0; beltPass(1);
+      var q = G.players[0];
+      assert(q.r === 1, "the rear arm did not carry it through");
+      assert(q.face === N, "coming in by the rear arm is straight through, so no turn");
+
+      /* And the arms are what the ART draws, so the rule and the
+         picture cannot disagree. */
+      var a1 = beltArt(corner, 1, 0), a2 = beltArt(tee, 1, 0), a3 = beltArt(merge, 1, 1);
+      assert(a1.ins.length === 1 && a1.ins[0] === E, "the corner draws one path, coming in eastward");
+      assert(a2.ins.length === 1 && a2.ins[0] === S, "the straight draws one path, straight through");
+      assert(a3.ins.length === 2, "the merge draws two paths, got " + a3.ins.length);
+    } },
+
+    { name: "a belt's printed arms turn with the board and with the belt", run: function () {
+      /* Stored as absolute sides, so both of these have to move them. */
+      var g = B.parsePic("t", { w: 2, h: 2,
+        pic: ["+  +  +", " b> bv ", "+  +  +", " .. .. ", "+  +  +"],
+        lasers: [], merges: [{ c: 1, r: 0, in: "W" }] });
+      assert(B.beltArms(g, 1, 0).join() === String(W), "fixture: the corner takes its arm from the west");
+      var t = B.rotateGrid(g, 1);
+      /* A quarter clockwise sends the square to (h-1-r, c) = (1,1) and
+         turns its arm from west to north. */
+      assert(B.beltArms(t, 1, 1).join() === String(N),
+        "a quarter turn left the arm on the " + B.dirName(B.beltArms(t, 1, 1)[0]) + " side");
+      assert(B.codeAt(t, 1, 1) === "b<", "and the belt itself should now run west, is " + B.codeAt(t, 1, 1));
+      /* Four turns is identity for the arms as well. */
+      var back = B.rotateGrid(g, 4);
+      assert(JSON.stringify(back.merges) === JSON.stringify(g.merges),
+        "four quarter turns must put every arm back where it started");
+
+      /* And in the workshop, turning the belt turns its corner: a
+         corner that stayed put would quietly become a straight. */
+      var keep = ED;
+      ED = edState(edNew(4, 4), "bench");
+      ED.grid.flags = [];
+      edSetCell(1, 1, "bv");
+      edSetArms(1, 1, [W]);
+      ED.sel = { c: 1, r: 1, part: "tile" };
+      edSelEdit("dir", W, "tile");
+      assert(B.codeAt(ED.grid, 1, 1) === "b<", "the belt did not turn");
+      assert(B.beltArms(ED.grid, 1, 1).join() === String(N),
+        "turning the belt a quarter did not take its arm with it; the arm is on the " +
+        B.dirName(B.beltArms(ED.grid, 1, 1)[0]) + " side");
+      assert(B.beltArms(ED.grid, 1, 1)[0] !== B.dirOf(B.codeAt(ED.grid, 1, 1)),
+        "an arm landed on the side the belt runs out of, which is not a thing");
+      ED = keep;
+    } },
+
+    { name: "the workshop writes a belt's arms, and never leaves one behind", run: function () {
+      var keep = ED;
+      ED = edState(edNew(6, 6), "bench");
+      ED.grid.flags = [];
+      ED.pick = "b"; ED.mode = "tile"; ED.tool = "b"; ED.dir = E;
+
+      /* A plain belt writes no entry at all: the data says which
+         squares are NOT ordinary, so an entry saying ordinary is noise. */
+      edPut("tile", 1, 1, { code: "b>" });
+      edSetArms(1, 1, [W]);
+      assert(!B.mergeAt(ED.grid, 1, 1), "a plain straight wrote an entry it did not need");
+      assert(B.beltArms(ED.grid, 1, 1).join() === String(W), "and its default arm is still its rear");
+
+      /* Toggling a side on and off again. */
+      ED.sel = { c: 1, r: 1, part: "tile" };
+      edSelEdit("arm", N, "tile");
+      assert(B.beltArms(ED.grid, 1, 1).sort().join() === [N, W].sort().join(), "the north arm did not go on");
+      assert(B.mergeAt(ED.grid, 1, 1).in.length === 2, "the entry does not carry both arms");
+      edSelEdit("arm", N, "tile");
+      assert(!B.mergeAt(ED.grid, 1, 1), "taking the last extra arm off did not drop the entry");
+
+      /* A belt cannot be left with no way in at all. */
+      edSelEdit("arm", W, "tile");
+      assert(B.beltArms(ED.grid, 1, 1).join() === String(W), "the last arm was allowed to go");
+
+      /* PAINTING A RUN WRITES ITS CORNERS. The hand goes east and then
+         south, so the square it turns in is a corner fed from the
+         west, and every other square is a plain straight. */
+      ED.undo = [];
+      ED.stroke = { before: edMark(), last: { c: 0, r: 3 }, n: 1 };
+      edSetCell(0, 3, "b>");
+      edStrokeTo(3, 3);
+      edStrokeTo(3, 5);
+      assert(B.codeAt(ED.grid, 3, 3) === "bv", "the run did not turn south at the corner");
+      assert(B.beltArms(ED.grid, 3, 3).join() === String(W),
+        "the corner was not given the arm it was entered by, got " +
+        B.beltArms(ED.grid, 3, 3).map(B.dirName).join("+"));
+      assert(!B.mergeAt(ED.grid, 1, 3), "a square the run went straight through was given an entry");
+      ED.stroke = null;
+
+      /* AND AN ARM NEVER OUTLIVES ITS BELT. Paint floor over the
+         corner and the entry has to go with it, or the board carries a
+         merge on a square that is not a conveyor -- which the
+         validator refuses and which nothing on screen would show. */
+      edSelEdit("arm", N, "tile");        // put something on (1,1) again
+      edSetCell(1, 1, "..");
+      assert(!B.mergeAt(ED.grid, 1, 1), "floor was painted over a belt and its arms stayed behind");
+      ED = keep;
+    } },
+
+    { name: "a merge that is not on a conveyor, or points at its own exit, is refused", run: function () {
+      var cases = [
+        [[{ c: 0, r: 0, in: "W" }], "b>", "is not on a conveyor", 1],
+        [[{ c: 0, r: 0, in: "E" }], null, "which is the side it runs out of", 0],
+        [[{ c: 0, r: 0, in: "" }], null, "names no sides", 0],
+        [[{ c: 0, r: 0, in: "X" }], null, "which is not a direction", 0],
+        [[{ c: 0, r: 0, in: "WW" }], null, "twice", 0],
+        [[{ c: 0, r: 0, in: "W" }, { c: 0, r: 0, in: "N" }], null, "two merges at", 0]
+      ];
+      for (var i = 0; i < cases.length; i++) {
+        var want = cases[i][2], onFloor = cases[i][3];
+        var pic = onFloor ? ["+  +  +", " .. b> ", "+  +  +"] : ["+  +  +", " b> .. ", "+  +  +"];
+        var msg = null;
+        try {
+          B.parsePic("t", { w: 2, h: 1, pic: pic, lasers: [], merges: cases[i][0] });
+        } catch (e) { msg = e.message; }
+        assert(msg && msg.indexOf(want) >= 0,
+          'case ' + i + ' should have been refused with "' + want + '", got ' + (msg || "no refusal"));
+      }
+      /* And a good one is accepted, or the sweep above proves nothing. */
+      var ok = B.parsePic("t", { w: 2, h: 1, pic: ["+  +  +", " b> .. ", "+  +  +"], lasers: [],
+                                 merges: [{ c: 0, r: 0, in: "NS" }] });
+      assert(B.beltArms(ok, 0, 0).length === 2, "a legitimate two-armed merge was not kept");
     } },
 
     { name: "the workshop can step back, and not over nothing", run: function () {
@@ -12247,8 +12445,20 @@
   }
 
   function edSetCell(c, r, code) {
-    if (!B.inGrid(ED.grid, c, r)) return;
-    ED.grid.cell[r * ED.grid.w + c] = code;
+    var g = ED.grid;
+    if (!B.inGrid(g, c, r)) return;
+    /* A BELT'S ARMS BELONG TO THE BELT THAT WAS THERE. Change what the
+       square is and they go with it -- otherwise painting floor over a
+       corner leaves an arm behind on a square that is no longer a
+       conveyor, which the validator refuses and which nothing on
+       screen would have told you about. Callers that mean to keep or
+       set arms do so straight after. */
+    if (g.cell[r * g.w + c] !== code) {
+      for (var i = 0; i < (g.merges || []).length; i++) {
+        if (g.merges[i].c === c && g.merges[i].r === r) { g.merges.splice(i, 1); break; }
+      }
+    }
+    g.cell[r * g.w + c] = code;
   }
 
   /* A BELT PRESUMES IT IS A CONTINUATION.
@@ -12976,6 +13186,13 @@
     var view = B.blankGrid(1, 1);
     view.flags = [];
     view.cell[0] = B.codeAt(g, sel.c, sel.r);
+    /* The belt's arms come across too, or the big picture draws a
+       corner as a straight -- which is the one thing about the square
+       this panel exists to let you change. */
+    if (B.beltSpeed(view.cell[0])) {
+      var vm = B.mergeAt(g, sel.c, sel.r);
+      if (vm) view.merges.push({ c: 0, r: 0, in: vm.in });
+    }
     for (i = 0; i < g.pushers.length; i++) {
       if (g.pushers[i].c === sel.c && g.pushers[i].r === sel.r) {
         view.pushers.push({ c: 0, r: 0, d: g.pushers[i].d, regs: g.pushers[i].regs.slice() });
@@ -13094,6 +13311,7 @@
     var out = [], obj = edPartObj(p), sel = ED.sel;
     if (p.kind === "tile") {
       if (p.dir) out.push(edCompass("edseldir", edPartDir(p), '" data-p="tile'));
+      if (B.beltSpeed(B.codeAt(ED.grid, sel.c, sel.r))) out.push(edArmRow(sel));
       if (p.digit) {
         out.push(edNumberRow("Bay", "edselnum", parseInt(B.codeAt(ED.grid, sel.c, sel.r).charAt(1), 10),
           1, 8, "tile"));
@@ -13128,6 +13346,42 @@
     if (p.kind === "burner") out.push(edNumberRow("Reaches", "edselnum", obj.len, 1, 2, p.id));
     out.push('<div class="pr-ed-row"><button data-act="edselremove" data-p="' + esc(p.id) +
       '">Take it off</button></div>');
+    return out.join("");
+  }
+
+  /* WHICH SIDES THIS BELT SHOWS A PATH COMING IN FROM.
+
+     Named from the belt's own point of view -- behind, left, right --
+     because that is how somebody looking at the square thinks about
+     it, and because it then reads the same whichever way the belt is
+     turned. Stored as absolute sides, so turning the belt turns its
+     arms with it rather than silently re-labelling them.
+
+     "Behind" is the straight-through path. A belt with only that is a
+     plain straight; one side and no behind is a corner; behind and a
+     side is a T; behind and both is a crossing. A robot carried in by
+     an arm is turned a quarter. A robot carried in from a side with NO
+     arm is not turned at all, which is what a belt at the rim of a
+     board does when the thing feeding it is on the board next door. */
+  function edArmRow(sel) {
+    var exit = B.dirOf(B.codeAt(ED.grid, sel.c, sel.r));
+    var arms = B.beltArms(ED.grid, sel.c, sel.r);
+    var names = [["Behind", B.opposite(exit)],
+                 ["From the left", B.rot(exit, -1)],
+                 ["From the right", B.rot(exit, 1)]];
+    var out = ['<div class="pr-ed-row"><span>Paths in</span>'], i;
+    for (i = 0; i < names.length; i++) {
+      var side = names[i][1], on = arms.indexOf(side) >= 0;
+      out.push('<button data-act="edselarm" data-d="' + side + '"' + (on ? ' class="on"' : "") +
+        ' aria-pressed="' + (on ? "true" : "false") +
+        '" title="A path coming in from the ' + esc(B.dirName(side)) + ' side">' +
+        esc(names[i][0]) + "</button>");
+    }
+    out.push("</div>");
+    out.push('<div class="pr-ed-note">A robot carried in by one of these is turned a quarter. ' +
+      "One from behind only is a plain straight; a side and no behind is a corner. A robot " +
+      "carried in from a side with no path here is not turned \u2014 which is what a belt at the " +
+      "edge of a board does when the belt feeding it is on the board next door.</div>");
     return out.join("");
   }
 
@@ -13289,6 +13543,7 @@
       pushers: g.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
       burners: g.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
       timers: g.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+      merges: (g.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
       flags: (g.flags || []).map(function (f) { return [f.c, f.r]; })
     });
   }
@@ -13553,8 +13808,19 @@
     while (at.c !== c || at.r !== r) {
       var d = at.c !== c ? (c > at.c ? E : W) : (r > at.r ? S : N);
       var nx = B.step(at.c, at.r, d), code = t.key + B.DIR_CHARS.charAt(d);
-      if (B.codeAt(ED.grid, at.c, at.r)) { edSetCell(at.c, at.r, code); did = true; }
+      if (B.codeAt(ED.grid, at.c, at.r)) {
+        edSetCell(at.c, at.r, code);
+        /* WHERE THE RUN TURNS, THE SQUARE IS A CORNER. The hand went
+           one way into this square and another way out of it, so the
+           path in comes from the side it arrived by -- which is the
+           arm, and which is what makes a robot turn there. Anywhere
+           the run goes straight the default rear arm is right and no
+           entry is written. */
+        edSetArms(at.c, at.r, [B.opposite(st.dir === undefined || st.dir === d ? d : st.dir)]);
+        did = true;
+      }
       if (B.codeAt(ED.grid, nx.c, nx.r)) { edSetCell(nx.c, nx.r, code); did = true; }
+      st.dir = d;
       at = nx;
       st.n++;
     }
@@ -14026,7 +14292,20 @@
       if (part.kind === "tile") {
         var code = B.codeAt(g, sel.c, sel.r);
         if (!code) { edKeep(before); return; }
-        edSetCell(sel.c, sel.r, code.charAt(0) + B.DIR_CHARS.charAt(v));
+        /* A BELT'S ARMS TURN WITH IT. They are stored absolutely, so
+           turning the belt without turning them would quietly change
+           a corner into a straight -- and could land an arm on the
+           side the belt now runs out of, which is not a thing. */
+        if (B.beltSpeed(code)) {
+          var was = B.dirOf(code), by = B.turnBetween(was, v), armsNow = B.beltArms(g, sel.c, sel.r), ai;
+          edSetCell(sel.c, sel.r, code.charAt(0) + B.DIR_CHARS.charAt(v));
+          if (by) {
+            for (ai = 0; ai < armsNow.length; ai++) armsNow[ai] = B.rot(armsNow[ai], by);
+            edSetArms(sel.c, sel.r, armsNow);
+          }
+        } else {
+          edSetCell(sel.c, sel.r, code.charAt(0) + B.DIR_CHARS.charAt(v));
+        }
       } else if (obj) {
         /* Turning a mount takes its wall with it: up on the new face,
            and down on the old one unless something else on the square
@@ -14054,6 +14333,19 @@
         g.flags.splice(to, 0, was);
         ED.sel.part = "flag:" + to;
       }
+    } else if (what === "arm") {
+      /* Toggling one side. Kept as the complete set of arms for the
+         square, absolute, so it survives the belt being turned. */
+      var code0 = B.codeAt(g, sel.c, sel.r);
+      if (!B.beltSpeed(code0)) { edKeep(before); return; }
+      var arms = B.beltArms(g, sel.c, sel.r), at = arms.indexOf(v);
+      if (at >= 0) arms.splice(at, 1); else arms.push(v);
+      if (!arms.length) {
+        announce("A belt needs a path in from somewhere, or nothing can ever reach it.");
+        edKeep(before);
+        return;
+      }
+      edSetArms(sel.c, sel.r, arms);
     } else if (what === "reg") {
       if (!obj) { edKeep(before); return; }
       i = obj.regs.indexOf(v);
@@ -14063,6 +14355,22 @@
     }
     edKeep(before);
     edAfterEdit();
+  }
+
+  /* Write a belt's arms, dropping the entry entirely when they are
+     just the default rear one -- the board data says "this square is
+     not ordinary", so an entry that says ordinary is noise. */
+  function edSetArms(c, r, arms) {
+    var g = ED.grid, exit = B.dirOf(B.codeAt(g, c, r)), i;
+    g.merges = g.merges || [];
+    for (i = 0; i < g.merges.length; i++) {
+      if (g.merges[i].c === c && g.merges[i].r === r) { g.merges.splice(i, 1); break; }
+    }
+    arms = arms.slice().sort();
+    if (arms.length === 1 && arms[0] === B.opposite(exit)) return;
+    var letters = "";
+    for (i = 0; i < arms.length; i++) letters += "NESW".charAt(arms[i]);
+    g.merges.push({ c: c, r: r, in: letters });
   }
 
   function edPartById(id) {
@@ -14332,6 +14640,7 @@
        about to be placed ---- */
     else if (a === "edseldir") edSelEdit("dir", parseInt(b.dataset.d, 10), b.dataset.p);
     else if (a === "edselnum") edSelEdit("num", parseInt(b.dataset.n, 10), b.dataset.p);
+    else if (a === "edselarm") edSelEdit("arm", parseInt(b.dataset.d, 10), "tile");
     else if (a === "edselreg") edSelEdit("reg", parseInt(b.dataset.n, 10), b.dataset.p);
     else if (a === "edselwall") edSelEdit("wall", parseInt(b.dataset.d, 10));
     else if (a === "edselremove") edSelEdit("remove", 0, b.dataset.p);
@@ -14395,6 +14704,8 @@
       pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
       burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
       timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+      merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
+      merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
       flags: (ED.grid.flags || []).map(function (f) { return [f.c, f.r]; })
     };
   }
@@ -14469,7 +14780,8 @@
       lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
       pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
       burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
-      timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; })
+      timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+      merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; })
     };
   }
 
