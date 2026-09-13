@@ -378,6 +378,18 @@
         }
         for (c = 0; c < w; c++) {
           var code = row.substr(3 * c + 1, 2);
+          /* A HOLE IN THE PICTURE, and only where holes are possible.
+
+             A board has no void: every square of it is printed, so two
+             spaces there is a dropped character and stays an error --
+             that strictness is the whole reason the format is a
+             picture. A COURSE is a different shape: two boards over a
+             one-board start area leave a corner with nothing in it, and
+             an L-shaped course is mostly nothing. So a picture that
+             says it carries voids may leave a square empty, and the
+             cell is left undefined, which is exactly what isVoid
+             already means by "off the course". */
+          if (spec.voids && code === "  ") continue;
           var def = ELEMENT_DEFS[code.charAt(0)];
           if (!def) E_("(" + c + "," + r + ") uses element '" + code.charAt(0) + "', which is not in the legend");
           var a = code.charAt(1);
@@ -516,7 +528,8 @@
         out += "+";
       } else {
         for (c = 0; c < g.w; c++) {
-          out += (g.wallW[r * (g.w + 1) + c] ? "|" : (g.doorW[r * (g.w + 1) + c] || " ")) + g.cell[r * g.w + c];
+          out += (g.wallW[r * (g.w + 1) + c] ? "|" : (g.doorW[r * (g.w + 1) + c] || " ")) +
+                 (g.cell[r * g.w + c] || "  ");
         }
         out += g.wallW[r * (g.w + 1) + g.w] ? "|" : (g.doorW[r * (g.w + 1) + g.w] || " ");
       }
@@ -1616,12 +1629,34 @@
 
   function buildCourse(id) {
     var spec = courseSpec(id);
+    var C, i;
+    /* A COURSE EDITED AS A WHOLE.
+
+       Ordinarily a course is boards stamped onto an empty grid, and
+       the boards are the truth. Once somebody has moved a pit on the
+       assembled course that stops being so: the edit belongs to the
+       course and to no board on it, and stamping the boards again
+       would throw it away. So an edited course carries its own
+       picture and is parsed straight from that. The board list stays
+       beside it, because "what was this made of" is still worth
+       knowing and the editions are read from the picture either way. */
+    if (spec.grid) {
+      C = parsePic(spec.id || "composed", spec.grid);
+      C.id = typeof id === "string" ? id : (spec.id || "composed");
+      C.name = spec.name;
+      C.flags = [];
+      for (i = 0; i < spec.flags.length; i++) {
+        C.flags.push({ c: spec.flags[i][0], r: spec.flags[i][1], n: i + 1 });
+      }
+      C.docks.sort(function (a, z) { return a.n - z.n; });
+      return C;
+    }
     var b = courseBounds(spec);
-    var C = blankGrid(b.w, b.h);
+    C = blankGrid(b.w, b.h);
     C.id = typeof id === "string" ? id : (spec.id || "composed");
     C.name = spec.name;
     C.flags = [];
-    for (var i = 0; i < spec.boards.length; i++) {
+    for (i = 0; i < spec.boards.length; i++) {
       var p = spec.boards[i];
       stamp(C, rotateGrid(parsePic(p.id, specOf(p.id)), p.rot), p.at);
     }
@@ -2249,30 +2284,46 @@
      make that mistake. */
   function courseElements(id) {
     var spec = courseSpec(id), out = [];
+    /* An edited course is read from the picture it carries, because
+       that picture is what will be raced -- a square the workshop put
+       there decides the ruleset exactly as a printed one does. */
+    if (spec.grid) {
+      var eg;
+      try { eg = parsePic(spec.id || "composed", spec.grid); } catch (e) { return out; }
+      return gridElements(eg, out);
+    }
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (var i = 0; i < parts.length; i++) {
       var bs = specOf(parts[i].id);
       if (!bs) continue;
       var g;
       try { g = parsePic(parts[i].id, bs); } catch (e) { continue; }
-      for (var r = 0; r < g.h; r++) {
-        for (var c = 0; c < g.w; c++) {
-          var def = elemOf(codeAt(g, c, r));
-          if (def && def.editions) out.push({ name: def.name, editions: def.editions });
-        }
+      gridElements(g, out);
+    }
+    return out;
+  }
+
+  /* Which edition-bearing things a PARSED grid carries. Shared, so a
+     course read from its boards and one read from its own picture
+     cannot disagree about what is on it. */
+  function gridElements(g, out) {
+    for (var r = 0; r < g.h; r++) {
+      for (var c = 0; c < g.w; c++) {
+        var def = elemOf(codeAt(g, c, r));
+        if (def && def.editions) out.push({ name: def.name, editions: def.editions });
       }
-      var k;
-      for (k = 0; k < g.doorN.length; k++) {
-        if (g.doorN[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
-      }
-      for (k = 0; k < g.doorW.length; k++) {
-        if (g.doorW[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
-      }
-      for (var layer in LAYER_EDITIONS) {
-        if (layer === "doors") continue;
-        if (g[layer] && g[layer].length) {
-          out.push({ name: LAYER_NAMES[layer] || layer, editions: LAYER_EDITIONS[layer] });
-        }
+    }
+    var k;
+    for (k = 0; k < g.doorN.length; k++) {
+      if (g.doorN[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
+    }
+    for (k = 0; k < g.doorW.length; k++) {
+      if (g.doorW[k]) { out.push({ name: LAYER_NAMES.doors, editions: LAYER_EDITIONS.doors }); break; }
+    }
+    for (var layer in LAYER_EDITIONS) {
+      if (layer === "doors") continue;
+      if (g[layer] && g[layer].length) {
+        out.push({ name: LAYER_NAMES[layer] || layer, editions: LAYER_EDITIONS[layer] });
       }
     }
     return out;
