@@ -1201,6 +1201,7 @@
         registers: [null, null, null, null, null],
         poweredDown: false,
         announceDown: false,
+        ready: false,
         alive: true,
         out: false
       });
@@ -2351,6 +2352,7 @@
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
+          p.ready = false;                     // this turn's confirmation, not last turn's
           if (p.poweredDown) { p.hand = []; p.dealtCount = 0; continue; }
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
@@ -2387,8 +2389,25 @@
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
-          if (p.poweredDown || programmed(p)) continue;
-          if (isHuman(p)) { G.actor = p.id; return WAIT; }
+          if (p.poweredDown) continue;
+          if (isHuman(p)) {
+            /* A PERSON IS ASKED EVEN WITH NOTHING TO ARRANGE.
+
+               At 9 damage every register is locked, so there are no
+               cards to place and `programmed` is true before the
+               player has done anything -- which used to skip them
+               straight past the announce. p.12 puts Announce PowerDown
+               after arranging, and 9 damage is the damage at which a
+               player most wants it, so that skip removed the decision
+               exactly where it mattered.
+
+               `ready` is what the person has confirmed this turn, not
+               what the registers look like, which is the distinction
+               `programmed` cannot make. */
+            if (!p.ready) { G.actor = p.id; return WAIT; }
+            continue;
+          }
+          if (programmed(p)) continue;
           applyProgram(p, botProgram(p));
         }
         go("turn", "announce");
@@ -2631,12 +2650,27 @@
          stay down another turn. Distinct from announcing, which is a
          decision taken while programming. */
       stayDown: function () {
-        var alive = live();
+        var alive = live(), pending = false;
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           if (!p.poweredDown) continue;
-          p.announceDown = isHuman(p) ? p.announceDown : botWantsPowerDown(p);
+          if (!isHuman(p)) { p.announceDown = botWantsPowerDown(p); continue; }
+          /* A person needs somewhere to say it. The button cannot
+             serve: it wants to be the actor in turn/program, and a
+             powered-down robot is skipped there, so a human used to
+             wake after exactly one turn whatever they wanted. The
+             question goes on the same queue every other board question
+             uses, which is also what makes it survive a reload.
+
+             Setting announceDown twice is the same as setting it once,
+             so the answer is read straight back rather than through
+             answerFor -- this step has nothing that must run once. */
+          var pick = askBoard(p, "staydown", "Powered down",
+            "Stay powered down for another turn?", ["Power up", "Stay down"]);
+          if (pick === null) { pending = true; continue; }
+          p.announceDown = pick === 1;
         }
+        if (pending) return park("cleanup", "stayDown");
         go("cleanup", "discard");
         return NEXT;
       },
@@ -3282,7 +3316,7 @@
           if (!def) throw new Error("bench robot given unknown option " + id);
           return { id: id, st: def.init ? def.init() : {} };
         }),
-        poweredDown: !!rb.poweredDown, announceDown: false,
+        poweredDown: !!rb.poweredDown, announceDown: false, ready: false,
         alive: rb.alive !== false, out: false
       });
     }
@@ -4113,6 +4147,45 @@
       assert(p.damage === 6, "announcing must not repair anything by itself");
       STEP.turn.powerStart();
       assert(p.damage === 0, "damage clears at the start of the powered-down turn");
+    } },
+
+    /* THE TWO DECISIONS THAT DECIDE WHETHER CARDS ARE DEALT AT ALL.
+
+       Powering down is the one rule that sets a hand size to zero, so
+       a player who cannot reach the decision cannot play the rule.
+       Both of these were reachable for a bot and unreachable for a
+       person, which is the kind of gap no simulation can find. */
+
+    { name: "a powered-down human is asked whether to stay down", run: function () {
+      /* p.28: "Before cards are dealt for the next turn, a player may
+         decide to leave her robot powered down." The cleanup step
+         recomputed the answer for bots and left a human's alone -- and
+         nothing could set a human's, because the PowerDown button
+         wants to be the actor in turn/program and a powered-down robot
+         is skipped there. So a human always woke after exactly one
+         turn. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, poweredDown: true }]);
+      var p = G.players[0], wasAuto = UI.autoHuman;
+      p.isBot = false; UI.autoHuman = false;
+      G.phase = "cleanup"; G.step = "stayDown";
+      try { STEP.cleanup.stayDown(); } finally { UI.autoHuman = wasAuto; }
+      assert(G.pendingChoices.length === 1,
+        "nothing asked the player whether to stay powered down");
+    } },
+
+    { name: "a human with every register locked still reaches the announce", run: function () {
+      /* p.12 puts Announce PowerDown after arranging cards, and p.26
+         says a robot at 9 damage receives no cards and locks all five
+         registers. Such a robot has nothing to arrange, so the program
+         step skipped it as already programmed -- taking the decision
+         away at exactly the damage where a player wants it most. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0, damage: 9 }]);
+      var p = G.players[0], wasAuto = UI.autoHuman;
+      p.isBot = false; UI.autoHuman = false;
+      G.phase = "turn"; G.step = "program";
+      try { STEP.turn.program(); } finally { UI.autoHuman = wasAuto; }
+      assert(G.actor === p.id,
+        "a robot with all five registers locked was skipped past the announce");
     } },
 
     /* The powered-down shutdown rules. A belt can carry a shut-down
@@ -9848,6 +9921,7 @@
   function onRun() {
     var p = actor();
     if (!inPhase("turn", "program") || !p || firstEmpty(p) !== -1) return;
+    p.ready = true;
     announce("Running registers.");
     advance();
   }
