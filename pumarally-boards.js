@@ -1950,43 +1950,9 @@
     return null;
   }
 
-  /* SOMEWHERE LEGAL, AND SCATTERED.
-
-     autoFlags spreads flags as far apart as the course allows, which
-     is the right default and the same answer every time. Asking for
-     a RANDOM course wants the other thing: anywhere legal, subject
-     only to not landing on top of each other. The separation floor
-     relaxes rather than fails, because a small course may not have
-     room for the spacing a large one does. */
-  function randomFlags(C, n, rnd, dockBox, box) {
-    var cand = flagCandidates(C, dockBox, box);
-    if (!cand.length) return [];
-    /* Random still means anywhere legal -- but the corners and the
-       outer ring are the worst squares on the course, so they are held
-       back and only drawn from when the interior cannot supply the
-       whole race. */
-    var inner = [], i;
-    for (i = 0; i < cand.length; i++) if (flagRank(C, cand[i].c, cand[i].r) === 0) inner.push(cand[i]);
-    if (inner.length >= n) cand = inner;
-    var pick = rnd || Math.random;
-    var gap = Math.max(2, Math.round(Math.min(C.w, C.h) / 3));
-    var out = [], guard = 0;
-    while (out.length < n && guard++ < 4000) {
-      var t = cand[Math.floor(pick() * cand.length) % cand.length], ok = true;
-      for (var i = 0; i < out.length; i++) {
-        if (Math.abs(t.c - out[i][0]) + Math.abs(t.r - out[i][1]) < gap) ok = false;
-      }
-      if (ok) out.push([t.c, t.r]);
-      /* Relax rather than spin: a 12x16 course asked for six flags
-         cannot hold them four apart, and returning four flags for a
-         six-flag race would be the silent half of that failure. */
-      else if (guard % 400 === 0 && gap > 1) gap--;
-    }
-    return out;
-  }
-
   /* One definition of "a square a flag may sit on", so autoFlags,
-     randomFlags and the by-hand check cannot disagree about it. */
+     every placement mode and the by-hand check cannot disagree about
+     it. */
   function flagCandidates(C, dockBox, box) {
     var cand = [], c, r;
     for (r = 0; r < C.h; r++) {
@@ -2052,22 +2018,89 @@
     return out;
   }
 
-  function bestBy(cand, score) {
+  /* HOW FAR A FLAG MAY BE FROM THE ONE BEFORE IT.
+
+     Twelve squares in either direction -- a board's width -- so the
+     next flag is always inside a board-sized window on the last one.
+     A race whose flags are further apart than that is a series of
+     separate journeys rather than a course. The book's own guidance is
+     Northrup's rule, which is this measured over the whole set at
+     once; measured pair by pair it holds a long course together
+     without pinning it into one corner of a big one.
+
+     RACE_MIN is the other end of the same idea: a stride, so that a
+     lap is a lap rather than a cluster. */
+  var FLAG_REACH = 12, RACE_MIN = 8, RALLY_PER_BOARD = 3;
+
+  function flagStep(a, b) {
+    return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
+  }
+
+  /* What is wrong with a chain of flags, or null. Read by every mode,
+     including the one where a person places them by hand. */
+  function flagChainProblem(flags) {
+    for (var i = 1; i < flags.length; i++) {
+      var d = flagStep(flags[i - 1], flags[i]);
+      if (d > FLAG_REACH) {
+        return "flag " + (i + 1) + " is " + d + " squares from flag " + i +
+          ", and no flag may be more than " + FLAG_REACH + " from the one before it";
+      }
+    }
+    return null;
+  }
+
+  /* How far into the outer half of its own board a square is. The
+     middle of a board is the busy part; the edge is the part you have
+     to cross a seam to reach, so a course favouring the outside is a
+     longer lap. */
+  function outerness(boxes, c, r) {
+    for (var i = 0; i < boxes.length; i++) {
+      var b = boxes[i];
+      if (c < b.x0 || c > b.x1 || r < b.y0 || r > b.y1) continue;
+      return Math.max(Math.abs(c - b.cx), Math.abs(r - b.cy));
+    }
+    return 0;
+  }
+
+  /* The best candidate that is legal AND reachable, ranked first by
+     how good a square it is and only then by what the caller wants.
+     One function, so every mode obeys the reach rule the same way. */
+  function pickFlag(C, cand, score, prev, near) {
+    var live = [], i;
+    for (i = 0; i < cand.length; i++) {
+      if (prev) {
+        var d = flagStep(prev, [cand[i].c, cand[i].r]);
+        if (d > FLAG_REACH) continue;
+        if (near && d < near) continue;
+      }
+      live.push(i);
+    }
+    if (!live.length) return -1;
+    var bestRank = 3;
+    for (i = 0; i < live.length; i++) {
+      var rk = flagRank(C, cand[live[i]].c, cand[live[i]].r);
+      if (rk < bestRank) bestRank = rk;
+    }
     var best = -1, bestS = -Infinity;
-    for (var i = 0; i < cand.length; i++) {
-      var sc = score(cand[i]);
-      if (sc > bestS) { bestS = sc; best = i; }
+    for (i = 0; i < live.length; i++) {
+      var t = cand[live[i]];
+      if (flagRank(C, t.c, t.r) !== bestRank) continue;
+      var sc = score(t);
+      if (sc > bestS) { bestS = sc; best = live[i]; }
     }
     return best;
   }
 
-  /* RALLY: every flag on one board before the next one.
+  /* RALLY: three flags on one board before the next one.
 
      The tour starts at the board nearest the docking bay and moves
      away from it, so the race leads outward rather than doubling back
      over the start. Within a board the flags are spread, which is what
-     stops "all of board one" meaning "three squares in one corner". */
-  function rallyFlags(C, n, spec) {
+     stops "all of board one" meaning "three squares in one corner" --
+     and any two squares of one board are eleven apart at most, so the
+     reach rule is free inside a board and bites only when the race
+     crosses onto the next one. */
+  function rallyFlags(C, spec) {
     var boxes = boardBoxes(spec), dock = dockBoxOf(spec);
     var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
     var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
@@ -2076,109 +2109,70 @@
       var db = Math.abs(b.cx - dc) + Math.abs(b.cy - dr);
       return da - db || a.y0 - b.y0 || a.x0 - b.x0;
     });
-    return fillBoards(C, n, spec, boxes, false);
-  }
-
-  /* ARENA: a lap of the play area, calling at every board.
-
-     The boards are toured by angle around the centre of the course
-     rather than by distance from the dock, so the flags describe a
-     ring; and within a board they alternate between the thick of it
-     and its edge, which is what makes the ring a path rather than a
-     list of destinations. */
-  function arenaFlags(C, n, spec) {
-    var boxes = boardBoxes(spec), dock = dockBoxOf(spec);
-    var mx = (C.w - 1) / 2, my = (C.h - 1) / 2;
-    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
-    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
-    var start = Math.atan2((dock ? dr : C.h) - my, dc - mx);
-    boxes.sort(function (a, b) {
-      /* Angles measured from the dock and wrapped into one turn, so
-         the lap begins at the board over the start area. */
-      var aa = (Math.atan2(a.cy - my, a.cx - mx) - start + Math.PI * 4) % (Math.PI * 2);
-      var bb = (Math.atan2(b.cy - my, b.cx - mx) - start + Math.PI * 4) % (Math.PI * 2);
-      return aa - bb || a.y0 - b.y0 || a.x0 - b.x0;
-    });
-    return fillBoards(C, n, spec, boxes, true);
-  }
-
-  /* NORTHRUP'S RULE, which is printed rather than ours.
-
-     On a big configuration, keeping every flag inside one twelve-by-
-     twelve window -- the size of a single board -- makes for a fast
-     game at two or three players: a robot can get well off course and
-     still not be far from the next flag. At four or more it does the
-     opposite, because everyone is in the same twelve squares.
-
-     The window is chosen for the most legal squares it can hold and,
-     among equals, the one nearest the dock. Inside it the flags are
-     spread, which is the same thing the automatic placement does. */
-  function northrupFlags(C, n, spec, rnd) {
-    var dock = dockBoxOf(spec), best = null;
-    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
-    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
-    for (var y = 0; y + 1 <= C.h; y += 4) {
-      for (var x = 0; x + 1 <= C.w; x += 4) {
-        var box = { x0: x, y0: y, x1: Math.min(x + 11, C.w - 1), y1: Math.min(y + 11, C.h - 1) };
-        var room = flagCandidates(C, dock, box).length;
-        var far = Math.abs((box.x0 + box.x1) / 2 - dc) + Math.abs((box.y0 + box.y1) / 2 - dr);
-        if (!best || room > best.room || (room === best.room && far < best.far)) {
-          best = { box: box, room: room, far: far };
-        }
+    var out = [], bi, k;
+    for (bi = 0; bi < boxes.length; bi++) {
+      var cand = flagCandidates(C, dock, boxes[bi]);
+      for (k = 0; k < RALLY_PER_BOARD && cand.length; k++) {
+        var prev = out.length ? out[out.length - 1] : null;
+        var pick = pickFlag(C, cand, function (t) {
+          /* Spread within the board: as far as possible from every
+             flag already down, so three on one board are three corners
+             of it rather than a huddle. */
+          var far = Infinity, j;
+          for (j = 0; j < out.length; j++) {
+            var d = Math.abs(t.c - out[j][0]) + Math.abs(t.r - out[j][1]);
+            if (d < far) far = d;
+          }
+          return far === Infinity ? -(Math.abs(t.c - dc) + Math.abs(t.r - dr)) : far;
+        }, prev);
+        if (pick < 0) break;
+        out.push([cand[pick].c, cand[pick].r]);
+        cand.splice(pick, 1);
       }
     }
-    if (!best) return [];
-    /* Given a source of chance, scatter inside the window instead of
-       spreading through it. The window is the rule; where in it the
-       flags land is the part worth rolling, and it is the only
-       randomness this game offers -- flags thrown anywhere on a
-       four-board course are not a race, they are a commute. */
-    if (rnd) return randomFlags(C, n, rnd, dock, best.box);
-    return fillBoards(C, n, spec, [{
-      x0: best.box.x0, y0: best.box.y0, x1: best.box.x1, y1: best.box.y1,
-      cx: (best.box.x0 + best.box.x1) / 2, cy: (best.box.y0 + best.box.y1) / 2
-    }], false);
+    return out;
   }
 
-  function fillBoards(C, n, spec, boxes, alternate) {
-    var dock = dockBoxOf(spec), out = [], quota = shareOut(n, boxes.length);
-    for (var bi = 0; bi < boxes.length; bi++) {
-      var box = boxes[bi];
-      var cand = flagCandidates(C, dock, box);
-      var placed = 0;
-      while (placed < quota[bi] && cand.length) {
-        /* Rank first, always: a corner is only taken when the board
-           has nothing else left. */
-        var bestRank = 3, i;
-        for (i = 0; i < cand.length; i++) {
-          var rk = flagRank(C, cand[i].c, cand[i].r);
-          if (rk < bestRank) bestRank = rk;
-        }
-        var pool = [];
-        for (i = 0; i < cand.length; i++) {
-          if (flagRank(C, cand[i].c, cand[i].r) === bestRank) pool.push(cand[i]);
-        }
-        var want = alternate && (placed % 2 === 1) ? "edge" : alternate ? "thick" : "spread";
-        var k = bestBy(pool, function (t) {
-          if (want === "thick") return -(Math.abs(t.c - box.cx) + Math.abs(t.r - box.cy));
-          if (want === "edge") return Math.abs(t.c - box.cx) + Math.abs(t.r - box.cy);
-          /* Spread: as far as possible from every flag already down
-             anywhere on the course, so a board boundary does not
-             become a place two flags crowd against. */
-          var d = Infinity;
-          for (var j = 0; j < out.length; j++) {
-            var dd = Math.abs(t.c - out[j][0]) + Math.abs(t.r - out[j][1]);
-            if (dd < d) d = dd;
-          }
-          return d === Infinity ? 0 : d;
-        });
-        var got = pool[k];
-        out.push([got.c, got.r]);
-        placed++;
-        for (i = 0; i < cand.length; i++) {
-          if (cand[i].c === got.c && cand[i].r === got.r) { cand.splice(i, 1); break; }
-        }
+  /* RACE: one lap out and back, in strides.
+
+     Every flag is between eight and twelve squares from the one
+     before, so the course is a journey rather than a cluster; the
+     first half leads away from the start area and the second half
+     comes back to it, which is what makes it a lap rather than a line.
+     Squares in the outer half of their own board are preferred. */
+  function raceFlags(C, n, spec) {
+    var boxes = boardBoxes(spec), dock = dockBoxOf(spec);
+    var dc = dock ? (dock.x0 + dock.x1) / 2 : C.w / 2;
+    var dr = dock ? (dock.y0 + dock.y1) / 2 : C.h;
+    var cand = flagCandidates(C, dock);
+    if (!cand.length) return [];
+    var out = [], turn = Math.ceil(n / 2);
+    function fromDock(t) { return Math.abs(t.c - dc) + Math.abs(t.r - dr); }
+
+    /* The first flag is a short way out of the start area rather than
+       the furthest square on the course: a lap that begins at the far
+       end is a lap nobody drives the first half of. */
+    var first = pickFlag(C, cand, function (t) {
+      return -fromDock(t) + outerness(boxes, t.c, t.r);
+    }, null);
+    if (first < 0) return [];
+    out.push([cand[first].c, cand[first].r]);
+    cand.splice(first, 1);
+
+    while (out.length < n && cand.length) {
+      var prev = out[out.length - 1], outward = out.length < turn;
+      var pick = pickFlag(C, cand, function (t) {
+        return fromDock(t) * (outward ? 1 : -1) + outerness(boxes, t.c, t.r) * 2;
+      }, prev, RACE_MIN);
+      /* A course too small to stride across relaxes the near limit
+         rather than returning a shorter race than was asked for. The
+         reach limit is never relaxed: it is the rule. */
+      if (pick < 0) {
+        pick = pickFlag(C, cand, function (t) { return outerness(boxes, t.c, t.r); }, prev);
       }
+      if (pick < 0) break;
+      out.push([cand[pick].c, cand[pick].r]);
+      cand.splice(pick, 1);
     }
     return out;
   }
@@ -2513,14 +2507,16 @@
     validateGrid: validateGrid, validateCourse: validateCourse,
     playableEditions: playableEditionsNew, editionBlocker: editionBlockerNew,
     courseSpec: courseSpec, composeCourse: composeCourse, autoFlags: autoFlags,
-    randomFlags: randomFlags, defaultFlagsFor: defaultFlagsFor,
+    defaultFlagsFor: defaultFlagsFor,
+    FLAG_REACH: FLAG_REACH, RACE_MIN: RACE_MIN, RALLY_PER_BOARD: RALLY_PER_BOARD,
+    flagStep: flagStep, flagChainProblem: flagChainProblem, raceFlags: raceFlags,
     flagCandidates: flagCandidates, flagLegal: flagLegal, dockBoxOf: dockBoxOf,
     withFlags: withFlags, flagRank: flagRank, boardBoxes: boardBoxes, shareOut: shareOut,
     layoutFromCourse: layoutFromCourse,
     LAY_BOARDS: LAY_BOARDS, LAY_COLS: LAY_COLS, LAY_ROWS: LAY_ROWS,
     layCells: layCells, layAt: layAt, laySpan: laySpan, layConnected: layConnected,
     layDockCols: layDockCols, layDockCol: layDockCol, laySlots: laySlots,
-    rallyFlags: rallyFlags, arenaFlags: arenaFlags, northrupFlags: northrupFlags,
+    rallyFlags: rallyFlags,
     courseElements: courseElements, validateAll: validateAll,
     specOf: specOf, setOverride: setOverride, clearOverride: clearOverride,
     overrideIds: overrideIds, isOverridden: isOverridden
