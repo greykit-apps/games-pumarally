@@ -1549,7 +1549,7 @@
        the second pass lands. */
     canneryRow: {
       name: "Cannery Row", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
-      notes: "Checked square by square against the photograph and confirmed. Three rams on the lower half are printed on the board and are not here: their register plates cannot be read at this resolution, and a guessed register is worse than a missing ram.",
+      notes: "Checked square by square against the photograph and confirmed. The five rams and their registers were read off the board itself.",
       pic: [
         "+  +  +--+  +--+  +  +--+  +--+  +  +",
         " B> B> B> B> bv b< o. .. .. .. ..|Bv ",
@@ -1570,9 +1570,9 @@
         "+  +  +--+  +  +  +  +  +  +  +--+  +",
         " B^ .. ..|..|bv W. b^ .. .. o. .. b^ ",
         "+  +--+  +  +  +--+  +--+  +--+  +  +",
-        "|B^ ..|.. .. bv .. b^ ..|.. .. ..|b^|",
+        "|B^ ..|.. .. bv .. b^ ..|..|.. ..|b^|",
         "+  +  +  +--+  +  +  +  +  +--+  +  +",
-        " B^ w. .. ..|bv|.. b^ .. .. W.|.. b^ ",
+        " B^ w. .. ..|bv|..|b^ .. .. W.|.. b^ ",
         "+  +  +--+  +  +  +  +  +--+  +--+  +",
         " B^ .. .. .. b> bv b^ B< B< B< B< B< ",
         "+  +  +--+  +  +  +  +--+  +--+  +  +"
@@ -1617,7 +1617,10 @@
       ,
       pushers: [
         { c: 8, r: 5, d: "S", regs: [2, 4] },
-        { c: 9, r: 5, d: "S", regs: [1, 3, 5] }
+        { c: 9, r: 5, d: "S", regs: [1, 3, 5] },
+        { c: 10, r: 9, d: "W", regs: [1] },
+        { c: 5, r: 10, d: "W", regs: [3] },
+        { c: 8, r: 9, d: "W", regs: [2] }
       ]
       ,
       timers: [
