@@ -6738,19 +6738,12 @@
         } else {
           track++;
           assert(C.boards.length >= 2, id + " is a race track on one board");
-          /* One flag per board, so the path has to cross every seam --
-             which is the only reason to lay more than one board down. */
-          var seen = {}, f;
-          for (f = 0; f < C.flags.length; f++) {
-            for (var b = 0; b < C.boards.length; b++) {
-              var B0 = C.boards[b];
-              if (C.flags[f][0] >= B0.at[0] && C.flags[f][0] < B0.at[0] + 12 &&
-                  C.flags[f][1] >= B0.at[1] && C.flags[f][1] < B0.at[1] + 12) seen[b] = 1;
-            }
-          }
-          assert(Object.keys(seen).length === Math.min(C.flags.length, C.boards.length),
-            id + " puts its " + C.flags.length + " flags on " + Object.keys(seen).length +
-            " of its " + C.boards.length + " boards");
+          /* WHERE THE FLAGS GO IS THE TRACK'S OWN BUSINESS. A rule
+             saying one per board was asserted here for a while. It is
+             not a rule -- tracks are copied from the manuals or built
+             by hand, and both put flags where the track puts them.
+             What a flag may sit ON is checked; how many land on each
+             board is not. */
         }
       }
       assert(quick >= 9 && track >= 3, "the menu offers " + quick + " quick games and " + track + " tracks");
@@ -6763,6 +6756,106 @@
         if (sp.w !== 12 || sp.h !== 12) continue;              // the block is not a board to race
         assert(byBoard[bid], bid + " has no quick game, so nothing reaches it from the menu");
       }
+    } },
+
+    { name: "every length the assembler writes into a style carries its unit", run: function () {
+      /* A bare number is not a length: the browser drops the whole
+         declaration and says nothing. The starting block's "start
+         here" button wrote height:32, lost it, sized itself to its own
+         wrapped label at fifty pixels instead, and hung out of the
+         stage and over the paragraph underneath.
+
+         Swept over the whole of the stage's markup rather than that
+         one button, because every box on it is positioned by hand and
+         any of them could lose a unit the same way. */
+      var keepL = UI.layout, keepH = UI.heldBoard, keepA = UI.heldAt;
+      UI.heldBoard = null;
+      UI.heldAt = null;
+      try {
+        /* Boards under all three columns, so the block is offered a
+           choice and the buttons that carry the offer are drawn at
+           all -- with one board down there is nowhere else to put it
+           and this swept markup that did not contain the bug. */
+        UI.layout = { v: 3, dockCol: 0, cells: [null, null, null, null, null, null,
+          { id: "provingGround", rot: 0 }, { id: "island", rot: 0 }, { id: "cross", rot: 0 }] };
+        var html = layoutStage();
+        assert(html.indexOf("pr-lay-dockslot") >= 0,
+          "the sweep found no start-here buttons, so it proves nothing about them");
+        assert(html.indexOf("pr-lay-dock\"") >= 0 && html.indexOf("pr-lay-slot") >= 0,
+          "the sweep is missing the block or the empty slots");
+
+        var styles = html.match(/style="[^"]*"/g) || [];
+        assert(styles.length >= 6, "only " + styles.length + " positioned boxes on the stage");
+        for (var i = 0; i < styles.length; i++) {
+          var bad = styles[i].match(/(left|top|right|bottom|width|height)\s*:\s*-?\d+(?:\.\d+)?(?![a-z%.\d])/g);
+          assert(!bad, "a length with no unit, so the browser drops it: " + bad + " in " + styles[i]);
+        }
+
+        /* And the block's row is inside the stage it is drawn on: the
+           stage's own height has to allow for it, or a correctly
+           sized button still hangs off the bottom. */
+        var g = stageGeom();
+        assert(g.h >= g.dockTop() + 4 * g.px,
+          "the stage is " + g.h + " tall and the block ends at " + (g.dockTop() + 4 * g.px));
+      } finally {
+        UI.layout = keepL;
+        UI.heldBoard = keepH;
+        UI.heldAt = keepA;
+      }
+    } },
+
+    { name: "a label in a fixed box outranks the button style and cannot spill out of it", run: function () {
+      /* Two faults, one box. The starting block's "start here" button
+         is thirty-two pixels tall by arithmetic, and the label inside
+         it stood forty and hung over the paragraph underneath.
+
+         The first fault is specificity: `.pr-root button` is a class
+         AND an element, so it beats any bare class in this sheet. The
+         font-size, padding and line-height written for this button
+         were simply thrown away -- which is why the rule that lost
+         them had to shout !important at the two properties somebody
+         had already noticed going missing.
+
+         The second is what it lost: the root sets `font:13px/1.5`,
+         which computes to a line-height of about twenty PIXELS and
+         inherits as that absolute length, so an eight-pixel label got
+         twenty-pixel lines. A fixed box with text in it has to say
+         what happens to the text. */
+      var css = CSS;
+      /* The collision is real, or the scoping below guards nothing. */
+      var base = css.match(/\.pr-root button\{([^}]*)\}/);
+      assert(base, "there is no base button rule, so nothing here is being outranked");
+      assert(/font\s*:/.test(base[1]) && /padding\s*:/.test(base[1]),
+        "the base button rule sets neither font nor padding: " + base[1]);
+
+      /* EVERY rule that reaches this button, not the first one found:
+         the class is named twice in the sheet, and the one that
+         matters is the one carrying the box's own type. */
+      var rules = css.match(/[^{}]*\.pr-lay-dockslot[^{}]*\{[^}]*\}/g) || [];
+      assert(rules.length, "the start-here button has no rule of its own");
+      var typed = null, i;
+      for (i = 0; i < rules.length; i++) {
+        var sel = rules[i].slice(0, rules[i].indexOf("{"));
+        var body = rules[i].slice(rules[i].indexOf("{") + 1, -1);
+        /* A rule setting something the base button rule also sets is
+           in a fight with it, and has to win. One that sets only
+           things the base leaves alone -- position, say -- is not. */
+        if (/font|padding|min-height|line-height/.test(body)) {
+          /* SCOPING, not !important. A rule can shout at one property
+             and still quietly lose the other four -- which is exactly
+             what the rule this replaces did, and why the box was the
+             wrong size while two of its declarations looked defended. */
+          assert(sel.indexOf(".pr-root") >= 0,
+            'scoped as "' + sel + '", which a class and an element outrank, so it is thrown away');
+        }
+        if (/line-height/.test(body)) typed = body;
+      }
+      assert(typed, "no rule gives the label a line-height, so it inherits the root's twenty " +
+        "pixels and two lines will not fit the box");
+      assert(/overflow\s*:\s*hidden/.test(typed),
+        "nothing clips the label, so anything it ever says can reach outside the box");
+      assert(/align-items\s*:\s*center/.test(typed) && /display\s*:\s*flex/.test(typed),
+        "the label is not centred in the box it is given");
     } },
 
     { name: "the workshop can step back, and not over nothing", run: function () {
@@ -7936,10 +8029,33 @@
     "letter-spacing:1px;color:var(--pr-accent);text-transform:uppercase;pointer-events:none}",
     /* The other columns the block could sit under, offered only where
        a board is standing over them. */
-    ".pr-lay-dockslot{border:1px dashed var(--pr-accent-dim)!important;",
+    /* A FIXED BOX WITH TEXT IN IT HAS TO SAY WHAT HAPPENS TO THE TEXT.
+       The root sets `font:13px/1.5`, which computes to a line-height of
+       19.5 PIXELS and inherits as that absolute length -- so an 8px
+       label in here got 19.5px lines, wrapped to two, and stood 35px
+       tall in a 32px box, hanging over the paragraph below it. Its own
+       line-height, centred, and clipped so nothing it ever says can
+       reach outside the box again. */
+    /* A FIXED BOX WITH TEXT IN IT HAS TO SAY WHAT HAPPENS TO THE TEXT.
+       The root sets `font:13px/1.5`, which computes to a line-height of
+       about 20 PIXELS and inherits as that absolute length -- so a
+       small label in here got 20px lines, wrapped to two, and stood
+       taller than the 32px box, hanging over the paragraph below it.
+       Its own line-height, centred, and clipped so nothing it ever
+       says can reach outside the box again.
+
+       SCOPED UNDER .pr-root ON PURPOSE. `.pr-root button` is a class
+       AND an element and so beats any bare class in this sheet: the
+       font-size, the padding and the line-height here were all being
+       thrown away, which is why the rule it replaces had to shout
+       !important at the two properties it cared about. Two classes
+       beat one class and an element, so everything below lands. */
+    ".pr-root .pr-lay-dockslot{border:1px dashed var(--pr-accent-dim);",
     "background:color-mix(in srgb,var(--pr-accent) 5%,transparent);color:var(--pr-dim);",
-    "min-height:0!important;padding:0;font-size:8px;letter-spacing:1px;text-transform:uppercase}",
-    ".pr-lay-dockslot:hover{border-color:var(--pr-accent)!important;color:var(--pr-accent);",
+    "min-height:0;padding:0 2px;font-size:8px;letter-spacing:1px;text-transform:uppercase;",
+    "display:flex;align-items:center;justify-content:center;text-align:center;",
+    "line-height:1.2;overflow:hidden}",
+    ".pr-root .pr-lay-dockslot:hover{border-color:var(--pr-accent);color:var(--pr-accent);",
     "background:color-mix(in srgb,var(--pr-accent) 22%,transparent)}",
     ".pr-lay-board{line-height:0}",
     ".pr-lay-board .pr-lboard{padding:0;border:0!important;background:none;cursor:grab;",
@@ -10792,10 +10908,7 @@
        the workshop opens on it and its flags come with it. */
     out.push(courseShelf("quick", "Quick games",
       "One board with its flags already down. The shortest way to a game."));
-    out.push(courseShelf("track", "Race tracks",
-      "Two boards or more, with a flag on each, so the path has to cross every seam. " +
-      "Laid out here rather than copied from the printed course cards \u2014 five of the twelve " +
-      "classic boards are transcribed, and the book\u2019s own sample tracks use the others."));
+    out.push(courseShelf("track", "Race tracks", ""));
     out.push(libraryBody());
 
     /* THE STAGE AND THE SHELF.
@@ -11010,9 +11123,13 @@
           boardThumb("dockingBay", 0, g.px) +
           '<span class="pr-lay-label">start</span></div>');
       } else if (may) {
+        /* The px on the height is load-bearing. Without it the whole
+           declaration is dropped, the button sizes to its own wrapped
+           label instead -- fifty pixels rather than thirty-two -- and
+           it hangs out of the stage and over the paragraph below. */
         out.push('<button class="pr-lay-dockslot" data-act="ldock" data-c="' + c +
           '" style="left:' + g.left(c) + "px;top:" + g.dockTop() + "px;width:" + (12 * g.px) +
-          "px;height:" + (4 * g.px) + '" aria-label="Move the starting block under column ' +
+          "px;height:" + (4 * g.px) + 'px" aria-label="Move the starting block under column ' +
           (c + 1) + '"><span>start here</span></button>');
       }
     }

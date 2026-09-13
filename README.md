@@ -130,10 +130,10 @@ which box its first board came out of:
 - **Quick games** — one board with its flags already down, one per transcribed
   board, named after the board. The shortest distance between wanting a game
   and having one.
-- **Race tracks** — two boards or more with a flag on each, so the path has to
-  cross every seam. Laid out here, following the rulebook's own guidance for
-  building them: 1×2, 2×2 and 1×3 configurations, two to four flags whatever
-  the size, and Northrup's Rule holding between consecutive flags.
+- **Race tracks** — two boards or more, on the configurations the rulebook
+  builds its own on: 1×2, 2×2 and 1×3. Where the flags go is each track's own
+  business; tracks are copied from the manuals or built by hand, and both put
+  flags where the track puts them.
 
 **The book's own sample race tracks are not among them, and cannot be yet.**
 Every one of them lays down two to four boards, five of the twelve classic
