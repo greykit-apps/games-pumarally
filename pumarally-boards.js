@@ -214,10 +214,23 @@
     return null;
   }
 
-  /* register is 0-based; the board prints 1-5. */
+  /* NO NUMBER MEANS EVERY REGISTER.
+
+     A trap that fires in all five is printed without any number on it,
+     because there is nothing to distinguish; only a trap that sits out
+     some registers needs to say which. So an empty list is not a
+     missing list, it is the commonest case written the short way, and
+     the three traps ask the same question through here rather than
+     each spelling out the same indexOf.
+
+     register is 0-based; the board prints 1-5. */
+  function firesIn(regs, register) {
+    return !regs || !regs.length || regs.indexOf(register + 1) >= 0;
+  }
+
   function activeNow(g, c, r, register) {
     var t = timerAt(g, c, r);
-    return !!t && t.regs.indexOf(register + 1) >= 0;
+    return !!t && firesIn(t.regs, register);
   }
 
   /* The jet playing over this square, or null. A jet covers its mount
@@ -235,7 +248,7 @@
 
   function burnerFires(g, c, r, register) {
     var f = burnerAt(g, c, r);
-    return !!f && f.regs.indexOf(register + 1) >= 0;
+    return !!f && firesIn(f.regs, register);
   }
 
   /* The pusher overhanging this square, or null. There is at most one:
@@ -254,7 +267,7 @@
      three cases. register is 0-based, the board prints 1-5. */
   function pusherFires(g, c, r, register) {
     var pu = pusherAt(g, c, r);
-    return !!pu && pu.regs.indexOf(register + 1) >= 0;
+    return !!pu && firesIn(pu.regs, register);
   }
 
   /* ============================================================
@@ -500,7 +513,8 @@
         E_("press at (" + T.c + "," + T.r + ") is off the board");
       }
       if (isPit(g.cell[T.r * w + T.c])) E_("press at (" + T.c + "," + T.r + ") is over a pit");
-      if (!T.regs || !T.regs.length) E_("press at (" + T.c + "," + T.r + ") lists no registers");
+      T.regs = T.regs || [];
+      if (T.regs.length === 5) E_("press at (" + T.c + "," + T.r + ") lists all five registers; leave the list empty instead");
       for (var ri = 0; ri < T.regs.length; ri++) {
         if (!(T.regs[ri] >= 1 && T.regs[ri] <= 5)) {
           E_("press at (" + T.c + "," + T.r + ") lists register " + T.regs[ri] + "; registers run 1-5");
@@ -547,7 +561,8 @@
       var U = spec.pushers[pi], uw = "pusher at (" + U.c + "," + U.r + ")";
       if (!inGrid(g, U.c, U.r)) E_(uw + " is off the board");
       if (DIR_OF[U.d] === undefined) E_(uw + ' pushes "' + U.d + '", which is not a direction');
-      if (!U.regs || !U.regs.length) E_(uw + " lists no registers; every printed one acts in some");
+      U.regs = U.regs || [];
+      if (U.regs.length === 5) E_(uw + " lists all five registers; leave the list empty instead");
       for (var ui = 0; ui < U.regs.length; ui++) {
         if (!(U.regs[ui] >= 1 && U.regs[ui] <= 5)) {
           E_(uw + " lists register " + U.regs[ui] + "; registers run 1-5");
@@ -562,7 +577,8 @@
       var F = spec.burners[fi], fw = "burner at (" + F.c + "," + F.r + ")";
       if (!inGrid(g, F.c, F.r)) E_(fw + " is off the board");
       if (DIR_OF[F.d] === undefined) E_(fw + ' throws "' + F.d + '", which is not a direction');
-      if (!F.regs || !F.regs.length) E_(fw + " lists no registers; every printed one fires in some");
+      F.regs = F.regs || [];
+      if (F.regs.length === 5) E_(fw + " lists all five registers; leave the list empty instead");
       for (var fr = 0; fr < F.regs.length; fr++) {
         if (!(F.regs[fr] >= 1 && F.regs[fr] <= 5)) {
           E_(fw + " lists register " + F.regs[fr] + "; registers run 1-5");
@@ -1465,8 +1481,8 @@
       ,
       pushers: [
         { c: 3, r: 1, d: "S", regs: [1, 2, 3, 4] },
-        { c: 9, r: 1, d: "W", regs: [1, 2, 3, 4, 5] },
-        { c: 1, r: 2, d: "S", regs: [1, 2, 3, 4, 5] },
+        { c: 9, r: 1, d: "W", regs: [] },
+        { c: 1, r: 2, d: "S", regs: [] },
         { c: 6, r: 2, d: "S", regs: [2, 3, 5] },
         { c: 4, r: 3, d: "N", regs: [1, 2, 3, 4] },
         { c: 7, r: 3, d: "S", regs: [1, 2, 3, 5] },

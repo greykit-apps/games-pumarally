@@ -150,6 +150,22 @@
 
   var MAX_DAMAGE = 10, START_LIVES = 3, REGISTERS = 5;
 
+  /* LIVES SCALE WITH THE SIZE OF THE RACE.
+
+     Three each is the baseline, with one more once there are five or
+     more robots and one more again once the course runs to five or
+     more boards. Both are about how long a robot spends in the way of
+     something: a crowd shoots at you more often, and a longer course
+     gives the floor more chances. A flat three made a big course a
+     procession of robots running out of lives before the last flag.
+
+     Counted from the course SPEC rather than the built grid, because
+     the grid is one welded rectangle by then and the seam between two
+     boards is not in it. */
+  function livesFor(seats, boards) {
+    return START_LIVES + (seats >= 5 ? 1 : 0) + (boards >= 5 ? 1 : 0);
+  }
+
   /* The nominal tile edge in CSS pixels. It is a starting point, not
      a grid: the art is vector, so the board scales to whatever the
      column gives it and this only sets what 1x means -- the editor's
@@ -1113,9 +1129,15 @@
     UI.course = C;
 
     var seats = Math.max(2, Math.min(8, opts.players || 4));
+    /* The spec is what knows how many boards were laid out; the built
+       course is one welded grid with no seams left in it. */
+    var courseSpec = spec || B.COURSES[courseId];
+    var boardCount = (courseSpec && courseSpec.boards) ? courseSpec.boards.length : 1;
+    var startLives = livesFor(seats, boardCount);
     G = {
       v: SAVE_VERSION,
       seed: seed,
+      startLives: startLives,
       rngState: seed | 0,
       courseId: spec ? (spec.id || "composed") : courseId,
       /* A deep copy, because G must survive JSON round-tripping and
@@ -1215,7 +1237,7 @@
            becomes a per-course field rather than a constant. */
         face: N,
         damage: 0,
-        lives: START_LIVES,
+        lives: startLives,
         flags: 0,
         archive: { c: dock.c, r: dock.r, face: N },   // replaced by takeBay
         hand: [],
@@ -1323,6 +1345,36 @@
      thing someone has to remember.
      ------------------------------------------------------------ */
   var OPTION_ROSTER = { printed: 26, transcribed: 16 };
+
+  /* THREE IN HAND, AND THE FOURTH FORCES ONE OUT.
+
+     Crash and Burn caps the option hand at three: draw a fourth and one
+     goes face up on the discard immediately. Without the cap a robot
+     that keeps finding upgrade sites accumulates the whole roster, and
+     the cards stop being a choice.
+
+     Which one to give up is the player's, so it is a question. A bot
+     answers by the same preference destruction uses -- anything that
+     acts on coming back is kept until there is nothing else to give --
+     because a robot holding only Superior Archive and throwing it away
+     has thrown away the one card it was about to need. */
+  var OPTION_LIMIT = 3;
+
+  function botTrimPick(p) {
+    for (var i = p.options.length - 1; i >= 0; i--) {
+      var def = OPTION_DEFS[p.options[i].id];
+      if (def && def.hooks.onRespawn) continue;
+      return i;
+    }
+    return p.options.length - 1;
+  }
+
+  function dropOptionAt(p, i) {
+    if (i < 0 || i >= p.options.length) i = p.options.length - 1;
+    var gone = p.options.splice(i, 1)[0];
+    G.optionDiscard.push(gone.id);
+    log(p.name + " gives up " + OPTION_DEFS[gone.id].name);
+  }
 
   /* ============================================================
      OPTION CARD ART
@@ -1739,14 +1791,36 @@
         if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage });
       }
       if (isHole(C, m.c, m.r)) destroy(m, B.isVoid(C, m.c, m.r) ? "over the edge" : "into a pit");
+      /* A JET BURNS WHAT PASSES THROUGH IT, not only what stops in it.
+
+         The burner step at the end of the register scorches whoever is
+         standing in the flame; this is the other half, and the two are
+         not the same event. A robot crossing an active jet and carrying
+         on takes a point and the burner step never sees it, while one
+         that crosses and then stops there takes a point for each --
+         which the Crash and Burn book flags as the case people get
+         wrong. Ours only ever did the second half.
+
+         Every square of a move is a separate step through here, so
+         "across" costs a point per square, and a shoved robot is
+         burned too: the book says moving onto or across, not moving
+         under your own power. Belts do not come through here at all.
+
+         Deferred with the push damage for the same reason -- burning a
+         robot to pieces mid-chain leaves the ones behind it being
+         shoved into a square it no longer occupies. */
+      if (m.alive && B.burnerFires(C, m.c, m.r, G.register)) {
+        hurt.push({ who: m, n: 1, why: "the flame" });
+      }
     }
     /* Push damage lands after the whole chain has moved: applying it
        mid-loop can destroy a robot the robots behind it are still
        being pushed into. */
     for (i = 0; i < hurt.length; i++) {
       if (!hurt[i].who.alive) continue;
-      log(hurt[i].who.name + " takes " + hurt[i].n + " from ramming gear");
-      damage(hurt[i].who, hurt[i].n, "ram");
+      var why = hurt[i].why || "ramming gear";
+      log(hurt[i].who.name + " takes " + hurt[i].n + " from " + why);
+      damage(hurt[i].who, hurt[i].n, why === "the flame" ? "burner" : "ram");
     }
     return true;
   }
@@ -2744,6 +2818,30 @@
             if (p.damage > 0) { p.damage--; log(p.name + " repairs 1 damage"); }
           }
         }
+        go("cleanup", "trim");
+        return NEXT;
+      },
+
+      /* THE OPTION HAND LIMIT. Its own step for the same reason the
+         repair has one: a step that can park for a question has to be
+         safe to re-run, and discarding is not. This one is safe
+         because it is guarded by the limit itself -- once a card is
+         gone the player is inside it and the step skips them, so a
+         second pass cannot spend the same answer twice. */
+      trim: function () {
+        var alive = live(), pending = false;
+        for (var i = 0; i < alive.length; i++) {
+          var p = alive[i];
+          if (p.options.length <= OPTION_LIMIT) continue;
+          if (!isHuman(p)) { dropOptionAt(p, botTrimPick(p)); continue; }
+          var labels = [];
+          for (var o = 0; o < p.options.length; o++) labels.push(OPTION_DEFS[p.options[o].id].name);
+          var pick = askBoard(p, "trim", "Too many options",
+            "You may keep " + OPTION_LIMIT + ". Which one goes?", labels);
+          if (pick === null) { pending = true; continue; }
+          dropOptionAt(p, pick);
+        }
+        if (pending) return park("cleanup", "trim");
         go("cleanup", "stayDown");
         return NEXT;
       },
@@ -3024,7 +3122,11 @@
       // 2. Damage and lives stay in their printed ranges.
       if (p.damage < 0 || p.damage > MAX_DAMAGE) throw new Error(p.name + " has damage " + p.damage);
       if (p.alive && p.damage >= MAX_DAMAGE) throw new Error(p.name + " is at " + MAX_DAMAGE + " damage and still on the board");
-      if (p.lives < 0 || p.lives > START_LIVES) throw new Error(p.name + " has " + p.lives + " lives");
+      /* Against what THIS race started with, not the flat baseline:
+         lives scale with seats and boards, so a six-robot game legally
+         holds four. */
+      var maxLives = G.startLives || START_LIVES;
+      if (p.lives < 0 || p.lives > maxLives) throw new Error(p.name + " has " + p.lives + " lives");
       if (p.out && p.alive) throw new Error(p.name + " is out of the race and still on the board");
 
       // 3. Flags touched are a prefix: no gaps, ever.
@@ -4676,18 +4778,29 @@
          way pushers and burners always have.
 
          What is left to refuse is a press that is nowhere, on a hole,
-         or that never fires. Plain floor is FINE -- that is most of
-         them on the other boards. */
-      var off = false, pit = false, noSet = false, twice = false, bad = false;
+         or that spells out all five registers when it means "always".
+         Plain floor is FINE -- that is most of them on the other
+         boards. */
+      var off = false, pit = false, allFive = false, twice = false, bad = false;
       try { bench([[".."]], [], [], [{ c: 3, r: 0, regs: [1] }]); }
       catch (e) { off = /off the board/.test(e.message); }
       assert(off, "a press outside the grid must be refused");
       try { bench([["o."]], [], [], [{ c: 0, r: 0, regs: [1] }]); }
       catch (e) { pit = /over a pit/.test(e.message); }
       assert(pit, "a press over a pit must be refused -- there is no floor to flatten anything against");
-      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [] }]); }
-      catch (e) { noSet = /lists no registers/.test(e.message); }
-      assert(noSet, "a press that never fires must be refused");
+      /* AN EMPTY LIST IS NOT A MISSING LIST. A trap printed with no
+         number on it fires every register, so this is the ordinary
+         always-on press and must be accepted. Spelling out all five
+         says the same thing the long way and IS refused, so there is
+         one way to write it. */
+      var always = bench([[".."]], [], [], [{ c: 0, r: 0, regs: [] }]);
+      for (var rr = 0; rr < 5; rr++) {
+        assert(B.activeNow(always, 0, 0, rr),
+          "a press with no register printed on it must fire in register " + (rr + 1));
+      }
+      try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [1, 2, 3, 4, 5] }]); }
+      catch (e) { allFive = /leave the list empty/.test(e.message); }
+      assert(allFive, "all five spelled out must be refused, so there is one way to say always");
       try { bench([[".."]], [], [], [{ c: 0, r: 0, regs: [7] }]); }
       catch (e) { bad = /registers run 1-5/.test(e.message); }
       assert(bad, "a press firing in register 7 must be refused");
@@ -4706,17 +4819,19 @@
 
     { name: "a pusher can fire on an arbitrary set of registers", run: function () {
       /* The two printed parities cover most boards, but board H prints
-         pushers on 1/2/3/4/5 and 2/3/4/5 among others, which "odd" and
-         "even" cannot say at all. Every pusher carries its own set, so
-         there is one question here and not three cases. */
+         pushers on 2/3/4/5 among others, which "odd" and "even" cannot
+         say at all. Every pusher carries its own set, so there is one
+         question here and not three cases -- and the set that means
+         every register is the EMPTY one, because a ram that never sits
+         a register out has no number printed on it. */
       benchGame(bench([["..", ".."]], [], [], [],
-        [{ c: 0, r: 0, d: "E", regs: [1, 2, 3, 4, 5] }]), [{ c: 0, r: 0, face: N }]);
+        [{ c: 0, r: 0, d: "E", regs: [] }]), [{ c: 0, r: 0, face: N }]);
       var p = G.players[0];
       for (var reg = 0; reg < 5; reg++) {
         p.c = 0; p.r = 0;
         G.register = reg;
         pusherPass();
-        assert(p.c === 1, "a pusher listing every register must fire in register " + (reg + 1));
+        assert(p.c === 1, "a ram with no register printed on it must fire in register " + (reg + 1));
       }
       /* And one that lists only two must be silent in the others. */
       benchGame(bench([["..", ".."]], [], [], [],
@@ -7281,6 +7396,134 @@
       assert(under.damage === 0, "a crusher destroys rather than damaging, so no damage should be taken");
       assert(under.lives === lives - 1, "being crushed costs a life");
       assert(beside.alive, "the robot on the next square was crushed by a press that is not there");
+    } },
+
+    { name: "an option hand is capped at three, and the fourth forces one out", run: function () {
+      /* Crash and Burn caps the hand at three. Without it a robot that
+         keeps finding upgrade sites collects the whole roster and the
+         cards stop being a choice. */
+      assert(OPTION_LIMIT === 3, "the printed cap is three");
+
+      benchGame(bench([["W."]]), [{ c: 0, r: 0,
+        options: ["brakes", "crabLegs", "extraMemory", "highPowerLaser"] }]);
+      var p = G.players[0];
+      assert(p.options.length === 4, "the fixture should start over the cap");
+      var before = G.optionDiscard.length;
+      G.phase = "cleanup"; G.step = "trim";
+      STEP.cleanup.trim();
+      assert(p.options.length === 3, "a bot over the cap must come back down to three, it holds " + p.options.length);
+      assert(G.optionDiscard.length === before + 1, "the card it gave up must reach the discard");
+
+      /* Inside the cap, nothing is taken. */
+      STEP.cleanup.trim();
+      assert(p.options.length === 3, "a robot inside the cap must keep what it has");
+
+      /* And the card a bot gives up is never the one that acts on
+         coming back, while it has anything else to give.
+
+         Superior Archive goes LAST on purpose. The bot picks from the
+         end of the list, so with it anywhere else this passes whether
+         the preference is there or not -- which is exactly what it did
+         the first time it was written. */
+      benchGame(bench([["W."]]), [{ c: 0, r: 0,
+        options: ["brakes", "crabLegs", "extraMemory", "superiorArchive"] }]);
+      var q = G.players[0];
+      G.phase = "cleanup"; G.step = "trim";
+      STEP.cleanup.trim();
+      var kept = [];
+      for (var i = 0; i < q.options.length; i++) kept.push(q.options[i].id);
+      assert(kept.indexOf("superiorArchive") >= 0,
+        "it threw away the card it was about to need: kept " + kept.join(", "));
+    } },
+
+    { name: "a jet burns what crosses it, and again what stops in it", run: function () {
+      /* Crash and Burn flags this as the case people get wrong: the
+         burner step at the end of a register and the flame a robot
+         walks through are two separate events, and one register can
+         cost you both. Ours only ever did the burner step. */
+      var jet = [{ c: 1, r: 0, d: "E", regs: [1], len: 2 }];
+      benchGame(bench([["..", "..", "..", ".."]], [], [], [], [], jet),
+        [{ c: 0, r: 0, face: E }]);
+      var p = G.players[0];
+      G.register = 0;                                  // register 1, the jet is lit
+
+      /* Straight through both squares of the flame and out the far
+         side: two squares crossed, two points, and the robot is not
+         standing in it when burners act. */
+      stepRobot(p, E, "move"); stepRobot(p, E, "move"); stepRobot(p, E, "move");
+      assert(p.c === 3, "the robot should have crossed to the far side, it is at " + p.c);
+      assert(p.damage === 2, "crossing two lit squares should cost two, it cost " + p.damage);
+      burnerPass();
+      assert(p.damage === 2, "it is clear of the flame, so the burner step must not touch it");
+
+      /* And stopping in it costs the crossing AND the burner step. */
+      benchGame(bench([["..", "..", "..", ".."]], [], [], [], [], jet),
+        [{ c: 0, r: 0, face: E }]);
+      p = G.players[0];
+      G.register = 0;
+      stepRobot(p, E, "move");
+      assert(p.damage === 1, "moving into the flame costs one, it cost " + p.damage);
+      burnerPass();
+      assert(p.damage === 2, "and stopping there costs another, total " + p.damage);
+
+      /* An unlit register burns nobody. */
+      benchGame(bench([["..", "..", "..", ".."]], [], [], [], [], jet),
+        [{ c: 0, r: 0, face: E }]);
+      p = G.players[0];
+      G.register = 1;                                  // register 2, the jet is out
+      stepRobot(p, E, "move");
+      assert(p.damage === 0, "a jet that is not lit this register must not burn");
+    } },
+
+    { name: "lives scale with the number of robots and the number of boards", run: function () {
+      /* Three each, one more at five robots, one more again at five
+         boards. A flat three turned a long course into a procession of
+         robots running out before the last flag. */
+      assert(livesFor(2, 1) === 3, "a small race starts on three");
+      assert(livesFor(4, 4) === 3, "four robots on four boards is still three");
+      assert(livesFor(5, 1) === 4, "the fifth robot is worth a life");
+      assert(livesFor(8, 4) === 4, "and only one, however many more join");
+      assert(livesFor(2, 5) === 4, "the fifth board is worth a life on its own");
+      assert(livesFor(6, 6) === 5, "both together is five");
+
+      /* And a real game has to deal them out. */
+      newGame(5, { course: "longHaul", players: 6 });
+      assert(G.startLives === 4, "six robots on three boards should start on four, got " + G.startLives);
+      for (var i = 0; i < G.players.length; i++) {
+        assert(G.players[i].lives === 4, G.players[i].name + " started on " + G.players[i].lives);
+      }
+      newGame(5, { course: "exchangeRun", players: 3 });
+      assert(G.startLives === 3, "three robots on one board should start on three");
+    } },
+
+    { name: "a trap with no register printed on it fires in every one", run: function () {
+      /* The style rule: a trap that never sits a register out carries
+         no number, so an empty set is the always-on setting and the
+         long way round is refused. Checked at both ends -- the toggle
+         that produces it, and the board that has to accept it. */
+      var regs = [];
+      edToggleReg(regs, 1); edToggleReg(regs, 2); edToggleReg(regs, 3); edToggleReg(regs, 4);
+      assert(regs.join(",") === "1,2,3,4", "four registers should stay four, got " + regs.join(","));
+      edToggleReg(regs, 5);
+      assert(regs.length === 0, "picking the fifth should empty the set, which is how always is written");
+      edToggleReg(regs, 3);
+      assert(regs.join(",") === "3", "and toggling again should start a fresh set");
+
+      /* And the workshop must actually put one down. It used to refuse,
+         because an empty set read as "you have not chosen yet". */
+      var keep = ED;
+      ED = edState(edNew(8, 8), "bench");
+      ED.grid.flags = [];
+      ED.pushRegs = []; ED.burnRegs = []; ED.pressRegs = [];
+      var ok = edPut("press", 3, 3, {}) && edPut("pusher", 1, 1, { dir: E }) &&
+               edPut("burner", 6, 6, { dir: E });
+      var t3 = B.timerAt(ED.grid, 3, 3);
+      var okRegs = t3 && t3.regs.length === 0;
+      var fires = t3 && B.activeNow(ED.grid, 3, 3, 0) && B.activeNow(ED.grid, 3, 3, 4);
+      ED = keep;
+      assert(ok, "the workshop refused to place a trap with no registers");
+      assert(okRegs, "the trap it placed did not carry the empty set");
+      assert(fires, "the trap it placed does not fire in every register");
     } },
 
     { name: "the workshop can put a crusher down, move it, and say when it may not", run: function () {
@@ -13796,8 +14039,25 @@
       out.push('<button data-act="' + act + '" data-n="' + n + pa + '"' +
         (regs.indexOf(n) >= 0 ? ' class="on"' : "") + ">" + n + "</button>");
     }
+    /* NOTHING LIT IS NOT NOTHING. A trap with no number printed on it
+       fires every register, so an empty row is the always-on setting
+       and has to say so -- unlit buttons otherwise read as "you have
+       not chosen yet", which is what the editor used to refuse. */
+    out.push("<em>" + (regs.length ? "" : "every register") + "</em>");
     out.push("</div>");
     return out.join("");
+  }
+
+  /* Toggling a register, for all three traps. Picking the fifth one
+     empties the set rather than filling it: all five and none are the
+     same trap, the board prints it without numbers, and the validator
+     refuses the long way round so there is only ever one of them. */
+  function edToggleReg(regs, n) {
+    var at = regs.indexOf(n);
+    if (at >= 0) regs.splice(at, 1); else regs.push(n);
+    regs.sort();
+    if (regs.length === 5) regs.length = 0;
+    return regs;
   }
 
   /* THE REFERENCE PHOTOGRAPH, for a board being traced. A course is
@@ -13979,7 +14239,6 @@
         if (g.pushers[i].c === c && g.pushers[i].r === r) { g.pushers.splice(i, 1); return true; }
       }
       if (opt.erase) return false;
-      if (!ED.pushRegs.length) { announce("Pick at least one register for the ram first."); return false; }
       g.pushers.push({ c: c, r: r, d: opt.dir === undefined ? ED.dir : opt.dir,
                        regs: ED.pushRegs.slice().sort() });
       B.setWall(g, c, r, edMountFace(g.pushers[g.pushers.length - 1]), true);
@@ -13990,7 +14249,6 @@
         if (g.burners[i].c === c && g.burners[i].r === r) { g.burners.splice(i, 1); return true; }
       }
       if (opt.erase) return false;
-      if (!ED.burnRegs.length) { announce("Pick at least one register for the jet first."); return false; }
       g.burners.push({ c: c, r: r, d: opt.dir === undefined ? ED.dir : opt.dir,
                        regs: ED.burnRegs.slice().sort(), len: ED.burnLen });
       B.setWall(g, c, r, edMountFace(g.burners[g.burners.length - 1]), true);
@@ -14002,7 +14260,6 @@
         if (g.timers[i].c === c && g.timers[i].r === r) { g.timers.splice(i, 1); return true; }
       }
       if (opt.erase) return false;
-      if (!ED.pressRegs.length) { announce("Pick at least one register for the crusher first."); return false; }
       /* A pit has no floor to flatten anything against, and the
          validator refuses it -- said here instead, where it is about
          the square you just clicked. */
@@ -14966,9 +15223,7 @@
     else if (a === "edlaser") { ED.laserN = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edflagnum") { ED.flagNum = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edpreg") {
-      var n = parseInt(b.dataset.n, 10), at = ED.pushRegs.indexOf(n);
-      if (at >= 0) ED.pushRegs.splice(at, 1); else ED.pushRegs.push(n);
-      ED.pushRegs.sort();
+      edToggleReg(ED.pushRegs, parseInt(b.dataset.n, 10));
       edRenderPanel();
     }
     else if (a === "edpreset") {
@@ -14976,16 +15231,12 @@
       edRenderPanel();
     }
     else if (a === "edbreg") {
-      var bn = parseInt(b.dataset.n, 10), bat = ED.burnRegs.indexOf(bn);
-      if (bat >= 0) ED.burnRegs.splice(bat, 1); else ED.burnRegs.push(bn);
-      ED.burnRegs.sort();
+      edToggleReg(ED.burnRegs, parseInt(b.dataset.n, 10));
       edRenderPanel();
     }
     else if (a === "edblen") { ED.burnLen = parseInt(b.dataset.n, 10); edRenderPanel(); }
     else if (a === "edpressreg") {
-      var pn = parseInt(b.dataset.n, 10), pat = ED.pressRegs.indexOf(pn);
-      if (pat >= 0) ED.pressRegs.splice(pat, 1); else ED.pressRegs.push(pn);
-      ED.pressRegs.sort();
+      edToggleReg(ED.pressRegs, parseInt(b.dataset.n, 10));
       edRenderPanel();
     }
     else if (a === "edpresspreset") {

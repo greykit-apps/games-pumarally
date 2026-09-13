@@ -151,7 +151,11 @@ board("pusher unmounted", s => { s.pic[6] = s.pic[6].slice(0, 25) + "  " + s.pic
 // nonsense, and none of those show up when you look at the board.
 board("pusher off the board", s => { s.pushers.push({ c: 99, r: 0, d: "E", regs: [1] }); }, "is off the board");
 board("pusher bad direction", s => { s.pushers[0].d = "up"; },           "which is not a direction");
-board("pusher with no registers", s => { s.pushers[0].regs = []; },      "lists no registers");
+// An EMPTY list is the always-on ram and is legal; spelling out all five
+// says the same thing the long way and is what has to be refused, so that
+// there is exactly one way to write it.
+board("pusher listing all five registers",
+      s => { s.pushers[0].regs = [1, 2, 3, 4, 5]; },                     "leave the list empty");
 board("pusher register out of range", s => { s.pushers[0].regs = [6]; }, "registers run 1-5");
 board("two pushers on one square",
       s => { s.pushers.push({ c: s.pushers[0].c, r: s.pushers[0].r, d: "E", regs: [1] }); },
@@ -175,7 +179,7 @@ board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[
   };
   withJet(s => { s.burners.push({ c: 99, r: 0, d: "E", regs: [1] }); }, "is off the board");
   withJet(s => { s.burners[0].d = "sideways"; },      "which is not a direction");
-  withJet(s => { s.burners[0].regs = []; },           "lists no registers");
+  withJet(s => { s.burners[0].regs = [1, 2, 3, 4, 5]; }, "leave the list empty");
   withJet(s => { s.burners[0].regs = [9]; },          "registers run 1-5");
   withJet(s => { s.burners[0].len = 4; },             "reach 1 or 2");
   withJet(s => { s.burners.push({ c: s.burners[0].c, r: s.burners[0].r, d: "E", regs: [1] }); },
