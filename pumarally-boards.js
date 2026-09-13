@@ -1164,17 +1164,20 @@
       lasers: []
       ,
       merges: [
+        { c: 5, r: 0, in: "N" },
         { c: 6, r: 0, in: "W" },
         { c: 5, r: 4, in: "E" },
         { c: 7, r: 4, in: "S" },
         { c: 1, r: 5, in: "S" },
         { c: 7, r: 5, in: "E" },
         { c: 8, r: 5, in: "S" },
+        { c: 11, r: 5, in: "E" },
         { c: 1, r: 6, in: "W" },
         { c: 5, r: 6, in: "N" },
         { c: 8, r: 6, in: "W" },
         { c: 11, r: 6, in: "N" },
-        { c: 5, r: 11, in: "E" }
+        { c: 5, r: 11, in: "E" },
+        { c: 6, r: 11, in: "S" }
       ]
       ,
       burners: [
@@ -1547,12 +1550,12 @@
     canneryRow: {
       name: "Cannery Row", w: 12, h: 12, edition: "classic", set: "base", origin: "transcribed",
       unverified: true,
-      notes: "Second pass. Three pushers still need a close-up for their registers.",
+      notes: "Belt shapes audited against the photograph. Three pushers still need a close-up for their registers.",
       pic: [
         "+  +  +--+  +--+  +  +--+  +--+  +  +",
         " B> B> B> B> bv b< o. .. .. .. ..|Bv ",
         "+  +  +--+  +  +  +  +  +  +--+  +  +",
-        " .. .. .. .. bv b< b< .. .. ..|w. Bv ",
+        " .. .. .. .. bv bv b< .. .. ..|w. Bv ",
         "+  +--+  +  +  +  +  +  +  +  +  +  +",
         "|.. ..|..|.. bv o. b^ ..|..|.. .. Bv|",
         "+  +  +  +  +  +--+  +  +  +--+  +  +",
@@ -1572,7 +1575,7 @@
         "+  +  +  +--+  +  +  +  +  +--+  +  +",
         " B^ w. .. ..|bv|.. b^ .. .. W.|.. b^ ",
         "+  +  +--+  +  +  +  +  +--+  +--+  +",
-        " B^ .. .. .. b> b> b^ B< B< B< B< B< ",
+        " B^ .. .. .. b> bv b^ B< B< B< B< B< ",
         "+  +  +--+  +  +  +  +--+--+--+  +  +"
       ],
       lasers: [
@@ -1589,19 +1592,28 @@
       ]
       ,
       merges: [
-        { c: 4, r: 0, in: "E" },
-        { c: 4, r: 1, in: "NE" },
+        { c: 1, r: 0, in: "NW" },
+        { c: 4, r: 0, in: "EW" },
+        { c: 5, r: 0, in: "N" },
+        { c: 5, r: 1, in: "E" },
         { c: 6, r: 1, in: "S" },
+        { c: 11, r: 1, in: "NE" },
         { c: 6, r: 4, in: "SW" },
         { c: 4, r: 5, in: "NE" },
-        { c: 11, r: 5, in: "N" },
-        { c: 0, r: 6, in: "S" },
+        { c: 6, r: 5, in: "SE" },
+        { c: 11, r: 5, in: "NE" },
+        { c: 0, r: 6, in: "SW" },
+        { c: 4, r: 6, in: "NW" },
         { c: 6, r: 6, in: "SW" },
         { c: 9, r: 6, in: "W" },
         { c: 11, r: 6, in: "S" },
         { c: 4, r: 7, in: "NE" },
+        { c: 11, r: 8, in: "SE" },
+        { c: 0, r: 10, in: "SW" },
         { c: 4, r: 11, in: "N" },
-        { c: 6, r: 11, in: "W" }
+        { c: 5, r: 11, in: "W" },
+        { c: 6, r: 11, in: "SE" },
+        { c: 10, r: 11, in: "SE" }
       ]
       ,
       pushers: [
