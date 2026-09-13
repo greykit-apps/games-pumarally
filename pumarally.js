@@ -3286,23 +3286,23 @@
 
     { name: "an expansion tile turns its ruleset on", run: function () {
       /* The rule the map editor has to obey: drop a flame jet on a map
-         and that map is a Crash and Burn map. Board F is classic-only
+         and that map is a Crash and Burn map. Maelstrom is classic-only
          for its tool plates, so strip those first -- otherwise the
          test would pass without the jet doing anything. */
-      var f = JSON.parse(JSON.stringify(B.BOARD_SPECS.boardF));
+      var f = JSON.parse(JSON.stringify(B.BOARD_SPECS.maelstrom));
       f.pic = f.pic.map(function (r) { return r.replace(/[wW]\./g, ".."); });
       try {
-        B.setOverride("boardF", f);
-        assert(B.playableEditions("boardFRun").length === 2,
+        B.setOverride("maelstrom", f);
+        assert(B.playableEditions("maelstromRun").length === 2,
           "with no expansion square left, both rulebooks can read it");
         f.burners = [{ c: 0, r: 2, d: "E", regs: [1] }];   // mounts on the rim wall
-        B.setOverride("boardF", f);
-        assert(B.playableEditions("boardFRun").join(",") === "classic",
+        B.setOverride("maelstrom", f);
+        assert(B.playableEditions("maelstromRun").join(",") === "classic",
           "one flame jet makes it classic only");
-        assert(B.editionBlocker("boardFRun", "modern") === "flame jet",
+        assert(B.editionBlocker("maelstromRun", "modern") === "flame jet",
           "and the menu can say which square did it");
       } finally { B.clearOverride(); }
-      assert(B.playableEditions("boardFRun").join(",") === "classic",
+      assert(B.playableEditions("maelstromRun").join(",") === "classic",
         "clearing the override puts the shipped board back");
     } },
 
