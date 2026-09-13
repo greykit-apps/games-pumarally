@@ -1975,6 +1975,24 @@
       var T3 = g.timers[tt];
       C.timers.push({ c: T3.c + ox, r: T3.r + oy, regs: T3.regs.slice() });
     }
+    /* THE BELT ARMS COME TOO.
+
+       A course is what you play, and it is built by stamping boards
+       onto a blank grid -- so anything living beside the picture has
+       to be carried over here or it simply is not in the game. This
+       loop was missing, and every corner and every merge on every
+       board became a plain straight the moment it was laid into a
+       course: 243 arms across the eleven shipped courses, and no robot
+       was ever turned by a belt in a real race.
+
+       It hid because the board data was right and the workshop's
+       palette draws from parsePic, which never goes through here. The
+       same board showed curves in one panel and straights in another,
+       on the same screen. */
+    for (var mm = 0; mm < (g.merges || []).length; mm++) {
+      var M3 = g.merges[mm];
+      C.merges.push({ c: M3.c + ox, r: M3.r + oy, in: M3.in });
+    }
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
       C.docks.push({ c: D.c + ox, r: D.r + oy, n: D.n });

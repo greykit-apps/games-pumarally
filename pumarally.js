@@ -6202,6 +6202,79 @@
         "the selected board does not say it is selected");
     } },
 
+    { name: "Test Play runs the board you drew, not a version of it", run: function () {
+      /* It built its own spec by hand and listed four of the six
+         things a board carries, so a crusher and a belt arm were
+         stripped out of the board you were about to play. Checked
+         against edSpec rather than against a list written here, so it
+         stays true when a seventh layer is added. */
+      var keep = ED;
+      ED = edState(edNew(6, 6), "bench");
+      ED.grid.flags = [];
+      edSetCell(2, 2, "b>");
+      edPut("press", 2, 2, {});
+      edSetArms(2, 2, [N]);
+      var src = String(edTestPlay);
+      assert(/edSpec\(\)/.test(src),
+        "Test Play builds its own spec instead of asking edSpec for one");
+      var spec = edSpec();
+      assert(spec.timers.length === 1, "the spec lost the crusher");
+      assert(spec.merges.length === 1, "the spec lost the belt arm");
+      var built = B.parsePic("tp", spec);
+      assert(B.timerAt(built, 2, 2), "the crusher did not survive into the board");
+      assert(B.beltArms(built, 2, 2).join(",") === String(N), "the belt arm did not survive into the board");
+      ED = keep;
+    } },
+
+    { name: "a course keeps the belt arms its boards were printed with", run: function () {
+      /* A COURSE IS WHAT YOU PLAY, and it is built by stamping boards
+         onto a blank grid. Everything beside the picture has to be
+         carried over by that stamp -- and `merges` was not, so every
+         corner and every merge on every board quietly became a plain
+         straight the moment it was laid into a course. 243 arms across
+         the eleven shipped courses, and no robot was ever turned by a
+         belt in a real game.
+
+         Nothing caught it. The board data was right, the palette drew
+         it right -- the palette does not go through the stamp -- and
+         the round-trip self-test could not see it twice over: it
+         rebuilds the spec without merges, and it runs on Exchange, the
+         one board with none.
+
+         So this asks the question that matters: not whether the board
+         is right, but whether the thing you play is. Swept over every
+         course, because one course would only ever prove one path. */
+      var ids = Object.keys(B.COURSES).filter(function (k) { return k.charAt(0) !== "_"; });
+      var checked = 0, bad = [];
+      for (var i = 0; i < ids.length; i++) {
+        var want = 0, spec = B.COURSES[ids[i]];
+        for (var b = 0; b < spec.boards.length; b++) {
+          want += (B.parsePic(spec.boards[b].id, B.BOARD_SPECS[spec.boards[b].id]).merges || []).length;
+        }
+        if (!want) continue;                       // nothing to lose, nothing to prove
+        checked++;
+        var got = (B.buildCourse(ids[i]).merges || []).length;
+        if (got !== want) bad.push(ids[i] + " carries " + want + " and kept " + got);
+      }
+      assert(checked > 4, "only " + checked + " courses have any arms, so this proves little");
+      assert(!bad.length, "the stamp dropped belt arms: " + bad.join("; "));
+
+      /* And the arms have to still MEAN something once stamped: a
+         count that survives while the shapes land on the wrong squares
+         would pass the check above and play just as wrongly. */
+      var g = B.parsePic("pitMaze", B.BOARD_SPECS.pitMaze);
+      var C = B.buildCourse("pitMazeRun"), shaped = 0, r2, c2;
+      for (r2 = 0; r2 < g.h; r2++) for (c2 = 0; c2 < g.w; c2++) {
+        var code = B.codeAt(g, c2, r2);
+        if (!B.beltSpeed(code)) continue;
+        var onBoard = B.beltArms(g, c2, r2).join(","), onCourse = B.beltArms(C, c2, r2).join(",");
+        assert(onBoard === onCourse,
+          "(" + c2 + "," + r2 + ") is armed " + onBoard + " on the board and " + onCourse + " in the course");
+        if (onBoard !== String(B.opposite(B.dirOf(code)))) shaped++;
+      }
+      assert(shaped > 10, "the fixture board has " + shaped + " shaped belts, so this proves little");
+    } },
+
     { name: "the 2016 floor acts in its own order, which is not the classic one", run: function () {
       /* The 2016 reference card numbers eight things: blue belts, green
          belts, push panels, gears, board lasers, robot weapons, then
@@ -15982,10 +16055,16 @@
   function edTestPlay() {
     edValidate();
     if (ED.errors.length) { announce("Fix the board first: " + ED.errors[0]); edRenderPanel(); return; }
-    var spec = { w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), name: ED.grid.name, origin: "authored",
-                 lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
-                 pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
-                 burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }) };
+    /* THROUGH edSpec, not a second copy of it.
+
+       This built its own spec by hand and listed four of the six
+       things a board carries, so Test Play ran the board you drew with
+       every crusher and every belt arm stripped out. edSpec exists so
+       that applying an edit and exporting the source cannot produce
+       two different boards; a third hand-rolled spec beside it is the
+       same bug waiting again. */
+    var spec = edSpec();
+    spec.origin = "authored";
     B.BOARD_SPECS.__editorTest = spec;
     var spots = [];
     for (var r = 0; r < ED.grid.h && spots.length < 3; r++) {
