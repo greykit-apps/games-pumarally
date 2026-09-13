@@ -133,7 +133,11 @@ board("horizontal wall",  s => { s.pic[0] = s.pic[0].slice(0, 1) + "-x" + s.pic[
 board("vertical wall",    s => { s.pic[1] = "x" + s.pic[1].slice(1); },  "vertical wall must be");
 
 // ---- legend --------------------------------------------------------------
-board("unknown element",  s => { s.pic[1] = s.pic[1].slice(0, 1) + "z." + s.pic[1].slice(3); }, "not in the legend");
+// "#" rather than a letter: this check needs a character the legend will
+// never claim, and the letter it used to use ("z") became the randomizer
+// the day the 2016 squares landed -- at which point it was asserting that
+// a real element is rejected.
+board("unknown element",  s => { s.pic[1] = s.pic[1].slice(0, 1) + "#." + s.pic[1].slice(3); }, "not in the legend");
 board("missing direction",s => { s.pic[1] = s.pic[1].slice(0, 4) + "b." + s.pic[1].slice(6); }, "needs a direction");
 board("spurious argument",s => { s.pic[1] = s.pic[1].slice(0, 1) + ".>" + s.pic[1].slice(3); }, "takes no argument");
 board("bad bay number",   s => { s.pic[1] = s.pic[1].slice(0, 1) + "s9" + s.pic[1].slice(3); }, "needs a position 1-8");
