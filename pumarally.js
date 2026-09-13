@@ -5632,6 +5632,109 @@
 
     // ---- the course workshop ---------------------------------------
 
+    { name: "the workshop can step back, and not over nothing", run: function () {
+      /* Tracing a board is an hour of small mistakes, and before this
+         the only way back from one was to draw over it -- which works
+         for a tile and does not work at all for a wall you did not
+         mean to toggle or a flag you did not mean to renumber.
+
+         Driven through ED directly rather than through the DOM: the
+         snapshot and the restore are what have to be right, and both
+         are the editor's own serialisation. */
+      var keep = ED;
+      ED = edState(B.parsePic("provingGround", B.BOARD_SPECS.provingGround), "provingGround");
+      ED.grid.flags = [];
+      var was = edSnapshot();
+
+      /* A tile. */
+      var floor = null, fc, fr;
+      for (fr = 0; fr < ED.grid.h && !floor; fr++) {
+        for (fc = 0; fc < ED.grid.w && !floor; fc++) {
+          var fe = B.elemOf(B.codeAt(ED.grid, fc, fr));
+          if (fe && fe.name === "floor") floor = { c: fc, r: fr };
+        }
+      }
+      assert(floor, "no floor square on this board, so this proves nothing");
+      var before = edMark();
+      edSetCell(floor.c, floor.r, "o.");
+      edKeep(before);
+      assert(ED.undo.length === 1, "a tile edit left " + ED.undo.length + " steps of history");
+      assert(B.isPit(B.codeAt(ED.grid, floor.c, floor.r)), "fixture: the pit did not go down");
+
+      /* A wall, which drawing over cannot undo at all. */
+      before = edMark();
+      B.setWall(ED.grid, 5, 5, N, !B.wallAt(ED.grid, 5, 5, N));
+      edKeep(before);
+      assert(ED.undo.length === 2, "a wall edit was not recorded");
+      var wall = B.wallAt(ED.grid, 5, 5, N);
+
+      /* A click that changes nothing costs no history. */
+      before = edMark();
+      edSetCell(floor.c, floor.r, "o.");
+      edKeep(before);
+      assert(ED.undo.length === 2,
+        "painting a square with what was already on it cost a step: " + ED.undo.length);
+
+      /* Back, one at a time, and the wall comes with it. */
+      edRestoreSnap(ED.undo.pop());
+      assert(B.wallAt(ED.grid, 5, 5, N) !== wall, "the wall did not come back");
+      assert(B.isPit(B.codeAt(ED.grid, floor.c, floor.r)), "undoing the wall also undid the tile");
+      edRestoreSnap(ED.undo.pop());
+      assert(!B.isPit(B.codeAt(ED.grid, floor.c, floor.r)), "the tile did not come back");
+      assert(edSnapshot() === was, "two steps back is not where it started");
+      assert(!ED.undo.length, "the stack has steps left after unwinding it");
+
+      /* THE SPARSE LAYERS MAKE THE TRIP. Twice in this repo a round
+         trip has carried the picture perfectly and dropped the rams,
+         which is the silent half of that failure. */
+      ED.grid.pushers = [{ c: 2, r: 2, d: N, regs: [1, 3, 5] }];
+      ED.grid.lasers = [{ c: 4, r: 0, d: 2, n: 2 }];
+      ED.grid.burners = [{ c: 7, r: 7, d: 1, regs: [2, 4], len: 2 }];
+      ED.grid.flags = [{ c: 6, r: 6 }, { c: 9, r: 1 }];
+      var full = edSnapshot();
+      before = edMark();
+      ED.grid.pushers = [];
+      ED.grid.flags = [];
+      edKeep(before);
+      edRestoreSnap(ED.undo.pop());
+      assert(ED.grid.pushers.length === 1 && ED.grid.pushers[0].c === 2,
+        "the rams did not survive the round trip");
+      assert(ED.grid.lasers.length === 1 && ED.grid.lasers[0].n === 2, "a laser was lost");
+      assert(ED.grid.burners.length === 1 && ED.grid.burners[0].len === 2, "a jet was lost");
+      assert(ED.grid.flags.length === 2 && ED.grid.flags[1].c === 9,
+        "the flags did not come back, or came back reordered");
+      assert(edSnapshot() === full, "the restored grid is not the one that was recorded");
+
+      /* And a course's holes survive it, which a board picture cannot
+         even spell. */
+      var cs = B.composeCourse({ v: 3, dockCol: 0, cells: [
+        null, null, null, null, null, null,
+        { id: "island", rot: 0 }, { id: "cross", rot: 0 }, null], flags: [[4, 4]] }, 1);
+      ED = edState(B.buildCourse(cs), "course");
+      ED.isCourse = true;
+      ED.grid.flags = [];
+      assert(B.isVoid(ED.grid, 20, 14), "fixture: this course has no hole in it");
+      /* A square that is FLOOR, found rather than named: painting a
+         pit over a pit changes nothing, and a test whose edit is a
+         no-op records no history to undo. */
+      var spot = null, sc, sr;
+      for (sr = 0; sr < ED.grid.h && !spot; sr++) {
+        for (sc = 0; sc < ED.grid.w && !spot; sc++) {
+          var sel = B.elemOf(B.codeAt(ED.grid, sc, sr));
+          if (sel && sel.name === "floor") spot = { c: sc, r: sr };
+        }
+      }
+      assert(spot, "no floor square on this course, so this proves nothing");
+      before = edMark();
+      edSetCell(spot.c, spot.r, "o.");
+      edKeep(before);
+      assert(ED.undo.length === 1, "the course edit recorded no history");
+      edRestoreSnap(ED.undo.pop());
+      assert(B.isVoid(ED.grid, 20, 14), "the hole did not survive the workshop's undo");
+      assert(!B.isPit(B.codeAt(ED.grid, spot.c, spot.r)), "the edit was not undone");
+      ED = keep;
+    } },
+
     { name: "a course the workshop touched is built from its own picture", run: function () {
       /* A board is a printed thing and its picture belongs to it. A
          course is an arrangement, and a pit moved on the assembled
@@ -10423,6 +10526,7 @@
          who has already placed them here and wants to race, and one
          who wants none of it. */
       var nF = (ED.grid.flags || []).length;
+      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Course</span>' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) +
           '" size="18" aria-label="course name">' +
@@ -10435,12 +10539,14 @@
       /* One way out that keeps the edit and one that throws it away.
          "Leave editor" on its own would be ambiguous here, and an
          ambiguous exit from twenty minutes of editing is cruel. */
+      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Board</span>' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
         '<button data-act="edapply">Use this map</button>' +
         '<button data-act="edrevert">Discard changes</button>' +
         '<button data-act="edexport">Export source</button></div>');
     } else {
+      out.push(edUndoRow());
       out.push('<div class="pr-ed-row"><span>Board</span>' +
         '<input type="text" data-act="edid" value="' + esc(ED.id) + '" size="14" aria-label="board id">' +
         '<input type="text" data-act="edname" value="' + esc(ED.grid.name) + '" size="18" aria-label="board name">' +
@@ -10460,6 +10566,14 @@
     }
     out.push(msg);
     UI.els.edPanel.innerHTML = out.join("");
+  }
+
+  function edUndoRow() {
+    var n = (ED.undo && ED.undo.length) || 0;
+    return '<div class="pr-ed-row"><button data-act="edundo"' + (n ? "" : " disabled") +
+      ' title="Ctrl-Z">&#8617; Undo</button>' +
+      '<span class="pr-ed-note">' + (n ? n + " step" + (n === 1 ? "" : "s") + " back" : "nothing to undo") +
+      "</span></div>";
   }
 
   function edExport() {
@@ -10485,9 +10599,72 @@
     return { c: c, r: r, edge: edge, fx: fx, fy: fy };
   }
 
+  /* WHAT THE WORKSHOP LOOKS LIKE FROM THE OUTSIDE, as a string.
+
+     A grid is a picture, four wall lattices and four sparse lists, and
+     carrying them all back by hand is four chances to forget one --
+     the rams have vanished from a round trip twice in this repo's
+     history. So a snapshot is the same serialisation the editor
+     already exports and the same parse it already imports, which
+     cannot drift from the grid because it IS how a grid is written
+     down. */
+  function edSnapshot() {
+    var g = ED.grid;
+    return JSON.stringify({
+      w: g.w, h: g.h, pic: B.gridToPic(g), voids: !!ED.isCourse,
+      name: g.name, notes: g.notes,
+      lasers: g.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
+      pushers: g.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
+      burners: g.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
+      timers: g.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
+      flags: (g.flags || []).map(function (f) { return [f.c, f.r]; })
+    });
+  }
+
+  function edRestoreSnap(text) {
+    var s = JSON.parse(text), keepOrigin = ED.grid.origin;
+    var g = B.parsePic(ED.id, s);
+    g.name = s.name; g.notes = s.notes; g.origin = keepOrigin;
+    g.flags = (s.flags || []).map(function (f) { return { c: f[0], r: f[1] }; });
+    ED.grid = g;
+  }
+
+  /* ONE STEP BACK, AS MANY TIMES AS IT TAKES.
+
+     Tracing a board is an hour of small mistakes, and before this the
+     only way back from one was to draw over it -- which works for a
+     tile and does not work at all for a wall you did not mean to
+     toggle or a flag you did not mean to renumber.
+
+     Marked BEFORE the change and dropped again if nothing changed, so
+     a click on a square that was already floor does not cost a step of
+     history. */
+  function edMark() {
+    ED.undo = ED.undo || [];
+    var snap = edSnapshot();
+    ED.undo.push(snap);
+    if (ED.undo.length > 60) ED.undo.shift();
+    return snap;
+  }
+
+  function edKeep(before) {
+    if (ED.undo && ED.undo.length && edSnapshot() === before) ED.undo.pop();
+  }
+
+  function edUndo() {
+    if (!ED.undo || !ED.undo.length) { announce("Nothing to undo."); return; }
+    edRestoreSnap(ED.undo.pop());
+    edValidate();
+    edSave();
+    edRender();
+    edRenderPanel();
+    announce("Undone.");
+  }
+
   function edClick(e, erase) {
     var hit = edHit(e);
     if (!hit) return;
+    var before = edMark();
     if (ED.mode === "flag") {
       /* Flags are a list, not a square: clicking one already down
          takes it back, and the ones after it renumber. Same rule as
@@ -10503,6 +10680,7 @@
         var code0 = B.codeAt(ED.grid, hit.c, hit.r), el0 = B.elemOf(code0);
         if (!el0 || el0.name !== "floor") {
           announce("A flag can only sit on plain floor.");
+          edKeep(before);
           return;
         }
         /* And not in the start area. The empty squares of the docking
@@ -10513,6 +10691,7 @@
         if (dk && hit.c >= dk.at[0] && hit.c <= dk.at[0] + 11 &&
             hit.r >= dk.at[1] && hit.r <= dk.at[1] + 3) {
           announce("That is the starting block. A flag there is touched before the race begins.");
+          edKeep(before);
           return;
         }
         /* NO REACH RULE HERE. The two automatic placements keep every
@@ -10524,7 +10703,7 @@
         ED.grid.flags.push({ c: hit.c, r: hit.r });
       }
     } else if (ED.mode === "wall") {
-      if (hit.edge === null) return;
+      if (hit.edge === null) { edKeep(before); return; }
       B.setWall(ED.grid, hit.c, hit.r, hit.edge, !B.wallAt(ED.grid, hit.c, hit.r, hit.edge));
     } else if (ED.mode === "laser") {
       var found = -1;
@@ -10540,7 +10719,11 @@
       }
       if (ff >= 0) ED.grid.burners.splice(ff, 1);
       if (!erase && ff < 0) {
-        if (!ED.burnRegs.length) { announce("Pick at least one register for the jet first."); return; }
+        if (!ED.burnRegs.length) {
+          announce("Pick at least one register for the jet first.");
+          edKeep(before);
+          return;
+        }
         ED.grid.burners.push({ c: hit.c, r: hit.r, d: ED.dir,
                                regs: ED.burnRegs.slice().sort(), len: ED.burnLen });
       }
@@ -10551,15 +10734,23 @@
       }
       if (fu >= 0) ED.grid.pushers.splice(fu, 1);
       if (!erase && fu < 0) {
-        if (!ED.pushRegs.length) { announce("Pick at least one register for the pusher first."); return; }
+        if (!ED.pushRegs.length) {
+          announce("Pick at least one register for the pusher first.");
+          edKeep(before);
+          return;
+        }
         ED.grid.pushers.push({ c: hit.c, r: hit.r, d: ED.dir, regs: ED.pushRegs.slice().sort() });
       }
     } else {
       edSetCell(hit.c, hit.r, erase ? ".." : edToolCode());
     }
+    /* A click that changed nothing -- floor painted over floor -- does
+       not cost a step of history. */
+    edKeep(before);
     edValidate();
     edSave();
     edRender();
+    edRenderPanel();
   }
 
   /* THE WHOLE COURSE, NOT ONE BOARD.
@@ -10679,6 +10870,12 @@
       return;
     }
     if (modalOpen()) { if (e.key === "Escape") closeModal(); return; }
+    if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+      e.preventDefault();
+      edUndo();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "r" || e.key === "R") { ED.dir = B.rot(ED.dir, 1); edRenderPanel(); }
     else if (e.key === "w" || e.key === "W") { ED.mode = ED.mode === "wall" ? "tile" : "wall"; edRenderPanel(); }
   }
@@ -10745,6 +10942,7 @@
       var ta = UI.els.overlay.querySelector("textarea");
       if (ta) { ta.select(); try { document.execCommand("copy"); announce("Copied."); } catch (err) {} }
     }
+    else if (a === "edundo") edUndo();
     else if (a === "edplay") edTestPlay();
     else if (a === "edcsave") edCourseSave(false);
     else if (a === "edcplay") edCourseSave(true);
