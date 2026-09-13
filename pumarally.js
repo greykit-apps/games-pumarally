@@ -47,13 +47,20 @@
     panelAlt: "#0d1424",
     floor: "#0e1524",
     border: "#1b2540",
-    borderLit: "#2c3b60",     /* an empty slot: visible without competing */
+    /* An empty slot: visible without competing. Was #2c3b60 at 1.82:1,
+       under the 3:1 floor for a control boundary -- and this boundary
+       IS the affordance telling you where a card goes. Same hue,
+       raised in value until it clears: 3.14:1 on a panel. */
+    borderLit: "#47609c",
     line: "#141d33",          /* the grid hairline, a shade under the border */
     accent: "#54f2ff",        /* express conveyors, headings, focus */
     accentDim: "#2b7f92",
     text: "#dbe4fb",
     ink: "#8b96b8",
-    dim: "#5b6884",
+    /* Lifted from #5b6884, which measured 3.45:1 on a panel -- under
+       the 4.5:1 floor, and used for the smallest text on the screen:
+       card priorities, ruleset years, the "needs X" course hints. */
+    dim: "#7d8aa8",
     rust: "#d2713f",          /* conveyors */
     warn: "#ffb000",          /* pushers, flags */
     danger: "#ff5266",        /* lasers, pits */
@@ -3317,6 +3324,38 @@
       assert(collectShots(computeLaserHits()).length === 0, "and not through two walls");
     } },
 
+    { name: "every palette colour clears its contrast floor", run: function () {
+      /* Contrast is arithmetic, so it can be checked rather than
+         eyeballed -- and it drifts the moment somebody nudges a colour
+         to look better against one background and forgets the other.
+         Text needs 4.5:1 (WCAG AA); a control boundary needs 3:1. */
+      function lum(hex) {
+        var n = parseInt(hex.slice(1), 16);
+        var ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (v) {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+      }
+      function ratio(a, b) {
+        var la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+        return (hi + 0.05) / (lo + 0.05);
+      }
+      var grounds = [TOKENS.bg, TOKENS.panel];
+      var need = { text: 4.5, ink: 4.5, dim: 4.5, accent: 4.5, danger: 4.5,
+                   good: 4.5, warn: 4.5, violet: 4.5, steel: 4.5, rust: 4.5,
+                   borderLit: 3, accentDim: 3 };
+      for (var k in need) {
+        assert(TOKENS[k], "no token named " + k);
+        for (var g = 0; g < grounds.length; g++) {
+          var got = ratio(TOKENS[k], grounds[g]);
+          assert(got >= need[k],
+            k + " (" + TOKENS[k] + ") is " + got.toFixed(2) + ":1 on " + grounds[g] +
+            "; needs " + need[k] + ":1");
+        }
+      }
+    } },
+
     { name: "mounting twice does not bind the input twice", run: function () {
       /* The bug this guards: mount() clears the host with innerHTML,
          which leaves listeners on the host itself in place, so a second
@@ -4846,6 +4885,15 @@
     ".pr-root button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-text)}",
     ".pr-root button:disabled{opacity:.35;cursor:default}",
     ".pr-root button:focus-visible,.pr-cell:focus-visible{outline:2px solid var(--pr-accent);outline-offset:1px}",
+    /* TOUCH TARGETS, on touch only. Every button was 30px tall, which
+       clears the 24px AA floor and misses the 44px that phones and
+       the HIGs actually want. Raising it everywhere would loosen a
+       desktop UI that is dense on purpose, so it is behind a
+       coarse-pointer query: fingers get 44, mice keep 30. */
+    "@media (pointer:coarse){",
+    ".pr-root button{min-height:44px}",
+    ".pr-root input[type=range]{height:44px}",
+    "}",
 
     /* ---- hud ---- */
     ".pr-hud{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;width:100%}",
@@ -4870,6 +4918,11 @@
     /* Below this the two columns cannot both have their axis, so the
        board goes back on top and the page scrolls -- which is worse,
        and still better than a board squeezed to nothing. */
+    /* Between the side-by-side layout and the stack there was nothing,
+       so a tablet got the desktop arrangement squeezed. The side panel
+       goes full width and the rows wrap first; the stack comes later. */
+    "@media (max-width:1400px){.pr-side{min-width:0}",
+    ".pr-controls,.pr-ed-row{flex-wrap:wrap}}",
     "@media (max-width:1180px){.pr-main{flex-direction:column;align-items:center}",
     ".pr-side{width:100%;max-width:640px;flex:none}}",
 
@@ -4879,6 +4932,9 @@
        ARIA labels, while a canvas underneath drew the same 288 tiles
        a second time. Deleting the canvas deleted the duplication. */
     ".pr-stage{position:relative;border:1px solid var(--pr-border);background:var(--pr-bg);flex:0 0 auto}",
+    /* The row exists for the accessibility tree only; display:contents
+       lifts its children back out so they stay CSS grid items. */
+    ".pr-grid-row{display:contents}",
     ".pr-grid{position:absolute;left:0;top:0;display:grid;",
     "grid-template-columns:repeat(var(--cols),var(--tile));grid-auto-rows:var(--tile)}",
 
@@ -5060,17 +5116,21 @@
        muzzle flare and its head, and the head is the part that reads
        as travel. */
     ".pr-shots{position:absolute;left:0;top:0;pointer-events:none}",
-    ".pr-shot{position:absolute;height:3px;width:0;margin-top:-1.5px;",
+    /* The beam is drawn at FULL LENGTH and revealed with clip-path
+       rather than grown by width. Same picture, same undistorted head,
+       but the animated property is one the compositor owns -- and up
+       to eight of these run at once. */
+    ".pr-shot{position:absolute;height:3px;width:calc(var(--len) * var(--tile));margin-top:-1.5px;",
     "left:calc((var(--c) + .5) * var(--tile));top:calc((var(--r) + .5) * var(--tile));",
     "transform-origin:0 50%;transform:rotate(var(--rot,0deg));",
     "background:currentColor;box-shadow:0 0 8px currentColor;",
     "animation:pr-shot var(--pr-shot-ms,420ms) cubic-bezier(.15,.7,.25,1) forwards}",
     ".pr-shot::after{content:'';position:absolute;right:-3px;top:-3px;width:9px;height:9px;",
     "border-radius:50%;background:#fff;box-shadow:0 0 10px currentColor}",
-    "@keyframes pr-shot{0%{width:0;opacity:1}",
-    "30%{width:calc(var(--len) * var(--tile));opacity:1}",
-    "65%{width:calc(var(--len) * var(--tile));opacity:1}",
-    "100%{width:calc(var(--len) * var(--tile));opacity:0}}",
+    "@keyframes pr-shot{0%{clip-path:inset(0 100% 0 0);opacity:1}",
+    "30%{clip-path:inset(0 0 0 0);opacity:1}",
+    "65%{clip-path:inset(0 0 0 0);opacity:1}",
+    "100%{clip-path:inset(0 0 0 0);opacity:0}}",
     /* Held at zero opacity until the beam has actually arrived, so the
        impact is something the shot causes rather than something that
        happens at the same time. */
@@ -5084,7 +5144,7 @@
     /* Nobody should be made ill by a laser they did not ask for. */
     "@media (prefers-reduced-motion:reduce){",
     ".pr-shot{animation:pr-shot-still var(--pr-shot-ms,420ms) steps(1,end) forwards}",
-    "@keyframes pr-shot-still{0%,70%{width:calc(var(--len) * var(--tile));opacity:1}",
+    "@keyframes pr-shot-still{0%,70%{clip-path:inset(0 0 0 0);opacity:1}",
     "100%{opacity:0}}",
     ".pr-shot-burst{animation:none;opacity:0}}",
 
@@ -5098,10 +5158,20 @@
        thing that can say which of them just happened -- and the
        duration is a property rather than a class so the speed setting
        can scale it. */
-    ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);",
-    "transition:left var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
-    "top var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),",
-    "opacity .3s,transform .3s}",
+    /* LEFT AND TOP PLACE IT; TRANSFORM MOVES IT.
+
+       The transition used to cover left and top as well, which animates
+       two LAYOUT properties -- the browser re-lays-out the piece layer
+       every frame of every robot's slide. It was also redundant: FLIP
+       already turns each move into a transform and plays it on the
+       compositor, so the layout animation was a second, slower copy of
+       the same motion running underneath.
+
+       Position now snaps and the transform carries the movement, at
+       the duration the speed setting asks for rather than a fixed
+       .3s. */
+    ".pr-piece{position:absolute;width:var(--tile);height:var(--tile);will-change:transform;",
+    "transition:transform var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease)),opacity .3s}",
     ".pr-piece svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;",
     "transition:transform var(--pr-move-ms,.22s) var(--pr-move-ease,var(--pr-ease))}",
     ".pr-piece .pr-hull{fill:var(--livery-dark,var(--pr-bg));stroke:currentColor;stroke-width:6;",
@@ -5594,18 +5664,40 @@
      with a transform and let the transition carry it forward. A
      robot that teleports a square reads as a bug even when the rules
      are right. */
+  /* READ EVERYTHING, THEN WRITE EVERYTHING, THEN ONE REFLOW.
+
+     The first version did read-write-reflow per element inside the
+     loop, so eight robots cost eight forced synchronous layouts on
+     every render -- and a render happens on every queued animation
+     beat, which is exactly when the board is meant to be smooth.
+
+     Three passes instead. The browser lays out once, between pass two
+     and pass three, because that is the only place anything reads. */
   function playFlip() {
-    var nodes = UI.els.pieces.children, i;
+    var nodes = UI.els.pieces.children, i, moves = [];
+
+    // 1. read
     for (i = 0; i < nodes.length; i++) {
       var el = nodes[i], was = UI.prevRects[el.dataset.uid];
       if (!was) continue;
       var dx = was.x - el.offsetLeft, dy = was.y - el.offsetTop;
       if (!dx && !dy) continue;
-      el.style.transition = "none";
-      el.style.transform = "translate(" + dx + "px," + dy + "px)";
-      void el.offsetWidth;                       // force the browser to take it
-      el.style.transition = "";
-      el.style.transform = "";
+      moves.push([el, dx, dy]);
+    }
+    if (!moves.length) return;
+
+    // 2. write the offsets back
+    for (i = 0; i < moves.length; i++) {
+      moves[i][0].style.transition = "none";
+      moves[i][0].style.transform =
+        "translate(" + moves[i][1] + "px," + moves[i][2] + "px)";
+    }
+
+    // 3. one reflow for the whole set, then let them all run home
+    void UI.els.pieces.offsetWidth;
+    for (i = 0; i < moves.length; i++) {
+      moves[i][0].style.transition = "";
+      moves[i][0].style.transform = "";
     }
   }
 
@@ -6372,6 +6464,20 @@
         return;
       }
 
+      /* Arrows belong to the board whenever the board has focus, and
+         to nothing else -- they must not steal from a focused slider. */
+      if (document.activeElement && document.activeElement.getAttribute &&
+          document.activeElement.getAttribute("role") === "gridcell") {
+        var moved = false;
+        if (e.key === "ArrowRight") moved = moveGridFocus(1, 0);
+        else if (e.key === "ArrowLeft") moved = moveGridFocus(-1, 0);
+        else if (e.key === "ArrowDown") moved = moveGridFocus(0, 1);
+        else if (e.key === "ArrowUp") moved = moveGridFocus(0, -1);
+        else if (e.key === "Home") moved = moveGridFocus(-1, 0, true);
+        else if (e.key === "End") moved = moveGridFocus(1, 0, true);
+        if (moved || /^(Arrow|Home|End)/.test(e.key)) { e.preventDefault(); return; }
+      }
+
       if (e.key === "h" || e.key === "H" || e.key === "?") { e.preventDefault(); showHelp(); return; }
       if (e.key === "m" || e.key === "M") { toggleMute(); return; }
 
@@ -6919,7 +7025,8 @@
       var shown = d.labels ? d.labels[v] : v;
       out.push('<div class="pr-rule"><div class="pr-rule-head"><b>' + esc(d.label) + "</b>" +
         '<span class="pr-rule-val">' + esc(String(shown)) + (d.harder && v > d.def ? ' <i class="pr-harder">harder</i>' : "") + "</span></div>" +
-        '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max + '" value="' + v + '">' +
+        '<input type="range" data-act="rule" data-k="' + k + '" min="' + d.min + '" max="' + d.max +
+        '" value="' + v + '" aria-label="' + esc(d.label) + '">' +
         '<div class="pr-rule-desc">' + esc(d.desc) + "</div></div>");
     }
     }
@@ -7501,8 +7608,10 @@
 
     out.push('<div class="pr-ed-row"><span>Reference</span>' +
       '<input type="file" accept="image/*" data-act="edimg">' +
-      '<span>Fade</span><input type="range" min="0" max="100" value="' + Math.round(ED.opacity * 100) + '" data-act="edop">' +
-      '<span>Size</span><input type="range" min="50" max="200" value="' + Math.round(ED.uScale * 100) + '" data-act="edscale">' +
+      '<span>Fade</span><input type="range" min="0" max="100" value="' + Math.round(ED.opacity * 100) +
+      '" data-act="edop" aria-label="Reference image fade">' +
+      '<span>Size</span><input type="range" min="50" max="200" value="' + Math.round(ED.uScale * 100) +
+      '" data-act="edscale" aria-label="Reference image size">' +
       '<button data-act="ednudge" data-dx="-4" data-dy="0">&larr;</button>' +
       '<button data-act="ednudge" data-dx="4" data-dy="0">&rarr;</button>' +
       '<button data-act="ednudge" data-dx="0" data-dy="-4">&uarr;</button>' +
@@ -8045,7 +8154,13 @@
     var logPanel = el("div", "pr-panel");
     logPanel.innerHTML = "<h2>LOG</h2>";
     var logBody = el("div", "pr-log");
-    logBody.setAttribute("aria-live", "polite");
+    /* The log is READ, not announced. During execution it gains
+       several lines a register, and a live region repeats every one of
+       them -- so the useful message (what just happened to YOU) is
+       buried in the play-by-play of seven other robots. The status
+       region carries what matters; this is here to be scrolled back
+       through. */
+    logBody.setAttribute("role", "log");
     logPanel.appendChild(logBody);
     side.appendChild(players); side.appendChild(logPanel);
 
@@ -8096,7 +8211,12 @@
     var curtain = el("div", "pr-curtain");
     curtain.hidden = true;
     var sr = el("div", "pr-sr");
-    sr.setAttribute("aria-live", "assertive");
+    /* POLITE, not assertive. Everything that comes through announce()
+       is a confirmation -- "Register 1 set", "Registers 2 and 3
+       swapped" -- and assertive INTERRUPTS whatever the screen reader
+       is saying. Programming five cards cut the reader off five
+       times. Nothing here is urgent enough to earn that. */
+    sr.setAttribute("aria-live", "polite");
 
     host.appendChild(hud); host.appendChild(banner); host.appendChild(main);
     host.appendChild(sr);
@@ -8167,15 +8287,50 @@
   function buildGridCells(C) {
     var out = [], c, r;
     for (r = 0; r < C.h; r++) {
+      /* A grid needs ROWS. Without them the accessibility tree is a
+         malformed grid -- 192 cells and nothing to group them -- and
+         assistive technology either flattens it or reports an error.
+
+         display:contents on the row keeps the cells as CSS grid items
+         so the layout is untouched, which is the whole reason the rows
+         were not there in the first place. */
+      out.push('<div class="pr-grid-row" role="row">');
       for (c = 0; c < C.w; c++) {
-        out.push('<div class="' + tileClasses(C, c, r).join(" ") + '" role="gridcell" tabindex="-1"' +
+        /* ROVING TABINDEX: exactly one cell is a tab stop and the
+           arrows move it. Every cell at -1 was half of this pattern --
+           the board announced itself as a grid and then could not be
+           entered at all, which is worse than not claiming to be one. */
+        out.push('<div class="' + tileClasses(C, c, r).join(" ") + '" role="gridcell"' +
+          ' tabindex="' + (c === 0 && r === 0 ? "0" : "-1") + '"' +
           ' data-c="' + c + '" data-r="' + r + '" aria-label="' + esc(describeTile(C, c, r)) + '">' +
           tileInner(C, c, r) + "</div>");
       }
+      out.push("</div>");
     }
     UI.els.grid.innerHTML = out.join("");
     UI.els.beams.innerHTML = beamSpans(C);
     UI.els.walls.innerHTML = wallSpans(C);
+  }
+
+  /* Move the single tab stop, and take focus with it. Arrow keys walk
+     the board, Home and End run to the ends of a row, and the label
+     the cell already carries is what gets announced on arrival. */
+  function moveGridFocus(dc, dr, toEnd) {
+    var C = UI.course;
+    if (!C || !UI.els || !UI.els.grid) return false;
+    var cur = UI.els.grid.querySelector('[role="gridcell"][tabindex="0"]');
+    if (!cur) cur = UI.els.grid.querySelector('[role="gridcell"]');
+    if (!cur) return false;
+    var c = +cur.dataset.c, r = +cur.dataset.r;
+    if (toEnd) c = dc < 0 ? 0 : C.w - 1;
+    else { c += dc; r += dr; }
+    if (c < 0 || r < 0 || c >= C.w || r >= C.h) return false;
+    var next = UI.els.grid.querySelector('[role="gridcell"][data-c="' + c + '"][data-r="' + r + '"]');
+    if (!next) return false;
+    cur.setAttribute("tabindex", "-1");
+    next.setAttribute("tabindex", "0");
+    next.focus();
+    return true;
   }
 
   function describeTile(C, c, r) {
