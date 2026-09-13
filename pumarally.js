@@ -5338,8 +5338,9 @@
       assert(spec.boards.length === 2, "the course lost a board: " + spec.boards.length);
       assert(C.w === 24 && C.h === 16, "a 2 by 1 grid with a dock should be 24 by 16, is " + C.w + " by " + C.h);
       assert(spec.boards[0].rot === 1, "the course lost a board's rotation");
-      /* Two boards, so the house default is four flags. */
-      assert(C.flags.length === 4, "a two-board course should carry four flags, has " + C.flags.length);
+      /* One flag a board, floored at three: a two-board course is a
+         three-flag race. */
+      assert(C.flags.length === 3, "a two-board course should carry three flags, has " + C.flags.length);
       assert(C.docks.length >= 8, "a composed course should carry eight bays, has " + C.docks.length);
       for (var i = 0; i < C.flags.length; i++) {
         assert(C.flags[i].r < C.h - 4, "flag " + (i + 1) + " was placed inside the docking bay");
@@ -5606,6 +5607,75 @@
       }
     } },
 
+    { name: "Northrup keeps every flag inside one board's worth of squares", run: function () {
+      /* Printed guidance, not ours: on a big configuration, flags kept
+         within a twelve-by-twelve window make a fast game at two or
+         three robots, because nobody is ever far from the next flag.
+         The window is the whole point -- flags scattered over a 3x3
+         course would be the ordinary placement wearing the name. */
+      var L = { cols: 3, rows: 3, dockCol: 1, cells: [] };
+      for (var i = 0; i < 9; i++) L.cells.push({ id: "island", rot: 0 });
+      var spec = B.composeCourse(B.withFlags(L, []), 0), C = B.buildCourse(spec);
+      assert(C.w === 36 && C.h === 40, "a 3x3 course with a dock should be 36 by 40");
+      var got = B.northrupFlags(C, 5, spec);
+      assert(got.length === 5, "asked for five flags, got " + got.length);
+      var lo = [got[0][0], got[0][1]], hi = [got[0][0], got[0][1]];
+      for (i = 1; i < got.length; i++) {
+        lo[0] = Math.min(lo[0], got[i][0]); hi[0] = Math.max(hi[0], got[i][0]);
+        lo[1] = Math.min(lo[1], got[i][1]); hi[1] = Math.max(hi[1], got[i][1]);
+      }
+      assert(hi[0] - lo[0] < 12 && hi[1] - lo[1] < 12,
+        "the flags span " + (hi[0] - lo[0] + 1) + " by " + (hi[1] - lo[1] + 1) +
+        " squares, which is wider than one board");
+      /* And the ordinary placement on the same course does NOT, or the
+         window is proving nothing. */
+      var loose = B.arenaFlags(C, 5, spec), llo = 99, lhi = -99;
+      for (i = 0; i < loose.length; i++) { llo = Math.min(llo, loose[i][0]); lhi = Math.max(lhi, loose[i][0]); }
+      assert(lhi - llo >= 12, "the lap placement also fits in one board, so the window means nothing");
+    } },
+
+    { name: "a flag is not boxed into a corner made of walls", run: function () {
+      /* The printed rule, and a different objection from the map's own
+         corners: a flag with two walls round it can be approached from
+         one direction only. */
+      /* Interior squares on both counts, so the answer is about the
+         WALLS: an edge square is already rank 1 whatever is round it,
+         and testing the one-wall case there passes on a build that has
+         stopped counting walls at all. */
+      var row = ["..", "..", "..", "..", ".."];
+      var g = bench([row, row, row, row, row], ["1,1,E", "1,1,S"]);
+      assert(B.flagRank(g, 1, 1) === 2,
+        "a square with two walls is rank " + B.flagRank(g, 1, 1) + ", not a walled corner");
+      /* A wall belongs to both squares it separates, so the far side
+         of one carries it too. */
+      assert(B.flagRank(g, 2, 1) === 1,
+        "the far side of a wall should be second best, is " + B.flagRank(g, 2, 1));
+      assert(B.flagRank(g, 1, 2) === 1,
+        "the square under a wall should be second best, is " + B.flagRank(g, 1, 2));
+      assert(B.flagRank(g, 2, 2) === 0,
+        "an open interior square should be best, is " + B.flagRank(g, 2, 2));
+      assert(B.flagRank(g, 0, 0) === 2, "the corner of the course is still a corner");
+      /* Proving Ground has walled squares and open interior both, so
+         the automatic placements must take the open ones. */
+      var spec = B.composeCourse({ cols: 1, rows: 1, dockCol: 0,
+                                   cells: [{ id: "provingGround", rot: 0 }], flags: [] }, 0);
+      var C = B.buildCourse(spec), boxed = 0, c, r, d, n;
+      for (r = 0; r < 12; r++) for (c = 0; c < 12; c++) {
+        n = 0;
+        for (d = 0; d < 4; d++) if (B.wallAt(C, c, r, d)) n++;
+        if (n >= 2) boxed++;
+      }
+      assert(boxed > 0, "this board has no walled corners, so this proves nothing");
+      var sets = [B.rallyFlags(C, 3, spec), B.arenaFlags(C, 3, spec), B.northrupFlags(C, 3, spec)];
+      for (var s = 0; s < sets.length; s++) {
+        for (var i = 0; i < sets[s].length; i++) {
+          n = 0;
+          for (d = 0; d < 4; d++) if (B.wallAt(C, sets[s][i][0], sets[s][i][1], d)) n++;
+          assert(n < 2, "a flag was boxed in at (" + sets[s][i] + ") behind " + n + " walls");
+        }
+      }
+    } },
+
     { name: "the flags are shared out over the boards, remainder first", run: function () {
       assert(JSON.stringify(B.shareOut(8, 4)) === "[2,2,2,2]", "eight over four is not even");
       assert(JSON.stringify(B.shareOut(9, 4)) === "[3,2,2,2]", "the odd flag went to the wrong board");
@@ -5615,14 +5685,21 @@
     } },
 
     { name: "the flag count follows the course until somebody sets one", run: function () {
+      /* About one a board is what the book suggests, with a floor of
+         three so a small course is still a race. */
       UI.layout = { cols: 1, rows: 1, dockCol: 0, cells: [{ id: "island", rot: 0 }] };
       assert(flagPick().n === 3, "one board should be a three-flag race, got " + flagPick().n);
       UI.layout.cols = 2; UI.layout.cells.push({ id: "cross", rot: 0 });
-      assert(flagPick().n === 4, "two boards should be a four-flag race, got " + flagPick().n);
+      assert(flagPick().n === 3, "two boards should still be floored at three, got " + flagPick().n);
       UI.layout.cols = 4;
       UI.layout.cells.push({ id: "pitMaze", rot: 0 }, { id: "shuntYard", rot: 0 });
-      assert(flagPick().n === 8, "four boards should be an eight-flag race, got " + flagPick().n);
-      /* Two to three a board, so four boards tops out at twelve. */
+      assert(flagPick().n === 4, "four boards should be a four-flag race, got " + flagPick().n);
+      UI.layout.cols = 9; UI.layout.rows = 1;
+      for (var g = 0; g < 5; g++) UI.layout.cells.push({ id: "island", rot: 0 });
+      assert(flagPick().n === 9, "nine boards should be a nine-flag race, got " + flagPick().n);
+      UI.layout.cols = 4; UI.layout.cells.length = 4;
+      /* And the ceiling is three a board, which is where the longer,
+         denser race lives. */
       assert(flagsMost(4) === 12, "the ceiling is not three a board");
       /* Once set by hand it stays set, even as the course changes --
          the number is then a decision rather than a default. */
@@ -8527,13 +8604,16 @@
      ============================================================ */
   /* HOW MANY FLAGS.
 
-     The printed courses do not agree on one number and their own
-     guidance has not been transcribed, so this is a house default
-     rather than a rule: two per board, never fewer than three. One
-     board is the shipped three-flag race; four boards is eight, which
-     is a long evening and still inside the two-to-three-a-board band.
-     The stepper goes up to three a board, which is the top of it. */
-  function flagsWanted(boards) { return Math.max(3, boards * 2); }
+     The book's own guidance, now that it has been read: usually one
+     checkpoint per tile. So the default is one a board -- with a floor
+     of three, because a one-board race to a single flag is over before
+     anybody has programmed a bad turn, and the courses this game ships
+     print three on one board.
+
+     The ceiling is three a board, which is where a longer, denser race
+     lives. The stepper spans the whole range; nothing here is a rule,
+     and the note under it says what the book suggests. */
+  function flagsWanted(boards) { return Math.max(3, boards); }
   function flagsMost(boards) { return Math.max(4, boards * 3); }
 
   function layoutBoardCount() {
@@ -8576,6 +8656,7 @@
     var spec0 = B.composeCourse(B.withFlags(UI.layout, []), 0);
     if (pick.mode === "rally") return B.rallyFlags(B.buildCourse(spec0), pick.n, spec0);
     if (pick.mode === "arena") return B.arenaFlags(B.buildCourse(spec0), pick.n, spec0);
+    if (pick.mode === "northrup") return B.northrupFlags(B.buildCourse(spec0), pick.n, spec0);
     var printed = B.defaultFlagsFor(UI.layout);
     if (printed && printed.length >= pick.n) return printed.slice(0, pick.n);
     /* A shipped course asked for more flags than it prints falls back
@@ -8653,9 +8734,10 @@
       '<button data-act="fn" data-n="' + (pick.n + 1) + '"' + (pick.n >= most ? " disabled" : "") +
         ' aria-label="one flag more">+</button>' +
       '<span class="pr-ed-note">' + (pick.n / boards).toFixed(1).replace(/\.0$/, "") +
-        " per board; two to three is the usual</span></div>");
+        " per board; the book suggests about one</span></div>");
 
-    var modes = [["rally", "Rally"], ["arena", "Arena"], ["random", "Random"], ["hand", "By hand"]];
+    var modes = [["rally", "Rally"], ["arena", "Arena"], ["northrup", "Northrup"],
+                 ["random", "Random"], ["hand", "By hand"]];
     if (printedFlags) modes.unshift(["default", "Printed"]);
     out.push('<div class="pr-ed-row"><span>Placement</span><div class="pr-seg" role="radiogroup"' +
       ' aria-label="How the flags are placed">');
@@ -8680,6 +8762,9 @@
              "Everyone is in the same place early, and it shows.",
       arena: "A lap of the play area, calling at every board \u2014 one flag in the thick of " +
              "each, one out toward its edge.",
+      northrup: "Every flag inside one board's worth of squares. A printed rule of thumb: fast " +
+                "at two or three robots, because nobody is ever far from the next flag \u2014 and " +
+                "slower at four or more, because everybody is in the same twelve squares.",
       "default": "The flags this course is normally raced with."
     };
     out.push('<div class="pr-rule-desc">' + esc(blurbs[pick.mode] || blurbs.arena) + "</div>");
