@@ -2017,6 +2017,7 @@
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
           p.hand = draw(p.dealtCount);
+          handOrder(p);
         }
         go("turn", "postDeal");
         return NEXT;
@@ -2035,6 +2036,7 @@
           if (ctx.redraw) {
             discardCards(p.hand);
             p.hand = draw(p.dealtCount);
+            handOrder(p);
             log(p.name + " recompiles");
           }
         }
@@ -3216,6 +3218,32 @@
       var n = (src.match(/HAZARD_DEFS/g) || []).length;
       assert(n >= 2, "both mount() and edMount() must inject HAZARD_DEFS, found " + n);
       assert(/id="pr-hz"/.test(HAZARD_DEFS), "and the pattern must carry the id the art asks for");
+    } },
+
+    { name: "the hand keeps its order when a card comes back from a register", run: function () {
+      /* The bug this exists for: cards were pushed back on the END of
+         the hand, so taking one card out of a register moved every card
+         after it. You looked, clicked where a card had been, and a
+         different card went in. Nothing was ever in the wrong place --
+         the hand had rearranged itself between the look and the
+         click. */
+      benchGame(bench([[".."]]), [{ c: 0, r: 0 }]);
+      var p = G.players[0];
+      /* Card ids are indices into PROGRAM_DECK. Deliberately NOT in
+         priority order to begin with, so the sort has work to do. */
+      p.hand = [40, 3, 77, 12, 55, 8, 61, 29, 70];
+      handOrder(p);
+      var before = p.hand.slice();
+      /* Pull the middle card into a register and put it straight back. */
+      p.registers[0] = p.hand.splice(4, 1)[0];
+      toHand(p, p.registers[0]);
+      p.registers[0] = null;
+      assert(p.hand.join(",") === before.join(","),
+        "the hand must come back identical, got " + p.hand.join(",") + " from " + before.join(","));
+      for (var i = 1; i < p.hand.length; i++) {
+        assert(card(p.hand[i - 1]).pri <= card(p.hand[i]).pri,
+          "and it must stay sorted by priority");
+      }
     } },
 
     // ---- rulesets and the course menu ---------------------------------
@@ -5201,6 +5229,29 @@
     UI.els.opts.innerHTML = out.join("");
   }
 
+  /* A HAND THAT DOES NOT MOVE UNDER YOU.
+
+     Cards used to be dealt in draw order and pushed back on the END
+     when they came out of a register, so taking one card back
+     reshuffled everything after it. You would pull a card out of
+     register 2, click the card you wanted instead, and a different one
+     would go in -- because the hand had rearranged itself between the
+     look and the click. The cards were never wrong; the positions were.
+
+     Sorting by printed priority fixes it for good: the order is the
+     same every time, so a card returned to the hand goes back exactly
+     where it came from, and the hand reads the way a player would lay
+     it out on the table anyway. */
+  function handOrder(p) {
+    p.hand.sort(function (a, b) { return card(a).pri - card(b).pri; });
+    return p.hand;
+  }
+
+  function toHand(p, id) {
+    p.hand.push(id);
+    handOrder(p);
+  }
+
   function firstEmpty(p) {
     var open = openRegisters(p.damage);
     for (var i = 0; i < open; i++) if (p.registers[i] === null) return i;
@@ -5248,7 +5299,7 @@
     /* Dropping onto an occupied register sends its card back to the
        hand rather than refusing: the gesture plainly means "this one
        instead", and refusing it would make the player undo first. */
-    if (p.registers[slotIndex] !== null) p.hand.push(p.registers[slotIndex]);
+    if (p.registers[slotIndex] !== null) toHand(p, p.registers[slotIndex]);
     p.registers[slotIndex] = p.hand.splice(handIndex, 1)[0];
     sfx("place");
     announce("Register " + (slotIndex + 1) + " set.");
@@ -5280,7 +5331,7 @@
     if (!inPhase("turn", "program") || !p) return;
     if (i >= openRegisters(p.damage)) return;        // locked registers are not yours to change
     if (p.registers[i] === null) return;
-    p.hand.push(p.registers[i]);
+    toHand(p, p.registers[i]);
     p.registers[i] = null;
     sfx("clear");
     announce("Register " + (i + 1) + " cleared.");
@@ -5293,7 +5344,7 @@
     var open = openRegisters(p.damage);
     for (var i = 0; i < open; i++) {
       if (p.registers[i] === null) continue;
-      p.hand.push(p.registers[i]);
+      toHand(p, p.registers[i]);
       p.registers[i] = null;
     }
     updateAll();
