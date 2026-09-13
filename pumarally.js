@@ -466,26 +466,53 @@
      Geometry is in the mount's frame -- u runs out from the wall, v
      runs along it -- so one bit of arithmetic serves all four
      orientations instead of four hand-rotated copies. */
+  /* A PUSHING PLATE ON A SCISSOR.
+
+     Three parts, and which part carries the stripe is the whole point.
+     The broad FACE is the thing that hits you, so the barricade belongs
+     there; the linkage behind it is machinery and reads as steel. The
+     first version striped the whole deck instead, which made the pusher
+     one flat hazard slab with no way to see that it EXTENDS.
+
+     The scissor is what says "this comes out at you". Two arms crossing
+     at a centre pivot, hinged to the wall at one end and to the back of
+     the face at the other, with the pivots drawn: a lazy-tong at rest.
+     An arrow could not say that -- and worse, every other arrow on this
+     board means a conveyor, so it said "you will be carried" where it
+     means "you will be shoved, on these registers and not the others".
+
+     Geometry lives in the mount's own frame -- u runs out from the
+     wall, v along it -- so one piece of arithmetic serves all four
+     orientations instead of four hand-rotated copies. */
   function pusherSvg(dir, odd) {
     var mount = B.opposite(dir), m = EDGE[mount];
     var ux = DC[dir], uy = DR[dir];            // out from the wall
     var vx = -uy, vy = ux;                     // along the wall
-    var HALF = 34, BACK = 4, FACE = 46, LIP = 10;
+    var HALF = 33, FACE = 52, PLATE = 13, SPREAD = 17;
+    var hinge = 5, cross = (hinge + (FACE - PLATE)) / 2;
     function pt(u, v) {
       return (m[0] + ux * u + vx * v).toFixed(1) + " " +
              (m[1] + uy * u + vy * v).toFixed(1);
     }
-    function quad(u0, u1, v) {
+    function bar(u0, u1, v) {
       return "M" + pt(u0, -v) + "L" + pt(u0, v) + "L" + pt(u1, v) + "L" + pt(u1, -v) + "Z";
     }
+    function pivot(u, v) {
+      var xy = pt(u, v).split(" ");
+      return '<circle class="pr-push-pin" cx="' + xy[0] + '" cy="' + xy[1] + '" r="3.4"/>';
+    }
     return svg(
-      /* the slot it comes out of, so the plate reads as emerging */
-      '<path class="pr-push-slot" d="' + quad(-2, BACK, HALF + 4) + '"/>' +
-      /* the striped deck */
-      '<path class="pr-push-deck" d="' + quad(BACK, FACE, HALF) + '"/>' +
-      /* a steel lip along the leading edge: the part that does the work */
-      '<path class="pr-push-lip" d="' + quad(FACE - LIP, FACE, HALF) + '"/>' +
-      '<path class="pr-push-edge" d="M' + pt(FACE, -HALF) + "L" + pt(FACE, HALF) + '"/>',
+      /* the slot in the wall it emerges from */
+      '<path class="pr-push-slot" d="' + bar(-3, hinge, HALF - 4) + '"/>' +
+      /* the scissor: two arms crossing at a centre pivot */
+      '<path class="pr-push-arm" d="M' + pt(hinge, -SPREAD) + "L" + pt(cross, 0) +
+        "L" + pt(FACE - PLATE, -SPREAD) + '"/>' +
+      '<path class="pr-push-arm" d="M' + pt(hinge, SPREAD) + "L" + pt(cross, 0) +
+        "L" + pt(FACE - PLATE, SPREAD) + '"/>' +
+      pivot(hinge, -SPREAD) + pivot(hinge, SPREAD) + pivot(cross, 0) +
+      pivot(FACE - PLATE, -SPREAD) + pivot(FACE - PLATE, SPREAD) +
+      /* the face: broad, striped, and the only part that touches a robot */
+      '<path class="pr-push-face" d="' + bar(FACE - PLATE, FACE, HALF) + '"/>',
       "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
   }
 
@@ -4201,10 +4228,13 @@
     /* Pushers: a hazard-striped ram on the wall it is bolted to. */
     /* The ram is the moving part and has to out-weigh the plate it
        comes out of, or the tile reads as a wall with a scratch on it. */
-    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.85}",
-    ".pr-pusher .pr-push-deck{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2}",
-    ".pr-pusher .pr-push-lip{fill:var(--pr-steel);opacity:.92}",
-    ".pr-pusher .pr-push-edge{stroke:var(--pr-bg);stroke-width:4;stroke-linecap:round}",
+    ".pr-pusher .pr-push-slot{fill:var(--pr-bg);opacity:.9}",
+    /* The linkage is machinery, so it is steel. The FACE is the thing
+       that hits you, so it carries the barricade. */
+    ".pr-pusher .pr-push-arm{fill:none;stroke:var(--pr-steel);stroke-width:7;",
+    "stroke-linecap:round;stroke-linejoin:round}",
+    ".pr-pusher .pr-push-pin{fill:var(--pr-bg);stroke:var(--pr-steel);stroke-width:2.5}",
+    ".pr-pusher .pr-push-face{fill:url(#pr-hz);stroke:var(--pr-hazard-dark);stroke-width:2.5}",
 
     ".pr-repair .pr-plate,.pr-upgrade .pr-plate,.pr-dock .pr-plate{fill:var(--pr-plate)}",
     ".pr-repair .pr-tool{stroke:var(--pr-good);stroke-width:13;stroke-linecap:round}",
