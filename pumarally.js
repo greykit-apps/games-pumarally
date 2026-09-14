@@ -8226,8 +8226,17 @@
            that had never been shot. */
         assert(mod.indexOf('title="SPAM cards carried"') >= 0,
           "the 2016 panel reports no damage at all");
-        assert(/pr-spam[^>]*>0</.test(mod), "a robot carrying no SPAM should read 0");
-        assert(!/pr-spam on/.test(mod), "a robot with no damage is shouting about it");
+        /* A BAR, like the two tracks beside it, and the same length as
+           the Energy track so the rows line up. */
+        function spamRow(html) {
+          var m = /title="SPAM cards carried">([\s\S]*?)<\/span>/.exec(html);
+          return m ? m[1] : "";
+        }
+        var row = spamRow(mod);
+        assert((row.match(/pr-pip/g) || []).length === SPAM_PIPS,
+          "the damage bar has " + (row.match(/pr-pip/g) || []).length + " dots, not " + SPAM_PIPS);
+        assert((row.match(/pr-pip on/g) || []).length === 0, "an undamaged robot has lit dots");
+        assert(row.indexOf("pr-over") < 0, "an undamaged robot is showing an overflow count");
 
         /* The count is every place one of your cards can be, because
            SPAM in the deck is damage you have not paid for yet. */
@@ -8236,8 +8245,24 @@
         p.hand = [MODERN_DAMAGE_FIRST + 2];
         p.registers = [MODERN_DAMAGE_FIRST + 3, null, null, null, null];
         assert(spamHeld(p) === 4, "counted " + spamHeld(p) + " SPAM across the four piles, not 4");
-        var hurt = playerTracks(p);
-        assert(/pr-spam on[^>]*>4</.test(hurt), "the panel does not show the 4 it counted: " + hurt);
+        var hurt = spamRow(playerTracks(p));
+        assert((hurt.match(/pr-pip on/g) || []).length === 4,
+          "four SPAM lit " + (hurt.match(/pr-pip on/g) || []).length + " dots");
+        assert(hurt.indexOf("pr-over") < 0, "four SPAM fits the bar and should not print a number");
+
+        /* MORE THAN THE BAR CAN DRAW. A bar that simply stopped at its
+           end would report the same thing at ten as at twenty-one,
+           which is the meter-that-cannot-move failure again -- and it
+           would do it exactly when the robot is worst off. */
+        p.deck = [];
+        for (var sp = 0; sp < 14; sp++) p.deck.push(MODERN_DAMAGE_FIRST + sp);
+        p.pile = []; p.hand = []; p.registers = [null, null, null, null, null];
+        assert(spamHeld(p) === 14, "the fixture holds " + spamHeld(p) + ", not 14");
+        var over = spamRow(playerTracks(p));
+        assert((over.match(/pr-pip on/g) || []).length === SPAM_PIPS,
+          "an overflowing bar should be full");
+        assert(/pr-over[^>]*>14</.test(over),
+          "the count past the end of the bar is not shown: " + over);
 
         /* A classic robot has no deck or discard of its own, and the
            renderer must not throw drawing one. */
@@ -8529,6 +8554,77 @@
         assert(fire(p, "modifyDealt", { count: 9 }).count === 9,
           "an upgrade taken off the mat is still firing");
       } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a 2016 player can see everything a player at the table can see", run: function () {
+      /* Each of these was countable by anybody sitting at the table
+         and invisible on screen. They are listed together because the
+         failure is one failure -- information the physical game gives
+         away for free, dropped on the way to a display. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman, wasEls = UI.els;
+      var host = { innerHTML: "" }, players = { innerHTML: "" };
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var me = G.players[0], them = G.players[1];
+        me.isBot = false;
+        UI.els = { opts: host, players: players };
+        UI.course.flags = [{ c: 0, r: 0, n: 1 }];
+
+        G.upgradeDeck.splice(G.upgradeDeck.indexOf("firewall"), 1);
+        me.shelf.push("firewall");
+        G.upgradeDeck.splice(G.upgradeDeck.indexOf("railGun"), 1);
+        me.shelf.push("railGun");
+        installUpgrade(me, "railGun");
+
+        /* 1. WHO HOLDS THE PRIORITY TOKEN. The whole 2016 turn order
+           is "start here and go one seat at a time", and it appeared
+           nowhere at all. */
+        G.priority = them.id;
+        renderPlayers();
+        var rows = players.innerHTML.split('class="pr-bot');
+        assert((players.innerHTML.match(/pr-tok/g) || []).length === 1,
+          "the Priority Token is on " + (players.innerHTML.match(/pr-tok/g) || []).length + " rows, not exactly one");
+        assert(rows[2].indexOf("pr-tok") >= 0 || rows[1].indexOf("pr-tok") < 0,
+          "the token is marked on the wrong robot");
+        G.priority = me.id;
+        renderPlayers();
+        assert((players.innerHTML.match(/pr-tok/g) || []).length === 1, "the token did not move with G.priority");
+
+        /* 2. YOUR DRAW PILE AND YOUR DISCARD, two stacks anyone can
+           see the thickness of. */
+        me.deck = [0, 1, 2]; me.pile = [3, 4];
+        renderPlayers();
+        assert(/pr-piles[^>]*>3·2</.test(players.innerHTML),
+          "the deck and discard counts are not shown: " + players.innerHTML.slice(0, 300));
+
+        /* 3. THE SHELF, AT ANY TIME. Setup says so in as many words. */
+        G.phase = "exec"; G.step = "move";
+        renderOptions();
+        assert(host.innerHTML.indexOf("Firewall") >= 0,
+          "an owned-but-unfitted upgrade is invisible outside the shop");
+        assert(host.innerHTML.indexOf("Rail Gun") >= 0, "a fitted upgrade is invisible mid-round");
+        assert(host.innerHTML.indexOf('data-act="ufit"') < 0,
+          "the fit button is live outside the upgrade phase");
+
+        /* 4. THE STACKS ON THE TABLE. */
+        assert(/SPAM \d+·\d+/.test(host.innerHTML),
+          "the damage deck and discard are not counted anywhere");
+        assert(/shop \d+/.test(host.innerHTML), "the upgrade deck is not counted anywhere");
+
+        /* And the classic game gets none of it -- no token to hold, no
+           deck of its own, no shop. */
+        houseRules.ruleset = "classic";
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        G.players[0].isBot = false;
+        UI.course.flags = [{ c: 0, r: 0, n: 1 }];
+        renderPlayers();
+        renderOptions();
+        assert(players.innerHTML.indexOf("pr-tok") < 0, "a classic panel shows a Priority Token");
+        assert(players.innerHTML.indexOf("pr-piles") < 0, "a classic panel shows a personal deck");
+        assert(host.innerHTML.indexOf("pr-table-counts") < 0, "a classic panel counts a damage deck");
+      } finally { houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; UI.els = wasEls; }
     } },
 
     { name: "the shop panel is shut outside the upgrade phase, and in the classic game", run: function () {
@@ -12551,6 +12647,8 @@
     ".pr-pips{display:flex;gap:1px}",
     ".pr-pip{width:4px;height:10px;background:var(--pr-border)}",
     ".pr-pip.on{background:var(--pr-danger)}",
+    ".pr-tok{color:var(--pr-warn);font-size:10px;line-height:1}",
+    ".pr-piles{font-size:10px;opacity:.65;min-width:30px;text-align:right}",
     ".pr-pip.life{background:var(--pr-accent)}",
         /* No floor on the log. It is the one panel with no natural end, so
        it is the one that should absorb whatever height is left over --
@@ -12670,11 +12768,15 @@
     ".pr-up-permanent{border-top-color:var(--pr-warn)}",
     ".pr-up-temporary{border-top-color:var(--pr-danger)}",
     ".pr-up-shelf{border-top-color:var(--pr-border);opacity:.75}",
+    ".pr-up-idle{opacity:.6}",
+    ".pr-table-counts{display:flex;flex-direction:column;gap:2px;justify-content:center;",
+    "font-size:10px;opacity:.65;margin-left:4px}",
     /* The 2016 damage readout. Sits where the damage track sits on a
        classic panel, and goes loud only when there is something to
        report -- a zero that shouts is a zero nobody reads. */
-    ".pr-spam{min-width:14px;text-align:right;opacity:.45}",
-    ".pr-spam.on{opacity:1;color:var(--pr-danger);font-weight:bold}",
+    /* Only ever seen on a robot carrying more SPAM than the bar can
+       draw, which is about one hand in ten. */
+    ".pr-over{margin-left:3px;color:var(--pr-danger);font-weight:bold;font-size:10px}",
     ".pr-opt>button{font:inherit;font-size:10px;line-height:1;padding:2px 4px;",
     "border:1px solid var(--pr-border);background:var(--pr-panel);color:var(--pr-text);cursor:pointer}",
     ".pr-opt>button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-accent)}",
@@ -13612,12 +13714,58 @@
     return n;
   }
 
+  /* TEN DOTS, AND A NUMBER WHEN TEN IS NOT ENOUGH.
+
+     A bar reads at a glance where a bare digit does not, and it sits
+     beside the Energy track so the two rows line up and can be
+     compared. Ten is the Energy track's own length, which is why the
+     rows match.
+
+     But SPAM has no printed track and no cap, and a bar that simply
+     stops at its end is the failure this panel already learned once:
+     a meter that cannot move reads as good news precisely when things
+     are worst. Measured over 5,584 hands across both 2016 courses --
+     median 4, three quarters at 7 or under, nine tenths at 9, and a
+     tail running to 21. So ten dots cover nine hands in ten, and the
+     tenth gets the dots full AND the count, which is the only honest
+     way to draw a number bigger than the bar. */
+  var SPAM_PIPS = 10;
+
+  /* WHO GOES FIRST, which nothing was saying.
+
+     The entire 2016 turn order is "start at the Priority Token and go
+     one seat at a time", fixed for the whole round. That is a physical
+     token sitting in front of somebody, and it was the one piece of
+     the round a player could not see at all -- G.priority drove every
+     reveal and appeared nowhere on screen. The classic game reads its
+     order off the cards, so it needs no marker and gets none. */
+  function priorityMark(p) {
+    if (rulesetOf(houseRules) !== "modern") return "";
+    if (G.priority !== p.id) return "";
+    return '<span class="pr-tok" title="holds the Priority Token: acts first this round">\u25c6</span>';
+  }
+
+  /* YOUR DRAW PILE AND YOUR DISCARD, which are two stacks sitting on
+     the mat where anybody can see how thick they are.
+
+     This is not decoration in the 2016 game. When your deck runs low
+     you know a reshuffle is coming and that every SPAM in your discard
+     is about to be dealt back to you -- which is the whole shape of
+     the edition's damage, and it was invisible. */
+  function deckMark(p) {
+    if (rulesetOf(houseRules) !== "modern") return "";
+    return '<span class="pr-piles" title="cards in your deck, then your discard">' +
+      (p.deck ? p.deck.length : 0) + "\u00b7" + (p.pile ? p.pile.length : 0) + "</span>";
+  }
+
   function playerTracks(p) {
     var j, pips = "", out = "";
     if (rulesetOf(houseRules) === "modern") {
       var spam = spamHeld(p);
-      out = '<span class="pr-spam' + (spam ? " on" : "") + '" title="SPAM cards carried">' +
-            spam + "</span>";
+      for (j = 0; j < SPAM_PIPS; j++) pips += '<i class="pr-pip' + (j < spam ? " on" : "") + '"></i>';
+      out = '<span class="pr-pips" title="SPAM cards carried">' + pips +
+            (spam > SPAM_PIPS ? '<b class="pr-over">' + spam + "</b>" : "") + "</span>";
+      pips = "";
       for (j = 0; j < MAX_ENERGY; j++) pips += '<i class="pr-pip' + (j < (p.energy || 0) ? " life" : "") + '"></i>';
       return out + '<span class="pr-pips" title="energy">' + pips + "</span>";
     }
@@ -13651,7 +13799,9 @@
         '<div class="pr-bot' + (isHuman(p) ? " pr-me" : "") + (p.out ? " pr-gone" : "") + '">' +
         '<i class="pr-swatch" style="background:' + LIVERIES[p.livery].a + '"></i>' +
         '<span class="pr-bot-name">' + esc(p.name) + (isHuman(p) ? " (you)" : "") + "</span>" +
+        priorityMark(p) +
         '<span title="flags">' + p.flags + "/" + UI.course.flags.length + "</span>" +
+        deckMark(p) +
         playerTracks(p) +
         "</div>" +
         (state ? '<div class="pr-bot pr-gone"><span class="pr-bot-name">' + esc(state) + "</span></div>" : "")
@@ -14064,7 +14214,13 @@
     var def = UPGRADE_DEFS[id];
     if (!def) return "";
     var why = "", act = "";
-    if (where === "shelf") {
+    if (where === "owned") {
+      /* Yours, not fitted, and not this phase's business. Shown
+         anyway: "You may look at your upgrade cards at any time" is
+         a setup rule, and a card you own but cannot see is a card you
+         will forget you own. */
+      why = "on the shelf";
+    } else if (where === "shelf") {
       if (!canInstall(p, id)) why = "no " + def.type + " slot";
       else if (def.cost > (p.energy || 0)) why = "needs " + def.cost;
       else if (p.fitted) why = "one a round";
@@ -14072,7 +14228,8 @@
     } else if (where === "mat") {
       act = '<button data-act="ustrip" data-id="' + id + '">Strip</button>';
     }
-    return '<span class="pr-opt pr-up-' + def.type + '" tabindex="0" role="img"' +
+    return '<span class="pr-opt pr-up-' + def.type + (where === "owned" ? " pr-up-idle" : "") +
+      '" tabindex="0" role="img"' +
       tipAttr(def.name + " \u2014 " + def.cost + " Energy, " + def.type + ". " + def.text) +
       ' aria-label="' + esc(def.name + ", " + def.cost + " Energy, " + def.type + ". " + def.text) + '">' +
       "<b>" + esc(def.name) + "</b>" +
@@ -14095,18 +14252,41 @@
     for (i = 0; i < me.installed.length; i++) {
       out.push(upgradeCardHtml(me, me.installed[i].id, shopping ? "mat" : "fitted"));
     }
+    /* THE SHELF IS ALWAYS SHOWN. Setup: "You may look at your upgrade
+       cards at any time." It used to appear only while the shop was
+       open, so for four fifths of every round a player could not see
+       what they owned -- and a card you cannot see is a card you
+       forget you are saving Energy for. */
+    for (i = 0; i < me.shelf.length; i++) {
+      out.push(upgradeCardHtml(me, me.shelf[i], shopping ? "shelf" : "owned"));
+    }
     if (shopping) {
-      for (i = 0; i < me.shelf.length; i++) out.push(upgradeCardHtml(me, me.shelf[i], "shelf"));
       var canBuy = !me.bought && (me.energy || 0) >= UPGRADE_DRAW_COST &&
                    (G.upgradeDeck.length + G.upgradeDiscard.length) > 0;
       out.push('<span class="pr-up-acts">' +
         '<button data-act="ubuy"' + (canBuy ? "" : " disabled") + ">Buy a card 1\u26a1</button>" +
         '<button data-act="udone">Done</button></span>');
-    } else if (!me.installed.length && me.shelf.length) {
-      out.push('<span class="pr-opt pr-up-shelf"><b>' + me.shelf.length +
-        " on the shelf</b><i class=\"pr-up-no\">nothing fitted yet</i></span>");
     }
+    out.push(tableCounts());
     UI.els.opts.innerHTML = out.join("");
+  }
+
+  /* THE STACKS ON THE TABLE, which everybody can see and count.
+
+     The damage deck and the upgrade deck are two face-down piles
+     beside the board, and how thick each is changes what you should
+     do: a damage deck about to run dry means the next hit costs
+     nothing, and an upgrade deck about to run dry means the discard
+     is coming back round. Both were countable at a table and
+     invisible here. */
+  function tableCounts() {
+    if (rulesetOf(houseRules) !== "modern") return "";
+    var dmg = G.damageDeck.length, dmgOut = G.damageDiscard.length;
+    var up = G.upgradeDeck.length;
+    return '<span class="pr-table-counts">' +
+      '<span title="damage cards left in the deck, then in the discard">SPAM ' +
+      dmg + "\u00b7" + dmgOut + "</span>" +
+      '<span title="upgrade cards left in the deck">shop ' + up + "</span></span>";
   }
 
   /* The three things a person may do in their upgrade phase. Each one
