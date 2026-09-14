@@ -2178,6 +2178,86 @@
         { c: 6, r: 11, in: "N" }
       ]
     },
+    cactus: {
+      name: "Cactus", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> l. Bv .. B> B> l. .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +--+  +",
+        " b^ .. Bv .. B^ .. b^ b< .. .. E. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b^|.. Bv o. B^ .. .. b^ .. Bv B< B< ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " b^ b< B> Bv B^ .. .. b^ ..|Bv .. B^ ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b^ E. Bv B^ .. b> b^ .. Bv E. B^ ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b^ b< B> B^ .. b^ .. o. Bv .. B^ ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ .. .. .. b^ .. Bv B< B> B^ ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " ..|.. b< b< .. .. .. .. Bv|.. l. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> l. bv o. b^ .. b^ l. B< .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B^ E. b> b> b^ .. .. .. E. b> b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B^ B< ..|.. .. .. .. b> b> b^|.. .. ",
+        "+  +  +  +  +  +--+  +  +  +--+  +  +",
+        " .. B^ B< B< .. .. b^ b^ .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 1, r: 7, d: "E", n: 1 },
+        { c: 5, r: 10, d: "N", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 0, r: 0, in: "S" },
+        { c: 2, r: 0, in: "W" },
+        { c: 4, r: 0, in: "S" },
+        { c: 6, r: 1, in: "E" },
+        { c: 7, r: 1, in: "S" },
+        { c: 9, r: 2, in: "E" },
+        { c: 11, r: 2, in: "S" },
+        { c: 0, r: 3, in: "E" },
+        { c: 1, r: 3, in: "S" },
+        { c: 2, r: 3, in: "N" },
+        { c: 3, r: 3, in: "W" },
+        { c: 6, r: 4, in: "S" },
+        { c: 7, r: 4, in: "W" },
+        { c: 1, r: 5, in: "E" },
+        { c: 2, r: 5, in: "S" },
+        { c: 3, r: 5, in: "N" },
+        { c: 4, r: 5, in: "W" },
+        { c: 8, r: 6, in: "E" },
+        { c: 9, r: 6, in: "N" },
+        { c: 10, r: 6, in: "S" },
+        { c: 11, r: 6, in: "W" },
+        { c: 0, r: 8, in: "S" },
+        { c: 2, r: 8, in: "W" },
+        { c: 6, r: 8, in: "E" },
+        { c: 8, r: 8, in: "N" },
+        { c: 2, r: 9, in: "N" },
+        { c: 4, r: 9, in: "W" },
+        { c: 9, r: 9, in: "S" },
+        { c: 10, r: 9, in: "W" },
+        { c: 0, r: 10, in: "E" },
+        { c: 1, r: 10, in: "S" },
+        { c: 7, r: 10, in: "S" },
+        { c: 9, r: 10, in: "W" },
+        { c: 1, r: 11, in: "E" },
+        { c: 3, r: 11, in: "S" },
+        { c: 7, r: 11, in: "W" }
+      ]
+      ,
+      pushers: [
+        { c: 1, r: 2, d: "E", regs: [1, 3, 5] },
+        { c: 10, r: 1, d: "S", regs: [2, 4] },
+        { c: 8, r: 3, d: "W", regs: [1, 3, 5] }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2304,6 +2384,17 @@
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       /* AUTHORED, like every quick game's -- see stepsRun. */
       flags: [[1, 9], [6, 6], [10, 0]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    cactusRun: {
+      name: "Cactus",
+      kind: "quick",
+      blurb: "Three push panels, two beams crossing in the middle, and five gears all turning left.",
+      boards: [{ id: "cactus", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[2, 10], [5, 6], [10, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
