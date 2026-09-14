@@ -12,7 +12,8 @@ drawings and the layouts are hand-transcribed tile data.
 > **Status: in development, and playable.** Program five registers and race up
 > to seven robots across seven transcribed factory floors, alone or
 > pass-and-play. Cannery Row is a first pass and not yet raceable, the modern
-> edition is not built, and the option deck is 16 of its 26 cards — see
+> edition is part-built (no upgrade shop, and the damage deck is all SPAM),
+> and the option deck is 16 of its 26 cards — see
 > [What works today](#what-works-today).
 
 ## Play
@@ -29,10 +30,14 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 32 rule tests | done |
+| Headless simulation + 239 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
+| Modern round order, Energy, Priority Token, personal decks | done |
+| Modern damage — SPAM | done |
+| Modern damage — Haywire | **not built** — the card faces are not transcribed |
+| Modern upgrade phase, shop, reboots | not yet |
 | Hot-seat pass-and-play | done |
 | Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | done |
@@ -219,7 +224,7 @@ project carries both.
 
 | | Classic (1994–2005) | Modern (2016–) |
 |---|---|---|
-| Move order | Priority number on each card | Priority antenna — nearest robot first |
+| Move order | Priority number on each card | Priority Token — seating order, fixed for the round |
 | Damage | Tokens; each costs a dealt card and locks registers | SPAM cards shuffled into a personal deck |
 | Upgrades | Option cards, from upgrade sites | Energy cubes spent in a shop |
 | Repair sites | Repair 1 damage | Removed from the boards entirely |
@@ -232,8 +237,19 @@ is a transcription error, not a variant. Without that, a modern board
 transcribed against the classic engine would validate, play, and quietly be
 the wrong game.
 
-**The classic ruleset is what is implemented today.** The modern one is
-scaffolded at the data layer and not yet built.
+**The classic ruleset is complete. The modern one is partly built**, and the
+pieces are listed in [What works today](#what-works-today) rather than summed
+into a single word. What is built runs: the modern round order, Energy, the
+Priority Token, a personal twenty-card deck each, and SPAM damage, all
+simulated to a winner on every course with the conservation laws armed.
+
+What is not built is the **upgrade phase and shop**, **reboots**, and the
+**Haywire half of the damage deck**. That last one is a transcription gap
+rather than an engineering one: the rules say the deck is forty cards of two
+types, but no page photographed here gives the split, and each Haywire carries
+its own programme on its own face. The deck therefore ships as forty SPAM, and
+a rule test asserts that it does — so the gap is a check that will go red when
+the faces arrive, not a silence.
 
 Boards also declare which **box** they came from — base game, Armed and
 Dangerous, Wet and Wild, and so on — because picking a course by expansion is

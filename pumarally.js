@@ -123,7 +123,16 @@
        rather than the other way round, so a kind no classic card uses
        is legal here. */
     powerUp: { label: "Power Up", glyph: "e" },
-    again: { label: "Again", glyph: "a" }
+    again: { label: "Again", glyph: "a" },
+    /* A DAMAGE CARD IS A PROGRAMMING CARD. It goes into your deck, is
+       drawn into your hand, and is programmed into a register like
+       anything else -- which is the whole design of 2016 damage, and
+       the reason it is a kind here rather than a counter somewhere. */
+    spam: { label: "SPAM", glyph: "s", damage: true,
+      /* The one programming card that does not say what it does by
+         being looked at, so it says it in words instead -- the same
+         bargain the option cards make. */
+      note: "Damage. Programme it and it is thrown away, and the top card of your deck is played instead." }
   };
 
   /* A ROBOT'S OWN DECK, twenty cards, counted off a photograph of one
@@ -139,6 +148,22 @@
     left: 4, right: 4, uturn: 1, powerUp: 1, again: 1
   };
   var MODERN_DECK_SIZE = 20;
+
+  /* THE DAMAGE DECK: forty cards in a random stack beside the board,
+     shared by everyone, of two types -- SPAM and Haywire.
+
+     ONLY SPAM IS BUILT. Haywire places itself face down UNDER the
+     programming card in the register being resolved, sits there
+     through the next round blocking that register, and then does
+     whatever is printed on its own face -- and those faces are not
+     photographed. Building it from the two sentences I can read would
+     be inventing thirty cards.
+
+     The forty is printed and certain. How it splits between the two
+     types is NOT, so this deck is all SPAM and says so: the mechanism
+     is right and the mixture is a known gap rather than a guess. */
+  var MODERN_DAMAGE_COUNTS = { spam: 40 };
+  var MODERN_DAMAGE_SIZE = 40;
 
   var DECK_RANGES = [
     ["uturn",  10,  60, 10],
@@ -165,11 +190,19 @@
      the printed ranges: a typo is impossible and the total is
      checkable arithmetic. No priorities, because the cards print
      none -- the order comes from the Priority Token. */
-  var MODERN_DECK = (function () {
+  function buildDeck(counts) {
     var out = [], k, i;
-    for (k in MODERN_DECK_COUNTS) for (i = 0; i < MODERN_DECK_COUNTS[k]; i++) out.push({ kind: k, pri: 0 });
+    for (k in counts) for (i = 0; i < counts[k]; i++) out.push({ kind: k, pri: 0 });
     return out;
-  })();
+  }
+  var MODERN_DECK = buildDeck(MODERN_DECK_COUNTS);
+  var MODERN_DAMAGE = buildDeck(MODERN_DAMAGE_COUNTS);
+  /* ONE TABLE, so a card index means one thing whatever pile it is in.
+     A SPAM card moves from the damage deck into a robot's own discard
+     and is dealt back into its hand, so the two sets cannot be indexed
+     separately without the index changing meaning as the card moves. */
+  var MODERN_CARDS = MODERN_DECK.concat(MODERN_DAMAGE);
+  var MODERN_DAMAGE_FIRST = MODERN_DECK.length;
 
   /* Registers lock from the right as damage mounts: 5 damage locks
      register 5, 6 locks 4, and so on. Every published lock table is
@@ -1060,6 +1093,31 @@
       if (!STEP[row.phase] || !STEP[row.phase][row.step]) {
         throw new Error('the help describes step "' + row.phase + "." + row.step + '", which the phase machine does not have');
       }
+      if (row.only && !RULESETS[row.only]) {
+        throw new Error('the help pins step "' + row.step + '" to unknown ruleset "' + row.only + '"');
+      }
+    }
+
+    /* AND THE OTHER DIRECTION, which nothing was asking. The check
+       above says the help describes nothing imaginary; it is silent on
+       the help simply not mentioning a step, and every element step
+       the 2016 order runs was missing from it -- five real steps of a
+       real round, undocumented, behind a green check. A step the
+       machine walks through in a given edition must have a row that
+       edition prints. */
+    for (var rsk in ELEMENT_STEPS) {
+      var order = ELEMENT_STEPS[rsk];
+      for (var oi = 0; oi < order.length; oi++) {
+        var found = false;
+        for (var hz = 0; hz < TURN_STEPS.length; hz++) {
+          var h = TURN_STEPS[hz];
+          if (h.phase !== "exec" || h.step !== order[oi]) continue;
+          if (!h.only || h.only === rsk) { found = true; break; }
+        }
+        if (!found) {
+          throw new Error('the ' + rsk + ' round runs step "' + order[oi] + '" and the help does not describe it');
+        }
+      }
     }
 
     for (var pk in DIFFICULTY_PRESETS) {
@@ -1200,7 +1258,7 @@
      different lengths and different cards, so an index is only ever
      meaningful alongside the ruleset that produced it -- which is why
      a saved game carries its ruleset. */
-  function deckTable() { return rulesetOf(houseRules) === "modern" ? MODERN_DECK : PROGRAM_DECK; }
+  function deckTable() { return rulesetOf(houseRules) === "modern" ? MODERN_CARDS : PROGRAM_DECK; }
   function card(i) { return deckTable()[i]; }
   function cardAt(p, reg) { var i = p.registers[reg]; return i === null || i === undefined ? null : card(i); }
 
@@ -1297,7 +1355,9 @@
       unfinished: false,
       log: [],
       exec: { queue: [], resume: null, resumePhase: null },
-      pendingChoices: []
+      pendingChoices: [],
+      damageDeck: [],
+      damageDiscard: []
     };
 
     /* YOUR CHOICE FIRST, EVERYONE ELSE AROUND IT.
@@ -1377,6 +1437,13 @@
     }
 
     if (modern) {
+      /* The damage deck is ONE stack for the table, not one per robot,
+         and that is the whole reason it can run out: forty cards among
+         everybody, and when they are all sitting in robots' decks and
+         hands there is nothing left to hand out. */
+      for (var dm = 0; dm < MODERN_DAMAGE.length; dm++) G.damageDeck.push(MODERN_DAMAGE_FIRST + dm);
+      shuffle(G.damageDeck);
+      G.damageSize = MODERN_DAMAGE.length;
       /* Each robot shuffles its own twenty and puts it face down on
          its own mat. The shared pile stays empty and unused. */
       for (var mp = 0; mp < G.players.length; mp++) {
@@ -1450,6 +1517,74 @@
     for (var i = 0; i < list.length; i++) {
       if (list[i] !== null && list[i] !== undefined) p.pile.push(list[i]);
     }
+  }
+
+  /* ============================================================
+     DAMAGE CARDS — the 2016 game
+
+     Damage is not a number in this edition. It is cards, dealt from a
+     stack of forty beside the board into your own deck, where they sit
+     among your twenty and come back to you in a hand later on. That is
+     the whole design: being shot does not shrink what you can do this
+     round, it poisons what you will draw for the rest of the race.
+     ============================================================ */
+  function isDamageCard(i) {
+    return rulesetOf(houseRules) === "modern" && i >= MODERN_DAMAGE_FIRST;
+  }
+
+  /* ONE CARD. The rulebook says "always draw damage 1 card at a time"
+     in bold, and it is not ceremony: each card is looked at and routed
+     by its own type before the next is drawn, and the deck can run out
+     between two cards of the same hit.
+
+     Empty deck: shuffle the discard and carry on. Empty discard TOO:
+     you take no damage -- the game simply has no card to give you, and
+     that is the printed outcome rather than an error. */
+  function drawDamage() {
+    if (!G.damageDeck.length) {
+      if (!G.damageDiscard.length) return null;
+      G.damageDeck = shuffle(G.damageDiscard);
+      G.damageDiscard = [];
+    }
+    return G.damageDeck.pop();
+  }
+
+  function takeDamage(p, n) {
+    var got = 0;
+    for (var i = 0; i < n; i++) {
+      var c = drawDamage();
+      if (c === null) break;            // the stack is exhausted: no damage this register
+      /* SPAM goes into YOUR DISCARD, not your hand. You do not suffer
+         it now; you suffer it when it comes back round. */
+      p.pile.push(c);
+      got++;
+    }
+    if (got) {
+      /* Tallied on the game rather than counted afterwards. Damage
+         cards come back to the stack when it reshuffles, so the state
+         at the end of a game says nothing about how much damage was
+         dealt during it -- and a sim that never shot anybody would
+         otherwise pass this whole system without exercising a line. */
+      G.spamDealt = (G.spamDealt || 0) + got;
+      log(p.name + " takes " + got + " SPAM");
+    }
+    if (got < n) log("the damage deck is empty: " + p.name + " takes no more damage");
+  }
+
+  /* A WRECK PUTS ITS CARDS DOWN, and they do not all go to the same
+     place. Its own programming cards go to its own discard; any damage
+     it was holding goes back to the shared damage discard, because a
+     damage card belongs to the table and only ever visits a robot.
+     Under the classic rules nothing is a damage card and this is
+     exactly discardCards. */
+  function scrapCards(p, list) {
+    var mine = [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (c === null || c === undefined) continue;
+      if (isDamageCard(c)) G.damageDiscard.push(c); else mine.push(c);
+    }
+    discardFor(p, mine);
   }
 
   function discardCards(list) {
@@ -2004,6 +2139,11 @@
      that ask about a card in isolation still can. */
   function planFor(cd, p) {
     var k = CARD_KINDS[cd.kind];
+    /* SPAM never gets this far: the reveal replaces it with a real
+       card first. If it ever did, it would fall through to the move
+       branch and ask the robot to travel `undefined` squares, so it
+       is stopped here where the failure is legible. */
+    if (k.damage) throw new Error("a damage card reached the planner unresolved");
     if (cd.kind === "powerUp") return { kind: "energy", gain: 1, turn: 0, dist: 0, lateral: 0 };
     if (cd.kind === "again") {
       var prev = againTarget(p);
@@ -2158,6 +2298,40 @@
       log(p.name + " skids on the oil");
       oilSlide(p, dir);
     }
+  }
+
+  /* SPAM REVEALED IN A REGISTER.
+
+     A SPAM card programmes nothing of its own. When it turns over you
+     throw it away -- face up, onto the damage discard, so it is out of
+     your deck for good -- and take the top card of your programming
+     deck in its place, face up, and do whatever that says. Which is
+     the sting: you chose four of your five cards this round and the
+     fifth is whatever the deck hands you.
+
+     If the replacement is ALSO SPAM you do the whole thing again, and
+     each pass puts one more card beyond reach, so it ends.
+
+     Returns the card the register is now showing, or null if the robot
+     had nothing left to turn over. */
+  function resolveSpam(p) {
+    var cd = cardAt(p, G.register);
+    while (cd && cd.kind === "spam") {
+      G.damageDiscard.push(p.registers[G.register]);
+      p.registers[G.register] = null;
+      var got = drawFor(p, 1);
+      if (!got.length) {
+        /* Deck and discard both empty -- possible only because the
+           SPAM you just cleared was the last card you owned. Nothing
+           to reveal, so nothing happens this register. */
+        log(p.name + "'s SPAM clears an empty deck");
+        return null;
+      }
+      p.registers[G.register] = got[0];
+      cd = cardAt(p, G.register);
+      log(p.name + "'s SPAM turns up " + CARD_KINDS[cd.kind].label.toLowerCase());
+    }
+    return cd;
   }
 
   function playCard(p, cd) {
@@ -2397,6 +2571,12 @@
     var ctx = fire(p, "onDamage", { amount: n, source: source || "laser", absorbed: 0 });
     if (ctx.absorbed > 0) log(p.name + " absorbs " + ctx.absorbed + " damage");
     if (ctx.amount <= 0) return;
+    /* The two editions do completely different things with the same
+       hit. The classic one ticks a track that locks your registers and
+       shrinks your hand; the 2016 one hands you cards. Routed here so
+       that every existing caller -- lasers, pits, burners, pushes --
+       gets the right one without knowing which game it is in. */
+    if (rulesetOf(houseRules) === "modern") { takeDamage(p, ctx.amount); return; }
     p.damage += ctx.amount;
     if (p.damage >= MAX_DAMAGE) destroy(p, "shot to pieces");
   }
@@ -2405,8 +2585,8 @@
     if (!p.alive) return;
     p.alive = false;
     p.lives--;
-    discardCards(p.hand); p.hand = [];
-    discardCards(p.registers); p.registers = [null, null, null, null, null];
+    scrapCards(p, p.hand); p.hand = [];
+    scrapCards(p, p.registers); p.registers = [null, null, null, null, null];
     /* A wrecked robot loses an option card. Which one is the player's
        choice at the table, and destruction happens deep inside a move
        -- far from anywhere a question can be parked -- so the choice
@@ -2737,10 +2917,28 @@
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           p.ready = false;                     // this turn's confirmation, not last turn's
-          if (p.poweredDown) { p.hand = []; p.dealtCount = 0; continue; }
+          /* A ROBOT THAT SHUT DOWN PUTS ITS HAND DOWN, and under the
+             2016 rules that hand is not empty: SPAM survives the
+             cleanup discard, so it is still being held here. This is
+             the second of the two ways to be rid of it -- the
+             rulebook offers programming it or shutting down -- and
+             the cards it sheds have to go somewhere real. Dropping
+             them on the floor loses damage cards out of the stack of
+             forty, which is what the conservation law caught. */
+          if (p.poweredDown) {
+            if (p.hand.length) scrapCards(p, p.hand);
+            p.hand = []; p.dealtCount = 0; continue;
+          }
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
-          p.hand = drawFor(p, p.dealtCount);
+          /* THE DEAL IS ADDED TO WHAT YOU ARE STILL HOLDING, which
+             under the classic rules is nothing -- the cleanup discard
+             empties the hand, so this is the old line exactly. Under
+             the 2016 rules it is the SPAM you could not get rid of
+             last round, and it has to still be there: an assignment
+             would drop those cards out of the game, which is what the
+             damage conservation law caught. */
+          p.hand = p.hand.concat(drawFor(p, p.dealtCount));
           handOrder(p);
         }
         go("turn", "postDeal");
@@ -2758,8 +2956,16 @@
           var ctx = fire(p, "onDealt", { hand: p.hand, redraw: false });
           if (ctx.pending) { pending = true; continue; }
           if (ctx.redraw) {
-            discardFor(p, p.hand);
-            p.hand = drawFor(p, p.dealtCount);
+            /* A recompile throws away the hand you were DEALT. It is
+               not a way to launder SPAM out of it: those cards are
+               damage, and damage does not leave because you asked for
+               new cards. */
+            var fresh = [], stuck = [];
+            for (var rc = 0; rc < p.hand.length; rc++) {
+              (isDamageCard(p.hand[rc]) ? stuck : fresh).push(p.hand[rc]);
+            }
+            discardFor(p, fresh);
+            p.hand = stuck.concat(drawFor(p, p.dealtCount));
             handOrder(p);
             log(p.name + " recompiles");
           }
@@ -2880,6 +3086,7 @@
         var p = G.players[G.exec.queue[0]];
         if (!p.alive) { G.exec.queue.shift(); return NEXT; }
         var cd = cardAt(p, G.register);
+        if (cd && cd.kind === "spam") cd = resolveSpam(p);
         if (!cd) { G.exec.queue.shift(); return NEXT; }
 
         var plan = planFor(cd, p);
@@ -3081,8 +3288,18 @@
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
-          discardFor(p, p.hand);
-          p.hand = [];
+          /* EVERYTHING GOES BUT THE SPAM. You are stuck with damage
+             you did not manage to programme away: it stays in your
+             hand and is still there next round, on top of the fresh
+             deal. The only ways out are to spend a register on it or
+             to shut down. */
+          var keep = [], toss = [];
+          for (var hc = 0; hc < p.hand.length; hc++) {
+            (isDamageCard(p.hand[hc]) ? keep : toss).push(p.hand[hc]);
+          }
+          discardFor(p, toss);
+          p.hand = keep;
+          if (keep.length) log(p.name + " is still holding " + keep.length + " SPAM");
           var open = openRegisters(p.damage);
           for (var reg = 0; reg < REGISTERS; reg++) {
             if (reg >= open) continue;                 // locked: the card stays put
@@ -3421,15 +3638,39 @@
        still be the worst kind of wrong. Counted per robot for that
        reason, against whatever that robot started with. */
     if (rulesetOf(houseRules) === "modern") {
+      /* TWO SETS OF CARDS ARE IN THE SAME PILES, and they are
+         conserved separately. A robot's own twenty never leave it, so
+         those are counted per robot as before. The forty damage cards
+         belong to the table and wander -- into a robot's discard, up
+         into its hand, out to the damage discard again -- so counting
+         them per robot would be counting a quantity that is meant to
+         change. Summing each robot's own cards and the damage cards
+         together would let a SPAM turn into a Move 1 unnoticed, which
+         is the failure this exists to catch. */
+      var dmg = G.damageDeck.length + G.damageDiscard.length;
       for (i = 0; i < G.players.length; i++) {
         p = G.players[i];
-        var own = p.deck.length + p.pile.length + p.hand.length;
-        for (var mreg = 0; mreg < REGISTERS; mreg++) if (p.registers[mreg] !== null) own++;
+        var own = 0, pile = [p.deck, p.pile, p.hand, p.registers], pi2, ci2;
+        for (pi2 = 0; pi2 < pile.length; pi2++) {
+          for (ci2 = 0; ci2 < pile[pi2].length; ci2++) {
+            var cix = pile[pi2][ci2];
+            if (cix === null || cix === undefined) continue;
+            if (isDamageCard(cix)) dmg++; else own++;
+          }
+        }
         if (p.deckSize === undefined) continue;      // no deck dealt yet
         if (own !== p.deckSize) {
           throw new Error(p.name + "'s deck is " + own + "/" + p.deckSize + " at " +
             G.phase + "." + G.step + " turn " + G.turn);
         }
+      }
+      /* Gated on the stack having been BUILT, not on it having cards
+         in it. Gating on "there is something in the deck or discard"
+         switches the law off in exactly the state it is there to
+         police -- all forty out among the robots. */
+      if (G.damageSize !== undefined && dmg !== G.damageSize) {
+        throw new Error("damage card conservation broken: " + dmg + "/" + G.damageSize +
+          " at " + G.phase + "." + G.step + " turn " + G.turn);
       }
     } else {
       var n = G.deck.length + G.discard.length;
@@ -3477,13 +3718,27 @@
          conservation property is the one that matters: every card
          dealt is either still in hand or sitting in a register. */
       if (G.phase === "turn" && G.step === "program" && p.alive && !p.poweredDown) {
-        var placed = 0;
-        for (var rq = 0; rq < REGISTERS; rq++) if (p.registers[rq] !== null && rq < openRegisters(p.damage)) placed++;
-        if (p.hand.length + placed !== p.dealtCount && G.deck.length + G.discard.length > 0) {
-          throw new Error(p.name + " holds " + p.hand.length + " cards and has placed " + placed +
+        /* DAMAGE CARDS ARE NOT PART OF THE DEAL. Under the 2016 rules
+           a hand is what you were dealt PLUS the SPAM you failed to
+           get rid of last round, so counting the hand whole would call
+           a correct hand wrong as soon as anybody was shot. Counted
+           without them; they are conserved by their own law above. */
+        var placed = 0, held = 0, hq, rq;
+        for (rq = 0; rq < REGISTERS; rq++) {
+          if (p.registers[rq] === null || rq >= openRegisters(p.damage)) continue;
+          if (!isDamageCard(p.registers[rq])) placed++;
+        }
+        for (hq = 0; hq < p.hand.length; hq++) if (!isDamageCard(p.hand[hq])) held++;
+        /* The guard is "a deal could be made at all", and which pile
+           that asks about is the one difference between the editions. */
+        var couldDeal = rulesetOf(houseRules) === "modern"
+          ? p.deck.length + p.pile.length > 0
+          : G.deck.length + G.discard.length > 0;
+        if (held + placed !== p.dealtCount && couldDeal) {
+          throw new Error(p.name + " holds " + held + " dealt cards and has placed " + placed +
             ", but was dealt " + p.dealtCount);
         }
-        if (!p.options.length && p.dealtCount !== cardsDealt(p.damage) && G.deck.length + G.discard.length > 0) {
+        if (!p.options.length && p.dealtCount !== cardsDealt(p.damage) && couldDeal) {
           throw new Error(p.name + " was dealt " + p.dealtCount + " at " + p.damage +
             " damage with no options, expected " + cardsDealt(p.damage));
         }
@@ -3853,7 +4108,8 @@
       phase: "exec", step: "move", players: [], deck: [], discard: [],
       optionDeck: [], optionDiscard: [], optionAnswers: {},
       gameOver: false, winner: null, unfinished: false, log: [],
-      exec: { queue: [], resume: null, resumePhase: null }, pendingChoices: []
+      exec: { queue: [], resume: null, resumePhase: null }, pendingChoices: [],
+      damageDeck: [], damageDiscard: []
     };
     for (var i = 0; i < robots.length; i++) {
       var rb = robots[i], face = rb.face === undefined ? N : rb.face;
@@ -3886,6 +4142,33 @@
     }
     for (var k = 0; k < OPTION_IDS.length; k++) if (!taken[OPTION_IDS[k]]) G.optionDeck.push(OPTION_IDS[k]);
     return G;
+  }
+
+  /* A BENCH WITH THE 2016 PILES SET UP. benchGame deals nothing --
+     it exists to put robots on a picture -- so every 2016 test would
+     otherwise open by building four piles by hand, and a test that
+     forgot one would fail on the conservation check rather than on
+     what it was actually asking about. Call it with the ruleset
+     already flipped to modern. */
+  function modernBench(cells, robots, flags) {
+    benchGame(bench(cells), robots, flags);
+    for (var i = 0; i < G.players.length; i++) {
+      var d = [];
+      for (var c = 0; c < MODERN_DECK.length; c++) d.push(c);
+      G.players[i].deck = shuffle(d);
+      G.players[i].pile = [];
+      G.players[i].deckSize = MODERN_DECK.length;
+    }
+    for (var m = 0; m < MODERN_DAMAGE.length; m++) G.damageDeck.push(MODERN_DAMAGE_FIRST + m);
+    G.damageSize = MODERN_DAMAGE.length;
+    return G;
+  }
+
+  /* The index of a named card, for a test that needs a particular one
+     rather than whatever the shuffle produced. */
+  function modernCard(kind) {
+    for (var i = 0; i < MODERN_DECK.length; i++) if (MODERN_DECK[i].kind === kind) return i;
+    throw new Error("no 2016 card of kind " + kind);
   }
 
   function assert(cond, msg) { if (!cond) throw new Error(msg); }
@@ -5885,6 +6168,16 @@
       for (k in CARD_KINDS) {
         assert(cardArt(k).indexOf("<path") >= 0, "card kind " + k + " draws nothing");
       }
+      /* AND DRAWS ITS OWN THING. "Something was drawn" is satisfied by
+         drawing the wrong card, which is what the old fall-through
+         did: a kind that neither moves nor turns came out as a left
+         turn. Every kind's art must differ from every other kind's. */
+      var seenArt = {};
+      for (k in CARD_KINDS) {
+        var a = cardArt(k);
+        assert(!seenArt[a], "card kinds " + seenArt[a] + " and " + k + " are drawn identically");
+        seenArt[a] = k;
+      }
       function shafts(k) { return (cardArt(k).match(/class="pr-cshaft"/g) || []).length; }
       /* The x of every arrowhead on a card, in order. */
       function headXs(k) {
@@ -6524,6 +6817,440 @@
       STEP.exec.reveal();
       assert(G.exec.queue.join(",") === "1,0",
         "the classic order must come from the cards, it was " + G.exec.queue.join(","));
+    } },
+
+    { name: "the damage deck is forty cards, and what is on them is a declared gap", run: function () {
+      /* The forty is printed and is not in doubt. The SPLIT between
+         SPAM and Haywire is not printed on either page that describes
+         them, and each Haywire carries its own programme on its own
+         face -- thirty-odd distinct cards nobody here has photographed.
+
+         So the deck is all SPAM, and this test says so out loud rather
+         than letting a quiet default pass for a transcription. When
+         the Haywire faces arrive, this is the test that fails. */
+      assert(MODERN_DAMAGE_SIZE === 40, "the damage deck is " + MODERN_DAMAGE_SIZE + " cards, not 40");
+      assert(MODERN_DAMAGE.length === MODERN_DAMAGE_SIZE,
+        "the built deck is " + MODERN_DAMAGE.length + " cards, not " + MODERN_DAMAGE_SIZE);
+      assert(!MODERN_DAMAGE_COUNTS.haywire,
+        "Haywire is in the deck, so its card faces must be transcribed and this gap closed");
+      for (var i = 0; i < MODERN_DAMAGE.length; i++) {
+        assert(CARD_KINDS[MODERN_DAMAGE[i].kind], "the damage deck carries an unknown kind");
+        assert(CARD_KINDS[MODERN_DAMAGE[i].kind].damage, "a damage card is not marked as damage");
+      }
+      /* AND IT SHARES ONE INDEX SPACE WITH THE PROGRAMMING DECK,
+         because a SPAM card moves into a robot's own deck and is dealt
+         back into its hand. Two tables would mean the same number
+         naming a different card depending on which pile it was in. */
+      assert(MODERN_CARDS.length === MODERN_DECK_SIZE + MODERN_DAMAGE_SIZE,
+        "the two decks do not add up to one table of cards");
+      var keepHouse = houseRules.ruleset;
+      try {
+        houseRules.ruleset = "modern";
+        assert(!isDamageCard(MODERN_DAMAGE_FIRST - 1), "the last programming card reads as damage");
+        assert(isDamageCard(MODERN_DAMAGE_FIRST), "the first damage card does not read as damage");
+        houseRules.ruleset = "classic";
+        assert(!isDamageCard(MODERN_DAMAGE_FIRST),
+          "a classic card index read as damage, and the classic game has no damage cards");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a 2016 hit hands you cards instead of ticking a track", run: function () {
+      /* This is the whole design of the edition. Being shot does not
+         shrink what you can do THIS round -- it poisons what you will
+         draw for the rest of the race. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], before = G.damageDeck.length;
+        damage(p, 2, "laser");
+        assert(p.damage === 0, "the 2016 game ticked a damage track, which it does not have");
+        assert(p.pile.length === 2, "the SPAM went somewhere other than the robot's own discard");
+        assert(G.damageDeck.length === before - 2,
+          "the shared deck is " + G.damageDeck.length + ", it should be " + (before - 2));
+        for (var i = 0; i < p.pile.length; i++) {
+          assert(isDamageCard(p.pile[i]), "something that is not a damage card was dealt as damage");
+        }
+        /* NOT into your hand. You suffer SPAM when it comes back
+           round, not when you are shot -- a hit that cost you a card
+           this round would be the classic rule wearing a new name. */
+        assert(p.hand.length === 0, "the SPAM was dealt straight into the hand");
+        assertInvariants();
+
+        /* The classic game is untouched by any of this. */
+        houseRules.ruleset = "classic";
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        damage(G.players[0], 2, "laser");
+        assert(G.players[0].damage === 2, "the classic damage track stopped counting");
+        assert(G.damageDiscard.length === 0 && G.damageDeck.length === 0,
+          "a classic game built a damage deck");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the damage deck reshuffles, and when it cannot you take no damage", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        /* Everything is in the discard: it comes back as a new deck. */
+        G.damageDiscard = G.damageDeck.slice();
+        G.damageDeck = [];
+        damage(p, 3, "laser");
+        assert(p.pile.length === 3, "a reshuffle did not produce cards, it produced " + p.pile.length);
+        assert(G.damageDeck.length === 37, "the reshuffled deck is " + G.damageDeck.length + ", not 37");
+        assert(G.damageDiscard.length === 0, "the discard was not emptied into the new deck");
+
+        /* Both empty is a PRINTED OUTCOME, not a fault: every card is
+           already sitting in somebody's deck, so the game has none to
+           give and the hit simply does not land. */
+        G.damageDeck = []; G.damageDiscard = [];
+        var held = p.pile.length, said = G.log.length;
+        damage(p, 2, "laser");
+        assert(p.pile.length === held, "damage was dealt from an empty deck");
+        assert(G.log.length > said, "the game took no damage and said nothing about it");
+
+        /* A PARTIAL HIT still lands as far as it goes -- the deck runs
+           out BETWEEN two cards of one hit, which is exactly why the
+           rulebook insists on drawing them one at a time. */
+        G.damageDeck = [MODERN_DAMAGE_FIRST];
+        damage(p, 3, "laser");
+        assert(p.pile.length === held + 1,
+          "the one card left should have been dealt, the robot got " + (p.pile.length - held));
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "SPAM in a register throws itself away and plays your next card", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 0, r: 0, face: E }]);
+        var p = G.players[0], spam = G.damageDeck.pop();
+        p.registers[0] = spam;
+        p.deck = [modernCard("move1")];               // the top of the deck is the last entry
+        G.register = 0;
+        G.exec.queue = [0];
+        STEP.exec.move();
+        assert(p.c === 1, "the replacement card did not move the robot, it is at " + p.c);
+        assert(G.damageDiscard.length === 1 && G.damageDiscard[0] === spam,
+          "the SPAM did not go face up onto the damage discard");
+        assert(p.pile.indexOf(spam) < 0, "the SPAM went back into the robot's own deck");
+        assert(cardAt(p, 0).kind === "move1",
+          "the register should now show the card that was drawn, it shows " + cardAt(p, 0).kind);
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "SPAM that turns up more SPAM keeps going until it finds a card", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 0, r: 0, face: E }]);
+        var p = G.players[0];
+        p.registers[0] = G.damageDeck.pop();
+        /* Drawn from the end: a Move 1 under two more SPAM. */
+        p.deck = [modernCard("move1"), G.damageDeck.pop(), G.damageDeck.pop()];
+        G.register = 0;
+        G.exec.queue = [0];
+        STEP.exec.move();
+        assert(p.c === 1, "the robot never reached a real card, it is at " + p.c);
+        assert(G.damageDiscard.length === 3,
+          "all three SPAM should be out of the deck, " + G.damageDiscard.length + " are");
+        assert(p.deck.length === 0, "the robot's deck was not spent finding a card");
+
+        /* AND A ROBOT THAT RUNS OUT ENTIRELY DOES NOTHING, rather than
+           throwing. The only way here is for the SPAM you just cleared
+           to have been the last card you owned. */
+        modernBench([["..", "..", "..", ".."]], [{ c: 0, r: 0, face: E }]);
+        p = G.players[0];
+        p.registers[0] = G.damageDeck.pop();
+        p.deck = []; p.pile = []; p.hand = [];
+        G.register = 0;
+        G.exec.queue = [0];
+        STEP.exec.move();
+        assert(p.c === 0, "a robot with no cards left moved anyway");
+        assert(p.registers[0] === null, "the empty register still holds something");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "SPAM is the one card you do not discard at the end of programming", run: function () {
+      /* Everything else goes. SPAM stays in your hand and is still
+         there next round: the only ways out are to spend a register on
+         it or to shut down. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        p.hand = [modernCard("move1"), G.damageDeck.pop(), modernCard("left"), G.damageDeck.pop()];
+        p.pile = [];
+        STEP.cleanup.discard();
+        assert(p.hand.length === 2, "the hand kept " + p.hand.length + " cards, it should keep the 2 SPAM");
+        for (var i = 0; i < p.hand.length; i++) {
+          assert(isDamageCard(p.hand[i]), "a programming card was kept back from the discard");
+        }
+        assert(p.pile.length === 2, "the two real cards did not reach the robot's discard");
+        for (i = 0; i < p.pile.length; i++) {
+          assert(!isDamageCard(p.pile[i]), "SPAM was thrown into the robot's own deck by the discard");
+        }
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "next round's deal lands on top of the SPAM you are still holding", run: function () {
+      /* The whole reason SPAM survives the cleanup discard is so that
+         it is still in your hand when the next deal arrives. A deal
+         that ASSIGNED the hand would quietly destroy it -- the hand
+         would look right, the rule would read right, and two damage
+         cards would be gone from the table. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], spam = G.damageDeck.pop();
+        p.hand = [spam];
+        var before = G.damageDeck.length + G.damageDiscard.length;
+        STEP.turn.deal();
+        assert(p.hand.indexOf(spam) >= 0, "the deal threw away the SPAM the robot was holding");
+        assert(p.hand.length === cardsDealt(0) + 1,
+          "the hand should be the deal plus the one SPAM, it is " + p.hand.length);
+        assert(G.damageDeck.length + G.damageDiscard.length === before,
+          "a damage card left the table during the deal");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the help describes the game you are playing, not both at once", run: function () {
+      /* Several steps do not merely read differently between the two
+         editions, they contradict each other -- the classic deal
+         shrinks with damage and the 2016 deal never does -- so a help
+         screen showing every row would be wrong half the time. */
+      var keepHouse = houseRules.ruleset;
+      try {
+        houseRules.ruleset = "classic";
+        var cls = buildTurnHelp();
+        houseRules.ruleset = "modern";
+        var mod = buildTurnHelp();
+        assert(cls !== mod, "the help is the same under both rulebooks");
+
+        assert(cls.indexOf("Express conveyors") >= 0, "the classic help lost its express belts");
+        assert(cls.indexOf("Green conveyors") < 0, "the classic help describes a 2016 belt");
+        assert(cls.indexOf("Priority Token") < 0, "the classic help describes the 2016 token");
+        assert(/9 cards minus your damage/.test(cls), "the classic help lost the deal rule");
+
+        assert(mod.indexOf("Green conveyors") >= 0, "the 2016 help lost its green belts");
+        assert(mod.indexOf("Express conveyors") < 0, "the 2016 help describes a classic belt");
+        assert(mod.indexOf("Priority Token") >= 0, "the 2016 help does not say where the order comes from");
+        assert(!/9 cards minus your damage/.test(mod),
+          "the 2016 help says damage shrinks the deal, which is the rule the edition replaced");
+        assert(mod.indexOf("SPAM") >= 0, "the 2016 help never mentions the damage cards");
+        assert(mod.indexOf("Batteries") >= 0, "the 2016 help lost the battery step");
+
+        /* Neither list may be empty of the steps both share. */
+        assert(cls.indexOf("Robots move") >= 0 && mod.indexOf("Robots move") >= 0,
+          "a step both editions run went missing from one of them");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a SPAM card in the hand names itself and says what it does", run: function () {
+      /* Every other programming card is legible from its arrow. SPAM's
+         behaviour -- throw it away, play the top of your deck instead
+         -- is not drawn anywhere, so it has to be in words, and the
+         words have to reach a screen reader as well as a mouse. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        var spam = card(MODERN_DAMAGE_FIRST);
+        assert(spam.kind === "spam", "the first damage card is not SPAM");
+        var html = handCardHtml(spam, 0, false, "");
+        /* The NAME, on the face of the card. Matched inside the bold
+           tag rather than anywhere in the markup: it appears in the
+           label and the tip too, and a match there would pass with
+           nothing drawn on the card at all. */
+        assert(html.indexOf("<b>SPAM</b>") >= 0, "the card does not carry its name");
+        assert(html.indexOf(tipAttr(CARD_KINDS.spam.note)) >= 0,
+          "the card carries no tooltip, so hovering it explains nothing");
+        assert(/aria-label="SPAM\. Damage\./.test(html),
+          "the explanation never reaches a screen reader");
+        assert(html.indexOf("priority") < 0,
+          "a 2016 card was announced with a priority, which it does not have");
+        assert(html.indexOf('class="pr-pri"') < 0, "a 2016 card was drawn with a priority corner");
+        assert(html.indexOf("pr-k-spam") >= 0, "the card does not carry its own kind class");
+
+        /* AND A CLASSIC CARD STILL SAYS ITS NUMBER, which is the half
+           of this that an edition check could break silently. */
+        houseRules.ruleset = "classic";
+        var cls = handCardHtml(PROGRAM_DECK[0], 0, false, "");
+        assert(cls.indexOf("priority " + PROGRAM_DECK[0].pri) >= 0,
+          "a classic card lost the priority from its label");
+        assert(cls.indexOf('class="pr-pri"') >= 0, "a classic card lost its priority corner");
+        assert(cls.indexOf("data-tip") < 0, "an ordinary card grew a tooltip it does not need");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a hand that does not add up to the deal is refused, in both editions", run: function () {
+      /* Every card dealt is either still in hand or sitting in a
+         register: that is the arithmetic the whole damage system rides
+         on. The law was there and nothing had ever watched it refuse,
+         which is the same as not having it -- and it had to be
+         rewritten for the 2016 hand anyway, since SPAM carried over
+         from last round is in the hand and was never dealt. */
+      function refuses(what, wreck) {
+        var threw = false;
+        wreck();
+        try { assertInvariants(); } catch (e) { threw = true; }
+        assert(threw, what + " was not refused");
+      }
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        STEP.turn.deal();
+        G.phase = "turn"; G.step = "program";
+        assertInvariants();                           // a correct hand passes
+        var p = G.players[0];
+        /* A card that slipped out of the hand into the robot's own
+           discard: conserved, in the right pile, and still wrong. */
+        refuses("a card missing from the hand", function () { p.pile.push(p.hand.pop()); });
+        p.hand.push(p.pile.pop());
+        assertInvariants();
+        /* AND THE 2016 CASE THE OLD FORM COULD NOT SEE: carried SPAM
+           belongs in the hand and is not part of the deal, so a hand
+           of ten after a deal of nine is correct. */
+        p.hand.push(G.damageDeck.pop());
+        assertInvariants();
+        refuses("a tenth card that is not damage", function () {
+          p.hand.push(p.deck.pop());
+        });
+        p.deck.push(p.hand.pop());
+        /* AND PROGRAMMING THE SPAM IS STILL A CORRECT HAND. It leaves
+           the hand for a register without ever having been dealt, so a
+           register count that included it would make spending a slot
+           on your own damage look like an extra card from nowhere --
+           the one thing a player is most likely to actually do. */
+        p.registers[0] = p.hand.pop();
+        assert(isDamageCard(p.registers[0]), "the fixture programmed the wrong card");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+
+      /* The classic table is the same law over one shared pile. */
+      benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+      G.phase = "turn"; G.step = "program";
+      for (var i = 0; i < G.players.length; i++) {
+        /* The deal is 9 at no damage, and a second law checks that
+           too -- so the fixture deals what the rules would. */
+        G.players[i].dealtCount = cardsDealt(0);
+        G.players[i].hand = draw(G.players[i].dealtCount);
+      }
+      assertInvariants();
+      refuses("a classic hand one card short", function () { G.discard.push(G.players[0].hand.pop()); });
+    } },
+
+    { name: "a recompile throws away the hand, not the damage in it", run: function () {
+      /* Recompile discards the hand you were dealt and draws another.
+         SPAM is not part of the hand you were dealt -- it is damage
+         you are carrying -- so a fresh hand does not wash it off, and
+         it certainly does not slip back into your own deck. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], spam = G.damageDeck.pop();
+        /* Taken out of the deck rather than conjured: the bench fills
+           the option deck with everything nobody holds. */
+        p.options = [{ id: "recompile" }];
+        G.optionDeck.splice(G.optionDeck.indexOf("recompile"), 1);
+        /* Dealt by the game itself, so the deal arithmetic the
+           invariants check is the game's own and not the fixture's. */
+        STEP.turn.deal();
+        var dealt = p.dealtCount;
+        p.hand.push(spam);                                               // carried from last round
+        G.optionAnswers[choiceKey(p, "onDealt", "recompile", "")] = 1;   // "Recompile"
+        STEP.turn.postDeal();
+        assert(p.hand.indexOf(spam) >= 0, "the recompile washed the SPAM out of the hand");
+        assert(p.hand.length === dealt + 1,
+          "the fresh hand is " + p.hand.length + " cards, not " + dealt + " plus the SPAM");
+        assert(p.pile.indexOf(spam) < 0, "the SPAM was recompiled into the robot's own deck");
+        assert(p.pile.length === dealt, "the discarded hand did not reach the robot's own discard");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "shutting down is the other way to be rid of SPAM", run: function () {
+      /* The rulebook offers two: programme it into a register, or shut
+         down. Shutting down puts the whole hand down, and the SPAM in
+         it goes back to the table's stack rather than nowhere. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], spam = G.damageDeck.pop(), mine = modernCard("move1");
+        p.deck = [mine]; p.pile = []; p.deckSize = 1;
+        p.hand = [spam, mine];
+        p.deck = [];                                  // the move1 is the one in hand
+        p.poweredDown = true;
+        STEP.turn.deal();
+        assert(p.hand.length === 0, "a shut-down robot was dealt a hand");
+        assert(G.damageDiscard.indexOf(spam) >= 0, "the shed SPAM did not reach the damage discard");
+        assert(p.pile.indexOf(mine) >= 0, "the robot's own card did not reach its own discard");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the table's forty are counted apart from each robot's twenty", run: function () {
+      /* Two sets of cards sit in the same piles and are conserved by
+         different laws. Summed together they would hide the one error
+         that matters: a SPAM quietly becoming a Move 1, or the other
+         way about, leaves the grand total right and the game wrong. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        assertInvariants();                           // the fixture itself must be legal
+
+        function refuses(what, wreck) {
+          var threw = false;
+          wreck();
+          try { assertInvariants(); } catch (e) { threw = true; }
+          assert(threw, what + " was not refused");
+          modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        }
+        refuses("a damage card falling off the table", function () { G.damageDeck.pop(); });
+        refuses("a damage card appearing from nowhere", function () {
+          G.damageDiscard.push(MODERN_DAMAGE_FIRST);
+        });
+        /* THE ONE A SINGLE TOTAL CANNOT SEE: one card each way, so the
+           number of cards in play never changes. */
+        refuses("a SPAM turning into a programming card", function () {
+          G.players[0].pile.push(G.damageDeck.pop());   // legal so far: the robot took a hit
+          G.players[0].pile[0] = modernCard("move1");   // and then it was not SPAM any more
+        });
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a wrecked robot's damage goes back to the table, not into its deck", run: function () {
+      /* A damage card belongs to the stack of forty and only ever
+         visits a robot. Letting a wreck bury one in its own discard
+         would leave the robot's deck right and the table's count one
+         short -- which is precisely the leak the two separate
+         conservation laws exist to catch. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        p.hand = [modernCard("move1"), G.damageDeck.pop()];
+        p.registers[0] = G.damageDeck.pop();
+        p.deck = []; p.pile = [];
+        p.deckSize = 2;                               // the move1 in hand, plus the one below
+        p.deck = [modernCard("left")];
+        destroy(p, "for the test");
+        assert(G.damageDiscard.length === 2,
+          "the wreck put " + G.damageDiscard.length + " damage cards back, not 2");
+        for (var i = 0; i < p.pile.length; i++) {
+          assert(!isDamageCard(p.pile[i]), "a damage card was buried in the wreck's own discard");
+        }
+        assert(p.pile.length === 1, "the wreck's own card did not reach its own discard");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
     } },
 
     { name: "each robot draws from its own deck and discards to its own pile", run: function () {
@@ -9258,10 +9985,19 @@
     opts = opts || {};
     var wasHeadless = UI.headless, wasAuto = UI.autoHuman;
     UI.headless = true; UI.autoHuman = true;
+    /* THE SIM HAS NO MENU, and the engine asks the menu which rulebook
+       it is playing under. In the app the menu is set before newGame
+       is called, so the two always agree; here nothing sets it, and a
+       sim asked for a 2016 game would deal 2016 decks and then run the
+       classic rules over them -- which is not a game anybody plays and
+       would have been reported as a conservation crash rather than as
+       a sim that was never switched on. */
+    var wasHouse = houseRules.ruleset;
+    if (opts.ruleset) houseRules.ruleset = opts.ruleset;
     var out = {
       games: 0, wins: {}, crashes: [], unfinished: 0,
       turns: { min: Infinity, max: 0, total: 0 },
-      deaths: 0, flagsTouched: 0
+      deaths: 0, flagsTouched: 0, spamDealt: 0
     };
     for (var s = seed; s < seed + n; s++) {
       try {
@@ -9278,12 +10014,14 @@
           out.deaths += START_LIVES - G.players[i].lives;
           out.flagsTouched += G.players[i].flags;
         }
+        out.spamDealt += G.spamDealt || 0;
       } catch (e) {
         out.crashes.push({ seed: s, turn: G ? G.turn : -1, at: G ? G.phase + "." + G.step : "?", error: e.message });
       }
     }
     out.turns.avg = out.games ? +(out.turns.total / out.games).toFixed(1) : 0;
     UI.headless = wasHeadless; UI.autoHuman = wasAuto;
+    houseRules.ruleset = wasHouse;
     return out;
   }
 
@@ -9774,6 +10512,7 @@
     ".pr-k-back{--pr-kind:var(--pr-rust)}",
     ".pr-k-left,.pr-k-right{--pr-kind:var(--pr-violet)}",
     ".pr-k-uturn{--pr-kind:var(--pr-warn)}",
+    ".pr-k-spam{--pr-kind:var(--pr-danger)}",
     /* In hand: pickable, and draggable. */
     ".pr-hand .pr-card{cursor:grab}",
     ".pr-hand .pr-card:hover .pr-face{border-color:var(--pr-accent)}",
@@ -10817,6 +11556,14 @@
       return '<path class="pr-cshaft" d="M74 50a24 24 0 1 1-9-18.6"/>' +
              '<path class="pr-cmark" d="M52 22l16 6-7 15"/>';
     }
+    /* SPAM is the one card in the deck that is not an instruction, so
+       it is drawn as the absence of one: a burst of interference where
+       an arrow should be, going nowhere in particular. Nothing on it
+       points, which is the point. */
+    if (kind === "spam") {
+      return '<path class="pr-cshaft" d="M14 62L30 36L42 60L54 32L66 58L78 38L88 54"/>' +
+             '<path class="pr-cmark" d="M30 78h40"/>';
+    }
     if (d.move) {
       /* ONE ARROW PER SQUARE, SIDE BY SIDE.
 
@@ -10876,10 +11623,36 @@
          "ninety degrees of something" without saying of what, and
          both cards came out as the same gesture mirrored rather than
          as two directions. */
+      /* A KIND WITH NEITHER IS NOT A ROTATE CARD. The branch used to
+         be the plain else, so any card type that moved and turned by
+         nothing -- the three the 2016 deck added, and whatever comes
+         next -- was drawn as a left turn: a wrong drawing, on a card
+         you would program, with a path in it, so the sweep that
+         checks every kind draws SOMETHING passed it happily. */
+      if (d.turn === undefined) throw new Error("no drawing for card kind " + kind);
       out.push(turnArrow(d.turn > 0));
     }
     return '<svg class="pr-cart" viewBox="0 0 100 100" fill="none" aria-hidden="true">' +
            out.join("") + "</svg>";
+  }
+
+  /* ONE CARD IN THE HAND, as markup. Split out of renderHand so it
+     can be asserted on without a DOM -- the same move optionCardHtml
+     made, and for the same reason: what a card in the hand SAYS is a
+     rule, and a rule nothing can read is a rule nothing checks. */
+  function handCardHtml(cd, i, isNew, style) {
+    var k = CARD_KINDS[cd.kind];
+    return '<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '"' +
+      (style || "") + ' draggable="true"' +
+      ' data-act="card" data-i="' + i + '" data-hand="' + i + '"' +
+      (k.note ? " " + tipAttr(k.note) : "") +
+      ' aria-label="' + esc(k.label) +
+      /* The 2016 cards carry no priority, so saying "priority 0" out
+         loud would read a number off a card that has none. */
+      (cd.pri ? ", priority " + cd.pri : "") +
+      (k.note ? ". " + esc(k.note) : "") +
+      '. Drag to a register, or press Enter to place it in the next one.">' +
+      cardFace(cd) + "</button>";
   }
 
   function cardFace(cd) {
@@ -10887,7 +11660,11 @@
     return '<span class="pr-faces">' +
       '<span class="pr-face pr-front">' + cardArt(cd.kind) +
       "<b>" + esc(k.label.toUpperCase()) + "</b>" +
-      '<span class="pr-pri">' + cd.pri + "</span></span>" +
+      /* THE NUMBER IS ONLY ON THE CLASSIC CARDS. The 2016 deck prints
+         no priority at all -- order comes from the token -- so a corner
+         reading "0" would be inventing a number the card does not
+         have. */
+      (cd.pri ? '<span class="pr-pri">' + cd.pri + "</span>" : "") + "</span>" +
       '<span class="pr-face pr-back"></span></span>';
   }
 
@@ -11034,11 +11811,7 @@
            card dealt into a hand of eight should land now, not wait
            out the eight delays it would inherit from its index. */
         var di = isNew ? ' style="--pr-deal-i:' + dealt++ + '"' : "";
-        out.push('<button class="pr-card pr-k-' + cd.kind + (isNew ? " pr-dealt" : "") + '"' + di + ' draggable="true"' +
-          ' data-act="card" data-i="' + i + '" data-hand="' + i + '" aria-label="' +
-          esc(CARD_KINDS[cd.kind].label) + ", priority " + cd.pri +
-          '. Drag to a register, or press Enter to place it in the next one.">' +
-          cardFace(cd) + "</button>");
+        out.push(handCardHtml(cd, i, isNew, di));
       }
     }
     UI.els.hand.innerHTML = out.join("");
@@ -12127,41 +12900,83 @@
      That is the whole point: help that drifts from the engine is
      worse than no help, and nothing else would ever catch it.
      ============================================================ */
+  /* THE HELP DESCRIBES THE GAME BEING PLAYED, not both at once.
+
+     A row with no `only` is true in either edition. A row with one is
+     printed only under that rulebook -- because several steps are not
+     merely worded differently between the two, they contradict each
+     other: the classic deal shrinks with damage and the 2016 deal
+     never does, and a help screen that said both would be wrong half
+     the time whichever game you were in.
+
+     validateTables checks this list against the phase machine in BOTH
+     directions, so a step the machine can reach with nothing written
+     about it is a table error rather than a quiet blank. */
   var TURN_STEPS = [
     { phase: "turn", step: "respawn", title: "Wrecks return",
       body: "Robots destroyed last turn come back on their archive with 2 damage." },
     { phase: "turn", step: "powerStart", title: "Powered-down robots repair",
       body: "Damage clears at the start of the powered-down turn, not when it was announced." },
-    { phase: "turn", step: "deal", title: "Deal",
+    { phase: "turn", step: "deal", title: "Deal", only: "classic",
       body: "You are dealt 9 cards minus your damage. Every point of damage is a card you do not get." },
-    { phase: "turn", step: "program", title: "Program five registers",
+    { phase: "turn", step: "deal", title: "Deal", only: "modern",
+      body: "Nine cards off your own deck, shuffling your own discard back when it runs out. " +
+            "Damage does not shrink the deal -- it is dealt to you as cards, and any SPAM you " +
+            "could not get rid of last round is still in your hand on top of the nine." },
+    { phase: "turn", step: "postDeal", title: "Damage in your hand", only: "modern",
+      body: "SPAM is a programming card. Program it and it is thrown away for good and the top " +
+            "card of your deck is played in its place, whatever it turns out to be. Leave it in " +
+            "your hand and it stays there: it is the one card the end-of-round discard does not " +
+            "take. Shutting down is the other way to be rid of it." },
+    { phase: "turn", step: "program", title: "Program five registers", only: "classic",
       body: "Face down, all at once. From 5 damage your registers lock from the right and keep last turn's card." },
+    { phase: "turn", step: "program", title: "Program five registers", only: "modern",
+      body: "Face down, all at once. Nothing locks a register in this edition -- damage is in the deck instead." },
     { phase: "turn", step: "announce", title: "Announce power down",
       body: "Declared now, for next turn." },
-    { phase: "exec", step: "reveal", title: "Reveal",
+    { phase: "exec", step: "reveal", title: "Reveal", only: "classic",
       body: "Everyone's card for this register turns over. Highest priority number moves first." },
+    { phase: "exec", step: "reveal", title: "Reveal", only: "modern",
+      body: "Everyone's card for this register turns over. The cards carry no priority: the order " +
+            "starts at whoever holds the Priority Token and goes one seat at a time, the same " +
+            "order in all five registers, and the token moves one seat at the end of the round." },
     { phase: "exec", step: "move", title: "Robots move",
       body: "One at a time, in priority order. A robot moving into another pushes it, and a wall stops the whole chain." },
-    { phase: "exec", step: "express", title: "Express conveyors",
+    { phase: "exec", step: "blue1", title: "Blue conveyors", only: "modern",
       body: "Blue belts move one square." },
-    { phase: "exec", step: "belts", title: "All conveyors",
+    { phase: "exec", step: "blue2", title: "Blue conveyors again", only: "modern",
+      body: "And a second square, if the robot is still on blue -- which is how a blue belt carries two." },
+    { phase: "exec", step: "green", title: "Green conveyors", only: "modern",
+      body: "Green belts move one square. Blue ones have already finished and do not move again." },
+    { phase: "exec", step: "express", title: "Express conveyors", only: "classic",
+      body: "Blue belts move one square." },
+    { phase: "exec", step: "belts", title: "All conveyors", only: "classic",
       body: "Blue and rust belts both move one square, so an express moves two in total. A belt will not push a robot that is standing still, and two robots converging on one square means neither moves." },
     { phase: "exec", step: "pushers", title: "Pushers",
       body: "Only the ones whose registers are printed on them." },
     { phase: "exec", step: "gears", title: "Gears",
       body: "A quarter turn, the way the hub points." },
-    { phase: "exec", step: "presses", title: "Presses",
+    { phase: "exec", step: "presses", title: "Presses", only: "classic",
       body: "A press flattens whatever is standing on it, in the registers printed on it. Crash and Burn boards only." },
-    { phase: "exec", step: "lasers", title: "Lasers",
+    { phase: "exec", step: "lasers", title: "Lasers", only: "classic",
       body: "Board lasers and robot lasers fire at the same instant, so a robot destroyed this register still gets its shot off. Walls block. A powered-down robot does not fire." },
-    { phase: "exec", step: "burners", title: "Burners",
+    { phase: "exec", step: "lasers", title: "Board lasers", only: "modern",
+      body: "The board fires first, on its own. Walls block." },
+    { phase: "exec", step: "weapons", title: "Robot lasers", only: "modern",
+      body: "Robots fire afterwards, which matters: a robot the board finished off never gets its shot away." },
+    { phase: "exec", step: "batteries", title: "Batteries", only: "modern",
+      body: "End on a battery square and you take one Energy." },
+    { phase: "exec", step: "burners", title: "Burners", only: "classic",
       body: "A burner scorches anything standing on it, in the registers printed on it. It fires after the lasers, not with the other elements. Crash and Burn boards only." },
     { phase: "exec", step: "touch", title: "Flags and repair sites",
       body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
-    { phase: "cleanup", step: "repair", title: "Repairs",
+    { phase: "cleanup", step: "repair", title: "Repairs", only: "classic",
       body: "One damage off if you end the turn on a wrench or a flag. A two-wrench upgrade site is a choice: two damage off, or an option card." },
-    { phase: "cleanup", step: "discard", title: "Discard",
-      body: "Everything except the cards held in locked registers." }
+    { phase: "cleanup", step: "discard", title: "Discard", only: "classic",
+      body: "Everything except the cards held in locked registers." },
+    { phase: "cleanup", step: "discard", title: "Discard", only: "modern",
+      body: "Your hand and your registers go to your own discard pile, ready to be shuffled back " +
+            "into your own deck. SPAM stays in your hand." }
   ];
 
   var KEYS = [
@@ -13426,7 +14241,9 @@
 
   function buildTurnHelp() {
     var out = ["<p>Five registers, revealed one at a time. You do not get to react.</p><ol class='pr-steps'>"];
+    var rs = rulesetOf(houseRules);
     for (var i = 0; i < TURN_STEPS.length; i++) {
+      if (TURN_STEPS[i].only && TURN_STEPS[i].only !== rs) continue;
       out.push("<li><b>" + esc(TURN_STEPS[i].title) + "</b><br>" + esc(TURN_STEPS[i].body) + "</li>");
     }
     return out.join("") + "</ol>";
