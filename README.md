@@ -30,13 +30,14 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 246 rule tests | done |
+| Headless simulation + 250 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
 | Modern round order, Energy, Priority Token, personal decks | done |
 | Modern damage — SPAM | done |
 | Modern reboots — falling, re-entry, chosen facing | done |
+| Modern shutdown — declaration, the damage purge | done |
 | Modern damage — Haywire | **not built** — the card faces are not transcribed |
 | Modern upgrade phase and shop | not yet |
 | Hot-seat pass-and-play | done |
@@ -217,14 +218,25 @@ Three deliberate simplifications, marked here because no check can see them:
 - **Bots answer instantly** and consume no shared randomness, same contract as
   their programming: a seeded replay must not drift because a bot was offered a
   different number of choices.
-- **Where a 2016 robot reboots to.** The modern boards print a Reboot Token — a
-  fixed square per board with an arrow on it — and you land on the one belonging
-  to the board you fell off. Every board in this repo was transcribed from a
-  classic printing, so none carries one, and the robot's archive stands in: the
-  same square the classic game would have sent it to. Everything else about the
-  rule is faithful, including choosing your own facing on the way back (the
-  token's arrow is explicitly ignored for that) and the shove that clears an
-  occupied square without counting as a push.
+- **Where a 2016 robot reboots to.** The modern boards print a Reboot Token — one
+  per board, a fixed square with an arrow on it — and you land on the one
+  belonging to the board you fell off. Every board in this repo was transcribed
+  from a classic printing, so none carries one, and the robot's archive stands
+  in: the same square the classic game would have sent it to. Everything else
+  about the rule is faithful, including choosing your own facing on the way back
+  (the token's arrow is explicitly ignored for that) and the shove that clears
+  an occupied square without counting as a push.
+
+One thing neither book settles, left as the classic rule rather than guessed:
+
+- **Whether a shut-down 2016 robot still fires its laser.** The classic manual
+  says plainly that a powered-down robot does not fire. The 2016 rulebook never
+  says either way: its Shutdown section lists what the robot *is* still subject
+  to — board elements, being pushed, laser fire — and notes exactly two things it
+  cannot do, collect Energy and reach a Checkpoint. Firing is in neither list.
+  Reading that silence as permission would be inventing a rule, so a shut-down
+  robot holds its fire in both editions, and this note exists so the choice is
+  visible rather than buried.
 
 ## Two editions
 
@@ -236,6 +248,7 @@ project carries both.
 | Move order | Priority number on each card | Priority Token — seating order, fixed for the round |
 | Damage | Tokens; each costs a dealt card and locks registers | SPAM cards shuffled into a personal deck |
 | Falling | Destroyed; costs a life, and lives run out | Reboot; costs nothing, and nobody can be eliminated |
+| Powering down | Announced a turn ahead; buys a full repair | Declared for the round you are in; scraps the damage you hold |
 | Upgrades | Option cards, from upgrade sites | Energy cubes spent in a shop |
 | Repair sites | Repair 1 damage | Removed from the boards entirely |
 | Deck | One shared 84-card deck | A personal deck per player |

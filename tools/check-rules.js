@@ -175,6 +175,32 @@ if (modern.unfinished > modern.games * 0.1) {
   console.error(`  error:   ${modern.unfinished} 2016 games hit the turn cap`); failed++;
 }
 
+// THE SAME GAME, RUN LONG. Shutdown is the one 2016 mechanic a short race
+// cannot reach: SPAM has to pile up before anybody would spend a whole round
+// clearing it, and on the default course a fifty-game block sometimes produces
+// none at all -- measured, on one seed block out of four. So the long, pit-
+// heavy course gets its own pass. This is not a course picked to make a number
+// non-zero; it is the only length at which the damage system actually bites,
+// and a run that never exercises it is a run that never tested it.
+const modernLong = PR.runSim(Math.max(40, games / 5), { ruleset: "modern", course: "pitMazeRun" }, 900);
+console.log(`sim (2016, long race): ${modernLong.games} games, avg ${modernLong.turns.avg} turns, ` +
+  `${modernLong.unfinished} unfinished, ${modernLong.crashes.length} crashes, ` +
+  `${modernLong.shutdowns} shutdowns scrapping ${modernLong.scrapped} damage`);
+for (const c of modernLong.crashes.slice(0, 5)) {
+  console.error(`  error:   [2016 long] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
+  failed++;
+}
+if (!modernLong.shutdowns) {
+  console.error("  error:   not one robot shut down in the long 2016 sim, so nothing exercised it");
+  failed++;
+}
+// A shutdown that scrapped nothing is a shutdown that did not do the one thing
+// it is for.
+if (modernLong.shutdowns && !modernLong.scrapped) {
+  console.error("  error:   robots shut down in the 2016 sim and not one damage card was scrapped");
+  failed++;
+}
+
 // The difficulty slider has to mean something. Nothing else would notice if the
 // tiers collapsed into each other -- every game would still finish, every test
 // would still pass, and the setting would quietly be decoration.

@@ -3160,11 +3160,26 @@
       },
 
       announce: function () {
+        /* THE SAME MOMENT, MEANING TWO DIFFERENT THINGS. Both editions
+           decide here, once every robot has finished programming. The
+           classic decision is for NEXT turn; the 2016 one is for the
+           round about to run, declared "after all players have
+           completed the Programming Phase, but before players have
+           revealed their Register 1 cards" -- which is exactly this
+           step and nowhere else. */
+        var modern = rulesetOf(houseRules) === "modern";
         var alive = live();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           if (p.poweredDown) continue;                 // already down; decides again in cleanup
-          if (!isHuman(p)) p.announceDown = botWantsPowerDown(p);
+          if (!modern) { if (!isHuman(p)) p.announceDown = botWantsPowerDown(p); continue; }
+          /* A person has already said so with the button while
+             programming, which is the same moment at the table: you
+             cannot see anybody's cards either way, so declaring before
+             or after they commit tells you nothing extra. */
+          var want = isHuman(p) ? p.announceDown : botWantsShutdown(p);
+          p.announceDown = false;
+          if (want) shutdown(p);
         }
         go("turn", "beginExec");
         /* Hold here while the registers turn over.
@@ -3439,6 +3454,10 @@
          stay down another turn. Distinct from announcing, which is a
          decision taken while programming. */
       stayDown: function () {
+        /* Staying down buys a repair, and the 2016 game has no damage
+           track to repair. Its shutdown is one round, declared afresh
+           each time, so there is nothing to ask. */
+        if (rulesetOf(houseRules) === "modern") { go("cleanup", "discard"); return NEXT; }
         var alive = live(), pending = false;
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
@@ -3496,7 +3515,11 @@
         if (G.players.length) G.priority = (G.priority + 1) % G.players.length;
         for (var i = 0; i < G.players.length; i++) {
           var p = G.players[i];
-          p.poweredDown = p.announceDown;
+          /* "At the start of the next round, you continue the race as
+             usual." A 2016 shutdown lasts exactly the round it was
+             declared for and nobody is asked whether to stay down --
+             there is no repair to stay down FOR. */
+          p.poweredDown = rulesetOf(houseRules) === "modern" ? false : p.announceDown;
           p.announceDown = false;
         }
         /* Answers are keyed by turn and register, so last turn's can
@@ -4169,6 +4192,77 @@
 
     UI.rngAfter = G.rngState;
     return beam.length ? beam[0].picks : [];
+  }
+
+  /* SHUTTING DOWN, which is not the classic power-down wearing a new
+     name. The classic one is announced a turn ahead and buys you a
+     repair; this one is declared for the round you are already in and
+     buys you a PURGE.
+
+     That is the whole point of it. SPAM you could not get rid of piles
+     up in your hand, and the only two ways out are to spend a register
+     on a card and to do this -- every damage card in your registers,
+     your hand AND your discard pile goes back to the table in one go.
+
+     NOT YOUR DECK, which is the part that keeps it from being a reset
+     button: SPAM already shuffled in is still coming round, and the
+     robot stands on the course for a whole round doing nothing to earn
+     the clean-out. */
+  function shutdown(p) {
+    p.poweredDown = true;
+    var i, scrapped = 0, keep = [];
+
+    /* Step 3: the damage, wherever it is sitting. */
+    for (i = 0; i < REGISTERS; i++) {
+      if (p.registers[i] === null || !isDamageCard(p.registers[i])) continue;
+      G.damageDiscard.push(p.registers[i]);
+      p.registers[i] = null;
+      scrapped++;
+    }
+    for (i = 0; i < p.hand.length; i++) {
+      if (isDamageCard(p.hand[i])) { G.damageDiscard.push(p.hand[i]); scrapped++; } else keep.push(p.hand[i]);
+    }
+    p.hand = keep;
+    keep = [];
+    for (i = 0; i < p.pile.length; i++) {
+      if (isDamageCard(p.pile[i])) { G.damageDiscard.push(p.pile[i]); scrapped++; } else keep.push(p.pile[i]);
+    }
+    p.pile = keep;
+
+    /* Step 4: and the programme you are not going to run. */
+    for (i = 0; i < REGISTERS; i++) {
+      if (p.registers[i] === null) continue;
+      p.pile.push(p.registers[i]);
+      p.registers[i] = null;
+    }
+    for (i = 0; i < p.hand.length; i++) p.pile.push(p.hand[i]);
+    p.hand = [];
+
+    G.shutdowns = (G.shutdowns || 0) + 1;
+    G.scrapped = (G.scrapped || 0) + scrapped;
+    log(p.name + " shuts down for the round" +
+        (scrapped ? ", scrapping " + scrapped + " damage" : ""));
+  }
+
+  /* WHEN A BOT DECIDES IT IS WORTH A ROUND. The cost is everything:
+     no movement at all while everyone else races. The gain is only the
+     damage it is actually holding -- SPAM already in the deck is not
+     touched -- so the threshold counts hand and discard and nothing
+     else. */
+  function botWantsShutdown(p) {
+    if (p.skill <= 0) return false;
+    var held = 0, i;
+    for (i = 0; i < p.hand.length; i++) if (isDamageCard(p.hand[i])) held++;
+    for (i = 0; i < p.pile.length; i++) if (isDamageCard(p.pile[i])) held++;
+    /* Six and eight, off a measured distribution rather than a guess.
+       Sampling every time a bot was asked, across three courses: the
+       median robot holds one damage card, three quarters hold two or
+       fewer, and the tail runs to thirteen. Six is the top ~4% and
+       eight the top ~1%, so the better bot reaches for it about four
+       times as often as the worse one and neither does it casually --
+       which is right for a decision that costs a whole round of the
+       race. */
+    return held >= (p.skill >= 2 ? 6 : 8);
   }
 
   function botWantsPowerDown(p) {
@@ -6999,6 +7093,182 @@
         "the classic order must come from the cards, it was " + G.exec.queue.join(","));
     } },
 
+    { name: "shutting down scraps the damage you are holding, and not the damage in your deck", run: function () {
+      /* This is the whole point of the 2016 shutdown, and the one
+         thing that makes it a different mechanic from the classic
+         power-down rather than the same one renamed. Every damage card
+         in your registers, your hand AND your discard pile goes back
+         to the table at once.
+
+         Not your deck. That is what stops it being a reset button:
+         SPAM already shuffled in is still coming round, and you paid a
+         whole round standing still for the half you did clear. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], i;
+        function own(kind) {
+          var ix = modernCard(kind);
+          p.deck.splice(p.deck.indexOf(ix), 1);
+          return ix;
+        }
+        p.registers = [own("move1"), G.damageDeck.pop(), null, null, null];
+        p.hand = [own("left"), G.damageDeck.pop(), G.damageDeck.pop()];
+        p.pile = [own("right"), G.damageDeck.pop()];
+        /* Three cards of its own, and one SPAM already shuffled into
+           the deck -- the card the shutdown must NOT reach. */
+        var inDeck = G.damageDeck.pop();
+        p.deck = [inDeck];
+        p.deckSize = 3;                                        // move1, left, right
+        var discardBefore = G.damageDiscard.length;
+
+        shutdown(p);
+
+        assert(p.poweredDown, "the robot did not shut down");
+        assert(G.damageDiscard.length === discardBefore + 4,
+          "four damage cards were held and " + (G.damageDiscard.length - discardBefore) + " went back");
+        assert(p.hand.length === 0, "the hand was not put down, " + p.hand.length + " cards are still in it");
+        for (i = 0; i < REGISTERS; i++) assert(p.registers[i] === null, "a register survived the shutdown");
+        /* The three real cards are in its own discard, and nothing else is. */
+        assert(p.pile.length === 3, "its own discard holds " + p.pile.length + " cards, not the 3 real ones");
+        for (i = 0; i < p.pile.length; i++) {
+          assert(!isDamageCard(p.pile[i]), "a damage card was left sitting in the robot's own discard");
+        }
+        /* AND THE DECK IS UNTOUCHED. */
+        assert(p.deck.indexOf(inDeck) >= 0,
+          "the shutdown reached into the deck, which the rules do not let it do");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a bot shuts down for the damage it is holding, not the damage in its deck", run: function () {
+      /* Shutting down costs a whole round of the race and clears only
+         what is in hand and discard, so that is what the threshold
+         counts. A bot weighing SPAM it cannot reach would shut down
+         for nothing. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], i;
+        p.skill = 2;
+        p.hand = []; p.pile = []; p.deck = [];
+        assert(!botWantsShutdown(p), "a bot holding nothing wanted to shut down");
+
+        /* Six in hand and discard together is the threshold. */
+        for (i = 0; i < 5; i++) p.pile.push(G.damageDeck.pop());
+        assert(!botWantsShutdown(p), "five damage cards was enough, and six is the threshold");
+        p.hand.push(G.damageDeck.pop());
+        assert(botWantsShutdown(p), "six damage cards was not enough");
+
+        /* THE SAME SIX, MOVED INTO THE DECK, IS NOT. The shutdown
+           cannot reach them, so they are no reason to spend a round. */
+        p.deck = p.hand.concat(p.pile);
+        p.hand = []; p.pile = [];
+        assert(!botWantsShutdown(p),
+          "a bot shut down for damage sitting in its deck, which a shutdown does not touch");
+
+        /* And the worst tier never does it at all, the way it never
+           powers down -- so it must be refused a hand that would
+           convince ANY threshold, or the refusal is coming from the
+           count rather than from the tier. */
+        p.hand = p.deck; p.deck = [];
+        while (p.hand.length < 12) p.hand.push(G.damageDeck.pop());
+        p.skill = 2;
+        assert(botWantsShutdown(p), "twelve in hand did not convince the better tier");
+        p.skill = 1;
+        assert(botWantsShutdown(p), "twelve in hand did not convince the middle tier");
+        p.skill = 0;
+        assert(!botWantsShutdown(p), "the lowest tier shut down, which it never does");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the button says which round it is declaring", run: function () {
+      /* One button, two meanings. Classic: powered down NEXT turn, for
+         a repair. 2016: shut down for the round about to run, to scrap
+         the damage you are holding. A 2016 game saying "next turn"
+         would be naming the wrong round for the one decision in the
+         game that is about timing. */
+      var keepHouse = houseRules.ruleset;
+      try {
+        houseRules.ruleset = "classic";
+        assert(downLabel() === "Power down", 'the classic button reads "' + downLabel() + '"');
+        assert(/next turn/.test(downSaid(true)), "the classic button stopped saying which turn");
+        assert(!/round/.test(downSaid(true)), "the classic button talks about rounds");
+
+        houseRules.ruleset = "modern";
+        assert(downLabel() === "Shut down", 'the 2016 button reads "' + downLabel() + '"');
+        assert(/this round/.test(downSaid(true)), "the 2016 button does not say it is for this round");
+        assert(!/next turn/.test(downSaid(true)),
+          "the 2016 button says next turn, which is the wrong round");
+        assert(downSaid(false) !== downSaid(true), "turning it off says the same thing as turning it on");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a 2016 shutdown is declared for the round you are in, and lasts one round", run: function () {
+      /* The classic power-down is announced a turn ahead and can be
+         held for another. This one is declared after everyone has
+         programmed, for the round about to run, and at the start of
+         the next round you simply carry on -- nobody is asked whether
+         to stay down, because there is no repair to stay down for. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        /* A PERSON, because the button is how a person declares it and
+           a bot would be asked its own heuristic instead. */
+        p.isBot = false;
+        assert(isHuman(p), "the fixture did not seat a person");
+        STEP.turn.deal();
+        p.announceDown = true;                    // the button, pressed while programming
+        STEP.turn.announce();
+        assert(p.poweredDown, "the declaration did not take effect this round");
+        assert(!p.announceDown, "the declaration was left standing for next round as well");
+        assert(p.hand.length === 0 && p.registers[0] === null,
+          "a shut-down robot kept its programme");
+
+        /* Nobody is asked to stay down. */
+        G.pendingChoices = [];
+        STEP.cleanup.stayDown();
+        assert(G.pendingChoices.length === 0,
+          "the 2016 game asked whether to stay powered down, which it never does");
+        STEP.cleanup.endTurn();
+        assert(!p.poweredDown, "the shutdown outlasted its round");
+
+        /* AND A DECLARATION THE ANNOUNCE STEP NEVER SAW MUST NOT
+           SURVIVE EITHER. The step walks the robots standing on the
+           board, so a player whose robot is off the board -- rebooting
+           -- keeps whatever the button last set. Carrying that into
+           the next round would power the robot down on arrival,
+           without the purge, for a shutdown nobody declared. */
+        p.alive = false; p.rebooting = true;
+        p.announceDown = true;
+        STEP.turn.announce();
+        assert(!p.poweredDown, "a robot off the board was shut down by the announce step");
+        STEP.cleanup.endTurn();
+        assert(!p.poweredDown,
+          "a declaration the announce step never saw powered the robot down a round later");
+      } finally { houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; }
+
+      /* And the classic announcement still means NEXT turn. */
+      var wasAuto2 = UI.autoHuman;
+      UI.autoHuman = false;
+      try {
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var cp = G.players[0];
+        cp.isBot = false;
+        cp.announceDown = true;
+        STEP.turn.announce();
+        assert(!cp.poweredDown, "a classic announcement powered the robot down immediately");
+        assert(cp.announceDown, "the classic announcement was cleared before it could take effect");
+        STEP.cleanup.endTurn();
+        assert(cp.poweredDown, "the classic announcement did not carry to the next turn");
+      } finally { UI.autoHuman = wasAuto2; }
+    } },
+
     { name: "a 2016 robot does not die, it reboots", run: function () {
       /* Nothing in this edition dies. A robot that falls off the board
          or into a pit comes off onto its own mat, keeps every life it
@@ -7498,6 +7768,16 @@
         assert(mod.indexOf("Batteries") >= 0, "the 2016 help lost the battery step");
         assert(mod.indexOf("Rebooted robots walk back on") >= 0,
           "the 2016 help never explains how a robot gets back on the board");
+        assert(mod.indexOf("Declare a shutdown") >= 0,
+          "the 2016 help never mentions shutting down");
+        assert(!/Declared now, for next turn/.test(mod),
+          "the 2016 help says a shutdown is for next round, which is the wrong round");
+        assert(mod.indexOf("Stay down?") < 0,
+          "the 2016 help offers to stay down, which that game never asks");
+        assert(cls.indexOf("Stay down?") >= 0, "the classic help lost the stay-down question");
+        assert(/Declared now, for next turn/.test(cls), "the classic help lost its announcement rule");
+        assert(cls.indexOf("Declare a shutdown") < 0,
+          "the classic help describes the 2016 shutdown");
         assert(!/come back on their archive with 2 damage/.test(mod),
           "the 2016 help describes the classic respawn, which that game does not have");
         assert(/come back on their archive with 2 damage/.test(cls),
@@ -10458,7 +10738,8 @@
     var out = {
       games: 0, wins: {}, crashes: [], unfinished: 0,
       turns: { min: Infinity, max: 0, total: 0 },
-      deaths: 0, flagsTouched: 0, spamDealt: 0, reboots: 0, returns: 0, stranded: 0
+      deaths: 0, flagsTouched: 0, spamDealt: 0, reboots: 0, returns: 0, stranded: 0,
+      shutdowns: 0, scrapped: 0
     };
     for (var s = seed; s < seed + n; s++) {
       try {
@@ -10478,6 +10759,8 @@
         out.spamDealt += G.spamDealt || 0;
         out.reboots += G.reboots || 0;
         out.returns += G.returns || 0;
+        out.shutdowns += G.shutdowns || 0;
+        out.scrapped += G.scrapped || 0;
         for (var sr = 0; sr < G.players.length; sr++) if (G.players[sr].rebooting) out.stranded++;
       } catch (e) {
         out.crashes.push({ seed: s, turn: G ? G.turn : -1, at: G ? G.phase + "." + G.step : "?", error: e.message });
@@ -12319,6 +12602,7 @@
     UI.els.clear.disabled = !programming || !me.registers.some(function (x, ix) { return x !== null && ix < open; });
     UI.els.down.disabled = !programming;
     UI.els.down.classList.toggle("on", !!(me && me.announceDown));
+    if (UI.els.down.textContent !== downLabel()) UI.els.down.textContent = downLabel();
     UI.els.hint.textContent = G.gameOver ? ""
       : (G.phase === "exec" && G.step === "optionChoice") ? ""
       : programming ? (ready ? "Registers full. Run, or take a card back from a register."
@@ -12521,11 +12805,26 @@
     updateAll();
   }
 
+  /* THE SAME BUTTON, DECLARING TWO DIFFERENT THINGS. Classic: powered
+     down NEXT turn, for a repair. 2016: shut down for the round about
+     to run, to scrap the damage you are holding. Saying "next turn" in
+     a 2016 game would be telling the player the wrong round. */
+  function downLabel() {
+    return rulesetOf(houseRules) === "modern" ? "Shut down" : "Power down";
+  }
+
+  function downSaid(on) {
+    if (rulesetOf(houseRules) === "modern") {
+      return on ? "Shutting down this round." : "Shutdown cancelled.";
+    }
+    return on ? "Powering down next turn." : "Power down cancelled.";
+  }
+
   function onPowerDown() {
     var p = actor();
     if (!inPhase("turn", "program") || !p) return;
     p.announceDown = !p.announceDown;
-    announce(p.announceDown ? "Powering down next turn." : "Power down cancelled.");
+    announce(downSaid(p.announceDown));
     updateAll();
   }
 
@@ -13431,8 +13730,14 @@
       body: "Face down, all at once. From 5 damage your registers lock from the right and keep last turn's card." },
     { phase: "turn", step: "program", title: "Program five registers", only: "modern",
       body: "Face down, all at once. Nothing locks a register in this edition -- damage is in the deck instead." },
-    { phase: "turn", step: "announce", title: "Announce power down",
-      body: "Declared now, for next turn." },
+    { phase: "turn", step: "announce", title: "Announce power down", only: "classic",
+      body: "Declared now, for next turn. You come back fully repaired." },
+    { phase: "turn", step: "announce", title: "Declare a shutdown", only: "modern",
+      body: "Declared now, for the round about to run -- not for next round. Your robot " +
+            "does nothing all round but stays on the course, still shoved and still shot. " +
+            "In exchange every damage card in your registers, your hand and your discard " +
+            "pile goes back to the table. Not the ones already shuffled into your deck: " +
+            "those are still coming round." },
     { phase: "exec", step: "reveal", title: "Reveal", only: "classic",
       body: "Everyone's card for this register turns over. Highest priority number moves first." },
     { phase: "exec", step: "reveal", title: "Reveal", only: "modern",
@@ -13475,6 +13780,8 @@
       body: "Touching a flag in sequence scores it; touching one out of order still moves your archive." },
     { phase: "cleanup", step: "repair", title: "Repairs", only: "classic",
       body: "One damage off if you end the turn on a wrench or a flag. A two-wrench upgrade site is a choice: two damage off, or an option card." },
+    { phase: "cleanup", step: "stayDown", title: "Stay down?", only: "classic",
+      body: "A powered-down robot may stay down for another turn, and repair again." },
     { phase: "cleanup", step: "discard", title: "Discard", only: "classic",
       body: "Everything except the cards held in locked registers." },
     { phase: "cleanup", step: "discard", title: "Discard", only: "modern",
