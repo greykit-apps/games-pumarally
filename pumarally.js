@@ -1477,7 +1477,7 @@
         /* Off the board and still racing. The 2016 game only; a
            classic wreck is simply not alive until the next turn. */
         rebooting: false,
-        bought: false, fitted: false, upgradeDone: false,
+        bought: false, fitted: false, upgradeDone: false, carried: 0,
         /* TWO PILES, because the rules keep them apart. `shelf` is the
            collection of uninstalled cards face down beside the mat,
            which is explicitly uncapped; `installed` is what is on the
@@ -3596,7 +3596,7 @@
              forty, which is what the conservation law caught. */
           if (p.poweredDown) {
             if (p.hand.length) scrapCards(p, p.hand);
-            p.hand = []; p.dealtCount = 0; continue;
+            p.hand = []; p.dealtCount = 0; p.carried = 0; continue;
           }
           var dctx = fire(p, "modifyDealt", { count: cardsDealt(p.damage) });
           p.dealtCount = Math.max(0, dctx.count);
@@ -3607,6 +3607,15 @@
              last round, and it has to still be there: an assignment
              would drop those cards out of the game, which is what the
              damage conservation law caught. */
+          /* WHAT WAS ALREADY IN HAND, recorded rather than inferred.
+             The only cards a hand holds at this moment are the SPAM
+             that survived the cleanup discard -- but "how many SPAM
+             are in this hand" is NOT the same question a moment later,
+             because the deal itself draws from a deck with SPAM
+             shuffled into it. Counting types afterwards cannot tell a
+             SPAM you carried from a SPAM you were just dealt, so the
+             number is taken here, when it is still knowable. */
+          p.carried = p.hand.length;
           p.hand = p.hand.concat(drawFor(p, p.dealtCount));
           handOrder(p);
         }
@@ -4336,7 +4345,29 @@
   }
 
   function commit() {
-    assertInvariants();
+    /* A BROKEN CONSERVATION LAW STOPS THE GAME, and it must stop it
+       OUT LOUD. Throwing here is right -- carrying on over a state the
+       rules say is impossible is worse than stopping -- but the throw
+       also took updateAll() with it, so the screen kept whatever it
+       was last painted with: a stale panel, a hand that never
+       appeared, and no button that did anything. That is
+       indistinguishable from a hang, and it is how this was reported.
+
+       So the message reaches the screen before the exception carries
+       on up. The game still stops; it just says why. */
+    try {
+      assertInvariants();
+    } catch (e) {
+      if (!UI.headless && UI.mounted) {
+        try {
+          showBanner("<b>The game has stopped.</b> " + esc(e.message) +
+            "<br><small>This is a conservation check refusing an impossible state. " +
+            "Nothing after this point would be trustworthy.</small>");
+          announce("The game has stopped: " + e.message);
+        } catch (e2) {}
+      }
+      throw e;
+    }
     if (UI.headless || !UI.mounted) return;
     saveGame();
     updateAll();
@@ -4467,25 +4498,36 @@
          conservation property is the one that matters: every card
          dealt is either still in hand or sitting in a register. */
       if (G.phase === "turn" && G.step === "program" && inPlay(p) && !p.poweredDown) {
-        /* DAMAGE CARDS ARE NOT PART OF THE DEAL. Under the 2016 rules
-           a hand is what you were dealt PLUS the SPAM you failed to
-           get rid of last round, so counting the hand whole would call
-           a correct hand wrong as soon as anybody was shot. Counted
-           without them; they are conserved by their own law above. */
-        var placed = 0, held = 0, hq, rq;
+        /* A HAND IS THE DEAL PLUS WHAT YOU CARRIED IN, and both halves
+           are counted whole rather than by type.
+
+           Counting only the non-damage cards was wrong, and wrong in a
+           way no sim could see: SPAM that survived the cleanup discard
+           is in your hand, but so is SPAM the deal itself just drew
+           out of your own deck, and nothing about a card says which it
+           was. The first hand that contained a dealt SPAM threw --
+           which is every 2016 game, as soon as anybody is shot. It
+           took a human seat to surface it, because the check only runs
+           where the machine SETTLES, and a bot game never settles at
+           programming.
+
+           The property is unchanged and is the one that matters:
+           every card dealt is still in hand or sitting in a register. */
+        var placed = 0, held = p.hand.length, rq;
         for (rq = 0; rq < REGISTERS; rq++) {
           if (p.registers[rq] === null || rq >= openRegisters(p.damage)) continue;
-          if (!isDamageCard(p.registers[rq])) placed++;
+          placed++;
         }
-        for (hq = 0; hq < p.hand.length; hq++) if (!isDamageCard(p.hand[hq])) held++;
+        var dealt = p.dealtCount + (p.carried || 0);
         /* The guard is "a deal could be made at all", and which pile
            that asks about is the one difference between the editions. */
         var couldDeal = rulesetOf(houseRules) === "modern"
           ? p.deck.length + p.pile.length > 0
           : G.deck.length + G.discard.length > 0;
-        if (held + placed !== p.dealtCount && couldDeal) {
-          throw new Error(p.name + " holds " + held + " dealt cards and has placed " + placed +
-            ", but was dealt " + p.dealtCount);
+        if (held + placed !== dealt && couldDeal) {
+          throw new Error(p.name + " holds " + held + " cards and has placed " + placed +
+            ", but was dealt " + p.dealtCount +
+            ((p.carried || 0) ? " and carried " + p.carried + " in" : ""));
         }
         if (!p.options.length && p.dealtCount !== cardsDealt(p.damage) && couldDeal) {
           throw new Error(p.name + " was dealt " + p.dealtCount + " at " + p.damage +
@@ -4998,7 +5040,7 @@
           return { id: id, st: def.init ? def.init() : {} };
         }),
         poweredDown: !!rb.poweredDown, announceDown: false, ready: false, rebooting: false,
-        bought: false, fitted: false, upgradeDone: false, shelf: [], installed: [],
+        bought: false, fitted: false, upgradeDone: false, carried: 0, shelf: [], installed: [],
         energy: rb.energy || 0,
         alive: rb.alive !== false, out: false
       });
@@ -8932,6 +8974,112 @@
       } finally { houseRules.ruleset = keepHouse; }
     } },
 
+    { name: "a broken conservation law stops the game out loud, not silently", run: function () {
+      /* Throwing is right: carrying on over a state the rules call
+         impossible is worse than stopping. But the throw took
+         updateAll() down with it, so the screen kept whatever it was
+         last painted with -- a stale panel, a hand that never
+         appeared, no button that did anything. That is
+         indistinguishable from a hang, and it is exactly how the one
+         real occurrence of this was reported. */
+      var keepEls = UI.els, wasMounted = UI.mounted, wasHead = UI.headless;
+      var said = [], banner = { innerHTML: "", hidden: true };
+      try {
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        UI.headless = false;
+        UI.mounted = true;
+        UI.els = { banner: banner, live: { textContent: "" } };
+        /* Break a law: a card that is in no pile at all. */
+        G.deck.pop();
+        var threw = null;
+        try { commit(); } catch (e) { threw = e.message; }
+        assert(threw, "a broken conservation law did not stop the game");
+        assert(!banner.hidden, "the game stopped and the screen said nothing");
+        assert(/stopped/i.test(banner.innerHTML), "the banner does not say the game has stopped");
+        assert(banner.innerHTML.indexOf("conservation") >= 0,
+          "the banner does not say what kind of thing went wrong");
+        assert(banner.innerHTML.indexOf(esc(threw)) >= 0,
+          "the banner does not carry the reason: " + banner.innerHTML);
+      } finally { UI.els = keepEls; UI.mounted = wasMounted; UI.headless = wasHead; }
+    } },
+
+    { name: "a 2016 game played from a human seat, with the invariants armed", run: function () {
+      /* THE HOLE THIS FILLS. Every sim in this project runs with
+         UI.autoHuman on, so every seat is a bot -- and a bot game
+         never SETTLES at turn.program, it walks straight through it.
+         assertInvariants only runs where the machine settles, so the
+         deal arithmetic at programming was evaluated by nothing, ever,
+         in thousands of simulated games.
+
+         It took Shan opening a browser to find it: the first hand
+         containing a SPAM the DEAL had drawn threw, the exception took
+         updateAll down with it, and the screen froze mid-phase with a
+         stale panel and no working button. The engine was fine. The
+         check was wrong, and nothing was running it.
+
+         So this plays real turns the way a person does: let the
+         machine park, fill the registers, say ready, carry on. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman, wasHead = UI.headless;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      UI.headless = true;
+      try {
+        newGame(4242, { course: "energizeRun", players: 4, ruleset: "modern" });
+        var me = G.players[0];
+        me.isBot = false;
+        assert(isHuman(me), "the fixture did not seat a person");
+
+        var seen = {};
+        var parked = 0, programmed = 0, guard = 0, sawDealtSpam = false;
+        while (!G.gameOver && G.turn <= 8 && guard++ < 4000) {
+          advance();
+          seen[G.phase + "." + G.step + (G.actor === me.id ? "*" : "")] = 1;
+          if (inPhase("draft", "livery")) {            /* keep the colour offered */
+            G.draft.liveryAt = G.players.length;
+            continue;
+          }
+          if (G.phase === "draft") {                  /* pick a bay like a person */
+            if (G.actor === me.id && !me.placed) { takeBay(me, freeBays()[0]); G.draft.at++; }
+            continue;
+          }
+          if (inPhase("turn", "upgrade") && G.actor === me.id && !me.upgradeDone) {
+            me.upgradeDone = true;                    // the Done button
+            parked++;
+            continue;
+          }
+          if (inPhase("turn", "program") && G.actor === me.id && !me.ready) {
+            /* THE STATE THAT THREW. The machine is settled here, so
+               commit() has already run every invariant over a hand
+               that may well contain SPAM the deal drew. */
+            for (var hi = 0; hi < me.hand.length; hi++) {
+              if (isDamageCard(me.hand[hi])) sawDealtSpam = true;
+            }
+            applyProgram(me, botProgram(me));
+            me.ready = true;
+            programmed++;
+            continue;
+          }
+          if (G.pendingChoices.length) {
+            /* Any question the round asks, answered the way the bot
+               picker would, so the loop cannot stall on one. */
+            var ch = G.pendingChoices[0];
+            G.optionAnswers[ch.key] = 0;
+            G.pendingChoices.shift();
+            continue;
+          }
+          if (inPhase("turn", "program") && G.actor === me.id) continue;
+          if (G.phase === "turn" && G.step === "program") continue;
+        }
+        assert(parked > 0, "the upgrade phase never waited for the player; saw " +
+          Object.keys(seen).join(" "));
+        assert(programmed >= 3, "the player only programmed " + programmed + " rounds");
+        assert(sawDealtSpam, "no hand ever contained SPAM, so the case that broke was not reached");
+        assertInvariants();
+      } finally {
+        houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; UI.headless = wasHead;
+      }
+    } },
+
     { name: "a hand that does not add up to the deal is refused, in both editions", run: function () {
       /* Every card dealt is either still in hand or sitting in a
          register: that is the arithmetic the whole damage system rides
@@ -8949,30 +9097,45 @@
       houseRules.ruleset = "modern";
       try {
         modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        /* CARRIED IN BEFORE THE DEAL, which is the only moment SPAM
+           can arrive in a hand from last round -- and the whole reason
+           the count is taken there rather than worked out afterwards.
+           A fixture that pushed it in after the deal was testing a
+           state the game cannot reach. */
+        var carriedSpam = G.damageDeck.pop();
+        p.hand.push(carriedSpam);
+        /* AND SPAM IN THE DECK, so the deal itself draws some. This is
+           the case that took the game down in a browser and that no
+           sim could reach: nothing about a card in your hand says
+           whether you carried it in or were just dealt it. */
+        p.deck.push(G.damageDeck.pop());
+        p.deck.push(G.damageDeck.pop());
+
         STEP.turn.deal();
         G.phase = "turn"; G.step = "program";
+        assert(p.carried === 1, "the deal recorded " + p.carried + " carried in, not 1");
+        assert(p.hand.length === cardsDealt(0) + 1,
+          "a hand of " + p.hand.length + " after a deal of " + cardsDealt(0) + " plus one carried");
+        var dealtSpam = 0, hi;
+        for (hi = 0; hi < p.hand.length; hi++) if (isDamageCard(p.hand[hi])) dealtSpam++;
+        assert(dealtSpam >= 2, "the fixture did not deal any SPAM, so it tests nothing");
         assertInvariants();                           // a correct hand passes
-        var p = G.players[0];
+
         /* A card that slipped out of the hand into the robot's own
            discard: conserved, in the right pile, and still wrong. */
         refuses("a card missing from the hand", function () { p.pile.push(p.hand.pop()); });
         p.hand.push(p.pile.pop());
         assertInvariants();
-        /* AND THE 2016 CASE THE OLD FORM COULD NOT SEE: carried SPAM
-           belongs in the hand and is not part of the deal, so a hand
-           of ten after a deal of nine is correct. */
-        p.hand.push(G.damageDeck.pop());
-        assertInvariants();
-        refuses("a tenth card that is not damage", function () {
-          p.hand.push(p.deck.pop());
-        });
+        refuses("a card from nowhere", function () { p.hand.push(p.deck.pop()); });
         p.deck.push(p.hand.pop());
-        /* AND PROGRAMMING THE SPAM IS STILL A CORRECT HAND. It leaves
-           the hand for a register without ever having been dealt, so a
-           register count that included it would make spending a slot
-           on your own damage look like an extra card from nowhere --
-           the one thing a player is most likely to actually do. */
-        p.registers[0] = p.hand.pop();
+
+        /* AND PROGRAMMING A SPAM IS STILL A CORRECT HAND. It moves
+           from the hand to a register, which is a move and not a
+           disappearance -- the one thing a player is most likely to
+           actually do with it. */
+        for (hi = p.hand.length - 1; hi >= 0; hi--) if (isDamageCard(p.hand[hi])) break;
+        p.registers[0] = p.hand.splice(hi, 1)[0];
         assert(isDamageCard(p.registers[0]), "the fixture programmed the wrong card");
         assertInvariants();
       } finally { houseRules.ruleset = keepHouse; }
@@ -9004,11 +9167,12 @@
            the option deck with everything nobody holds. */
         p.options = [{ id: "recompile" }];
         G.optionDeck.splice(G.optionDeck.indexOf("recompile"), 1);
-        /* Dealt by the game itself, so the deal arithmetic the
-           invariants check is the game's own and not the fixture's. */
+        /* Carried in BEFORE the deal -- the only moment it can arrive
+           -- so the deal records it and the arithmetic is the game's
+           own rather than the fixture's. */
+        p.hand.push(spam);
         STEP.turn.deal();
         var dealt = p.dealtCount;
-        p.hand.push(spam);                                               // carried from last round
         G.optionAnswers[choiceKey(p, "onDealt", "recompile", "")] = 1;   // "Recompile"
         STEP.turn.postDeal();
         assert(p.hand.indexOf(spam) >= 0, "the recompile washed the SPAM out of the hand");
