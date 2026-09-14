@@ -132,7 +132,8 @@ const modern = PR.runSim(Math.max(40, games / 4), { ruleset: "modern" }, 900);
 const modernWins = Object.values(modern.wins).reduce((a, b) => a + b, 0);
 console.log(`sim (2016 rules): ${modern.games} games, avg ${modern.turns.avg} turns, ` +
   `${modernWins} decided, ${modern.unfinished} unfinished, ${modern.crashes.length} crashes, ` +
-  `${modern.spamDealt} SPAM dealt, ${modern.reboots} reboots, ${modern.returns} returns`);
+  `${modern.spamDealt} SPAM dealt, ${modern.reboots} reboots, ${modern.returns} returns, ` +
+  `${modern.buys} upgrades bought, ${modern.installs} fitted`);
 for (const c of modern.crashes.slice(0, 5)) {
   console.error(`  error:   [2016] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
   failed++;
@@ -159,6 +160,16 @@ if (!modern.reboots) {
 // that returns happen at all is its own check.
 if (!modern.returns) {
   console.error("  error:   robots rebooted in the 2016 sim and not one ever got back on the board");
+  failed++;
+}
+// The shop is the whole point of Energy, and a run where nobody spent any
+// would leave every line of it untested while reporting nothing wrong.
+if (!modern.installs) {
+  console.error("  error:   not one upgrade was fitted in the 2016 sim");
+  failed++;
+}
+if (!modern.buys) {
+  console.error("  error:   not one upgrade was bought in the 2016 sim, so Energy buys nothing");
   failed++;
 }
 // EXACTLY, not within a tolerance. Every robot that came off the board either
