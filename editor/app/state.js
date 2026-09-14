@@ -114,6 +114,44 @@ export function readAll() {
   catch (e) { return {}; }
 }
 
+/* --- the course library ------------------------------------------------------
+ * Separate from the board store, because a course is not a board and saving one
+ * under a board's name would be an easy thing to do by accident. A saved course
+ * is a LIST OF PLACEMENTS, never a built grid -- so a board corrected later
+ * corrects every saved course it appears in, which is the point.
+ */
+
+const COURSE_KEY = "pumarally_courses_v1";
+
+export function saveCourse(id, doc) {
+  const s = store();
+  if (!s) return false;
+  try {
+    const all = readCourses();
+    all[id] = { doc, saved: Date.now() };
+    s.setItem(COURSE_KEY, JSON.stringify(all));
+    return true;
+  } catch (e) { return false; }
+}
+
+export function readCourses() {
+  const s = store();
+  if (!s) return {};
+  try { return JSON.parse(s.getItem(COURSE_KEY) || "{}") || {}; }
+  catch (e) { return {}; }
+}
+
+export function removeCourse(id) {
+  const s = store();
+  if (!s) return false;
+  try {
+    const all = readCourses();
+    delete all[id];
+    s.setItem(COURSE_KEY, JSON.stringify(all));
+    return true;
+  } catch (e) { return false; }
+}
+
 export function removeLocal(id) {
   const s = store();
   if (!s) return false;

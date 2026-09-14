@@ -18,6 +18,7 @@ import { boardFromDocument } from "../lib/board.js";
 import { sink } from "../validate/diagnostic.js";
 import { boardSVG } from "../render/svg.js";
 import { renderDiagnostics } from "./panels.js";
+import { saveCourse, readCourses, removeCourse } from "./state.js";
 import { esc } from "../render/theme.js";
 import { rotateBoard } from "../lib/rotate.js";
 
@@ -121,8 +122,10 @@ export async function mountCourse(root, wanted) {
   };
 
   if (wanted && wanted !== "new") {
+    const saved = readCourses()[wanted];
     try {
-      const doc = await (await fetch("./data/courses/" + wanted + ".json")).json();
+      const doc = saved ? saved.doc
+        : await (await fetch("./data/courses/" + wanted + ".json")).json();
       const d = sink();
       const c = courseFromDocument(doc, d, wanted);
       if (c) st.course = c;
@@ -262,8 +265,33 @@ export async function mountCourse(root, wanted) {
     }
 
     html += "<h3>This course</h3>";
-    html += '<div class="row"><button data-act="export">Export JSON</button>' +
-      '<button data-act="clear">Start again</button></div>';
+    const broken = st.diagnostics.some(x => x.severity === "error");
+    html += '<div class="row"><button data-act="save"' + (broken ? " disabled" : "") +
+      '>Save to library</button><button data-act="export">Export JSON</button></div>';
+    if (broken) {
+      html += '<div class="row"><span class="none bad">Fix the problems below before saving. ' +
+        'A course that will not build is one the wizard would fall over on.</span></div>';
+    }
+    html += '<div class="row"><button data-act="clear">Start again</button></div>';
+
+    const mine = readCourses();
+    const ids = Object.keys(mine).sort();
+    html += "<h3>Library</h3>";
+    if (!ids.length) html += '<p class="none">Nothing saved yet.</p>';
+    else {
+      html += '<ul class="flaglist">';
+      for (const id of ids) {
+        html += "<li><span>" + esc(mine[id].doc.name || id) + "</span><span class='grow'></span>" +
+          '<button data-open="' + esc(id) + '">Open</button>' +
+          '<button data-forget="' + esc(id) + '" title="Delete">&times;</button></li>';
+      }
+      html += "</ul>";
+    }
+
+    html += "<h3>Shipped courses</h3>";
+    html += '<div class="row"><select data-shipped><option value="">Open one&hellip;</option>' +
+      index.courses.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>").join("") +
+      "</select></div>";
     html += '<div class="row"><a href="./" style="color:var(--hot)">&larr; Board workshop</a></div>';
     mainEl.innerHTML = html;
   }
@@ -360,7 +388,19 @@ export async function mountCourse(root, wanted) {
     if (d.flagup !== undefined) { moveFlag(st.course, +d.flagup, +d.flagup - 1); refresh(); return; }
     if (d.flagdown !== undefined) { moveFlag(st.course, +d.flagdown, +d.flagdown + 1); refresh(); return; }
     if (d.flagoff !== undefined) { removeFlag(st.course, +d.flagoff); refresh(); return; }
+    if (d.open !== undefined) { location.hash = "#course=" + d.open; location.reload(); return; }
+    if (d.forget !== undefined) {
+      removeCourse(d.forget);
+      refresh();
+      say("Taken out of the library.", "");
+      return;
+    }
     if (d.act) act(d.act);
+  });
+
+  root.addEventListener("change", ev => {
+    const sel = ev.target.closest("[data-shipped]");
+    if (sel && sel.value) { location.hash = "#course=" + sel.value; location.reload(); }
   });
 
   root.addEventListener("input", ev => {
@@ -406,6 +446,20 @@ export async function mountCourse(root, wanted) {
       case "drop": remove(st.course, library, st.sel); st.sel = -1; refresh(); say("Board taken off.", ""); break;
       case "clear": st.course = newCourse(st.course.id); st.sel = -1; st.hand = null; refresh({ keepView: false }); break;
       case "export": showText("Course JSON", JSON.stringify(toDocument(st.course), null, 2) + "\n"); break;
+      case "save": {
+        /* A COURSE THAT WILL NOT BUILD IS NEVER SAVED. The library is read back
+         * without a validator in front of it in places, and a stored course
+         * that throws on assembly is one somebody has to find by hand. */
+        if (st.diagnostics.some(x => x.severity === "error")) {
+          say("This course still has problems. Fix them and it will save.", "bad");
+          break;
+        }
+        if (saveCourse(st.course.id, toDocument(st.course))) {
+          refresh();
+          say("Saved as " + st.course.id + ". Open it again from the library below.", "ok");
+        } else say("Could not save -- this browser is not keeping local storage.", "bad");
+        break;
+      }
     }
   }
 
