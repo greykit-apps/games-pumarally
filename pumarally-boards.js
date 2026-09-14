@@ -1811,6 +1811,59 @@
         { c: 11, r: 9, d: "N", n: 1 }
       ]
     },
+    steps: {
+      name: "Steps", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the printed board. Which box it came from is not established.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. .. .. bv b^ .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +--+  +  +  +  +",
+        " .. B> B> r. .. bv b^ .. .. .. Bv b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. E. bv .. b> b^ .. .. E. Bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> bv .. B> B> r. .. .. Bv b< r. .. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        " .. b> bv .. ..|bv ..|.. Bv .. ..|.. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. bv .. .. r. Bv b< r. bv b< b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. o. bv .. .. l. Bv b> Bv b> b> b> ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv b< .. ..|bv ..|.. Bv .. ..|.. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        " b< b< .. l. B< B< .. .. l. b> Bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. E. bv .. bv b< .. .. E. Bv .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. l. B< B< .. bv b^ .. .. .. l. b> ",
+        "+  +  +  +  +  +  +  +--+  +  +  +  +",
+        " .. bv .. .. .. bv b^ .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 7, r: 1, d: "S", n: 1 },
+        { c: 4, r: 4, d: "S", n: 1 },
+        { c: 10, r: 4, d: "W", n: 1 },
+        { c: 10, r: 7, d: "W", n: 1 },
+        { c: 7, r: 10, d: "N", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 5, r: 2, in: "N" },
+        { c: 6, r: 2, in: "W" },
+        { c: 1, r: 3, in: "W" },
+        { c: 1, r: 4, in: "N" },
+        { c: 2, r: 4, in: "W" },
+        { c: 2, r: 7, in: "N" },
+        { c: 1, r: 7, in: "E" },
+        { c: 1, r: 8, in: "N" },
+        { c: 9, r: 5, in: "E" },
+        { c: 9, r: 6, in: "N" },
+        { c: 6, r: 9, in: "S" },
+        { c: 5, r: 9, in: "E" }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -1889,6 +1942,21 @@
       boards: [{ id: "energize", rot: 0, at: [0, 0] }],
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       flags: [[8, 9], [5, 5], [1, 2]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    stepsRun: {
+      name: "Steps",
+      kind: "quick",
+      blurb: "Green belts one space, blue belts two, and a pit where the slow lane ends.",
+      boards: [{ id: "steps", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's. The board is transcribed; its
+         checkpoints are not -- nothing on the printed cardboard says where a
+         flag goes, that is what a course card is for. If the 2016 course
+         cards are ever photographed these should be replaced by the printed
+         ones. Chosen off flagCandidates, so all three stand on floor. */
+      flags: [[1, 9], [6, 7], [10, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
