@@ -10508,6 +10508,50 @@
       }
     } },
 
+    { name: "the workshop knows which game the course it is holding belongs to", run: function () {
+      /* THE BUG THIS EXISTS FOR: the object the workshop hands back
+         carried the picture, the walls, the lasers and the flags, and
+         not the edition. Every reader of it then fell back to
+         "classic" -- so a 2016 course was validated against the
+         classic legend and the workshop refused its own batteries with
+         "the Classic edition does not print", on a board that had just
+         been transcribed and shipped. The race path takes the same
+         object, so it would have refused them too. */
+      var keep = ED, keepEls = UI.els;
+      UI.els = null;
+      try {
+        ED = edState(edNew(8, 8), "bench");
+        ED.grid.flags = [{ c: 1, r: 1 }];
+        /* Eight bays, because a course validates as a course and a
+           course with nowhere to start is not one. */
+        for (var b = 0; b < 8; b++) ED.grid.cell[7 * ED.grid.w + b] = "s" + (b + 1);
+        edOpenCourse({ boards: [], dock: null });
+        ED.grid.name = "Bench course";
+
+        /* Classic while there is nothing modern on it. */
+        assert(edEdition() === "classic", "an empty course is not classic");
+        assert(edCourseEdit().edition === "classic",
+          "the handed-back course says " + edCourseEdit().edition);
+        edValidate();
+        assert(!ED.errors.length, "a plain course would not validate: " + ED.errors[0]);
+
+        /* Put a battery on it and the whole thing is a 2016 course. */
+        ED.grid.cell[2 * ED.grid.w + 2] = "E.";
+        assert(edEdition() === "modern", "a course with a battery on it is not modern");
+        assert(edCourseEdit().edition === "modern",
+          "the edition did not travel with the picture; it said " + edCourseEdit().edition);
+
+        /* AND IT VALIDATES. This is the assertion that was red. */
+        edValidate();
+        assert(!ED.errors.length,
+          "the workshop refused its own 2016 square: " + (ED.errors[0] || ""));
+        for (var i = 0; i < ED.errors.length; i++) {
+          assert(!/Classic edition does not print/.test(ED.errors[i]),
+            "the workshop is reading a 2016 course as classic");
+        }
+      } finally { ED = keep; UI.els = keepEls; }
+    } },
+
     { name: "the course workshop offers three ways out and no fourth", run: function () {
       /* Throw it away, keep it, or race it. "Save and go on" used to
          mean the second and went back to a screen that could only send
@@ -19130,11 +19174,19 @@
     return {
       w: ED.grid.w, h: ED.grid.h, pic: B.gridToPic(ED.grid), voids: true,
       name: ED.grid.name,
+      /* WHICH GAME THIS COURSE IS, and it has to travel WITH the
+         picture. Left off, every reader of this object falls back to
+         "classic" -- so the workshop validated a 2016 course against
+         the classic legend and refused its own batteries, and the
+         race path, which takes the same object, would have refused
+         them too. Derived from the squares for the reason edSpec
+         gives: a stored edition and a board full of batteries can
+         disagree, and the stored one is always the wrong one. */
+      edition: edEdition(),
       lasers: ED.grid.lasers.map(function (L) { return { c: L.c, r: L.r, d: "NESW".charAt(L.d), n: L.n }; }),
       pushers: ED.grid.pushers.map(function (U) { return { c: U.c, r: U.r, d: "NESW".charAt(U.d), regs: U.regs.slice() }; }),
       burners: ED.grid.burners.map(function (F) { return { c: F.c, r: F.r, d: "NESW".charAt(F.d), regs: F.regs.slice(), len: F.len }; }),
       timers: ED.grid.timers.map(function (T) { return { c: T.c, r: T.r, regs: T.regs.slice() }; }),
-      merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
       merges: (ED.grid.merges || []).map(function (M) { return { c: M.c, r: M.r, in: M.in }; }),
       flags: (ED.grid.flags || []).map(function (f) { return [f.c, f.r]; })
     };
