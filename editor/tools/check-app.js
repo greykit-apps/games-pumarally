@@ -9,6 +9,7 @@ import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt } from "
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
 import { N, E, S, W, opposite } from "../lib/dir.js";
 import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge } from "../app/tools.js";
+import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import {
@@ -293,6 +294,34 @@ const fresh = (w = 8, h = 8, edition = "classic") =>
   if (parsed) validateCourse(parsed, lib, d);
   eq(d.items.filter(x => x.severity === "error").map(x => x.code + " " + x.message), [],
      "compose: a 6x2 dock beside a 12x12, with a flag where a 12x4 box would have swallowed it");
+}
+
+/* --- the zoom floor must clear the biggest course --------------------------
+ * Fit clamps to ZOOM_MIN, so a floor above what the largest course needs makes
+ * Fit silently do nothing on exactly the courses that most need it. Measured
+ * against the assembled size of every shipped course rather than a guess. */
+{
+  const DATA = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
+  const idx = JSON.parse(readFileSync(join(DATA, "index.json"), "utf8"));
+  const lib = new Map();
+  for (const row of idx.boards) {
+    lib.set(row.id, checkBoardDocument(JSON.parse(readFileSync(join(DATA, "boards", row.id + ".json"), "utf8")), row.id).board);
+  }
+  let biggest = { id: null, w: 0, h: 0 };
+  for (const row of idx.courses) {
+    const d2 = sink();
+    const c = courseFromDocument(JSON.parse(readFileSync(join(DATA, "courses", row.id + ".json"), "utf8")), d2, row.id);
+    if (!c) continue;
+    const { grid } = assemble(c, lib);
+    if (grid.w * grid.h > biggest.w * biggest.h) biggest = { id: row.id, w: grid.w, h: grid.h };
+  }
+  /* a 900x600 stage is a modest laptop window with both panels open */
+  const need = Math.min((900 - 48) / (biggest.w * 100), (600 - 48) / (biggest.h * 100));
+  ok(ZOOM_MIN <= need, "view: the zoom floor " + ZOOM_MIN + " clears the biggest course (" +
+     biggest.id + ", " + biggest.w + "x" + biggest.h + ", needs " + need.toFixed(3) + ")");
+  /* and a three-by-three of twelve-square boards, which nothing ships yet */
+  const need33 = Math.min((900 - 48) / 3600, (600 - 48) / 3600);
+  ok(ZOOM_MIN <= need33, "view: and a 3x3 of twelve-square boards (needs " + need33.toFixed(3) + ")");
 }
 
 console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");

@@ -14,7 +14,12 @@ import { CELL } from "../render/theme.js";
 import { inBoard } from "../lib/board.js";
 import { N, E, S, W } from "../lib/dir.js";
 
-export const ZOOM_MIN = 0.25;
+/* ZOOM_MIN has to clear the LARGEST thing the editor shows, which is not a
+ * board. Four Quarters is 24x28 squares and wants 0.22 to fit a laptop stage; a
+ * three-by-three of twelve-square boards is 36x36 and wants about 0.15. At 0.25
+ * -- a perfectly reasonable floor for a single board -- the biggest courses
+ * simply cannot be seen whole, and Fit silently does nothing. */
+export const ZOOM_MIN = 0.05;
 export const ZOOM_MAX = 6;
 
 /** How close to an edge a click has to be to mean that edge rather than the square. */

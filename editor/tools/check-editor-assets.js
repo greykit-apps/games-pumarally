@@ -62,6 +62,10 @@ for (const m of html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)) {
   queue.push(resolve(EDITOR, m[1]));
 }
 const SPEC = /^[ \t]*(?:import|export)\b[^\n]*?\bfrom\s*["']([^"']+)["']/gm;
+/* A dynamic import is still a file the page fetches -- the course workshop is
+ * reached that way -- so the graph has to follow it, or the half of the app
+ * behind a route goes unchecked. */
+const DYN = /\bimport\s*\(\s*["'](\.[^"']+)["']\s*\)/g;
 while (queue.length) {
   const file = queue.pop();
   if (seen.has(file)) continue;
@@ -74,7 +78,7 @@ while (queue.length) {
       "'). It would 404 in production and work everywhere else.");
   }
   const src = readFileSync(file, "utf8");
-  for (const m of src.matchAll(SPEC)) {
+  for (const m of [...src.matchAll(SPEC), ...src.matchAll(DYN)]) {
     if (m[1].startsWith(".")) queue.push(resolve(dirname(file), m[1]));
   }
 }

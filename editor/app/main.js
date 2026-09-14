@@ -434,5 +434,31 @@ function startingBoard() {
   return blankBoard({ id: "untitled", name: "Untitled", w: 12, h: 12 });
 }
 
+/* ROUTING. `#course` opens the course workshop, `#course=longHaul` opens that
+ * one, `#board=island` opens a shipped board. Anything else is the board
+ * workshop on whatever was being worked on last. */
 const host = document.querySelector("[data-pumarally-editor]");
-if (host) mount(host);
+if (host) {
+  const hash = location.hash.replace(/^#/, "");
+  const course = /^course(?:=([A-Za-z0-9_]+))?$/.exec(hash);
+  const board = /^board=([A-Za-z0-9_]+)$/.exec(hash);
+  if (course) {
+    import("./coursemode.js").then(m => m.mountCourse(host, course[1]));
+  } else {
+    const ed = mount(host);
+    if (board) loadShipped(ed, board[1]);
+  }
+  window.addEventListener("hashchange", () => location.reload());
+}
+
+async function loadShipped(ed, id) {
+  try {
+    const doc = await (await fetch("./data/boards/" + id + ".json")).json();
+    const d = sink();
+    const b = boardFromDocument(doc, d, id);
+    if (!b) return;
+    ed.st.board = b;
+    ed.st.undo.length = 0;
+    ed.refresh();
+  } catch (e) { /* the blank board stands */ }
+}
