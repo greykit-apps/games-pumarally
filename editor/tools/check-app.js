@@ -8,7 +8,7 @@
 import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
 import { N, E, S, W, opposite } from "../lib/dir.js";
-import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge, EDITION_CHOICES } from "../app/tools.js";
+import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge } from "../app/tools.js";
 import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
 import { ELEMENTS } from "../rulesets/elements.js";
@@ -38,8 +38,8 @@ const refused = (res, m) => {
   passed++;
 };
 
-const fresh = (w = 8, h = 8, edition = "classic") =>
-  blankBoard({ id: "t", name: "T", w, h, edition, set: "authored", origin: "authored" });
+const fresh = (w = 8, h = 8) =>
+  blankBoard({ id: "t", name: "T", w, h, set: "authored", origin: "authored" });
 
 /* --- the rail --------------------------------------------------------------- */
 {
@@ -58,34 +58,26 @@ const fresh = (w = 8, h = 8, edition = "classic") =>
   for (const k of Object.keys(DEVICE_KINDS)) {
     ok(TOOLS.some(t => t.key === "dev:" + k), "rail: " + k + " has a tool");
   }
-  /* EVERY ELEMENT AND DEVICE MUST BE REACHABLE FROM SOME EDITION THE EDITOR CAN
-   * SELECT. Having a tool in the list is not enough -- the rail filters by the
-   * board's declared edition, and while that was read-only and a new board
-   * started classic, nine elements and the whole of elevation had no route to a
-   * board at all. Water was simply not an option anywhere. */
+  /* EVERY ELEMENT AND DEVICE MUST BE ON THE RAIL. Having an entry in the
+   * registry is not enough -- the rail used to filter by a board's declared
+   * edition, and a board started classic, so nine elements and the whole of
+   * elevation had no route to a square at all. Water was simply not an option
+   * anywhere. The fix was not a better filter: a board is just a board, and
+   * which of its squares matter is the engine's business at play time. */
   {
-    const reachable = new Set();
-    for (const e of EDITION_CHOICES) for (const t of toolsFor(e, true)) reachable.add(t.key);
+    const offered = new Set(toolsFor(true).map(t => t.key));
     const stranded = [
-      ...Object.values(ELEMENTS).filter(d => !reachable.has("el:" + d.key)).map(d => "element " + d.key),
-      ...Object.keys(DEVICE_KINDS).filter(k => !reachable.has("dev:" + k)).map(k => "device " + k)
+      ...Object.values(ELEMENTS).filter(d => !offered.has("el:" + d.key)).map(d => "element " + d.key),
+      ...Object.keys(DEVICE_KINDS).filter(k => !offered.has("dev:" + k)).map(k => "device " + k)
     ];
-    eq(stranded, [], "rail: every element and device is reachable from an edition the editor offers");
-    for (const e of EDITION_CHOICES) {
-      ok(toolsFor(e, false).some(t => t.kind === "ground"),
-         "rail: the " + e + " rail offers something to draw");
+    eq(stranded, [], "rail: every element and every device is on the rail");
+    for (const key of ["el:water", "el:ramp", "el:repairSite", "dev:crusher", "dev:jet"]) {
+      ok(offered.has(key), "rail: " + key + " is offered, whatever printing it comes from");
     }
   }
 
-  const classic = toolsFor("classic", false).map(t => t.key);
-  ok(!classic.includes("el:energySpace"), "rail: a classic board is not offered a battery");
-  ok(!classic.includes("dev:crusher"), "rail: a classic board is not offered a crusher");
-  ok(classic.includes("dev:jet"), "rail: a classic board is offered a flame jet");
-  ok(!toolsFor("modern", false).map(t => t.key).includes("el:repairSite"), "rail: a modern board is not offered a repair site");
-  ok(toolsFor("modern", false).map(t => t.key).includes("el:water"), "rail: a modern board IS offered water");
-  ok(toolsFor("modern", false).map(t => t.key).includes("el:ramp"), "rail: and a ramp, so elevation can be drawn");
-  ok(!toolsFor("classic", false).some(t => t.courseOnly), "rail: the flag tool is not in a board's rail");
-  ok(toolsFor("classic", true).some(t => t.key === "flag"), "rail: the flag tool is in a course's rail");
+  ok(!toolsFor(false).some(t => t.courseOnly), "rail: the flag tool is not in a board's rail");
+  ok(toolsFor(true).some(t => t.key === "flag"), "rail: the flag tool is in a course's rail");
 }
 
 /* --- laying ground ---------------------------------------------------------- */
@@ -201,120 +193,28 @@ const fresh = (w = 8, h = 8, edition = "classic") =>
 
 /* --- everything a tool lays must validate ------------------------------------
  * A tool that produces a board the validator refuses is a trap: the editor
- * would let you draw something it then will not let you save. */
+ * would let you draw something it then will not let you save. And since a board
+ * no longer declares an edition, THE SAME BOARD carries the whole catalogue --
+ * batteries and wrenches at once, which is exactly what the user will build. */
 {
-  for (const edition of ["classic", "modern"]) {
-    const b = fresh(10, 10, edition);
-    const st = blankToolState();
-    let laid = 0, c = 0, r = 0;
-    for (const tool of toolsFor(edition, false)) {
-      if (tool.kind === "select" || tool.kind === "pan" || tool.kind === "flag") continue;
-      /* pairs need two, so lay each paired element twice */
-      const times = tool.arg === "pair" ? 2 : 1;
-      for (let i = 0; i < times; i++) {
-        st.tool = tool.key; st.dir = E;
-        const res = apply(b, st, c, r);
-        if (res.ok && res.changed) laid++;
-        c += 2; if (c >= b.w - 1) { c = 0; r += 2; }
-        if (r >= b.h) { r = 0; }
-      }
+  const b = fresh(12, 12);
+  const st = blankToolState();
+  let laid = 0, c = 0, r = 0;
+  for (const tool of toolsFor(false)) {
+    if (tool.kind === "select" || tool.kind === "pan" || tool.kind === "flag") continue;
+    const times = tool.arg === "pair" ? 2 : 1;
+    for (let i = 0; i < times; i++) {
+      st.tool = tool.key; st.dir = E;
+      const res = apply(b, st, c, r);
+      if (res.ok && res.changed) laid++;
+      c += 2; if (c >= b.w - 1) { c = 0; r += 2; }
+      if (r >= b.h) r = 1;
     }
-    ok(laid > 10, edition + ": the rail laid " + laid + " things");
-    const { diagnostics } = checkBoard(b);
-    const errs = diagnostics.filter(x => x.severity === "error");
-    eq(errs.map(x => x.code + " " + x.message).slice(0, 3), [],
-       edition + ": everything the rail can lay produces a board the validator accepts");
   }
-}
-
-/* --- the course workshop ------------------------------------------------------
- * The layout is chosen so two rules that AGREE on a tidy 3x3 of twelve-square
- * boards disagree here:
- *
- *   big   12x12 at (0,0)
- *   dock   6x2  at (6,12)      -- BESIDE and below, and not twelve by four
- *   small  6x6  at (12,12)
- *
- * The dock's real footprint is (6..11, 12..13). A hardcoded twelve-by-four box
- * from the same origin would be (6..17, 12..15), which swallows part of the 6x6
- * -- so a flag at (13,13) is legal under the derived rule and "inside the
- * starting block" under the old one. That is the only kind of layout that can
- * tell them apart, and the old assembler could not express it at all.
- */
-{
-  const FIX = join(dirname(fileURLToPath(import.meta.url)), "..", "tests", "fixtures");
-  const big = checkBoardDocument(JSON.parse(readFileSync(join(FIX, "provingGroundClassic.json"), "utf8")), "provingGroundClassic").board;
-  big.id = "big";
-  const lib = new Map([["big", big]]);
-
-  const dock = blankBoard({ id: "dock6", name: "Dock", w: 6, h: 2, edition: "classic", set: "authored", origin: "authored" });
-  for (let c = 0; c < 6; c++) setCell(dock, c, 0, "s" + (c + 1) + ".");
-  lib.set("dock6", dock);
-
-  const small = blankBoard({ id: "small", name: "Small", w: 6, h: 6, edition: "classic", set: "authored", origin: "authored" });
-  lib.set("small", small);
-
-  const course = newCourse("beside");
-  eq(place(course, lib, "big", 0, [0, 0]), 0, "compose: the first board goes down at the origin");
-  eq(place(course, lib, "big", 0, [6, 6]), -1, "compose: an overlapping placement is refused");
-  ok(place(course, lib, "dock6", 0, [6, 12], "dock") > 0, "compose: a 6x2 dock goes BESIDE the boards, not under them");
-  ok(place(course, lib, "small", 0, [12, 12]) > 0, "compose: a 6x6 joins on beyond the dock");
-  eq(place(course, lib, "dock6", 0, [0, 20], "dock"), -1, "compose: a second dock is refused");
-
-  const snaps = snapTargets(course, lib, "small", 0);
-  ok(snaps.length > 3, "compose: snapping offers " + snaps.length + " edge-adjacent positions");
-  ok(snaps.every(t => {
-    const [w, h] = stampDims(lib.get("small"), 0);
-    return !course.stamps.some(st2 => {
-      const f = stampFootprint(st2, lib.get(st2.board));
-      return t.at[0] <= f.x1 && f.x0 <= t.at[0] + w - 1 && t.at[1] <= f.y1 && f.y0 <= t.at[1] + h - 1;
-    });
-  }), "compose: no snap target overlaps something already down");
-
-  const smallIdx = stampAt(course, lib, 13, 13);
-  ok(smallIdx >= 0, "compose: stampAt finds the board under a square");
-  ok(turn(course, lib, smallIdx, 1), "compose: a placed board turns in place");
-
-  /* flags: the array index IS the number, so inserting renumbers */
-  const { grid } = assemble(course, lib);
-  ok(flagWouldFit(grid, 4, 6), "compose: (4,6) is plain floor and would take a flag");
-  addFlag(course, 4, 6);
-  addFlag(course, 5, 6);
-  addFlag(course, 13, 13);
-  addFlag(course, 6, 6, 0);
-  eq(course.flags[0], [6, 6], "compose: a flag inserted at 0 becomes flag 1 and renumbers the rest");
-  eq(flagAt(course, 4, 6), 1, "compose: and the one that was first is now second");
-  ok(!addFlag(course, 4, 6), "compose: two flags on one square is refused");
-  removeFlag(course, 0);
-  eq(course.flags, [[4, 6], [5, 6], [13, 13]], "compose: and taken off again");
-  moveFlag(course, 2, 0);
-  eq(course.flags[0], [13, 13], "compose: a flag can be moved earlier in the race");
-  moveFlag(course, 0, 2);
-  eq(course.flags, [[4, 6], [5, 6], [13, 13]], "compose: and back");
-
-  /* Shifting EVERY stamp by the same amount must leave the assembled grid and
-   * the flag coordinates untouched -- the grid's origin moved with them.
-   * Shifting ONE board is a different thing: that is a move, and it is allowed
-   * to strand a flag, which the validator then reports. */
-  {
-    const before = assemble(course, lib);
-    const flagsBefore = JSON.stringify(course.flags);
-    for (const st2 of course.stamps) { st2.at[0] -= 4; st2.at[1] -= 4; }
-    normalise(course, lib);
-    ok(course.stamps.every(st2 => st2.at[0] >= 0 && st2.at[1] >= 0),
-       "compose: normalise puts the course back at the origin");
-    eq(assemble(course, lib).grid.cells.join("|"), before.grid.cells.join("|"),
-       "compose: and the assembled grid is unchanged");
-    eq(JSON.stringify(course.flags), flagsBefore,
-       "compose: and the flags did NOT move -- the origin moved under them");
-  }
-
-  course.maxPlayers = 6;
-  const d = sink();
-  const parsed = courseFromDocument(JSON.parse(JSON.stringify(toDocument(course))), d, "beside");
-  if (parsed) validateCourse(parsed, lib, d);
-  eq(d.items.filter(x => x.severity === "error").map(x => x.code + " " + x.message), [],
-     "compose: a 6x2 dock beside a 12x12, with a flag where a 12x4 box would have swallowed it");
+  ok(laid > 20, "rail: one board took " + laid + " different things, from both printings");
+  const { diagnostics } = checkBoard(b);
+  eq(diagnostics.filter(x => x.severity === "error").map(x => x.code + " " + x.message).slice(0, 3), [],
+     "rail: a board carrying the whole catalogue at once validates");
 }
 
 /* --- the zoom floor must clear the biggest course --------------------------

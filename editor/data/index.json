@@ -7,7 +7,6 @@
       "name": "Exchange",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -16,7 +15,6 @@
       "name": "Island",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -25,7 +23,6 @@
       "name": "Maelstrom",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -34,7 +31,6 @@
       "name": "Board G",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "crashAndBurn",
       "origin": "transcribed"
     },
@@ -43,7 +39,6 @@
       "name": "Pit Maze",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -52,7 +47,6 @@
       "name": "Cross",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -61,7 +55,6 @@
       "name": "Board H",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "crashAndBurn",
       "origin": "transcribed"
     },
@@ -70,7 +63,6 @@
       "name": "Cannery Row",
       "w": 12,
       "h": 12,
-      "edition": "classic",
       "set": "base",
       "origin": "transcribed"
     },
@@ -79,7 +71,6 @@
       "name": "Energize",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -88,7 +79,6 @@
       "name": "Steps",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -97,7 +87,6 @@
       "name": "The Keep",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -106,7 +95,6 @@
       "name": "Tempest",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -115,7 +103,6 @@
       "name": "In & Out",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -124,7 +111,6 @@
       "name": "Cactus",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -133,7 +119,6 @@
       "name": "Misdirection",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -142,7 +127,6 @@
       "name": "The \"O\" Ring",
       "w": 12,
       "h": 12,
-      "edition": "modern",
       "set": "modernUnfiled",
       "origin": "transcribed"
     },
@@ -151,7 +135,6 @@
       "name": "Docking Bay",
       "w": 12,
       "h": 4,
-      "edition": "both",
       "set": "authored",
       "origin": "authored"
     }

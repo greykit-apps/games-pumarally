@@ -28,7 +28,7 @@ function rotateToken(tok) {
 export function rotateOnce(board) {
   const out = blankBoard({
     id: board.id, name: board.name, w: board.h, h: board.w,
-    edition: board.edition, set: board.set, origin: board.origin,
+    set: board.set, origin: board.origin,
     unverified: board.unverified, allowVoid: board.allowVoid, notes: board.notes
   });
 

@@ -28,9 +28,13 @@ export const BOARD_FORMAT = "PRBoard";
 export const BOARD_VERSION = 1;
 
 /** The complete set of top-level keys. Anything else is an error. */
+/* NO `edition`. A board is just a board -- it can carry batteries and wrenches
+ * at once, and which of them matter is the engine's business at play time under
+ * whichever ruleset is in force. `set` stays, because which box a board came
+ * out of is a fact about the board. */
 const BOARD_KEYS = new Set([
   "format", "version", "id", "name", "w", "h",
-  "edition", "set", "origin", "unverified", "allowVoid", "notes",
+  "set", "origin", "unverified", "allowVoid", "notes",
   "ground", "wall", "ceiling"
 ]);
 
@@ -187,7 +191,6 @@ export function blankBoard(meta = {}) {
     id: meta.id || "untitled",
     name: meta.name || "Untitled",
     w, h,
-    edition: meta.edition || "classic",
     set: meta.set || "authored",
     origin: meta.origin || "authored",
     unverified: !!meta.unverified,
@@ -271,7 +274,7 @@ export function boardFromDocument(doc, d, expectId) {
   if (typeof doc.name !== "string" || !doc.name) {
     d.error("doc.meta", "`name` must be a non-empty string.", null, "/name");
   }
-  for (const [k, ptr] of [["edition", "/edition"], ["set", "/set"], ["origin", "/origin"]]) {
+  for (const [k, ptr] of [["set", "/set"], ["origin", "/origin"]]) {
     if (typeof doc[k] !== "string") {
       d.error("doc.meta", "`" + k + "` must be a string.", null, ptr);
     } else board[k] = doc[k];

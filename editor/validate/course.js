@@ -15,12 +15,15 @@
 
 import {
   COURSE_FORMAT, COURSE_VERSION, ROLES, assemble, courseBounds, stampFootprint,
-  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, courseEdition
+  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner
 } from "../lib/course.js";
 import { checkBelts } from "./board.js";
 import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt } from "../lib/board.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
-import { rulesetFor } from "../rulesets/index.js";
+/* The classic rulebook's guideline on how far apart flags may be. Kept here
+ * rather than on a ruleset because the editor has no ruleset in force -- it
+ * reports the guideline and lets the designer decide. */
+const FLAG_GAP_GUIDE = 12;
 import { DC, DR, N, E, S, W } from "../lib/dir.js";
 import { REGISTERS } from "../lib/registers.js";
 
@@ -111,17 +114,6 @@ export function validateCourse(course, library, d) {
     }
   }
   if (course.stamps.some(s => !library.has(s.board))) return d;
-
-  /* editions */
-  const editions = new Set();
-  for (const s of course.stamps) {
-    const b = library.get(s.board);
-    if (b.edition !== "both") editions.add(b.edition);
-  }
-  if (editions.size > 1) {
-    d.error("course.mixedEditions", "This course lays " + [...editions].join(" and ") +
-      " boards together. The two games are not interchangeable and a course may not mix them.", null, "/stamps");
-  }
 
   /* overlap */
   const boxes = course.stamps.map(s => ({ s, f: stampFootprint(s, library.get(s.board)) }));
@@ -220,7 +212,6 @@ function checkFlags(course, library, grid, from, bounds, d) {
     d.error("course.noFlags", "A race needs at least one flag.", null, "/flags");
     return;
   }
-  const rules = rulesetFor(courseEdition(course, library)) || rulesetFor("classic");
   const box = dockBox(course, library, bounds);
   const seen = new Map();
   let prev = null;
@@ -240,11 +231,11 @@ function checkFlags(course, library, grid, from, bounds, d) {
 
     const def = elementAt(grid, c, r);
     if (!def || def.key !== "floor") {
-      const why = def && rules.flagForbids.some(pr => def.props[pr])
-        ? " A robot cannot stand still on " + def.name.toLowerCase() + "."
-        : "";
+      /* Structural, not ruleset-specific: a flag has to be somewhere a robot can
+       * come to rest, and plain floor is the only square that is true of under
+       * either set of rules. */
       d.error("course.flagNotFloor", "Flag " + n + " at " + at(c, r) + " is on " +
-        (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor." + why, at(c, r), ptr);
+        (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor.", at(c, r), ptr);
     }
     if (inBox(box, c, r)) {
       d.error("course.flagInDock", "Flag " + n + " at " + at(c, r) + " is inside the starting block.", at(c, r), ptr);
@@ -263,17 +254,22 @@ function checkFlags(course, library, grid, from, bounds, d) {
         JSON.stringify(local.boardId) + " (its own " + at(local.c, local.r) + " of " +
         local.w + "x" + local.h + ").", at(c, r), ptr);
     }
-    if (prev && rules.maxFlagGap !== null) {
-      /* CHEBYSHEV, not Manhattan. "Within Northrup's twelve" means within
-       * twelve in any direction -- a reach of one board's span -- not twelve
-       * steps of travel. Measured Manhattan it rejects eleven of the nineteen
-       * shipped courses, including every 2x2 and 1x3 track, which is how the
-       * distinction was found: the author placed those flags by this rule. */
+    /* A WARNING, and deliberately so. Northrup's twelve is a CLASSIC rulebook
+     * heuristic about race length; the modern books state no equivalent. This
+     * editor does not know which ruleset a course will be played under -- that
+     * is the engine's business -- so a guideline from one of them is advice,
+     * not a refusal.
+     *
+     * Chebyshev, not Manhattan: "within twelve" means twelve in any direction,
+     * a reach of one board's span, not twelve steps of travel. Measured
+     * Manhattan it flags eleven of the nineteen shipped courses, which is how
+     * the distinction was found -- the author placed those flags by this rule. */
+    if (prev && FLAG_GAP_GUIDE !== null) {
       const gap = Math.max(Math.abs(c - prev[0]), Math.abs(r - prev[1]));
-      if (gap > rules.maxFlagGap) {
-        d.error("course.flagGap", "Flag " + n + " at " + at(c, r) + " is " + gap +
-          " squares from flag " + (n - 1) + " in one direction, and the " + rules.name +
-          " rules put no more than " + rules.maxFlagGap + " between them.", at(c, r), ptr);
+      if (gap > FLAG_GAP_GUIDE) {
+        d.warn("course.flagGap", "Flag " + n + " at " + at(c, r) + " is " + gap +
+          " squares from flag " + (n - 1) + " in one direction. The classic rulebook keeps them " +
+          "within " + FLAG_GAP_GUIDE + "; the modern books say nothing either way.", at(c, r), ptr);
       }
     }
     prev = [c, r];

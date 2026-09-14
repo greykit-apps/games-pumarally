@@ -73,7 +73,7 @@ export function assemble(course, library) {
   const grid = blankBoard({
     id: course.id || "course", name: course.name || "Course",
     w: Math.max(bounds.w, 1), h: Math.max(bounds.h, 1),
-    edition: courseEdition(course, library), set: "authored", origin: "authored",
+    set: "authored", origin: "authored",
     allowVoid: true
   });
   grid.cells.fill("   ");
@@ -124,18 +124,6 @@ export function assemble(course, library) {
   });
 
   return { grid, from, bounds };
-}
-
-/** The edition every stamp agrees on, or null when they disagree. */
-export function courseEdition(course, library) {
-  let out = null;
-  for (const s of course.stamps) {
-    const b = library.get(s.board);
-    if (!b || b.edition === "both") continue;
-    if (out === null) out = b.edition;
-    else if (out !== b.edition) return null;
-  }
-  return out || "classic";
 }
 
 /**

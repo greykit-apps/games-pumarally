@@ -44,7 +44,6 @@ export const CODES = Object.freeze({
   /* --- ground legend ---------------------------------------------------- */
   "ground.unknownElement":"an element character that is not in the legend",
   "ground.badArgument":   "an element's argument character is wrong for its kind",
-  "ground.wrongEdition":  "an element this edition never printed",
   "ground.badArms":       "an arms character that is not one of . l r L R x X",
   "ground.armsOnNonBelt": "an arms character other than '.' on something that is not a belt",
   "ground.pairCount":     "a paired element's colour does not appear exactly twice",
@@ -71,7 +70,6 @@ export const CODES = Object.freeze({
   "device.noMount":       "a wall device on an edge with no wall behind it to mount on",
   "device.duplicatePusher":"two pushers standing in one square",
   "device.badField":      "a device field is missing, out of range, or not allowed for its kind",
-  "device.wrongEdition":  "a device this edition never printed",
   "device.unknownKey":    "a key the device schema does not define",
 
   /* --- lasers ----------------------------------------------------------- */
@@ -102,10 +100,13 @@ export const CODES = Object.freeze({
   "level.rampFoot":       "a ramp whose downhill square is not level with it",
   "level.unreachable":    "a level no ramp reaches",
 
-  /* --- provenance ------------------------------------------------------- */
-  "meta.unknownEdition":  "an edition that is not classic, modern or both",
+  /* --- provenance ---------------------------------------------------------
+   * There is no code for "an element this edition never printed", and there
+   * must not be. A board is just a board: it can carry batteries and wrenches
+   * at once, and which of them matter is decided at play time by the engine,
+   * under whichever ruleset is in force. Refusing here would be this editor
+   * taking a decision that is not its to take. */
   "meta.unknownSet":      "a set that is not in the set table",
-  "meta.setEdition":      "a set whose edition disagrees with the board's",
 
   /* --- library ---------------------------------------------------------- */
   "library.duplicateId":  "two boards with the same id",
@@ -123,7 +124,6 @@ export const CODES = Object.freeze({
   "course.badRole":       "a stamp role that is not board or dock",
   "course.overlap":       "two stamps covering the same square",
   "course.disconnected":  "the course is not one connected area",
-  "course.mixedEditions": "stamps from two editions in one course",
   "course.twoDocks":      "more than one docking bay",
   "course.noDock":        "a course with no docking bay",
   "course.bayNumbering":  "docking bays not numbered 1..n with no gaps",

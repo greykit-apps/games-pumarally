@@ -25,7 +25,7 @@ import { rotateBoard, rotateOnce, rotatedDims } from "../lib/rotate.js";
 import { boardJSON } from "../lib/canon.js";
 import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
-import { ELEMENTS, checkArg, elemOf, elementAllowed } from "../rulesets/elements.js";
+import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SETS, EDITIONS } from "../rulesets/sets.js";
 
@@ -70,13 +70,15 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
   ok(checkArg(elemOf("b"), "^") === null, "elements: a conveyor accepts an arrow");
   ok(checkArg(elemOf("."), "^") !== null, "elements: floor takes no argument");
   ok(checkArg(elemOf("s"), "9") !== null, "elements: there is no bay 9");
-  ok(!elementAllowed(elemOf("w"), "modern"), "elements: 2016 printed no repair sites");
-  ok(!elementAllowed(elemOf("E"), "both"), "elements: a modern-only element fails a both board");
-  ok(elementAllowed(elemOf("."), "both"), "elements: floor passes a both board");
-  // the two elements that share a name across editions must be separate entries
+  /* `printedIn` is PROVENANCE and nothing in the format may treat it as a
+   * constraint: a board is just a board, and which of its squares matter is the
+   * engine's business at play time. */
+  eq(elemOf("w").printedIn, ["classic"], "elements: a repair site records which printing prints it");
+  eq(typeof elemOf("w").editions, "undefined", "elements: and there is no `editions` field to gate on");
+  // the two elements that share a name across printings must be separate entries
   const oils = chars.filter(c => ELEMENTS[c].props.oil);
   const portals = chars.filter(c => ELEMENTS[c].props.portal);
-  eq(oils.length, 2, "elements: classic and modern oil are separate entries");
+  eq(oils.length, 2, "elements: classic and modern oil are separate entries -- different rules, not a variant");
   eq(portals.length, 2, "elements: classic and modern portals are separate entries");
 }
 
@@ -84,9 +86,10 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
 for (const [k, d] of Object.entries(DEVICE_KINDS)) {
   ok(d.layer === "wall" || d.layer === "ceiling", "devices: " + k + " names a layer");
   ok(!(d.layer === "ceiling" && d.faced), "devices: " + k + " -- no ceiling device has a face");
+  ok(Array.isArray(d.printedIn) && !d.editions, "devices: " + k + " records its printing as provenance");
 }
 for (const [id, s] of Object.entries(SETS)) {
-  ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real edition");
+  ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real printing");
 }
 
 /* --- token and arms -------------------------------------------------------- */
@@ -167,7 +170,7 @@ eq(rotatedDims(6, 4, 1), [4, 6], "rotate: an odd turn swaps the dimensions");
  * fixture has all of them. */
 {
   const meta = {
-    id: b.id, name: b.name, edition: b.edition, set: b.set,
+    id: b.id, name: b.name, set: b.set,
     origin: b.origin, unverified: b.unverified, notes: b.notes
   };
   const pic = toPicture(b);
@@ -252,6 +255,17 @@ eq(docksOf(b), [{ c: 0, r: 3, n: 1 }], "board: docks are derived from the s cell
 }
 
 /* --- the closed schema ------------------------------------------------------ */
+{
+  /* The schema is closed, so the key a board used to carry is now refused like
+   * any other stray -- which is what stops a stale file loading as if nothing
+   * had changed. */
+  const doc = JSON.parse(text1);
+  doc.edition = "classic";
+  const d = sink();
+  boardFromDocument(doc, d, "fixture");
+  ok(d.items.some(x => x.code === "doc.unknownKey"),
+     "schema: a board declaring an edition is refused -- a board is not for a game");
+}
 {
   const doc = JSON.parse(text1);
   doc.flags = [[1, 1]];

@@ -50,8 +50,14 @@ const REGS = [1, 2, 3, 4, 5];
  * editions. They are not the same element: classic oil stops a sliding robot at
  * the first robot it meets, modern oil pushes that robot and both slide on;
  * classic portals switch off while a robot stands on one, modern ones refuse
- * only when the destination is occupied. So the new legend has two of each, and
- * which one a square means is decided by the board's own edition.
+ * only when the destination is occupied. So the new legend has two of each.
+ *
+ * THE OLD BOARD'S DECLARED EDITION IS USED EXACTLY HERE, ONCE, to decide which
+ * of the two an old shared character meant -- and is then thrown away. A new
+ * board declares no edition: it is just a board, and which of its squares
+ * matter is the engine's business at play time. The edition was never a fact
+ * about the board; it was the only thing that could disambiguate this
+ * character, and once the characters are distinct it has no further job.
  *
  * This is not theoretical. `oRing` is a transcribed 2016 board with an oil
  * slick printed on it, and under the old legend it carried the classic rules. */
@@ -92,7 +98,7 @@ function convert(g, id, meta) {
   const edition = meta.edition;
   const board = blankBoard({
     id, name: meta.name, w: g.w, h: g.h,
-    edition, set: meta.set, origin: meta.origin || "transcribed",
+    set: meta.set, origin: meta.origin || "transcribed",
     unverified: !!meta.unverified, notes: meta.notes || ""
   });
 
@@ -267,7 +273,7 @@ function compare(id, g, board, q, meta) {
     }
   }
 
-  for (const key of ["name", "edition", "set", "origin"]) {
+  for (const key of ["name", "set", "origin"]) {
     if ((meta[key] || "") !== (board[key] || "")) note(id, q, key + " " + JSON.stringify(meta[key]) + " vs " + JSON.stringify(board[key]));
   }
   if (!!meta.unverified !== !!board.unverified) note(id, q, "unverified flag");
@@ -408,7 +414,7 @@ for (const id of courseIds) {
     format: "PRIndex", version: 1,
     boards: ids.map(id => {
       const b = converted[id];
-      return { id, name: b.name, w: b.w, h: b.h, edition: b.edition, set: b.set,
+      return { id, name: b.name, w: b.w, h: b.h, set: b.set,
                origin: b.origin, unverified: b.unverified || undefined };
     }),
     courses: Object.keys(B.COURSES).map(id => ({

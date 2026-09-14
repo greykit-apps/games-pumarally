@@ -21,6 +21,10 @@ export function newState(board) {
   return {
     board: board || blankBoard({ id: "untitled", name: "Untitled" }),
     mode: "art",
+    /* Which ruleset the inspector READS the board through. Not a property of
+     * the board -- the board's turn just runs in a different order under each
+     * set of rules, and this decides which order is shown. */
+    lens: "classic",
     hand: blankToolState(),
     hover: null,
     undo: [],
@@ -55,7 +59,7 @@ function same(a, b) {
   /* Metadata counts. Switching the edition changes which elements are legal and
    * which the rail offers, so it is exactly the kind of edit somebody wants
    * back -- and while this compared only the grid, Ctrl-Z could not reach it. */
-  for (const k of ["name", "id", "edition", "set", "origin", "notes"]) {
+  for (const k of ["name", "id", "set", "origin", "notes"]) {
     if ((a[k] || "") !== (b[k] || "")) return false;
   }
   if (!!a.unverified !== !!b.unverified) return false;

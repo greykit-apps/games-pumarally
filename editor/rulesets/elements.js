@@ -1,5 +1,12 @@
-/* The ground legend: every element either edition prints, as documented by the
+/* The ground legend: every element either printing prints, as documented by the
  * rulebook and expansion sheets photographed in `rules/` and `manual1/`.
+ *
+ * `printedIn` IS PROVENANCE, NOT A CONSTRAINT. It records which printing puts
+ * this element on a board, because that is worth knowing; it does not say a
+ * board may not carry it. A BOARD IS JUST A BOARD. It can have batteries and
+ * wrenches on it at once, and which of them matter is the engine's business at
+ * play time, under whichever ruleset the game is being played by. Nothing in
+ * this editor refuses an element for belonging to the other game.
  *
  * An element is asked about by its PROPERTIES, never by its character. A drain
  * and a deep pit and a plain pit are all `pit: true`, so a rule that asks "is
@@ -38,98 +45,98 @@ const MODERN = ["modern"];
 /**
  * char -> definition. `key` is the stable identifier used by diagnostics, the
  * renderer and the editor rail; the character may in principle be re-spelled,
- * the key may not.
+ * the key may not. `printedIn` is provenance -- see the note above.
  */
 export const ELEMENTS = {
-  ".": { key: "floor", name: "Floor", arg: ARG_NONE, editions: BOTH,
+  ".": { key: "floor", name: "Floor", arg: ARG_NONE, printedIn: BOTH,
          props: { floor: true },
          source: "Both rulebooks." },
 
-  "o": { key: "pit", name: "Pit", arg: ARG_NONE, editions: BOTH,
+  "o": { key: "pit", name: "Pit", arg: ARG_NONE, printedIn: BOTH,
          props: { pit: true },
          source: "Both rulebooks. Chaos and Carnage's deep pits are pits in every respect." },
 
-  "b": { key: "conveyor", name: "Conveyor", arg: ARG_DIR, editions: BOTH,
+  "b": { key: "conveyor", name: "Conveyor", arg: ARG_DIR, printedIn: BOTH,
          props: { belt: 1 },
          source: "Both rulebooks. One space; the ruleset decides when it runs." },
 
-  "B": { key: "expressConveyor", name: "Express conveyor", arg: ARG_DIR, editions: BOTH,
+  "B": { key: "expressConveyor", name: "Express conveyor", arg: ARG_DIR, printedIn: BOTH,
          props: { belt: 2 },
          source: "Both rulebooks. Two spaces; the modern double-arrow belt." },
 
-  "l": { key: "gearCCW", name: "Gear, anticlockwise", arg: ARG_NONE, editions: BOTH,
+  "l": { key: "gearCCW", name: "Gear, anticlockwise", arg: ARG_NONE, printedIn: BOTH,
          props: { gear: -1 },
          source: "Both rulebooks. The modern board Gear Box prints them." },
 
-  "r": { key: "gearCW", name: "Gear, clockwise", arg: ARG_NONE, editions: BOTH,
+  "r": { key: "gearCW", name: "Gear, clockwise", arg: ARG_NONE, printedIn: BOTH,
          props: { gear: 1 },
          source: "Both rulebooks." },
 
-  "s": { key: "dockingBay", name: "Docking bay", arg: ARG_DIGIT, editions: BOTH,
+  "s": { key: "dockingBay", name: "Docking bay", arg: ARG_DIGIT, printedIn: BOTH,
          props: { dock: true },
          source: "Both games ship a docking bay board." },
 
   /* --- Classic only ------------------------------------------------------ */
 
-  "w": { key: "repairSite", name: "Repair site", arg: ARG_NONE, editions: CLASSIC,
+  "w": { key: "repairSite", name: "Repair site", arg: ARG_NONE, printedIn: CLASSIC,
          props: { repair: 1 },
          source: "Classic pp.28-29. Removed from the boards entirely in 2016." },
 
-  "W": { key: "upgradeSite", name: "Upgrade site", arg: ARG_NONE, editions: CLASSIC,
+  "W": { key: "upgradeSite", name: "Upgrade site", arg: ARG_NONE, printedIn: CLASSIC,
          props: { repair: 2, option: true },
          source: "Classic p.36: two wrenches, repair 2 or take an option card." },
 
-  "L": { key: "oilClassic", name: "Oil slick", arg: ARG_NONE, editions: CLASSIC,
+  "L": { key: "oilClassic", name: "Oil slick", arg: ARG_NONE, printedIn: CLASSIC,
          props: { oil: "classic" },
          source: "Crash and Burn (AMIGO Spielanleitung). Slides on; stops at a robot." },
 
-  "t": { key: "portalClassic", name: "Portal", arg: ARG_PAIR, editions: CLASSIC,
+  "t": { key: "portalClassic", name: "Portal", arg: ARG_PAIR, printedIn: CLASSIC,
          props: { portal: "classic" },
          source: "Crash and Burn. Switches off while a robot stands on one." },
 
   /* --- Modern only ------------------------------------------------------- */
 
-  "E": { key: "energySpace", name: "Energy space", arg: ARG_NONE, editions: MODERN,
+  "E": { key: "energySpace", name: "Energy space", arg: ARG_NONE, printedIn: MODERN,
          props: { energy: 1 },
          source: "Modern Game Guide. Take an energy cube for ending a register on it." },
 
-  "~": { key: "water", name: "Water", arg: ARG_NONE, editions: MODERN,
+  "~": { key: "water", name: "Water", arg: ARG_NONE, printedIn: MODERN,
          props: { water: true },
          source: "Wet and Wild. Leaving costs a space of movement, once per Move card." },
 
-  "D": { key: "drain", name: "Drain", arg: ARG_NONE, editions: MODERN,
+  "D": { key: "drain", name: "Drain", arg: ARG_NONE, printedIn: MODERN,
          props: { pit: true, water: true },
          source: "Wet and Wild. A pit that sits in water, and a pit in every respect." },
 
-  "R": { key: "ramp", name: "Ramp", arg: ARG_DIR, editions: MODERN,
+  "R": { key: "ramp", name: "Ramp", arg: ARG_DIR, printedIn: MODERN,
          props: { ramp: true },
          source: "Wet and Wild. The only way between levels; the arrow points uphill." },
 
-  "C": { key: "current", name: "Current", arg: ARG_DIR, editions: MODERN,
+  "C": { key: "current", name: "Current", arg: ARG_DIR, printedIn: MODERN,
          props: { belt: 1, water: true, current: true },
          source: "Wet and Wild. A belt running through water; also a water space." },
 
-  "z": { key: "randomizer", name: "Randomizer", arg: ARG_NONE, editions: MODERN,
+  "z": { key: "randomizer", name: "Randomizer", arg: ARG_NONE, printedIn: MODERN,
          props: { randomize: true },
          source: "Chaos and Carnage. Replaces the register with the top card of your deck." },
 
-  "T": { key: "teleporter", name: "Teleporter", arg: ARG_PAIR, editions: MODERN,
+  "T": { key: "teleporter", name: "Teleporter", arg: ARG_PAIR, printedIn: MODERN,
          props: { teleport: true },
          source: "Chaos and Carnage. Adds two forward to a revealed Move card." },
 
-  "P": { key: "portalModern", name: "Portal", arg: ARG_PAIR, editions: MODERN,
+  "P": { key: "portalModern", name: "Portal", arg: ARG_PAIR, printedIn: MODERN,
          props: { portal: "modern" },
          source: "Thrills and Spills. Keeps your facing and does not consume movement." },
 
-  "%": { key: "oilModern", name: "Oil slick", arg: ARG_NONE, editions: MODERN,
+  "%": { key: "oilModern", name: "Oil slick", arg: ARG_NONE, printedIn: MODERN,
          props: { oil: "modern" },
          source: "Thrills and Spills. Pushes a robot it meets, and both slide on." },
 
-  "A": { key: "priorityAntenna", name: "Priority antenna", arg: ARG_NONE, editions: MODERN,
+  "A": { key: "priorityAntenna", name: "Priority antenna", arg: ARG_NONE, printedIn: MODERN,
          props: { antenna: true },
          source: "Modern Game Guide box contents. The variant printing uses a token instead." },
 
-  "@": { key: "rebootToken", name: "Reboot token", arg: ARG_DIR, editions: MODERN,
+  "@": { key: "rebootToken", name: "Reboot token", arg: ARG_DIR, printedIn: MODERN,
          props: { reboot: true },
          source: "Modern rulebook. One per board; the arrow shoves an obstructing robot." }
 };
@@ -150,12 +157,6 @@ export function elemOf(ch) {
 /** Every character in the legend, in declaration order. */
 export function elementChars() {
   return Object.keys(ELEMENTS);
-}
-
-/** Is this element legal on a board of this edition? */
-export function elementAllowed(def, edition) {
-  if (edition === "both") return def.editions.length === 2;
-  return def.editions.indexOf(edition) >= 0;
 }
 
 /**

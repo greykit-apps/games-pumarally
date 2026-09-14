@@ -28,7 +28,7 @@ thing the square, or is it standing on the square?**
 {
   "format": "PRBoard", "version": 1,
   "id": "provingCorner", "name": "Proving Corner", "w": 4, "h": 4,
-  "edition": "classic", "set": "authored", "origin": "authored",
+  "set": "authored", "origin": "authored",
   "ground": {
     "rows": [
       "... b>. bvr ...",
@@ -52,6 +52,12 @@ thing the square, or is it standing on the square?**
 **The schema is closed.** An unknown key is an error, not something ignored —
 which is what catches a `flags` array written into a board. Flags are placed by
 the *course*, exactly as in the box, which is what lets one board serve many.
+
+**A board does not declare an edition, and must not.** A board is just a board.
+It can carry a wrench and a battery at once, and deciding which of its squares
+matter is the *engine's* business at play time, under whichever ruleset the game
+is being played by. `set` stays, because which box a board came out of is a fact
+about the board; which game it is "for" is not, because it isn't for one.
 
 ### The ground token: three characters
 
@@ -170,7 +176,9 @@ printed for, a course may not mix them, and the validator refuses an element tha
 edition never printed — a repair site on a 2016 board is a transcription error,
 not a variant.
 
-**Where a name means two different elements, there are two entries.** Classic oil
+**Where a name means two different elements, there are two entries** — and this
+survives, because it is about the *rules*, not about which board may carry them.
+Classic oil
 stops a sliding robot at the first robot it meets; modern oil pushes that robot
 and both slide on. Classic portals switch off while a robot stands on one; modern
 portals refuse only when the destination is occupied. Same word, different
@@ -211,16 +219,26 @@ export.
 
 ## What the validator refuses
 
-84 diagnostic codes, grouped: document shape, layer shape, ground legend, ground
+79 diagnostic codes, grouped: document shape, layer shape, ground legend, ground
 geometry, the wall lattice, wall devices, lasers, flame jets, registers, ceiling,
 elevation, provenance, library, course.
+
+**Nothing in that list is ruleset-specific**, and that is a rule about what
+belongs here. There is no code for "an element this edition never printed",
+because whether a board suits a given game is not this editor's question. The one
+guideline that *is* ruleset-specific — the classic rulebook keeping flags within
+twelve of each other — is a **warning**, worded to say which book it comes from
+and that the other says nothing either way.
 
 **Every one of them has a negative test that provokes it, and the self-test
 asserts that the set of codes it provokes equals the code table** — so adding a
 check without a test for it fails CI rather than quietly reading as coverage.
 
-Three checks were removed before they were ever written, rather than left
-implying coverage they could not have: a runaway laser beam (a beam leaves a
+Five checks were removed rather than left implying coverage they could not have.
+Two of them because a board has no edition to be wrong about (`ground.wrongEdition`,
+`device.wrongEdition`), one because a set cannot disagree with an edition that
+does not exist (`meta.setEdition`), one because a course cannot mix editions when
+nothing has one (`course.mixedEditions`), and three that could never fire: a runaway laser beam (a beam leaves a
 rectangular board within `max(w,h)` steps), a beam that lights no square (the
 path always contains the square the laser stands in), and "an element spanning a
 level change" (an element occupies one square and cannot span an edge).

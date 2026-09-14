@@ -5,7 +5,6 @@
   "name": "In & Out",
   "w": 12,
   "h": 12,
-  "edition": "modern",
   "set": "modernUnfiled",
   "origin": "transcribed",
   "notes": "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",

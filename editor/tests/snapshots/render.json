@@ -169,24 +169,14 @@
       "bytes": 37324
     }
   },
-  "provingGroundClassic": {
+  "provingGround": {
     "art": {
-      "sha": "6b7477db665b337f",
-      "bytes": 53063
+      "sha": "ab84425683d6f1ee",
+      "bytes": 56824
     },
     "markup": {
-      "sha": "b42bef9615f271af",
-      "bytes": 15140
-    }
-  },
-  "provingGroundModern": {
-    "art": {
-      "sha": "c603fd51b73575d5",
-      "bytes": 54847
-    },
-    "markup": {
-      "sha": "182ef461c8f70f5e",
-      "bytes": 20060
+      "sha": "2bc40974676bdeb3",
+      "bytes": 25535
     }
   }
 }

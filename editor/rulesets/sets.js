@@ -1,8 +1,13 @@
 /* Editions, and the boxes a board can have come out of.
  *
- * A set belongs to exactly ONE edition, and a board whose set disagrees with
- * its own edition is a transcription error rather than a variant: there is no
- * Armed and Dangerous board in the 2016 game. The validator says so.
+ * BOTH ARE PROVENANCE. A board records which box it came out of because that is
+ * a fact about the board; it does not record which game it is "for", because a
+ * board is not for a game. Which elements matter is decided at play time by the
+ * ruleset in force, not here.
+ *
+ * EDITIONS is still real -- it names the two rulesets an engine can play under,
+ * and the editor uses it as a LENS (see rulesets/index.js) to say what a robot
+ * standing on a square would meet and in what order. A lens is not a filter.
  */
 
 export const EDITIONS = {

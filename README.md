@@ -358,6 +358,9 @@ The short version:
 
 - a board is **ground / wall / ceiling**, because "is this the square, or is it
   standing on the square" is the question the old format kept re-answering
+- **a board declares no edition.** It can carry a wrench and a battery at once;
+  which of its squares matter is the engine's business at play time, under
+  whichever ruleset is in force. A ruleset is a lens, not a filter
 - a conveyor's printed shape travels **in its own cell**, relative to its exit,
   so rotation cannot mangle it and course assembly cannot drop it
 - elevation is first class: levels, derived ledges, and ramps

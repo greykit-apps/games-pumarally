@@ -111,6 +111,7 @@ export async function mountCourse(root, wanted) {
   const st = {
     course: newCourse("untitled"),
     mode: "art",
+    lens: "classic",
     hand: null,          // a board id waiting to be placed
     handRot: 0,
     sel: -1,             // a placed stamp

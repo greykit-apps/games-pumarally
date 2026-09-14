@@ -25,7 +25,7 @@ import { boardJSON } from "../lib/canon.js";
 import { toPicture, fromPicture } from "../lib/picture.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
-import { playableEditions } from "../rulesets/index.js";
+import { printingsOn } from "../rulesets/index.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -77,7 +77,7 @@ for (const file of files) {
    * too, and through the canonical writer so the comparison is byte-exact. */
   try {
     const back = fromPicture(toPicture(board), {
-      id: board.id, name: board.name, edition: board.edition, set: board.set,
+      id: board.id, name: board.name, set: board.set,
       origin: board.origin, unverified: board.unverified, notes: board.notes
     });
     const rewritten = boardJSON(back);
@@ -147,12 +147,14 @@ if (unusedD.length) {
   console.log("note: no shipped board uses " + unusedD.length + " device kind(s): " + unusedD.join(", "));
 }
 
-const byEdition = {};
+/* Provenance, printed as a note and never as a verdict: a board carrying
+ * elements from both printings is perfectly ordinary. */
+const byPrinting = {};
 for (const e of entries) {
-  const plays = playableEditions(e.board).join("+") || "neither";
-  byEdition[plays] = (byEdition[plays] || 0) + 1;
+  const from = printingsOn(e.board).join("+") || "either";
+  byPrinting[from] = (byPrinting[from] || 0) + 1;
 }
-console.log("note: playable as -- " + Object.entries(byEdition).map(([k, v]) => k + ": " + v).join(", "));
+console.log("note: elements printed in -- " + Object.entries(byPrinting).map(([k, v]) => k + ": " + v).join(", "));
 
 if (errors) {
   console.error("check-format: " + errors + " error(s)");

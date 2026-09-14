@@ -17,8 +17,6 @@ import { sink } from "../validate/diagnostic.js";
 import { rot, N, E, S, W, dirLetter } from "../lib/dir.js";
 import { esc } from "../render/theme.js";
 import { ELEMENTS } from "../rulesets/elements.js";
-import { SETS } from "../rulesets/sets.js";
-import { editionBlocker } from "../rulesets/index.js";
 
 const SHELL = `
 <div class="ed">
@@ -227,7 +225,7 @@ export function mount(root) {
       return;
     }
     /* any other letter picks up the tool that prints it */
-    const tools = toolsFor(st.board.edition, false).filter(t => t.hot === k);
+    const tools = toolsFor(false).filter(t => t.hot === k);
     if (tools.length) {
       const i = tools.findIndex(t => t.key === st.hand.tool);
       st.hand.tool = tools[(i + 1) % tools.length].key;
@@ -264,7 +262,7 @@ export function mount(root) {
       if (d.damage !== undefined) { st.hand.damage = +d.damage; refresh({ board: false }); return; }
       if (d.reach !== undefined) { st.hand.reach = +d.reach; refresh({ board: false }); return; }
       if (d.reg !== undefined) { toggleReg(+d.reg); return; }
-      if (d.edition !== undefined) { setEdition(d.edition); return; }
+      if (d.lens !== undefined) { st.lens = d.lens; refresh({ board: false }); return; }
       if (d.metaToggle !== undefined) {
         const token = mark(st);
         st.board[d.metaToggle] = !st.board[d.metaToggle];
@@ -277,32 +275,6 @@ export function mount(root) {
     const li = ev.target.closest("li[data-goto]");
     if (li) goTo(li.dataset.goto);
   });
-
-  /* Switching which game the board was printed for. It is allowed even when it
-   * orphans elements -- the inspector says how many squares before you click,
-   * the validator names each one afterwards, and Ctrl-Z takes it back. Refusing
-   * would mean a board could never be re-editioned at all, and the alternative
-   * of silently deleting the offending squares is worse than either. */
-  function setEdition(edition) {
-    if (st.board.edition === edition) return;
-    const token = mark(st);
-    st.board.edition = edition;
-    let note = "";
-    const set = SETS[st.board.set];
-    if (set && set.edition !== "both" && set.edition !== edition) {
-      st.board.set = "authored";
-      note = " Its box said " + set.name + ", which belongs to the other game, so the box is now Authored.";
-    }
-    keep(st, token);
-    /* the hand may be holding something this edition never printed */
-    if (!toolsFor(edition, false).some(t => t.key === st.hand.tool)) st.hand.tool = "select";
-    refresh();
-    const blocker = editionBlocker(st.board, edition);
-    say(blocker
-      ? "Now a " + edition + " board. " + blocker.what + " at " + blocker.where +
-        " is not something that game printed." + note
-      : "Now a " + edition + " board." + note, blocker ? "bad" : "ok");
-  }
 
   function toggleReg(n) {
     const t = toolByKey(st.hand.tool);

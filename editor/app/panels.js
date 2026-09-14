@@ -5,14 +5,14 @@
  * time this project had one, and read perfectly plausibly while being wrong.
  */
 
-import { TOOLS, GROUPS, toolsFor, toolByKey, describe, EDITION_CHOICES } from "./tools.js";
+import { TOOLS, GROUPS, toolsFor, toolByKey, describe } from "./tools.js";
 import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
 import { ELEMENTS, ARG_DIR, ARG_DIGIT, ARG_PAIR } from "../rulesets/elements.js";
 import { DEVICE_KINDS, REGS_NONE } from "../rulesets/devices.js";
 import { ARM_CHARS, ARM_NAMES, ARM_CODES } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
-import { rulesetFor, playableEditions, editionBlocker } from "../rulesets/index.js";
+import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
 import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
 import { esc } from "../render/theme.js";
 
@@ -45,7 +45,7 @@ function toolSwatch(tool) {
 }
 
 export function renderRail(el, st, isCourse) {
-  const tools = toolsFor(st.board.edition, isCourse);
+  const tools = toolsFor(isCourse);
   let html = "";
   for (const group of GROUPS) {
     const list = tools.filter(t => t.group === group);
@@ -55,7 +55,10 @@ export function renderRail(el, st, isCourse) {
       html += '<button class="tool" data-tool="' + esc(t.key) + '" aria-pressed="' +
         (st.hand.tool === t.key) + '" title="' + esc(t.label) + '">' +
         toolSwatch(t) + "<span>" + esc(t.label) + "</span>" +
-        (t.hot ? '<span class="hot">' + esc(t.hot.toUpperCase()) + "</span>" : "") + "</button>";
+        (t.printedIn && t.printedIn.length === 1
+          ? '<span class="hot" title="printed in the ' + esc(EDITIONS[t.printedIn[0]].name) +
+            ' game">' + esc(EDITIONS[t.printedIn[0]].name.charAt(0)) + "</span>"
+          : t.hot ? '<span class="hot">' + esc(t.hot.toUpperCase()) + "</span>" : "") + "</button>";
     }
   }
   el.innerHTML = html;
@@ -63,7 +66,8 @@ export function renderRail(el, st, isCourse) {
 
 export function renderInspector(el, st, hover, isCourse) {
   const tool = toolByKey(st.hand.tool);
-  const rules = rulesetFor(st.board.edition);
+  const rules = rulesetFor(st.lens);
+
   let html = "<h3>Board</h3>";
   html += '<div class="row"><label>Name</label><input type="text" data-meta="name" value="' +
     esc(st.board.name) + '"></div>';
@@ -71,36 +75,9 @@ export function renderInspector(el, st, hover, isCourse) {
     esc(st.board.id) + '"></div>';
   html += '<div class="row"><label>Size</label><span class="pill">' + st.board.w + " x " + st.board.h +
     "</span></div>";
-
-  /* WHICH GAME THIS BOARD WAS PRINTED FOR, and it has to be changeable here.
-   * The rail offers only what the declared edition printed, and a new board
-   * starts classic -- so while this was a read-only pill, nine elements
-   * (water, drains, ramps, currents, energy, randomizers, teleporters, the
-   * antenna and the reboot token) could not be reached at all, and elevation
-   * along with them, since a ramp is modern-only. */
-  html += '<div class="row"><label>Edition</label>' +
-    EDITION_CHOICES.map(k =>
-      '<button data-edition="' + k + '" aria-pressed="' + (st.board.edition === k) + '" title="' +
-      (EDITIONS[k] ? esc(EDITIONS[k].years) : "every element legal in both games") + '">' +
-      esc(EDITIONS[k] ? EDITIONS[k].name : "Both") + "</button>").join("") + "</div>";
-
-  /* What switching would cost, counted before it is clicked rather than
-   * discovered as a screen of diagnostics afterwards. */
-  for (const k of EDITION_CHOICES) {
-    if (k === st.board.edition) continue;
-    const n = countIllegal(st.board, k);
-    if (n) {
-      html += '<div class="row"><span class="none">' + esc(EDITIONS[k] ? EDITIONS[k].name : "Both") +
-        ": " + n + " square" + (n === 1 ? "" : "s") + " would be illegal.</span></div>";
-    }
-  }
-
-  const sets = Object.keys(SETS).filter(id => SETS[id].edition === "both" || SETS[id].edition === st.board.edition);
-  if (!sets.includes(st.board.set)) sets.unshift(st.board.set);
   html += '<div class="row"><label>Box</label><select data-meta="set">' +
-    sets.map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
-      esc(SETS[id] ? SETS[id].name + " \u2014 " + SETS[id].box : id + " (not a known box)") +
-      "</option>").join("") + "</select></div>";
+    Object.keys(SETS).map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
+      esc(SETS[id].name + " \u2014 " + SETS[id].box) + "</option>").join("") + "</select></div>";
   html += '<div class="row"><label>Origin</label><select data-meta="origin">' +
     ORIGINS.map(o => '<option value="' + o + '"' + (o === st.board.origin ? " selected" : "") + ">" + o + "</option>").join("") +
     "</select>" +
@@ -108,6 +85,29 @@ export function renderInspector(el, st, hover, isCourse) {
     '" title="Keeps the board out of course assembly until it has been checked square by square">unverified</button></div>';
   html += '<div class="row"><label>Notes</label><input type="text" data-meta="notes" value="' +
     esc(st.board.notes || "") + '" placeholder="where this came from"></div>';
+
+  /* WHICH PRINTINGS THE CONTENTS COME FROM -- provenance, never a verdict. A
+   * board carrying both is perfectly ordinary and is what a mixed course is
+   * made of; the engine decides at play time which squares matter under the
+   * ruleset in force. This line exists so a transcriber notices a square that
+   * came out of a different box from the rest, which is usually worth a second
+   * look at the photograph. */
+  const printings = printingsOn(st.board);
+  if (printings.length) {
+    html += '<div class="row"><span class="none">Carries elements printed in ' +
+      printings.map(e => esc(EDITIONS[e].name)).join(" and ") +
+      (printings.length > 1
+        ? " \u2014 fine; the engine sorts that out at play time."
+        : "") + "</span></div>";
+  }
+
+  /* THE READING LENS. Not a property of the board: the board's turn runs in a
+   * different order under each set of rules, so the editor lets you look
+   * through either. It changes what the panel below says and nothing else. */
+  html += '<div class="row"><label>Read as</label>' +
+    rulesetIds().map(id => '<button data-lens="' + id + '" aria-pressed="' + (st.lens === id) +
+      '" title="' + esc(EDITIONS[id].years) + '">' + esc(EDITIONS[id].name) + "</button>").join("") +
+    "</div>";
 
   html += "<h3>In hand</h3>";
   if (!tool) html += '<p class="none">Nothing.</p>';
@@ -172,6 +172,12 @@ export function renderInspector(el, st, hover, isCourse) {
     html += '<dl class="kv">';
     html += "<dt>Square</dt><dd>(" + d.c + "," + d.r + ")</dd>";
     html += "<dt>Ground</dt><dd>" + esc(d.element) + (d.dir ? " " + esc(d.dir) : "") + "</dd>";
+    if (d.key) {
+      const edef = Object.values(ELEMENTS).find(x => x.key === d.key);
+      if (edef && edef.printedIn.length === 1) {
+        html += "<dt>Printed in</dt><dd>" + esc(EDITIONS[edef.printedIn[0]].name) + "</dd>";
+      }
+    }
     if (d.arms) html += "<dt>Shape</dt><dd>" + esc(d.arms) + "</dd>";
     if (d.level) html += "<dt>Level</dt><dd>" + d.level + "</dd>";
     if (d.walls.length) html += "<dt>Walls</dt><dd>" + d.walls.join(" ") + "</dd>";
@@ -191,30 +197,13 @@ export function renderInspector(el, st, hover, isCourse) {
      * ruleset's own order table rather than written out again. */
     const steps = orderFor(st.board, rules, d);
     if (steps.length) {
-      html += "<h3>At the end of a register</h3><ol class='diag'>";
+      html += "<h3>At the end of a register, read as " + esc(EDITIONS[st.lens].name) +
+        "</h3><ol class='diag'>";
       for (const s of steps) html += "<li style='border-left-color:var(--hot);background:#0d1822;cursor:default'>" + esc(s) + "</li>";
       html += "</ol>";
     }
   }
   el.innerHTML = html;
-}
-
-/** How many squares carry something the given edition never printed. */
-function countIllegal(board, edition) {
-  let n = 0;
-  for (const tok of board.cells) {
-    const def = ELEMENTS[tok.charAt(0)];
-    if (!def) continue;
-    const okHere = edition === "both" ? def.editions.length === 2 : def.editions.indexOf(edition) >= 0;
-    if (!okHere) n++;
-  }
-  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) {
-    const def = DEVICE_KINDS[dev.kind];
-    if (!def) continue;
-    const okHere = edition === "both" ? def.editions.length === 2 : def.editions.indexOf(edition) >= 0;
-    if (!okHere) n++;
-  }
-  return n;
 }
 
 /** The board's turn, filtered to what this square actually carries. */

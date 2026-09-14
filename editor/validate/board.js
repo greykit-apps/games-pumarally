@@ -11,8 +11,8 @@
  * check with no test behind it fails CI rather than quietly reading as coverage.
  */
 
-import { ELEMENTS, checkArg, elementAllowed, ARG_PAIR } from "../rulesets/elements.js";
-import { DEVICE_KINDS, REGS_NONE, REGS_OPTIONAL, REGS_REQUIRED, deviceAllowed } from "../rulesets/devices.js";
+import { ELEMENTS, checkArg, ARG_PAIR } from "../rulesets/elements.js";
+import { DEVICE_KINDS, REGS_NONE, REGS_OPTIONAL, REGS_REQUIRED } from "../rulesets/devices.js";
 import { SETS, EDITIONS } from "../rulesets/sets.js";
 import { ARM_CODES, isVoidToken, readToken, tokenBeltSpeed } from "../lib/token.js";
 import {
@@ -77,19 +77,11 @@ function checkRegs(d, regs, mode, what, ptr) {
   }
 }
 
+/* Provenance only. There is nothing here about which game the board is "for",
+ * because a board is not for a game. */
 function checkMeta(board, d) {
-  if (board.edition !== "both" && !EDITIONS[board.edition]) {
-    d.error("meta.unknownEdition", "Edition " + JSON.stringify(board.edition) +
-      " is not one this build knows.", null, "/edition");
-  }
-  const set = SETS[board.set];
-  if (!set) {
+  if (!SETS[board.set]) {
     d.error("meta.unknownSet", "Set " + JSON.stringify(board.set) + " is not in the set table.", null, "/set");
-  } else if (set.edition !== "both" && set.edition !== board.edition) {
-    d.error("meta.setEdition", "This board declares edition " + JSON.stringify(board.edition) +
-      " but its set " + JSON.stringify(board.set) + " belongs to " + JSON.stringify(set.edition) +
-      ". There is no " + set.name + " board in the other game -- this is a transcription error, not a variant.",
-      null, "/set");
   }
 }
 
@@ -117,11 +109,6 @@ function checkGround(board, d) {
       const argBad = checkArg(def, t.arg);
       if (argBad) {
         d.error("ground.badArgument", def.name + " at " + at(c, r) + " " + argBad + ".", at(c, r), ptr);
-      }
-      if (!elementAllowed(def, board.edition)) {
-        d.error("ground.wrongEdition", def.name + " at " + at(c, r) + " is not something the " +
-          (EDITIONS[board.edition] ? EDITIONS[board.edition].name : board.edition) +
-          " edition printed.", at(c, r), ptr);
       }
       if (!ARM_CODES[t.arms]) {
         d.error("ground.badArms", "Arms character " + JSON.stringify(t.arms) + " at " + at(c, r) +
@@ -245,10 +232,6 @@ function checkWallDevices(board, d) {
         board.w + "x" + board.h + " board.", null, ptr);
       continue;
     }
-    if (!deviceAllowed(def, board.edition)) {
-      d.error("device.wrongEdition", label + " is not something the " + board.edition +
-        " edition printed.", null, ptr);
-    }
     checkRegs(d, dev.regs, def.regs, label, ptr);
 
     /* fields */
@@ -367,10 +350,6 @@ function checkCeiling(board, d) {
       d.error("ceiling.offBoard", def.name + " at " + at(dev.c, dev.r) + " is off a " +
         board.w + "x" + board.h + " board.", at(dev.c, dev.r), ptr);
       continue;
-    }
-    if (!deviceAllowed(def, board.edition)) {
-      d.error("device.wrongEdition", def.name + " is not something the " + board.edition +
-        " edition printed.", at(dev.c, dev.r), ptr);
     }
     checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr);
     if (propAt(board, dev.c, dev.r, "pit")) {

@@ -124,7 +124,6 @@ export function stringifyBoard(board) {
   put('  "name": ' + q(board.name) + ",", "/name");
   put('  "w": ' + board.w + ",", "/w");
   put('  "h": ' + board.h + ",", "/h");
-  put('  "edition": ' + q(board.edition) + ",", "/edition");
   put('  "set": ' + q(board.set) + ",", "/set");
   put('  "origin": ' + q(board.origin) + ",", "/origin");
   if (board.unverified) put('  "unverified": true,', "/unverified");

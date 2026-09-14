@@ -35,42 +35,37 @@ export const TOOLS = [
 
   ...Object.entries(ELEMENTS).map(([ch, def]) => ({
     key: "el:" + def.key, label: def.name, kind: "ground", element: ch,
-    group: "Floor", arg: def.arg, editions: def.editions
+    group: "Floor", arg: def.arg, printedIn: def.printedIn
   })),
   { key: "level", label: "Level", kind: "level", group: "Floor" },
 
   { key: "wall", label: "Wall", kind: "wall", hot: "b", group: "Walls" },
   ...WALL_KINDS.map(k => ({
     key: "dev:" + k, label: DEVICE_KINDS[k].name, kind: "device", device: k,
-    group: "Walls", editions: DEVICE_KINDS[k].editions
+    group: "Walls", printedIn: DEVICE_KINDS[k].printedIn
   })),
   ...CEILING_KINDS.map(k => ({
     key: "dev:" + k, label: DEVICE_KINDS[k].name, kind: "ceiling", device: k,
-    group: "Ceiling", editions: DEVICE_KINDS[k].editions
+    group: "Ceiling", printedIn: DEVICE_KINDS[k].printedIn
   }))
 ];
 
 export const GROUPS = ["Hand", "Floor", "Walls", "Ceiling"];
 
-/* The editions the inspector lets you pick between. The rail offers only what
- * the declared edition printed, so anything NOT reachable from one of these is
- * in the format and undrawable -- which is what happened when edition was a
- * read-only pill and a new board started classic: nine elements and the whole
- * of elevation had no route to the board at all. check-app.js asserts the
- * cover, so adding an element with a new edition cannot repeat it. */
-export const EDITION_CHOICES = ["classic", "modern", "both"];
+/* THE RAIL OFFERS EVERYTHING. It used to filter by a board's declared edition,
+ * and a board started classic -- so nine elements and the whole of elevation
+ * had no route to a square at all. The answer is not a better filter: a board
+ * is just a board, and which of its squares matter is decided at play time by
+ * the engine under whichever ruleset is in force. check-app.js asserts that
+ * every element and every device in the registries is on the rail. */
 
 export function toolByKey(key) {
   return TOOLS.find(t => t.key === key);
 }
 
-/** The tools offered for a board of this edition, in a course or not. */
-export function toolsFor(edition, isCourse) {
-  return TOOLS.filter(t => {
-    if (t.courseOnly && !isCourse) return false;
-    if (!t.editions) return true;
-    return edition === "both" ? t.editions.length === 2 : t.editions.indexOf(edition) >= 0;
-  });
+/** The tools offered. The only thing hidden is the flag tool outside a course. */
+export function toolsFor(isCourse) {
+  return TOOLS.filter(t => !t.courseOnly || isCourse);
 }
 
 /** Fresh tool state. `dir`, `regs` and the rest are what the hand is holding. */
