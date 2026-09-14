@@ -120,6 +120,36 @@ for (const id of Object.keys(PR.B.COURSES)) {
   }
 }
 
+// THE 2016 GAME, PLAYED. The rule tests set each piece of it up on a bench;
+// only a game played to a winner exercises damage cards travelling out of the
+// stack of forty, into a robot's deck, back into its hand, and home again --
+// with the conservation laws armed the whole way. Two bugs came out of the
+// first run of this that no bench test had thought to ask about: the deal
+// overwriting the SPAM a robot was still holding, and a robot shutting down
+// dropping its hand on the floor. Both are unit-tested now; this is what
+// found them.
+const modern = PR.runSim(Math.max(40, games / 4), { ruleset: "modern" }, 900);
+const modernWins = Object.values(modern.wins).reduce((a, b) => a + b, 0);
+console.log(`sim (2016 rules): ${modern.games} games, avg ${modern.turns.avg} turns, ` +
+  `${modernWins} decided, ${modern.unfinished} unfinished, ${modern.crashes.length} crashes, ` +
+  `${modern.spamDealt} SPAM dealt`);
+for (const c of modern.crashes.slice(0, 5)) {
+  console.error(`  error:   [2016] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
+  failed++;
+}
+if (modern.crashes.length > 5) { console.error(`  error:   ...and ${modern.crashes.length - 5} more`); }
+if (!modernWins) { console.error("  error:   no 2016 game was ever won"); failed++; }
+// A 2016 run in which nobody was ever shot would pass every line above and
+// touch none of the damage system, which is the only part of the edition this
+// sim is here for.
+if (!modern.spamDealt) {
+  console.error("  error:   not one SPAM was dealt in the 2016 sim, so nothing above tested it");
+  failed++;
+}
+if (modern.unfinished > modern.games * 0.1) {
+  console.error(`  error:   ${modern.unfinished} 2016 games hit the turn cap`); failed++;
+}
+
 // The difficulty slider has to mean something. Nothing else would notice if the
 // tiers collapsed into each other -- every game would still finish, every test
 // would still pass, and the setting would quietly be decoration.
