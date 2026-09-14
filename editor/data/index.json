@@ -1,0 +1,313 @@
+{
+  "format": "PRIndex",
+  "version": 1,
+  "boards": [
+    {
+      "id": "exchange",
+      "name": "Exchange",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "island",
+      "name": "Island",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "maelstrom",
+      "name": "Maelstrom",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "boardG",
+      "name": "Board G",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "crashAndBurn",
+      "origin": "transcribed"
+    },
+    {
+      "id": "pitMaze",
+      "name": "Pit Maze",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "cross",
+      "name": "Cross",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "boardH",
+      "name": "Board H",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "crashAndBurn",
+      "origin": "transcribed"
+    },
+    {
+      "id": "canneryRow",
+      "name": "Cannery Row",
+      "w": 12,
+      "h": 12,
+      "edition": "classic",
+      "set": "base",
+      "origin": "transcribed"
+    },
+    {
+      "id": "energize",
+      "name": "Energize",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "steps",
+      "name": "Steps",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "theKeep",
+      "name": "The Keep",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "tempest",
+      "name": "Tempest",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "inAndOut",
+      "name": "In & Out",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "cactus",
+      "name": "Cactus",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "misdirection",
+      "name": "Misdirection",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "oRing",
+      "name": "The \"O\" Ring",
+      "w": 12,
+      "h": 12,
+      "edition": "modern",
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "dockingBay",
+      "name": "Docking Bay",
+      "w": 12,
+      "h": 4,
+      "edition": "both",
+      "set": "authored",
+      "origin": "authored"
+    }
+  ],
+  "courses": [
+    {
+      "id": "energizeRun",
+      "name": "Energize",
+      "kind": "quick",
+      "blurb": "Batteries everywhere, and six beams that make you pay for them.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "stepsRun",
+      "name": "Steps",
+      "kind": "quick",
+      "blurb": "Green belts one space, blue belts two, and a pit where the slow lane ends.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "theKeepRun",
+      "name": "The Keep",
+      "kind": "quick",
+      "blurb": "Two rings, one inside the other, turning opposite ways.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "tempestRun",
+      "name": "Tempest",
+      "kind": "quick",
+      "blurb": "Belts everywhere, six push panels, and three beams across the middle.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "inAndOutRun",
+      "name": "In & Out",
+      "kind": "quick",
+      "blurb": "All belt, no floor to speak of: twenty-nine green and fifty-two blue.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "cactusRun",
+      "name": "Cactus",
+      "kind": "quick",
+      "blurb": "Three push panels, two beams crossing in the middle, and five gears all turning left.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "misdirectionRun",
+      "name": "Misdirection",
+      "kind": "quick",
+      "blurb": "Nineteen gears, a roundabout in the middle, and a two-barrel laser down the bottom.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "oRingRun",
+      "name": "The \"O\" Ring",
+      "kind": "quick",
+      "blurb": "A ring of oil round six flamers, and eight push panels on the rim.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "exchangeRun",
+      "name": "Exchange",
+      "kind": "quick",
+      "blurb": "Everything moves. The walls are the only place to stand.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "islandRun",
+      "name": "Island",
+      "kind": "quick",
+      "blurb": "Two rings turning against each other, and a hole in the middle.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "maelstromRun",
+      "name": "Maelstrom",
+      "kind": "quick",
+      "blurb": "Everything spirals inward, and the middle is a hole.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "canneryRowRun",
+      "name": "Cannery Row",
+      "kind": "quick",
+      "blurb": "Two belt lanes run the whole length of it, with a crusher on every other square.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "boardGRun",
+      "name": "Board G",
+      "kind": "quick",
+      "blurb": "Portals, flamethrowers and four spills of oil.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "pitMazeRun",
+      "name": "Pit Maze",
+      "kind": "quick",
+      "blurb": "Twenty-six holes and the belts that run between them.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "boardHRun",
+      "name": "Board H",
+      "kind": "quick",
+      "blurb": "Sixteen flamethrowers and a conveyor under half the rams.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "crossRun",
+      "name": "Cross",
+      "kind": "quick",
+      "blurb": "Four belt lanes meet, and the junction is a hole.",
+      "boards": 1,
+      "flags": 3
+    },
+    {
+      "id": "bigCross",
+      "name": "Crosscut",
+      "kind": "track",
+      "blurb": "Four belt lanes on one side, twenty-six holes on the other.",
+      "boards": 2,
+      "flags": 3
+    },
+    {
+      "id": "longHaul",
+      "name": "The Long Haul",
+      "kind": "track",
+      "blurb": "Three floors end to end, and the starting block in the middle of them.",
+      "boards": 3,
+      "flags": 3
+    },
+    {
+      "id": "fourQuarters",
+      "name": "Four Quarters",
+      "kind": "track",
+      "blurb": "Two by two, and the crossing is the hard part.",
+      "boards": 4,
+      "flags": 4
+    }
+  ]
+}

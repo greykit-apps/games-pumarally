@@ -398,6 +398,34 @@ for (const id of courseIds) {
   } else { writeFileSync(path, text); wroteC++; }
 }
 
+/* --- the index -------------------------------------------------------------
+ * There is no directory listing over HTTP, so the page cannot discover what is
+ * in data/. This is that listing, and it carries enough per entry -- name,
+ * size, edition, set, origin -- for the palette to be drawn and sorted without
+ * fetching every board first. */
+{
+  const index = {
+    format: "PRIndex", version: 1,
+    boards: ids.map(id => {
+      const b = converted[id];
+      return { id, name: b.name, w: b.w, h: b.h, edition: b.edition, set: b.set,
+               origin: b.origin, unverified: b.unverified || undefined };
+    }),
+    courses: Object.keys(B.COURSES).map(id => ({
+      id, name: B.COURSES[id].name, kind: B.COURSES[id].kind || "track",
+      blurb: B.COURSES[id].blurb || "",
+      boards: B.COURSES[id].boards.length,
+      flags: (B.COURSES[id].flags || []).length
+    }))
+  };
+  const text = JSON.stringify(index, null, 2) + "\n";
+  const path = join(HERE, "..", "data", "index.json");
+  if (check) {
+    const have = existsSync(path) ? readFileSync(path, "utf8") : null;
+    if (have !== text) note("index", 0, "data/index.json differs from a fresh conversion");
+  } else writeFileSync(path, text);
+}
+
 if (problems.length) {
   console.error("convert-boards: " + problems.length + " problem(s)");
   for (const p of problems.slice(0, 40)) console.error("  " + p);
