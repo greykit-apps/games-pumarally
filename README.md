@@ -31,7 +31,7 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 268 rule tests | done |
+| Headless simulation + 271 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
@@ -42,6 +42,7 @@ at play time.
 | Modern upgrade phase — deck, shelf, buying, fitting, the mat caps | done |
 | Modern upgrade cards — roster | **40 of 40 transcribed, 11 built** |
 | Modern damage — Haywire | **not built** — the card faces are not transcribed |
+| Modern reboot point | **substitute** — the robot's checkpoint stands in for a Reboot Token |
 
 | Hot-seat pass-and-play | done |
 | Difficulty tiers, setup, help, tutorial, sound | done |
@@ -285,9 +286,26 @@ of the player's choosing, and there is no action in the game yet that reaches
 one. An effect nothing can fire is not built, it is dead code that reads as
 coverage.
 
-Both gaps are checks rather than silences: a rule test asserts the damage deck
-holds no Haywire, and another asserts the upgrade built-count, so each goes red
-the day it stops being true.
+A third gap is a **substitute** rather than a hole. The 2016 game re-enters a
+rebooting robot on a Reboot Token belonging to the board it fell from, and moves
+an obstructing robot one square along the arrow printed on that token — both
+properties of the board. The box holds six of those tokens, so their squares are
+placed at setup and appear in none of the photographs. Rather than invent
+positions, the engine substitutes the robot's own last checkpoint and the facing
+it held when it touched it, and `MODERN_REBOOT_POINT` says so out loud.
+
+It is not a cosmetic difference. Checkpoints are places robots converge on, and
+an interesting checkpoint usually has a hazard next to it — so robots re-enter
+beside the thing that killed them, and on top of each other. One such square
+took three of four robots out of a single game, because making room for an
+arriving robot could push the occupant into the pit beside the checkpoint they
+both shared. Making room now never puts a robot in a hole, which is the one side
+of that this engine can err on without inventing board data.
+
+All three gaps are checks rather than silences: a rule test asserts the damage
+deck holds no Haywire, another asserts the upgrade built-count, and a third
+asserts the reboot point is still the declared substitute — so each goes red the
+day it stops being true.
 
 Boards also declare which **box** they came from — base game, Armed and
 Dangerous, Wet and Wild, and so on — because picking a course by expansion is
@@ -451,7 +469,7 @@ your hand while you program, the board while it runs.
 node tools/check-no-photos.js     # no reference photograph is tracked or staged
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
-node tools/check-rules.js 200     # 268 rule tests + 200 bot-vs-bot games
+node tools/check-rules.js 200     # 271 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
 node tools/make-icon.js           # regenerate icon.svg from the robot drawing
 node tools/stamp-assets.js        # content-hash the assets index.html loads

@@ -165,6 +165,29 @@
   var MODERN_DAMAGE_COUNTS = { spam: 40 };
   var MODERN_DAMAGE_SIZE = 40;
 
+  /* WHERE A 2016 ROBOT COMES BACK -- declared, because it is a guess.
+
+     The book sends a rebooting robot to a Reboot Token on the board
+     it fell from, and shoves an obstructing robot one square along
+     the ARROW PRINTED ON THAT TOKEN. Both of those are properties of
+     the board. This engine has neither: it sends the robot to its own
+     last checkpoint and shoves along the facing that robot happened
+     to be holding when it touched that checkpoint.
+
+     The box holds six reboot tokens, so their squares are PLACED at
+     setup rather than printed on the board art, and nothing in the
+     photographs says where. Inventing positions would be inventing
+     board data, which this project does not do -- so the substitute
+     is named here rather than left to be discovered in the middle of
+     landReboot().
+
+     It is not cosmetic. A checkpoint is somewhere robots converge on
+     and is often next to the hazard that makes it interesting, so
+     robots re-enter beside the thing that killed them and re-enter on
+     top of each other. Flip this to "token" the day the squares are
+     transcribed, and the test and the README row both go red. */
+  var MODERN_REBOOT_POINT = "archive";
+
   var DECK_RANGES = [
     ["uturn",  10,  60, 10],
     ["left",   70, 410, 20],
@@ -3303,8 +3326,21 @@
          returning robot takes the nearest free square instead --
          which is what the classic game does anyway. */
       var to = B.step(c, r, p.archive.face);
+      /* A HOLE IS NOT SOMEWHERE TO PUT SOMEBODY. This tested isVoid --
+         refusing to shove an occupant over an EDGE while happily
+         dropping one down a PIT, which is the same sentence with one
+         word changed. isHole is the union of the two, and it is
+         already what freeSpotNear refuses, so the fallback below was
+         written for exactly this case and was simply not being
+         reached.
+
+         That gap closed a loop that a race cannot get out of: a robot
+         returns to its checkpoint, shoves the occupant into the pit
+         beside it, and the occupant -- holding the same checkpoint --
+         comes back to the same square to do it to the next one. Shan
+         lost three of four robots to it at once. */
       var blocked = B.wallAt(C, c, r, p.archive.face) ||
-                    B.isVoid(C, to.c, to.r) || robotAt(to.c, to.r);
+                    isHole(C, to.c, to.r) || robotAt(to.c, to.r);
       if (blocked) {
         var spot = freeSpotNear(c, r);
         if (!spot) { p.rebooting = false; p.out = true; return p; }
@@ -3312,7 +3348,6 @@
       } else {
         sitting.c = to.c; sitting.r = to.r;
         log(sitting.name + " is shoved aside to make room");
-        if (isHole(C, to.c, to.r)) wreck(sitting, B.isVoid(C, to.c, to.r) ? "over the edge" : "into a pit");
       }
     }
     p.c = c; p.r = r;
@@ -8312,6 +8347,58 @@
       }
     } },
 
+    { name: "a robot waiting to come back is drawn on the square it comes back to", run: function () {
+      /* "Where on this board is my robot that I am programming?" --
+         and there was no answer on the screen. A rebooting robot was
+         painted at opacity 0 on the square it fell from, so the one
+         player who most needs to know where they are re-entering
+         could see neither their robot nor the square.
+
+         The painting needs a DOM and this runner has none, so what is
+         tested is the decision: which square, and whether it is the
+         ghost or the fall. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 3, r: 0 }, { c: 0, r: 1 }]);
+        var p = G.players[0];
+        p.archive = { c: 0, r: 0, face: E };
+
+        /* Standing on the board: drawn where it stands, whatever else
+           is true of it. */
+        var spot = pieceSpot(p);
+        assert(spot.c === 3 && spot.r === 0 && !spot.returning,
+          "a robot on the board was not drawn where it stands");
+
+        /* THE FALL IS WATCHED. During execution it stays in the pit it
+           went into -- moving it to the archive mid-register would
+           delete the only moment that shows what happened. */
+        p.alive = false; p.rebooting = true;
+        go("exec", "move");
+        spot = pieceSpot(p);
+        assert(spot.c === 3 && spot.r === 0 && !spot.returning,
+          "the robot left the square it fell from before the fall could be seen");
+
+        /* BETWEEN TURNS it waits on its return square, which is the
+           moment the player is programming that return. */
+        go("turn", "program");
+        spot = pieceSpot(p);
+        assert(spot.returning, "a rebooting robot was not drawn as coming back");
+        assert(spot.c === 0 && spot.r === 0,
+          "it should wait on its archive, it is drawn at (" + spot.c + "," + spot.r + ")");
+
+        /* AND A CLASSIC WRECK IS NOT COMING BACK. It is off the board
+           for the turn and has no return square to wait on, so it
+           must still take the fall and not the ghost. */
+        houseRules.ruleset = "classic";
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var dead = G.players[0];
+        dead.alive = false; dead.rebooting = false;
+        go("turn", "program");
+        assert(!pieceSpot(dead).returning, "a destroyed classic robot was drawn as coming back");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
     { name: "the player panel shows the tracks the edition actually has", run: function () {
       /* A meter that cannot move is worse than no meter: the player
          reads an empty damage track as good news. The 2016 mat has no
@@ -8509,6 +8596,89 @@
           "the shove dealt damage, so it was treated as a push");
         assert(sitting.alive, "the shove wrecked the occupant");
         assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "making room for a returning robot never puts the occupant in a hole", run: function () {
+      /* HOW SHAN'S GAME DIED. Three of four robots were off the board
+         at once and the race could not recover, and it was not bad
+         luck -- it was a closed loop.
+
+         The engine reboots a robot at its own last checkpoint and
+         shoves an occupant along the facing IT happened to be holding
+         when it touched that checkpoint. On the board being played,
+         checkpoint 2 sat one square west of a pit and both robots
+         holding that checkpoint faced east. So every return shoved
+         the occupant into the pit; the occupant's checkpoint was the
+         same square, so it came back to the same place and shoved the
+         next one in. Deterministic, and it repeats forever.
+
+         The book does not exempt an obstructing robot from what is on
+         the square it is moved to. But the code already refused to
+         move one over an EDGE and then fell back to the nearest free
+         square -- a pit is the same sentence with one word changed,
+         and the half that was missing is the half that closed the
+         loop. Erring towards the robot surviving is also the only
+         side of this the engine can err on without inventing board
+         data it does not have: see the reboot-token gap. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        /* The occupant sits on the reboot square with a pit due east,
+           which is exactly the shape of the board that broke. */
+        modernBench([["..", "o.", ".."], ["..", "..", ".."]],
+                    [{ c: 2, r: 1 }, { c: 0, r: 0 }]);
+        var p = G.players[0], sitting = G.players[1];
+        p.archive = { c: 0, r: 0, face: E };
+        p.alive = false; p.rebooting = true;
+        p.registers[0] = null;
+        G.register = 0; G.priority = 0;
+        STEP.exec.reveal();
+        G.optionAnswers[choiceKey(p, "board", "reface", "")] = 0;
+        STEP.exec.move();
+
+        assert(sitting.alive, "making room for the returning robot dropped the occupant into a pit");
+        assert(!(sitting.c === 1 && sitting.r === 0),
+          "the occupant was moved onto the pit square");
+        assert(p.alive, "the returning robot never got back on the board");
+        assert(!isHole(UI.course, p.c, p.r), "the returning robot was placed in a hole");
+        assert(p.c !== sitting.c || p.r !== sitting.r, "two robots were left on one square");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the 2016 reboot point is a declared substitute, not a silent one", run: function () {
+      /* The book puts a Reboot Token on each board and re-enters the
+         robot there, shoving any occupant along the arrow printed on
+         it. This engine uses the robot's last checkpoint and its own
+         remembered facing, because the token squares are placed at
+         setup and are in none of the photographs.
+
+         The substitute is fine. Making it QUIETLY is not: it changes
+         where every 2016 race re-enters, and it is the reason a
+         checkpoint next to a pit could take three robots out of one
+         game. So it is a named constant with a test on it, the same
+         bargain Haywire and the upgrade roster already make, and
+         closing the gap means changing this line and being told about
+         every other place that assumed it. */
+      assert(MODERN_REBOOT_POINT === "archive",
+        "the reboot point is now \"" + MODERN_REBOOT_POINT + "\" -- if reboot tokens have been " +
+        "transcribed, landReboot and the README's divergence row both need to follow");
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", ".."]], [{ c: 2, r: 0 }]);
+        var p = G.players[0];
+        p.archive = { c: 0, r: 0, face: E };
+        p.alive = false; p.rebooting = true;
+        p.registers[0] = null;
+        G.register = 0; G.priority = 0;
+        STEP.exec.reveal();
+        G.optionAnswers[choiceKey(p, "board", "reface", "")] = 0;
+        STEP.exec.move();
+        assert(p.c === 0 && p.r === 0,
+          "the robot did not re-enter at its archive, so the substitute this constant declares " +
+          "is not the one the engine is actually using");
       } finally { houseRules.ruleset = keepHouse; }
     } },
 
@@ -12784,6 +12954,12 @@
     "@keyframes pr-hit{0%{filter:brightness(3.4)}50%{filter:none}}",
     ".pr-piece.pr-down .pr-hull{stroke-dasharray:9 7}",
     ".pr-piece.pr-down svg{opacity:.5}",
+    /* Waiting to come back: an outline on the square it returns to,
+       with no nose, because the facing is still the player's to pick. */
+    ".pr-piece.pr-returning{opacity:.5}",
+    ".pr-piece.pr-returning .pr-hull{fill:none;stroke-dasharray:6 7}",
+    ".pr-piece.pr-returning .pr-nose{display:none}",
+    ".pr-piece.pr-returning .pr-eye{opacity:.25}",
     ".pr-archive{position:absolute;width:var(--tile);height:var(--tile);",
     "border:1px dashed currentColor;opacity:.4;pointer-events:none}",
 
@@ -13587,6 +13763,31 @@
     '<rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/>' +
     "</svg>";
 
+  /* WHERE TO DRAW A ROBOT THAT IS NOT STANDING ON THE BOARD.
+
+     A 2016 robot that reboots is off the board and still programming
+     -- and it was drawn at opacity 0 on the square it fell from,
+     which is both invisible and, by then, a lie. Shan asked the only
+     question that state leaves you with: "where on this board is my
+     robot that I am programming?" Nothing on the screen could answer
+     it. At a table the robot is sitting in front of you and the token
+     it comes back to is right there on the board.
+
+     Two different moments, though, and they want opposite things.
+     While the registers are running you are WATCHING IT FALL, and the
+     fall is the whole point of the pit -- so during exec it stays
+     where it went in. Between turns, which is exactly when you are
+     programming the return, it waits on the square it returns to.
+
+     Facing is deliberately not drawn: nobody has chosen it yet. The
+     ghost keeps its hull and loses its nose, so it says "this robot
+     is coming back here" and does not invent a direction. */
+  function pieceSpot(p) {
+    var returning = !!p.rebooting && G.phase !== "exec" && !!p.archive;
+    if (returning) return { c: p.archive.c, r: p.archive.r, returning: true };
+    return { c: p.c, r: p.r, returning: false };
+  }
+
   function renderPieces() {
     if (!G) return;                  // mount sizes the stage before the first deal
     var tile = tilePx(), host = UI.els.pieces, i;
@@ -13605,8 +13806,9 @@
       el.hidden = p.placed === false;
       el.style.color = LIVERIES[p.livery].a;
       el.style.setProperty("--livery-dark", LIVERIES[p.livery].d);
-      el.style.left = (p.c * tile) + "px";
-      el.style.top = (p.r * tile) + "px";
+      var spot = pieceSpot(p);
+      el.style.left = (spot.c * tile) + "px";
+      el.style.top = (spot.r * tile) + "px";
 
       /* ROTATION WINDS, it does not snap to a compass point.
 
@@ -13640,7 +13842,12 @@
       }
       UI.pieceHurt[id] = p.damage;
 
-      el.classList.toggle("pr-dead", !p.alive);
+      /* A returning robot is not a dead one. pr-dead is the fall --
+         opacity 0 and a tumble -- and it must keep playing for a
+         robot that has just gone into a pit, so the ghost only takes
+         over once the registers have stopped running. */
+      el.classList.toggle("pr-dead", !p.alive && !spot.returning);
+      el.classList.toggle("pr-returning", spot.returning);
       el.classList.toggle("pr-down", !!p.poweredDown);
     }
   }
