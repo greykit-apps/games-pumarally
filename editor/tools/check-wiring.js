@@ -30,6 +30,7 @@ import { E, N } from "../lib/dir.js";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..", "app");
 const problems = [];
+let courseAttrs = 0;
 
 /** `data-meta-toggle` -> `metaToggle`, the way `element.dataset` spells it. */
 const datasetKey = attr => attr.replace(/^data-/, "").replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
@@ -91,12 +92,61 @@ if (drawnAttrs.size < 8) {
     "passing vacuously rather than covering the panels.");
 }
 
+/* THE HANDLER MUST READ THE KEY OFF A DATASET, not merely contain the word.
+ *
+ * This check used to ask whether main.js mentioned the key ANYWHERE in its
+ * source, and that let a dead control through for as long as markup mode has
+ * existed. `data-view` becomes `dataset.view`; main.js is full of `view` --
+ * `makeView`, `const view`, `view.boardEl`, `layout(view, st)` -- so the word
+ * was always there and the two View buttons were never wired to anything. Only
+ * the backtick key reached setMode. Clicking Markup did nothing, in silence,
+ * which is the exact failure this file was written to catch and the exact way
+ * it failed to: a test that cannot tell the thing it is looking for from a
+ * common identifier is not testing for it.
+ *
+ * `d.view` and `dataset.view` are how a handler actually reads one, so those
+ * are what is required. It is still a source scan and still weaker than
+ * dispatching a real click -- which needs a DOM this tree deliberately has no
+ * dependency for -- but it can no longer be satisfied by a coincidence of
+ * spelling. Every one of the 22 attributes passes it; exactly one passed the
+ * old one without being handled. */
 for (const attr of [...drawnAttrs].sort()) {
   const key = datasetKey(attr);
-  if (!new RegExp("\\b" + key + "\\b").test(handled)) {
-    problems.push("the inspector draws " + attr + " (dataset." + key +
-      ") and main.js never mentions " + key + " -- clicking it does nothing, silently.");
+  if (!new RegExp("(?:\\bd|\\bdataset)\\." + key + "\\b").test(handled)) {
+    const loose = new RegExp("\\b" + key + "\\b").test(handled);
+    problems.push("the inspector draws " + attr + " and main.js never reads d." + key +
+      " or dataset." + key + " -- clicking it does nothing, silently." +
+      (loose ? " (The word " + key + " does appear in main.js, which is how this hid.)" : ""));
   }
+}
+
+/* COURSE MODE, the other half of the app, which this file did not look at at
+ * all until the View buttons turned out to be dead in the board workshop.
+ *
+ * It is checked a weaker way, and the comment is what says so: coursemode.js
+ * builds its own markup and handles its own clicks in one file, and every
+ * `data-` attribute it draws appears as a LITERAL in that source, so scanning
+ * for them finds them all. It could not see an attribute assembled from pieces
+ * the way panels.js does with its shared row helpers -- which is exactly why
+ * the board half is rendered for real instead. If course mode ever grows a
+ * computed attribute name this stops covering it, and the count assertion is
+ * the only thing that would say so. */
+{
+  const src = readFileSync(join(APP, "coursemode.js"), "utf8");
+  const drawn = new Set();
+  for (const m of src.matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawn.add("data-" + m[1]);
+  if (drawn.size < 10) {
+    problems.push("only " + drawn.size + " control attributes found in coursemode.js; " +
+      "this half of the check is passing vacuously.");
+  }
+  for (const attr of [...drawn].sort()) {
+    const key = datasetKey(attr);
+    if (!new RegExp("(?:\\bd|\\bdataset)\\." + key + "\\b").test(src)) {
+      problems.push("course mode draws " + attr + " and never reads d." + key +
+        " or dataset." + key + " -- clicking it does nothing, silently.");
+    }
+  }
+  courseAttrs = drawn.size;
 }
 
 if (problems.length) {
@@ -104,4 +154,5 @@ if (problems.length) {
   console.error("check-wiring: " + problems.length + " problem(s)");
   process.exit(1);
 }
-console.log("ok " + drawnAttrs.size + " control attributes rendered, every one answered by its handler");
+console.log("ok " + drawnAttrs.size + " control attributes rendered and " + courseAttrs +
+  " found in course mode, every one read off a dataset by its handler");

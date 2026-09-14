@@ -306,6 +306,13 @@ export function mount(root) {
       if (d.seldigit !== undefined) { change(() => setArg(String(d.seldigit))); return; }
       if (d.selpair !== undefined) { change(() => setArg(String(d.selpair))); return; }
       if (d.sellevel !== undefined) { change(() => setLevelHere(+d.sellevel)); return; }
+      /* THE VIEW SWITCH. It was drawn from the first day of markup mode and
+       * never answered here: only the backtick key reached setMode, so the two
+       * buttons sat there doing nothing whenever anyone clicked them. It stands
+       * apart from the branches above -- the view is not a fact about the board
+       * or about the square, so it is not `change()`d and nothing is marked. */
+      if (d.view !== undefined) { setMode(d.view); return; }
+
       if (d.metaToggle !== undefined) {
         change(() => {
           st.board[d.metaToggle] = !st.board[d.metaToggle];
