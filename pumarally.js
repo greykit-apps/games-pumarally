@@ -8193,6 +8193,108 @@
       } finally { houseRules.ruleset = keepHouse; }
     } },
 
+    { name: "a rebooting player can still work their own controls", run: function () {
+      /* THE LOCK-UP. A 2016 robot that reboots is off the board with
+         alive false, and it is STILL PLAYING: it shops, it is dealt a
+         hand, it programs the return. The upgrade step knows that --
+         it walks racers(), which counts a rebooting robot -- so it
+         parks on the person and waits for their Done.
+
+         actor() did not know it. It gated on p.alive, so from the
+         moment the human's robot fell in a pit every handler on the
+         panel returned at its first line: Done, Buy, Fit, Strip, the
+         registers, Clear, Shut down, Run, the number keys. The buttons
+         rendered live and enabled, because the PANEL asks a different
+         question than the HANDLERS do, and the turn could never end.
+         Shan found it in a browser with three robots rebooting at
+         once.
+
+         The sim above plays a human seat, but it sets upgradeDone and
+         ready itself -- it tests what the button is SUPPOSED to do,
+         which is exactly the gap a button that does nothing hides in.
+         So this one presses the buttons. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman, wasHead = UI.headless;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      UI.headless = true;
+      try {
+        /* Each press gets a fixture the machine has not already run
+           forward, because advance() carries on from wherever it is
+           left and a second hand-placed step lands it in a state no
+           game reaches. */
+        function seat() {
+          modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+          var q = G.players[0];
+          q.isBot = false;
+          assert(isHuman(q), "the fixture did not seat a person");
+          q.archive = { c: 0, r: 0, face: E };
+          q.alive = false; q.rebooting = true;
+          assert(racers().indexOf(q) >= 0,
+            "the fixture dropped the player out of the race, so no step would park on them");
+          return q;
+        }
+
+        /* SHOPPING, from off the board -- the step that deadlocked. */
+        var me = seat();
+        go("turn", "upgrade");
+        G.actor = me.id;
+        me.upgradeDone = false;
+        onUpgradeDone();
+        assert(me.upgradeDone, "Done did nothing while the robot was rebooting, so the turn could not end");
+
+        /* PROGRAMMING, from off the board. */
+        me = seat();
+        STEP.turn.deal();
+        go("turn", "program");
+        G.actor = me.id;
+        assert(me.hand.length > 0, "the deal skipped the rebooting player");
+
+        var card = me.hand[0];
+        assert(placeCard(0, 0), "a card could not be placed while the robot was rebooting");
+        assert(me.registers[0] === card, "the card did not reach register 1");
+
+        onSlotClick(0);
+        assert(me.registers[0] === null, "a register could not be emptied while the robot was rebooting");
+
+        me.announceDown = false;
+        onPowerDown();
+        assert(me.announceDown, "Shut down did nothing while the robot was rebooting");
+        onPowerDown();
+
+        while (firstEmpty(me) !== -1) assert(placeCard(0, firstEmpty(me)), "the program could not be filled");
+        me.ready = false;
+        onRun();
+        assert(me.ready, "Run registers did nothing while the robot was rebooting");
+
+        /* AND THE GUARD ON THE GUARD. A classic robot that is off the
+           board is not coming back this turn and is not owed controls;
+           dropping the alive test outright would have handed a
+           smoking wreck a working panel. */
+        houseRules.ruleset = "classic";
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var dead = G.players[0];
+        dead.isBot = false;
+        go("turn", "program");
+        G.actor = dead.id;
+        /* DEALT FIRST, and checked while it is still standing. An
+           empty hand refuses a placement on its own, so a wreck
+           holding no cards proves nothing about the liveness test --
+           which is how this assertion passed vacuously the first time
+           it was written. */
+        STEP.turn.deal();
+        go("turn", "program");
+        assert(dead.hand.length > 0, "the fixture left no card to place, so the refusal below means nothing");
+        assert(placeCard(0, 0), "the standing robot could not program, so the fixture tests nothing");
+        onSlotClick(0);
+
+        dead.alive = false; dead.rebooting = false;
+        assert(!inPlay(dead), "a classic wreck is still counted as in play");
+        assert(!placeCard(0, 0), "a destroyed classic robot was allowed to program");
+      } finally {
+        houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; UI.headless = wasHead;
+      }
+    } },
+
     { name: "the player panel shows the tracks the edition actually has", run: function () {
       /* A meter that cannot move is worse than no meter: the player
          reads an empty damage track as good news. The 2016 mat has no
@@ -14420,9 +14522,22 @@
      ============================================================ */
   function inPhase(ph, st) { return G && !G.gameOver && G.phase === ph && G.step === st; }
 
+  /* WHOSE TURN IT IS TO PRESS SOMETHING -- and the question is
+     whether they are still PLAYING, not whether their robot is
+     standing up. A 2016 robot that reboots is off the board with
+     alive false and is still in the race: it shops, it is dealt a
+     hand, and it programs its return from the archive. Gating on
+     alive here locked the game solid -- the upgrade step parks on a
+     rebooting person because racers() counts them, and then every
+     handler on the panel refused at its first line, so the buttons
+     rendered live and answered nothing.
+
+     inPlay() is the same test the steps themselves use, so the panel
+     and the machine now disagree about nobody. It still refuses a
+     classic wreck, which is neither alive nor coming back. */
   function actor() {
     var p = G.players[G.actor === undefined ? 0 : G.actor];
-    return p && isHuman(p) && p.alive ? p : null;
+    return p && isHuman(p) && inPlay(p) ? p : null;
   }
 
   /* ONE MOVE, TWO WAYS IN.

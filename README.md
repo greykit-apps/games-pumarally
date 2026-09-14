@@ -31,7 +31,7 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 267 rule tests | done |
+| Headless simulation + 268 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
@@ -451,7 +451,7 @@ your hand while you program, the board while it runs.
 node tools/check-no-photos.js     # no reference photograph is tracked or staged
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
-node tools/check-rules.js 200     # 267 rule tests + 200 bot-vs-bot games
+node tools/check-rules.js 200     # 268 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
 node tools/make-icon.js           # regenerate icon.svg from the robot drawing
 node tools/stamp-assets.js        # content-hash the assets index.html loads
