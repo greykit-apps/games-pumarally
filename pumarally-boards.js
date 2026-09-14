@@ -85,13 +85,21 @@
      when the rules do not fit.
      ------------------------------------------------------------ */
   var SETS = {
-    authored:         { name: "Authored",            edition: "classic", box: "Not from any box" },
+    authored:         { name: "Authored",            edition: "both",    box: "Not from any box" },
     base:             { name: "Base Game",           edition: "classic", box: "RoboRally (1994-2005)" },
     armedAndDangerous:{ name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous (1995)" },
     crashAndBurn:     { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn (1997)" },
     modernBase:       { name: "Base Game",           edition: "modern",  box: "Robo Rally (2016)" },
     wetAndWild:       { name: "Wet and Wild",        edition: "modern",  box: "Wet and Wild" },
-    chaosAndCarnage:  { name: "Chaos and Carnage",   edition: "modern",  box: "Chaos and Carnage" }
+    chaosAndCarnage:  { name: "Chaos and Carnage",   edition: "modern",  box: "Chaos and Carnage" },
+    /* WHICH BOX A 2016 BOARD CAME OUT OF IS NOT RECORDED ANYWHERE WE
+       HAVE. The expansion reference sheets would settle it and they
+       have not been read yet, and inferring a set from the elements a
+       board carries is exactly the reasoning that once made board E
+       look like a new board. So a transcribed 2016 board sits here
+       until its box is established, rather than being guessed into
+       modernBase. */
+    modernUnfiled:    { name: "Modern, box unrecorded", edition: "modern", box: "Not established" }
   };
 
   /* ============================================================
@@ -480,12 +488,21 @@
     /* Checked first: every per-element check below reads this, so a
        bogus edition would surface as a crash inside the legend rather
        than as the mistyped field it is. */
+    /* A BOARD MAY BELONG TO NEITHER GAME IN PARTICULAR. Our docking
+       bay is the case: it is authored, it carries nothing but floor
+       and bays, and both editions print one. Forcing it to pick a side
+       would mean either a second identical board or a 2016 course that
+       reads as mixing editions -- which is what it did. "both" means
+       every element on it must be legal in EVERY edition, which is a
+       stricter test than either one alone, not a way around the check. */
     var edition = spec.edition || "classic";
-    if (!EDITIONS[edition]) E_('declares edition "' + edition + '", which is not a thing');
+    if (edition !== "both" && !EDITIONS[edition]) {
+      E_('declares edition "' + edition + '", which is not a thing');
+    }
 
     var set = spec.set || "authored";
     if (!SETS[set]) E_('declares set "' + set + '", which is not a box that exists');
-    if (SETS[set].edition !== edition) {
+    if (SETS[set].edition !== edition && SETS[set].edition !== "both" && edition !== "both") {
       E_('is in the ' + SETS[set].name + " set, which is " + EDITIONS[SETS[set].edition].name +
          ", but declares itself " + EDITIONS[edition].name);
     }
@@ -535,7 +552,9 @@
           var a = code.charAt(1);
           var argBad = badCellArg(code);
           if (argBad) E_("(" + c + "," + r + ") " + argBad);
-          if (def.editions && def.editions.indexOf(edition) < 0) {
+          if (def.editions && (edition === "both"
+                ? def.editions.length < Object.keys(EDITIONS).length
+                : def.editions.indexOf(edition) < 0)) {
             E_("(" + c + "," + r + ") is a " + def.name + ", which the " +
                EDITIONS[edition].name + " edition does not print");
           }
@@ -1727,9 +1746,75 @@
       ]
     },
 
+    /* ------------------------------------------------------------
+       ENERGIZE -- the first transcribed 2016 board.
+
+       Chosen because every element on it is one the legend already
+       has: gears, batteries, pits, walls and lasers, and not one
+       conveyor. It is also the cleanest rectification of the set --
+       41 wall edges measured, 40 at exactly 1.00 with nothing between
+       0.57 and 0.97.
+
+       THE BATTERY IS A SQUARE, and that was measured rather than
+       assumed. The twin-cell device LOOKS like it straddles a tile
+       seam, and 2016 tiles are drawn with their own plate seams at
+       half-cell spacing, so the eye has something wrong to lock onto.
+       Every one of the eight devices' bolt-plate pairs centres on
+       (c+0.5, r+0.5) to within 0.03 of a cell -- dead centre of a
+       single square. The rulebook agrees: you gain Energy "if your
+       robot is on a battery space".
+
+       Red gears rotate left and green gears rotate right, which is
+       printed, and is why they are l and r here.
+
+       The six lasers were read off an independent scan and every one
+       of them terminates exactly where the wall scan says it should.
+       That is the cross-check: two measurements that never saw each
+       other agreeing on six endpoints.
+       ------------------------------------------------------------ */
+    energize: {
+      name: "Energize", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the printed board. Which box it came from is not established.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. ..|.. .. .. ..|.. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. E. .. .. .. ..|.. .. .. .. E. .. ",
+        "+--+  +  +  +  +  +  +  +  +  +--+  +",
+        " .. .. .. ..|.. .. .. ..|.. .. .. .. ",
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. .. ..|E. .. l. .. .. ..|.. .. .. ",
+        "+  +  +  +--+  +--+  +  +  +  +  +  +",
+        " .. .. .. r.|.. .. o. ..|.. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. r. .. o. .. .. E. ..|r. .. .. ",
+        "+  +--+  +  +  +  +  +  +--+  +--+--+",
+        " .. .. l.|.. E. .. .. o. ..|l. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. l.|.. o. .. ..|.. .. .. .. ",
+        "+  +  +  +--+  +  +--+  +  +  +  +  +",
+        " .. .. ..|.. .. .. r.|.. E. .. .. .. ",
+        "+  +  +--+  +--+  +  +  +  +  +  +  +",
+        " .. .. .. .. l.|.. .. .. ..|.. .. .. ",
+        "+--+  +  +  +  +  +  +  +--+--+  +--+",
+        " .. E. .. .. .. ..|.. .. l. r. E. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. ..|.. .. .. .. ..|.. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 4, r: 2, d: "E", n: 1 },
+        { c: 7, r: 7, d: "W", n: 1 },
+        { c: 0, r: 9, d: "N", n: 1 },
+        { c: 2, r: 8, d: "N", n: 1 },
+        { c: 10, r: 2, d: "S", n: 1 },
+        { c: 11, r: 9, d: "N", n: 1 }
+      ]
+    },
+
     dockingBay: {
-      name: "Docking Bay", w: 12, h: 4, edition: "classic", set: "authored", origin: "authored",
-      notes: "Authored placeholder. Eight start positions; no printed belts.",
+      name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
+      notes: "Authored placeholder. Eight start positions; no printed belts. Belongs to neither edition: both games print a docking bay, and nothing on this one is exclusive to either.",
       pic: [
         "+  +  +  +  +  +  +  +  +  +  +  +  +",
         " .. .. .. .. .. .. .. .. .. .. .. .. ",
@@ -1788,6 +1873,25 @@
      of the flag before it.
      ============================================================ */
   var COURSES = {
+    /* THE FIRST 2016 COURSE, and the split between what is transcribed
+       and what is authored matters here. The BOARD is transcribed --
+       every square, wall and laser measured off the photograph. The
+       CHECKPOINTS are ours: the 2016 checkpoints are loose plastic
+       tokens placed per a course card, and no course card has been
+       photographed, so inventing three positions and calling them
+       printed would be exactly the thing this project does not do.
+       Three squares clear of the pits, the gears, the batteries and
+       all six beams, spread so the race crosses the board. */
+    energizeRun: {
+      name: "Energize",
+      kind: "quick",
+      blurb: "Batteries everywhere, and six beams that make you pay for them.",
+      boards: [{ id: "energize", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      flags: [[8, 9], [5, 5], [1, 2]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
     exchangeRun: {
       name: "Exchange",
       kind: "quick",
@@ -2597,6 +2701,9 @@
     var parts = spec.boards.concat(spec.dock ? [spec.dock] : []);
     for (i = 0; i < parts.length; i++) {
       var be = specOf(parts[i].id).edition || "classic";
+      /* A board that belongs to both games settles nothing and
+         conflicts with nothing. */
+      if (be === "both") continue;
       if (edition === null) edition = be;
       else if (be !== edition) {
         E_('mixes the ' + EDITIONS[edition].name + " and " + EDITIONS[be].name +

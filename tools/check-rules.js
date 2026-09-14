@@ -128,7 +128,12 @@ for (const id of Object.keys(PR.B.COURSES)) {
 // overwriting the SPAM a robot was still holding, and a robot shutting down
 // dropping its hand on the floor. Both are unit-tested now; this is what
 // found them.
-const modern = PR.runSim(Math.max(40, games / 4), { ruleset: "modern" }, 900);
+// ON THE COURSE THE MENU WOULD ACTUALLY OFFER. This used to force the 2016
+// ruleset onto a classic course, because no 2016 board was transcribed and a
+// forced run was the only run available -- which meant the sim was playing a
+// game nobody could start. Energize is a transcribed 2016 board and
+// energizeRun is the one course playableEditions returns "modern" for.
+const modern = PR.runSim(Math.max(40, games / 4), { ruleset: "modern", course: "energizeRun" }, 900);
 const modernWins = Object.values(modern.wins).reduce((a, b) => a + b, 0);
 console.log(`sim (2016 rules): ${modern.games} games, avg ${modern.turns.avg} turns, ` +
   `${modernWins} decided, ${modern.unfinished} unfinished, ${modern.crashes.length} crashes, ` +
@@ -186,15 +191,14 @@ if (modern.unfinished > modern.games * 0.1) {
   console.error(`  error:   ${modern.unfinished} 2016 games hit the turn cap`); failed++;
 }
 
-// THE SAME GAME, RUN LONG. Shutdown is the one 2016 mechanic a short race
-// cannot reach: SPAM has to pile up before anybody would spend a whole round
-// clearing it, and on the default course a fifty-game block sometimes produces
-// none at all -- measured, on one seed block out of four. So the long, pit-
-// heavy course gets its own pass. This is not a course picked to make a number
-// non-zero; it is the only length at which the damage system actually bites,
-// and a run that never exercises it is a run that never tested it.
-const modernLong = PR.runSim(Math.max(40, games / 5), { ruleset: "modern", course: "pitMazeRun" }, 900);
-console.log(`sim (2016, long race): ${modernLong.games} games, avg ${modernLong.turns.avg} turns, ` +
+// THE SAME GAME, A SECOND SEED BLOCK. The long-race pass existed because the
+// only 2016 sim available ran on a short classic course where a fifty-game
+// block sometimes produced no shutdown at all. Energize is long enough on its
+// own -- measured across four seed blocks, 69 to 92 shutdowns per fifty games
+// -- so this is now a second block of the real course rather than a different
+// course borrowed for its length.
+const modernLong = PR.runSim(Math.max(40, games / 5), { ruleset: "modern", course: "energizeRun" }, 5000);
+console.log(`sim (2016, second block): ${modernLong.games} games, avg ${modernLong.turns.avg} turns, ` +
   `${modernLong.unfinished} unfinished, ${modernLong.crashes.length} crashes, ` +
   `${modernLong.shutdowns} shutdowns scrapping ${modernLong.scrapped} damage`);
 for (const c of modernLong.crashes.slice(0, 5)) {
