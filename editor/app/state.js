@@ -21,10 +21,6 @@ export function newState(board) {
   return {
     board: board || blankBoard({ id: "untitled", name: "Untitled" }),
     mode: "art",
-    /* Which ruleset the inspector READS the board through. Not a property of
-     * the board -- the board's turn just runs in a different order under each
-     * set of rules, and this decides which order is shown. */
-    lens: "classic",
     hand: blankToolState(),
     hover: null,
     sel: null,            // the square being edited, if any

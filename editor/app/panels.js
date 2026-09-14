@@ -67,7 +67,6 @@ export function renderRail(el, st, isCourse) {
 
 export function renderInspector(el, st, hover, isCourse) {
   const tool = toolByKey(st.hand.tool);
-  const rules = rulesetFor(st.lens);
 
   let html = "<h3>Board</h3>";
   html += '<div class="row"><label>Name</label><input type="text" data-meta="name" value="' +
@@ -102,13 +101,18 @@ export function renderInspector(el, st, hover, isCourse) {
         : "") + "</span></div>";
   }
 
-  /* THE READING LENS. Not a property of the board: the board's turn runs in a
-   * different order under each set of rules, so the editor lets you look
-   * through either. It changes what the panel below says and nothing else. */
-  html += '<div class="row"><label>Read as</label>' +
-    rulesetIds().map(id => '<button data-lens="' + id + '" aria-pressed="' + (st.lens === id) +
-      '" title="' + esc(EDITIONS[id].years) + '">' + esc(EDITIONS[id].name) + "</button>").join("") +
-    "</div>";
+  /* THE VIEW. There used to be a "Read as" switch here, picking which ruleset
+   * the register-order panel was written for. That was a FILTER, and filtering
+   * is the engine's job -- the editor should show everything it knows. The panel
+   * below lists both orders now, and this switch chooses how the board is
+   * DRAWN: solid play art, or the thin line work meant to be read over a
+   * photograph of the printed board. */
+  html += '<div class="row"><label>View</label>' +
+    [["art", "Board art"], ["markup", "Markup"]].map(([k, label]) =>
+      '<button data-view="' + k + '" aria-pressed="' + (st.mode === k) + '" title="' +
+      (k === "markup" ? "thin line work, to be read over a photograph"
+                      : "solid art, as the board is played") + '">' + label + "</button>").join("") +
+    '<span class="hot">`</span></div>';
 
   html += "<h3>In hand</h3>";
   if (!tool) html += '<p class="none">Nothing.</p>';
@@ -257,27 +261,46 @@ export function renderInspector(el, st, hover, isCourse) {
     }
     html += "</dl>";
 
-    /* WHAT HAPPENS HERE, AND IN WHAT ORDER. The editor knows the rules, so it
-     * can say what a robot standing here meets and when -- taken from the
-     * ruleset's own order table rather than written out again. */
-    const steps = orderFor(st.board, rules, d);
-    if (steps.length) {
-      html += "<h3>At the end of a register, read as " + esc(EDITIONS[st.lens].name) +
-        "</h3><ol class='diag'>";
-      for (const s of steps) html += "<li style='border-left-color:var(--hot);background:#0d1822;cursor:default'>" + esc(s) + "</li>";
-      html += "</ol>";
+    /* WHAT HAPPENS HERE, AND IN WHAT ORDER -- UNDER BOTH SETS OF RULES.
+     * The board's turn runs differently under each, and the editor has no
+     * business deciding which you meant; that is the engine's choice at play
+     * time. Where the two agree this reads as one answer. Where they differ,
+     * the difference is the reason for showing it. */
+    const step = o => "<li style='border-left-color:var(--hot);background:#0d1822;cursor:default'>" +
+      esc(o) + "</li>";
+    const orders = rulesetIds().map(id => ({ id, steps: orderFor(rulesetFor(id), d) }))
+      .filter(o => o.steps.length);
+    if (orders.length) {
+      html += "<h3>At the end of a register</h3>";
+      const same = orders.length === 2 && orders[0].steps.join("|") === orders[1].steps.join("|");
+      if (same) {
+        html += "<ol class='diag'>" + orders[0].steps.map(step).join("") + "</ol>";
+        html += '<div class="row"><span class="none">The same under both sets of rules.</span></div>';
+      } else {
+        for (const o of orders) {
+          html += '<div class="row"><span class="pill">' + esc(EDITIONS[o.id].name) + "</span></div>";
+          html += "<ol class='diag'>" + o.steps.map(step).join("") + "</ol>";
+        }
+      }
     }
   }
   el.innerHTML = html;
 }
 
 /** The board's turn, filtered to what this square actually carries. */
-function orderFor(board, rules, d) {
+function orderFor(rules, d) {
   if (!rules) return [];
   const has = {};
   const el = d.key;
   has.expressConveyor = el === "expressConveyor";
-  has.conveyor = el === "conveyor" || el === "current" || el === "expressConveyor";
+  /* Whether a fast belt ALSO runs with the slow ones is the one participation
+   * difference between the two orders, and it lives on the ruleset rather than
+   * as a branch here: classic express moves once alone and once more with
+   * everything; a modern double belt moves two in its own step and then sits
+   * out. The same distance by a different route -- and it matters wherever a
+   * robot is in the way for one pass and not the other. */
+  has.conveyor = el === "conveyor" || el === "current" ||
+    (el === "expressConveyor" && rules.expressAlsoRunsWithNormals);
   has.current = el === "current";
   has.gear = el === "gearCW" || el === "gearCCW";
   has.pusher = d.wallDevices.some(x => x.kind === "pusher");

@@ -23,6 +23,13 @@ export default {
    * number nobody can cite. */
   maxFlagGap: null,
 
+  /* A double-arrow belt moves TWO in its own step and does not run again with
+   * the single-arrow ones. Classic reaches two squares the other way round --
+   * express once alone, then once more with everything -- which is the same
+   * distance by a different route, and matters wherever a robot is in the way
+   * for one pass and not the other. */
+  expressAlsoRunsWithNormals: false,
+
   /* Wet and Wild's fold-out prints a numbered order, and it is the one that
    * integrates the expansion elements into the core sequence. */
   order: [

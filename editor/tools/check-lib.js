@@ -28,6 +28,7 @@ import { sink } from "../validate/diagnostic.js";
 import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SETS, EDITIONS } from "../rulesets/sets.js";
+import { rulesetFor, rulesetIds } from "../rulesets/index.js";
 
 let passed = 0, failed = 0;
 const eq = (a, b, m) => {
@@ -103,6 +104,36 @@ for (const [id, s] of Object.entries(SETS)) {
   eq([jet.fields.reach.min, jet.fields.reach.max], [1, 2],
      "jet: it reaches one or two squares, and never three");
   eq(jet.fields.reach.default, 1, "jet: one is the default, so a plain jet writes no reach at all");
+}
+
+/* --- the two orders, and the one place they differ on participation ---------
+ * The editor shows BOTH orders for a square rather than asking which ruleset
+ * you meant -- filtering is the engine's job. So both have to be readable, and
+ * the difference between them has to be data rather than a branch in the panel
+ * that draws it. */
+{
+  eq(rulesetIds().sort(), ["classic", "modern"], "rulesets: both are always available to the inspector");
+  for (const id of rulesetIds()) {
+    const r = rulesetFor(id);
+    ok(Array.isArray(r.order) && r.order.length, "rulesets: " + id + " has a board order");
+    ok(typeof r.expressAlsoRunsWithNormals === "boolean",
+       "rulesets: " + id + " says whether a fast belt also runs with the slow ones");
+    for (const step of r.order) {
+      ok(step.step && step.name, "rulesets: " + id + " step " + JSON.stringify(step.step) + " is named");
+    }
+  }
+  /* Classic express moves once alone and once more with everything; a modern
+   * double belt moves two in its own step and then sits out. Same distance,
+   * different route -- and it matters wherever a robot is in the way for one
+   * pass and not the other. */
+  eq(rulesetFor("classic").expressAlsoRunsWithNormals, true,
+     "rulesets: a classic express conveyor also runs with the normal ones");
+  eq(rulesetFor("modern").expressAlsoRunsWithNormals, false,
+     "rulesets: a modern double belt does not");
+  ok(rulesetFor("classic").order.some(s2 => s2.step === "press"),
+     "rulesets: presses are in the classic order");
+  ok(rulesetFor("modern").order.some(s2 => s2.step === "crusher"),
+     "rulesets: crushers are in the modern order");
 }
 
 /* --- token and arms -------------------------------------------------------- */

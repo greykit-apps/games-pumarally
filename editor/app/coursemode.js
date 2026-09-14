@@ -43,8 +43,6 @@ const SHELL = `
     <span class="st-msg"></span>
     <span class="grow"></span>
     <span class="sep"></span>
-    <button data-act="mode">Markup</button>
-    <span class="sep"></span>
     <button data-act="zoomout">&minus;</button>
     <span class="st-zoom"></span>
     <button data-act="zoomin">+</button>
@@ -111,7 +109,6 @@ export async function mountCourse(root, wanted) {
   const st = {
     course: newCourse("untitled"),
     mode: "art",
-    lens: "classic",
     hand: null,          // a board id waiting to be placed
     handRot: 0,
     sel: -1,             // a placed stamp
@@ -156,7 +153,6 @@ export async function mountCourse(root, wanted) {
     renderInspector();
     renderDiagnostics(diagEl, st);
     zoomEl.textContent = Math.round(st.zoom * 100) + "%";
-    root.querySelector('[data-act="mode"]').textContent = st.mode === "art" ? "Markup" : "Art";
     if (!keepView) fit(view, st);
   }
 
@@ -225,6 +221,10 @@ export async function mountCourse(root, wanted) {
     html += '<div class="row"><span class="pill">' + st.course.stamps.length + " board(s)</span>" +
       '<span class="pill">' + st.board.w + " x " + st.board.h + "</span>" +
       '<span class="pill">' + (dock ? "start block" : "no start block") + "</span></div>";
+    html += '<div class="row"><label>View</label>' +
+      [["art", "Board art"], ["markup", "Markup"]].map(([k, label]) =>
+        '<button data-view="' + k + '" aria-pressed="' + (st.mode === k) + '">' + label + "</button>").join("") +
+      '<span class="hot">`</span></div>';
     html += '<div class="row"><label>Seats</label>' +
       [2, 4, 6, 8].map(n => '<button data-seats="' + n + '" aria-pressed="' + (st.course.maxPlayers === n) + '">' + n + "</button>").join("") +
       "</div>";
@@ -385,6 +385,7 @@ export async function mountCourse(root, wanted) {
     }
     if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
     if (d.handrot !== undefined) { st.handRot = +d.handrot; refresh(); return; }
+    if (d.view !== undefined) { st.mode = d.view; refresh(); return; }
     if (d.seats !== undefined) { st.course.maxPlayers = +d.seats; refresh(); return; }
     if (d.flagup !== undefined) { moveFlag(st.course, +d.flagup, +d.flagup - 1); refresh(); return; }
     if (d.flagdown !== undefined) { moveFlag(st.course, +d.flagdown, +d.flagdown + 1); refresh(); return; }
@@ -438,7 +439,6 @@ export async function mountCourse(root, wanted) {
 
   function act(name) {
     switch (name) {
-      case "mode": st.mode = st.mode === "art" ? "markup" : "art"; refresh(); break;
       case "fit": fit(view, st); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;
       case "zoomin": zoomAbout(view, st, 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;
       case "zoomout": zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;

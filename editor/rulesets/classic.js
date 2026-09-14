@@ -24,6 +24,12 @@ export default {
    * in the geometry and read as the same twelve. It is not the same twelve. */
   maxFlagGap: 12,
 
+  /* An express conveyor moves once in its OWN step and then again with the
+   * normal ones, which is how it covers two squares. The modern game does not
+   * work that way -- see modern.js -- and this is the flag that says so rather
+   * than a branch in the inspector. */
+  expressAlsoRunsWithNormals: true,
+
   /* The board's turn, in printed order. */
   order: [
     { step: "expressConveyor", name: "Express conveyors move one", settled: true },

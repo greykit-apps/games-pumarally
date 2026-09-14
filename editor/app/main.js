@@ -58,7 +58,6 @@ const SHELL = `
     <span class="st-msg"></span>
     <span class="grow"></span>
     <span class="sep"></span>
-    <button data-act="mode">Markup</button>
     <button data-act="undo" title="Ctrl-Z">Undo</button>
     <button data-act="redo">Redo</button>
     <span class="sep"></span>
@@ -108,7 +107,6 @@ export function mount(root) {
     }
     showMarks(view, st);
     zoomEl.textContent = Math.round(st.zoom * 100) + "%";
-    root.querySelector('[data-act="mode"]').textContent = st.mode === "art" ? "Markup" : "Art";
     root.querySelector('[data-act="undo"]').disabled = !st.undo.length;
     root.querySelector('[data-act="redo"]').disabled = !st.redo.length;
     autosave();
@@ -270,13 +268,15 @@ export function mount(root) {
 
   /* --- clicks in the panels --------------------------------------------------- */
 
-  function toggleMode() {
-    st.mode = st.mode === "art" ? "markup" : "art";
+  function setMode(mode) {
+    if (st.mode === mode) return;
+    st.mode = mode;
     refresh();
-    say(st.mode === "markup"
-      ? "Markup: thin line work, meant to be read over a photograph."
-      : "Play art.", "");
+    say(mode === "markup"
+      ? "Markup: thin line work, meant to be read over a photograph of the printed board."
+      : "Board art, as the board is played.", "");
   }
+  function toggleMode() { setMode(st.mode === "art" ? "markup" : "art"); }
 
   root.addEventListener("click", ev => {
     const b = ev.target.closest("button");
@@ -291,7 +291,7 @@ export function mount(root) {
       if (d.damage !== undefined) { st.hand.damage = +d.damage; refresh({ board: false }); return; }
       if (d.reach !== undefined) { st.hand.reach = +d.reach; refresh({ board: false }); return; }
       if (d.reg !== undefined) { toggleReg(+d.reg); return; }
-      if (d.lens !== undefined) { st.lens = d.lens; refresh({ board: false }); return; }
+      if (d.view !== undefined) { setMode(d.view); return; }
       if (d.arm !== undefined) { change(() => toggleArm(st.board, st.sel.c, st.sel.r, d.arm)); return; }
       if (d.turnto !== undefined) { change(() => faceTo(+d.turnto)); return; }
       if (d.devface !== undefined) { change(() => devFace(d.devface)); return; }
@@ -431,7 +431,6 @@ export function mount(root) {
 
   function act(name) {
     switch (name) {
-      case "mode": toggleMode(); break;
       case "undo": undo(st) && refresh(); break;
       case "redo": redo(st) && refresh(); break;
       case "fit": fit(view, st); refresh({ board: false }); break;

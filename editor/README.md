@@ -183,27 +183,43 @@ flag number, so inserting one renumbers everything after it.
 
 ---
 
-## Two rulesets
+## Two rulesets, and neither of them filters anything
 
-Classic (1994–2005) and Modern (2016–). A board declares which game it was
-printed for, a course may not mix them, and the validator refuses an element that
-edition never printed — a repair site on a 2016 board is a transcription error,
-not a variant.
+Classic (1994–2005) and Modern (2016–). The rail offers every element there is;
+the validator refuses nothing for belonging to one printing or the other; a
+course may mix boards freely. **Filtering is the engine's job at play time. The
+editor's job is to show everything it knows.**
+
+The only thing a ruleset does here is answer *what would a robot standing on this
+square meet, and in what order* — and the inspector shows **both** answers rather
+than asking which you meant. Where the two agree it reads as one answer; where
+they differ, that difference is the reason for showing it. Hover an express
+conveyor and you get it plainly:
+
+| | |
+|---|---|
+| Classic | Express conveyors move one → All conveyors move one |
+| Modern | Blue belts move two |
+
+Same distance, different route — and it matters wherever a robot is in the way
+for one pass and not the other. That participation rule is data on the ruleset
+(`expressAlsoRunsWithNormals`), not a branch in the panel that draws it.
 
 **Where a name means two different elements, there are two entries** — and this
-survives, because it is about the *rules*, not about which board may carry them.
-Classic oil
-stops a sliding robot at the first robot it meets; modern oil pushes that robot
-and both slide on. Classic portals switch off while a robot stands on one; modern
-portals refuse only when the destination is occupied. Same word, different
-element, different character. This is not theoretical: `oRing` is a transcribed
-2016 board with an oil slick printed on it, and under one shared entry it carried
-the classic rules.
+survives the above, because it is about the *rules*, not about which board may
+carry them. Classic oil stops a sliding robot at the first robot it meets; modern
+oil pushes that robot and both slide on. Classic portals switch off while a robot
+stands on one; modern portals refuse only when the destination is occupied. Same
+word, different element, different character. Not theoretical: `oRing` is a
+transcribed 2016 board with an oil slick printed on it, and under one shared
+entry it carried the classic rules.
 
 Conveyors are deliberately **not** split that way. The difference there is one of
-resolution *order*, which belongs to the ruleset reading the board, and a board
-declares exactly one edition — so splitting them would double the legend and
-record no extra fact.
+resolution *order*, which belongs entirely to the ruleset reading the board, so
+splitting them would double the legend and record no extra fact.
+
+**View** switches how the board is *drawn* — board art, or markup line work — and
+is the only view control there is. Backtick does the same.
 
 ---
 
