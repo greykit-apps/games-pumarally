@@ -132,7 +132,7 @@ const modern = PR.runSim(Math.max(40, games / 4), { ruleset: "modern" }, 900);
 const modernWins = Object.values(modern.wins).reduce((a, b) => a + b, 0);
 console.log(`sim (2016 rules): ${modern.games} games, avg ${modern.turns.avg} turns, ` +
   `${modernWins} decided, ${modern.unfinished} unfinished, ${modern.crashes.length} crashes, ` +
-  `${modern.spamDealt} SPAM dealt`);
+  `${modern.spamDealt} SPAM dealt, ${modern.reboots} reboots, ${modern.returns} returns`);
 for (const c of modern.crashes.slice(0, 5)) {
   console.error(`  error:   [2016] seed ${c.seed} crashed at ${c.at} turn ${c.turn} -- ${c.error}`);
   failed++;
@@ -144,6 +144,31 @@ if (!modernWins) { console.error("  error:   no 2016 game was ever won"); failed
 // sim is here for.
 if (!modern.spamDealt) {
   console.error("  error:   not one SPAM was dealt in the 2016 sim, so nothing above tested it");
+  failed++;
+}
+// Nothing dies in this edition, so `deaths` is 0 whatever happens and cannot
+// stand in for either of these. A robot that never comes off the board and one
+// that comes off and never gets back on are different bugs; one number cannot
+// tell them apart, so there are two.
+if (!modern.reboots) {
+  console.error("  error:   not one robot rebooted in the 2016 sim");
+  failed++;
+}
+// And the accounting below balances just as well when NOBODY ever comes back
+// -- every robot stays stranded and the sum still works out -- so the fact
+// that returns happen at all is its own check.
+if (!modern.returns) {
+  console.error("  error:   robots rebooted in the 2016 sim and not one ever got back on the board");
+  failed++;
+}
+// EXACTLY, not within a tolerance. Every robot that came off the board either
+// walked back on or was still off it when the race ended; there is no third
+// thing that can happen to it, so a fudge factor here would be hiding the one
+// failure this is looking for.
+const stranded = modern.reboots - modern.returns - modern.stranded;
+if (stranded !== 0) {
+  console.error(`  error:   ${modern.reboots} reboots, ${modern.returns} returns, ` +
+    `${modern.stranded} still off the board at the end -- ${stranded} unaccounted for`);
   failed++;
 }
 if (modern.unfinished > modern.games * 0.1) {

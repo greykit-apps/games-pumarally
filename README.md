@@ -30,14 +30,15 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 239 rule tests | done |
+| Headless simulation + 246 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
 | Modern round order, Energy, Priority Token, personal decks | done |
 | Modern damage — SPAM | done |
+| Modern reboots — falling, re-entry, chosen facing | done |
 | Modern damage — Haywire | **not built** — the card faces are not transcribed |
-| Modern upgrade phase, shop, reboots | not yet |
+| Modern upgrade phase and shop | not yet |
 | Hot-seat pass-and-play | done |
 | Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | done |
@@ -205,7 +206,7 @@ physical cards, against a hook system that is already finished. The gap is a
 number in the source (`OPTION_ROSTER`) that the validator checks, not something
 anyone has to remember.
 
-Two deliberate simplifications, marked here because no check can see them:
+Three deliberate simplifications, marked here because no check can see them:
 
 - **Losing a card when wrecked** is the player's choice at the table. Here it is
   a fixed preference, because destruction happens deep inside a move where no
@@ -216,6 +217,14 @@ Two deliberate simplifications, marked here because no check can see them:
 - **Bots answer instantly** and consume no shared randomness, same contract as
   their programming: a seeded replay must not drift because a bot was offered a
   different number of choices.
+- **Where a 2016 robot reboots to.** The modern boards print a Reboot Token — a
+  fixed square per board with an arrow on it — and you land on the one belonging
+  to the board you fell off. Every board in this repo was transcribed from a
+  classic printing, so none carries one, and the robot's archive stands in: the
+  same square the classic game would have sent it to. Everything else about the
+  rule is faithful, including choosing your own facing on the way back (the
+  token's arrow is explicitly ignored for that) and the shove that clears an
+  occupied square without counting as a push.
 
 ## Two editions
 
@@ -226,6 +235,7 @@ project carries both.
 |---|---|---|
 | Move order | Priority number on each card | Priority Token — seating order, fixed for the round |
 | Damage | Tokens; each costs a dealt card and locks registers | SPAM cards shuffled into a personal deck |
+| Falling | Destroyed; costs a life, and lives run out | Reboot; costs nothing, and nobody can be eliminated |
 | Upgrades | Option cards, from upgrade sites | Energy cubes spent in a shop |
 | Repair sites | Repair 1 damage | Removed from the boards entirely |
 | Deck | One shared 84-card deck | A personal deck per player |
@@ -243,8 +253,8 @@ into a single word. What is built runs: the modern round order, Energy, the
 Priority Token, a personal twenty-card deck each, and SPAM damage, all
 simulated to a winner on every course with the conservation laws armed.
 
-What is not built is the **upgrade phase and shop**, **reboots**, and the
-**Haywire half of the damage deck**. That last one is a transcription gap
+What is not built is the **upgrade phase and shop** and the **Haywire half of
+the damage deck**. That last one is a transcription gap
 rather than an engineering one: the rules say the deck is forty cards of two
 types, but no page photographed here gives the split, and each Haywire carries
 its own programme on its own face. The deck therefore ships as forty SPAM, and
