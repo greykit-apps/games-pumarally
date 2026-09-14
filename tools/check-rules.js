@@ -22,6 +22,35 @@ const PR = require(path.join(__dirname, "..", "pumarally.js")).__PR;
 const games = parseInt(process.argv[2], 10) || 200;
 let failed = 0;
 
+/* THE README'S TEST COUNT IS CHECKED, NOT REMEMBERED.
+ *
+ * It was stale in two places at once -- "262" beside a suite of 265 and a "58"
+ * that had been wrong for months -- and both had been read past by everyone,
+ * because a number in prose looks like documentation rather than a claim. This
+ * is the same bargain OPTION_ROSTER and UPGRADE_ROSTER already make: a count
+ * lives in one place and something refuses when it drifts.
+ *
+ * Written as a check rather than a generator on purpose. A README that
+ * rewrites itself would keep the number right and stop anyone noticing the
+ * suite had shrunk, which is the failure worth catching. */
+const fs = require("fs");
+function checkReadmeCounts(actual) {
+  let readme;
+  try { readme = fs.readFileSync(path.join(__dirname, "..", "README.md"), "utf8"); }
+  catch (e) { console.error("  error:   the README could not be read to check its test count"); return 1; }
+  const claims = [...readme.matchAll(/(\d+)\s+rule tests/g)].map(m => parseInt(m[1], 10));
+  if (!claims.length) {
+    console.error("  error:   the README no longer states a rule-test count, so nothing checks it");
+    return 1;
+  }
+  const wrong = claims.filter(n => n !== actual);
+  if (wrong.length) {
+    console.error(`  error:   the README says ${wrong.join(" and ")} rule tests; there are ${actual}`);
+    return 1;
+  }
+  return 0;
+}
+
 /* The load-time table self-check, run against the SHIPPED tables.
  *
  * It is called from mount(), so until now nothing outside a browser ever ran
@@ -41,6 +70,7 @@ try {
 const rt = PR.ruleTests();
 console.log(`rule tests: ${rt.passed}/${rt.total} passed`);
 for (const f of rt.failed) { console.error(`  error:   ${f.name} -- ${f.error}`); failed++; }
+failed += checkReadmeCounts(rt.total);
 
 const t0 = Date.now();
 const sim = PR.runSim(games);
