@@ -81,16 +81,16 @@
   },
   "ceiling": {
     "devices": [
-      { "kind": "press", "at": [4, 1], "regs": [1, 5] },
-      { "kind": "press", "at": [6, 2], "regs": [1, 5] },
-      { "kind": "press", "at": [4, 3], "regs": [2, 4] },
-      { "kind": "press", "at": [6, 4], "regs": [2, 4] },
-      { "kind": "press", "at": [4, 5], "regs": [3] },
-      { "kind": "press", "at": [6, 6], "regs": [3] },
-      { "kind": "press", "at": [4, 7], "regs": [2, 4] },
-      { "kind": "press", "at": [6, 8], "regs": [2, 4] },
-      { "kind": "press", "at": [4, 9], "regs": [1, 5] },
-      { "kind": "press", "at": [6, 10], "regs": [1, 5] }
+      { "kind": "crusher", "at": [4, 1], "regs": [1, 5] },
+      { "kind": "crusher", "at": [6, 2], "regs": [1, 5] },
+      { "kind": "crusher", "at": [4, 3], "regs": [2, 4] },
+      { "kind": "crusher", "at": [6, 4], "regs": [2, 4] },
+      { "kind": "crusher", "at": [4, 5], "regs": [3] },
+      { "kind": "crusher", "at": [6, 6], "regs": [3] },
+      { "kind": "crusher", "at": [4, 7], "regs": [2, 4] },
+      { "kind": "crusher", "at": [6, 8], "regs": [2, 4] },
+      { "kind": "crusher", "at": [4, 9], "regs": [1, 5] },
+      { "kind": "crusher", "at": [6, 10], "regs": [1, 5] }
     ]
   }
 }

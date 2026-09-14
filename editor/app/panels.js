@@ -172,13 +172,24 @@ export function renderInspector(el, st, hover, isCourse) {
    * ruleset in force. This line exists so a transcriber notices a square that
    * came out of a different box from the rest, which is usually worth a second
    * look at the photograph. */
+  /* It NAMES THE THING rather than calling it an element, because it is often
+   * not one -- `printingsOn` counts devices too, and since oil and portals
+   * merged there is no single-printing element on any shipped board at all, so
+   * every board this line fires on fires for a flame jet or a flamer. "Carries
+   * elements printed in Classic" was then simply untrue, and a transcriber
+   * checking the photograph for the offending SQUARE would have found nothing
+   * on it. `firstPrintedOnlyIn` was already written and already handles
+   * devices; it just had no caller. */
   const printings = printingsOn(st.board);
-  if (printings.length) {
-    html += '<div class="row"><span class="none">Carries elements printed in ' +
-      printings.map(e => esc(EDITIONS[e].name)).join(" and ") +
-      (printings.length > 1
-        ? " \u2014 fine; the engine sorts that out at play time."
-        : "") + "</span></div>";
+  if (printings.length === 1) {
+    const one = firstPrintedOnlyIn(st.board, printings[0]);
+    html += '<div class="row"><span class="none">Carries ' +
+      (one ? "a " + esc(one.what.toLowerCase()) + (one.where ? " at " + esc(one.where) : "") : "something") +
+      ", which only " + esc(EDITIONS[printings[0]].name) + " prints.</span></div>";
+  } else if (printings.length > 1) {
+    html += '<div class="row"><span class="none">Carries things only ' +
+      printings.map(e => esc(EDITIONS[e].name)).join(" and only ") +
+      " print \u2014 fine; the engine sorts that out at play time.</span></div>";
   }
 
   /* THE VIEW. There used to be a "Read as" switch here, picking which ruleset
@@ -346,7 +357,6 @@ function orderFor(rules, d) {
   has.pusher = d.wallDevices.some(x => x.kind === "pusher");
   has.jet = d.wallDevices.some(x => x.kind === "jet");
   has.boardLaser = false;
-  has.press = d.ceiling.some(x => x.kind === "press");
   has.crusher = d.ceiling.some(x => x.kind === "crusher");
   has.flamer = d.ceiling.some(x => x.kind === "flamer");
   return rules.order

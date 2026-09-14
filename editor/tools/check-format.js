@@ -174,13 +174,20 @@ console.log("note: " + flagSpotTotal + " flag location(s) marked across " + entr
   " board(s). A race chooses about three per course from whatever its boards mark.");
 
 /* Provenance, printed as a note and never as a verdict: a board carrying
- * elements from both printings is perfectly ordinary. */
+ * things from both printings is perfectly ordinary.
+ *
+ * It counts BOARDS, by what they carry that only one printing prints -- and
+ * that is devices as well as elements, which the old wording ("elements printed
+ * in") hid. Since oil and portals merged there is no single-printing ELEMENT on
+ * any shipped board at all, so every board in this tally is here for a flame
+ * jet or a flamer, and a note naming elements would have been simply untrue. */
 const byPrinting = {};
 for (const e of entries) {
   const from = printingsOn(e.board).join("+") || "either";
   byPrinting[from] = (byPrinting[from] || 0) + 1;
 }
-console.log("note: elements printed in -- " + Object.entries(byPrinting).map(([k, v]) => k + ": " + v).join(", "));
+console.log("note: boards carrying something only one printing prints -- " +
+  Object.entries(byPrinting).map(([k, v]) => k + ": " + v).join(", ") + " (of " + entries.length + ")");
 
 if (errors) {
   console.error("check-format: " + errors + " error(s)");

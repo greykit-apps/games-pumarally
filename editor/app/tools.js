@@ -83,7 +83,7 @@ export function blankToolState() {
   return {
     tool: "el:conveyor",
     dir: N, digit: 1, pair: 1, damage: 1, reach: 1, level: 1,
-    regs: { pusher: [1, 3, 5], jet: [2, 4], door: [1, 3, 5], press: [1, 5], crusher: [2, 5], flamer: null },
+    regs: { pusher: [1, 3, 5], jet: [2, 4], door: [1, 3, 5], crusher: [2, 5], flamer: null },
     arms: "."
   };
 }

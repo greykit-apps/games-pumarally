@@ -122,11 +122,9 @@ export const GLYPHS = {
       mkText(ctx.arg, 50, 52, MARK.ground, 30)
   },
 
-  oilClassic: { art: () => A.oilSvg(), markup: () => oilMark() },
-  oilModern: { art: () => A.oilSvg(), markup: () => oilMark() },
+  oil: { art: () => A.oilSvg(), markup: () => oilMark() },
 
-  portalClassic: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
-  portalModern: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
+  portal: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
   teleporter: { art: ctx => A.teleporterSvg(ctx.arg), markup: ctx => ringMark(ctx) },
 
   water: { art: () => A.waterSvg(), markup: () => waterMark() },
@@ -266,14 +264,11 @@ export const DEVICE_GLYPHS = {
     markup: ctx => mk("M 12 98 L 88 98", MARK.door, 2.2) + regsMark(ctx.regs, MARK.door)
   },
 
-  press: {
-    art: ctx => A.pressSvg() + stampArt(ctx.regs),
-    markup: ctx => ceilingMark(ctx)
-  },
   crusher: {
-    /* No game drawing to port: the 2016 ceiling traps are not on any board the
-     * game ships, so it never drew one. Kept in the same vocabulary. */
-    art: ctx => ceilingArt(ART.crusher) + stampArt(ctx.regs),
+    /* The game's own press drawing -- a ram on a shaft with a bolt through it,
+     * which is what the printed disc is in either box. One device, so one
+     * drawing; the name it goes by is the ruleset's business. */
+    art: ctx => A.pressSvg() + stampArt(ctx.regs),
     markup: ctx => ceilingMark(ctx)
   },
   flamer: {
@@ -309,12 +304,6 @@ export function stampArt(regs) {
     '<text class="pr-stamp" x="4" y="5">' + esc(text) + "</text></g>";
 }
 
-function ceilingArt(colour) {
-  return '<rect x="18" y="20" width="64" height="64" rx="6" fill="none" stroke="' + colour +
-    '" stroke-width="5" stroke-dasharray="10 7"/>' +
-    '<path d="M 30 32 L 50 52 L 70 32 M 30 72 L 50 52 L 70 72" fill="none" stroke="' + colour +
-    '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
-}
 function ceilingMark(ctx) {
   return mk("M 18 20 L 82 20 L 82 84 L 18 84 Z M 30 32 L 50 52 L 70 32 M 30 72 L 50 52 L 70 72",
     MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22);

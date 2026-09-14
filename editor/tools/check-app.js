@@ -135,13 +135,13 @@ const fresh = (w = 8, h = 8) =>
   const st = blankToolState();
   st.tool = "el:pit";
   apply(b, st, 2, 2);
-  st.tool = "dev:press";
-  refused(apply(b, st, 2, 2), "ceiling: a press over a pit");
-  st.tool = "dev:press";
-  ok(apply(b, st, 3, 3).changed, "ceiling: a press over floor");
-  refused(apply(b, st, 3, 3), "ceiling: two presses on one square");
+  st.tool = "dev:crusher";
+  refused(apply(b, st, 2, 2), "ceiling: a disc over a pit");
+  st.tool = "dev:crusher";
+  ok(apply(b, st, 3, 3).changed, "ceiling: a disc over floor");
+  refused(apply(b, st, 3, 3), "ceiling: two discs on one square");
   st.tool = "el:pit";
-  refused(apply(b, st, 3, 3), "ground: digging a pit under a press");
+  refused(apply(b, st, 3, 3), "ground: digging a pit under a disc");
 }
 
 {

@@ -171,12 +171,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "f972d1e32afcdc98",
-      "bytes": 65468
+      "sha": "40e2500c1c8204fa",
+      "bytes": 65372
     },
     "markup": {
-      "sha": "fd1fa2299e2e07eb",
-      "bytes": 38847
+      "sha": "37589ff3fa3ec255",
+      "bytes": 37055
     }
   }
 }

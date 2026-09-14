@@ -103,7 +103,7 @@ const CASES = [
 
   /* wall devices */
   ["device.unknownKind", FIXTURE, d => { wallDev(d, "laser").kind = "trebuchet"; }],
-  ["device.wrongLayer", FIXTURE, d => { wallDev(d, "laser").kind = "press"; }],
+  ["device.wrongLayer", FIXTURE, d => { wallDev(d, "laser").kind = "crusher"; }],
   ["device.badEdge", FIXTURE, d => { wallDev(d, "laser").edge = "h:99,0"; }],
   ["device.badFace", FIXTURE, d => { wallDev(d, "laser").face = "E"; }],
   ["device.faceNotAllowed", FIXTURE, d => { wallDev(d, "door").face = "N"; }],

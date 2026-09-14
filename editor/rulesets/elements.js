@@ -13,13 +13,32 @@
  * this a pit" needs no list of which characters count. The character exists to
  * be typed and diffed; the properties exist to be reasoned about.
  *
- * TWO ELEMENTS THAT SHARE A NAME ACROSS EDITIONS GET TWO ENTRIES.
- * Classic oil stops a sliding robot at the first robot it meets; modern oil
- * pushes that robot and both slide on. Classic portals switch off while a robot
- * stands on one; modern portals refuse only when the destination is occupied.
- * Same word, different element. One character carrying both is how a board
- * would quietly play the wrong game, so `oil` and `portal` each appear twice
- * with the edition in the key.
+ * TWO EDITIONS PRINTING THE SAME TILE GET ONE ENTRY, and this was got wrong
+ * once. Oil slicks, portals and the overhead disc each had two entries here,
+ * one per edition, on the reasoning that the two games resolve them
+ * differently. They do -- and that is not a fact about the tile.
+ *
+ * A BOARD DECLARES NO EDITION. So an element character was the only place an
+ * edition claim could still hide, and it was the worst place for it: written
+ * per SQUARE rather than per board, so a board could carry a classic oil next
+ * to a modern one and mean nothing at all. The two characters were never read
+ * off a photograph either. `convert-boards.js` minted them from the old data's
+ * `edition` field -- the very field we had just decided was not a fact about
+ * the board -- so boardG's oil became `L` and oRing's became `%` because of a
+ * metadata string, not because the print differs. The renderer then drew both
+ * with the same glyph, and the editor's rail listed "Oil slick" twice with
+ * nothing to tell them apart.
+ *
+ * WHERE THE DIFFERENCE WENT. Into the rulesets, which is where a difference of
+ * resolution belongs: `oilSlidePushes` and `portalBlockedBy` in classic.js and
+ * modern.js, each carrying the rulebook's own wording. check-lib.js asserts
+ * both rulesets define them AND that they disagree, so merging the tiles
+ * cannot quietly become forgetting the rule.
+ *
+ * The test is what the PRINT SHOWS, not what the rule does. Deep pits and
+ * drains are `pit` for exactly this reason -- "deep pits act like pits in every
+ * way", only the art differs. Conveyors are one element for it too, though the
+ * editions run them in a different order and only one of them pushes.
  *
  * REPAIR SITES, UPGRADE SITES AND ENERGY SPACES ARE NOT HERE. They are not one
  * to a square -- the same printed square carries a wrench for one game and a
@@ -27,13 +46,6 @@
  * addition to what it is. See rulesets/sites.js. A flag location is the same
  * kind of thing, which is the reason that layer exists at all.
  *
- * CONVEYORS ARE DELIBERATELY *NOT* SPLIT that way, though both editions print
- * them and resolve them differently. The difference there is one of ORDER
- * (classic runs express alone then express-and-normal together; modern runs
- * double-arrow belts before single-arrow ones) and of whether a belt pushes.
- * Both are properties of the ruleset reading the board, not of the square, and
- * a board declares exactly one edition — so the ruleset is never in doubt.
- * Splitting them would double the legend and record no extra fact.
  */
 
 import { dirOfChar } from "../lib/dir.js";
@@ -45,7 +57,6 @@ export const ARG_DIGIT = "digit";
 export const ARG_PAIR = "pair";
 
 const BOTH = ["classic", "modern"];
-const CLASSIC = ["classic"];
 const MODERN = ["modern"];
 
 /**
@@ -82,15 +93,22 @@ export const ELEMENTS = {
          props: { dock: true },
          source: "Both games ship a docking bay board." },
 
-  /* --- Classic only ------------------------------------------------------ */
+  /* Both games print an oil slick and both print a portal, and each prints ONE
+   * of them -- there is no classic oil and modern oil to tell apart on a board.
+   * What differs is the resolution, and that lives in the rulesets: see
+   * `oilSlidePushes` and `portalBlockedBy`. */
 
-  "L": { key: "oilClassic", name: "Oil slick", arg: ARG_NONE, printedIn: CLASSIC,
-         props: { oil: "classic" },
-         source: "Crash and Burn (AMIGO Spielanleitung). Slides on; stops at a robot." },
+  "L": { key: "oil", name: "Oil slick", arg: ARG_NONE, printedIn: BOTH,
+         props: { oil: true },
+         source: "Crash and Burn (AMIGO Spielanleitung) and Thrills and Spills. " +
+                 "Start on it and a Move card is a space shorter, once; end on it and you slide." },
 
-  "t": { key: "portalClassic", name: "Portal", arg: ARG_PAIR, printedIn: CLASSIC,
-         props: { portal: "classic" },
-         source: "Crash and Burn. Switches off while a robot stands on one." },
+  "t": { key: "portal", name: "Portal", arg: ARG_PAIR, printedIn: BOTH,
+         props: { portal: true },
+         source: "Crash and Burn and Thrills and Spills. Steps you to the matching colour " +
+                 "keeping your facing, spending no movement. The 2016 hex is a flat orange " +
+                 "tile with coloured balls at its corners -- not the round vortex, which is " +
+                 "a teleporter and a different element." },
 
   /* --- Modern only ------------------------------------------------------- */
 
@@ -117,14 +135,6 @@ export const ELEMENTS = {
   "T": { key: "teleporter", name: "Teleporter", arg: ARG_PAIR, printedIn: MODERN,
          props: { teleport: true },
          source: "Chaos and Carnage. Adds two forward to a revealed Move card." },
-
-  "P": { key: "portalModern", name: "Portal", arg: ARG_PAIR, printedIn: MODERN,
-         props: { portal: "modern" },
-         source: "Thrills and Spills. Keeps your facing and does not consume movement." },
-
-  "%": { key: "oilModern", name: "Oil slick", arg: ARG_NONE, printedIn: MODERN,
-         props: { oil: "modern" },
-         source: "Thrills and Spills. Pushes a robot it meets, and both slide on." },
 
   "A": { key: "priorityAntenna", name: "Priority antenna", arg: ARG_NONE, printedIn: MODERN,
          props: { antenna: true },

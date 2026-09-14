@@ -30,6 +30,19 @@ export default {
    * for one pass and not the other. */
   expressAlsoRunsWithNormals: false,
 
+  /* The classic counterparts of these two, and the reason both rulesets carry
+   * them: see the note in classic.js. Oil and portals are one printed tile each
+   * and the editions differ only here.
+   *
+   * A slide meeting a robot: Thrills and Spills -- "meet one that IS in oil and
+   * you push it, and both slide". A robot not in oil still stops the slide. */
+  oilSlidePushes: true,
+
+  /* When a portal will not fire: only when the DESTINATION is occupied, in
+   * which case the space is ordinary floor. Standing on one end does not switch
+   * the pair off the way the classic rule does. */
+  portalBlockedBy: "destination",
+
   /* Wet and Wild's fold-out prints a numbered order, and it is the one that
    * integrates the expansion elements into the core sequence. */
   order: [

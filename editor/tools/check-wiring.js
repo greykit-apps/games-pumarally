@@ -49,7 +49,7 @@ function loadedBoard() {
   setCell(b, 4, 4, "t1."); setCell(b, 5, 4, "t1.");
   for (const [tool, c, r, dir] of [["dev:laser", 6, 1, 2], ["dev:pusher", 6, 3, 1],
                                    ["dev:jet", 6, 5, 1], ["dev:door", 2, 6, 0],
-                                   ["dev:press", 4, 6, 0], ["dev:crusher", 5, 6, 0]]) {
+                                   ["dev:crusher", 5, 6, 0]]) {
     st.tool = tool; st.dir = dir;
     apply(b, st, c, r);
   }

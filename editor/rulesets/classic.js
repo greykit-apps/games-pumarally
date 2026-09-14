@@ -30,13 +30,31 @@ export default {
    * than a branch in the inspector. */
   expressAlsoRunsWithNormals: true,
 
+  /* OIL AND PORTALS ARE ONE TILE EACH, printed the same in both boxes, and
+   * these two keys are the whole of what the editions do differently with them.
+   * They live here because they are resolution, not printing -- and they are
+   * here rather than nowhere because the legend used to carry the difference as
+   * two element characters, and merging those must not become forgetting this.
+   * check-lib.js asserts both rulesets define both keys and that they disagree.
+   *
+   * A slide meeting a robot: the classic slide STOPS there. AMIGO's Crash and
+   * Burn Spielanleitung -- a robot ending its move on oil slides on until it is
+   * off the oil, is stopped by a wall, or would slide into a robot. */
+  oilSlidePushes: false,
+
+  /* When a portal will not fire: while a robot stands on EITHER end of the
+   * pair, which switches the whole pair off rather than only the far side. */
+  portalBlockedBy: "eitherEnd",
+
   /* The board's turn, in printed order. */
   order: [
     { step: "expressConveyor", name: "Express conveyors move one", settled: true },
     { step: "conveyor", name: "All conveyors move one", settled: true },
     { step: "pusher", name: "Pushers shove", settled: true },
     { step: "gear", name: "Gears turn a quarter", settled: true },
-    { step: "press", name: "Presses come down", settled: true },
+    /* The same device the modern order calls a crusher, in the same slot. The
+     * NAME is the classic book's; the tile is one tile. See devices.js. */
+    { step: "crusher", name: "Presses come down", settled: true },
     { step: "boardLaser", name: "Board lasers fire", settled: true },
     { step: "robotLaser", name: "Robots fire", settled: true },
     { step: "jet", name: "Flame jets fire", settled: true,

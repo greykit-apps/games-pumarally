@@ -53,37 +53,21 @@ const REGS = [1, 2, 3, 4, 5];
  * `ground.sites`. */
 const AS_SITE = { w: "repair", W: "upgrade", E: "battery" };
 
-/* --- the one place a legend character changes meaning ----------------------
- * The old legend had ONE oil slick and ONE portal marked as printed by both
- * editions. They are not the same element: classic oil stops a sliding robot at
- * the first robot it meets, modern oil pushes that robot and both slide on;
- * classic portals switch off while a robot stands on one, modern ones refuse
- * only when the destination is occupied. So the new legend has two of each.
+/* NO LEGEND CHARACTER CHANGES MEANING HERE, AND THAT IS THE SECOND ANSWER.
  *
- * THE OLD BOARD'S DECLARED EDITION IS USED EXACTLY HERE, ONCE, to decide which
- * of the two an old shared character meant -- and is then thrown away. A new
- * board declares no edition: it is just a board, and which of its squares
- * matter is the engine's business at play time. The edition was never a fact
- * about the board; it was the only thing that could disambiguate this
- * character, and once the characters are distinct it has no further job.
+ * This file used to split the old shared oil slick and portal into an
+ * edition-classic and an edition-modern character, reading the old board's
+ * `edition` field to choose -- the last surviving use of a field we had already
+ * decided was not a fact about the board. It was wrong twice over: a board
+ * declares no edition, so the claim had nowhere honest to live; and the print
+ * does not differ, so there was never two of anything to tell apart. boardG's
+ * oil became `L` and oRing's became `%` on the strength of a metadata string.
  *
- * This is not theoretical. `oRing` is a transcribed 2016 board with an oil
- * slick printed on it, and under the old legend it carried the classic rules. */
-const BY_EDITION = {
-  L: { classic: "L", modern: "%" },
-  t: { classic: "t", modern: "P" }
-};
-
-function mapChar(ch, edition) {
-  const split = BY_EDITION[ch];
-  if (!split) return ch;
-  const out = split[edition];
-  if (!out) {
-    throw new Error("cannot place " + JSON.stringify(ch) + " on an edition-" +
-      JSON.stringify(edition) + " board: it means a different element in each game");
-  }
-  return out;
-}
+ * Both are `L` again, both are `t` again, and the editions' different rules for
+ * them live in classic.js and modern.js where resolution belongs. The old
+ * `edition` field now has no reader at all, which is the proof that it was
+ * carrying nothing.
+ */
 
 /** Old door character to the register list it stands open in. */
 function doorRegs(ch) {
@@ -101,9 +85,11 @@ function doorRegs(ch) {
  * printed for. That is a latent defect in the old module -- harmless there only
  * because nothing asks a rotated grid what edition it is -- and it is not fixed
  * here, because the old file is frozen. The converter carries the metadata
- * across itself, from the unrotated parse. */
+ * across itself, from the unrotated parse. `edition` is carried but no longer
+ * READ: nothing in the new format is decided by which game a board was printed
+ * for. It stays in the struct only so that this comment is checkable against
+ * `meta` rather than describing a field that is gone. */
 function convert(g, id, meta) {
-  const edition = meta.edition;
   const board = blankBoard({
     id, name: meta.name, w: g.w, h: g.h,
     set: meta.set, origin: meta.origin || "transcribed",
@@ -120,7 +106,7 @@ function convert(g, id, meta) {
         board.sites.set(c + "," + r, [asSite]);
         continue;
       }
-      const ch = mapChar(code.charAt(0), edition);
+      const ch = code.charAt(0);
       let arms = ".";
       if (B.beltSpeed(code)) {
         /* beltArms returns the ABSOLUTE sides showing an incoming path; the new
@@ -168,10 +154,11 @@ function convert(g, id, meta) {
     if (j.len && j.len !== 1) dev.reach = j.len;
     board.wallDevices.push(dev);
   }
-  for (const t of g.timers || []) {
-    board.ceilingDevices.push({ kind: "press", c: t.c, r: t.r, regs: t.regs && t.regs.length ? t.regs : undefined });
-  }
-  for (const t of g.crushers || []) {
+  /* The old file kept presses in `timers` and crushers in `crushers`, two lists
+   * for one device. Both land on `crusher`; see rulesets/devices.js. No board
+   * carries both, and the validator would refuse two discs on one square if one
+   * ever did. */
+  for (const t of [...(g.timers || []), ...(g.crushers || [])]) {
     board.ceilingDevices.push({ kind: "crusher", c: t.c, r: t.r, regs: t.regs && t.regs.length ? t.regs : undefined });
   }
   for (const t of g.flamers || []) {
@@ -236,7 +223,7 @@ function compare(id, g, board, q, meta) {
         }
         continue;
       }
-      if (tok.charAt(0) !== mapChar(oldCode.charAt(0), meta.edition) || tok.charAt(1) !== oldCode.charAt(1)) {
+      if (tok.charAt(0) !== oldCode.charAt(0) || tok.charAt(1) !== oldCode.charAt(1)) {
         note(id, q, "(" + c + "," + r + ") element " + JSON.stringify(oldCode) + " vs " + JSON.stringify(tok));
         continue;
       }
@@ -266,8 +253,13 @@ function compare(id, g, board, q, meta) {
   for (const [layer, kind, oldList, fires] of [
     ["wall", "pusher", g.pushers || [], B.pusherFires],
     ["wall", "jet", g.burners || [], B.burnerFires],
-    ["ceiling", "press", g.timers || [], B.activeNow],
-    ["ceiling", "crusher", g.crushers || [], B.crusherFires],
+    /* Presses and crushers converge on ONE new kind, so the equivalence is
+     * against the union of the two old lists and the OR of the two old
+     * predicates. Getting this wrong in the safe direction -- comparing only
+     * `timers` -- would let every crusher vanish silently, so the count check
+     * above is doing real work here. */
+    ["ceiling", "crusher", [...(g.timers || []), ...(g.crushers || [])],
+      (gg, c, r, reg) => B.activeNow(gg, c, r, reg) || B.crusherFires(gg, c, r, reg)],
     ["ceiling", "flamer", g.flamers || [], B.flamerFires]
   ]) {
     const news = layer === "wall"

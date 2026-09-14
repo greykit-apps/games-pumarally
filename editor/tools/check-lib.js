@@ -76,7 +76,7 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
   /* `printedIn` is PROVENANCE and nothing in the format may treat it as a
    * constraint: a board is just a board, and which of its squares matter is the
    * engine's business at play time. */
-  eq(elemOf("L").printedIn, ["classic"], "elements: an element records which printing prints it");
+  eq(elemOf("~").printedIn, ["modern"], "elements: an element records which printing prints it");
   eq(typeof elemOf("L").editions, "undefined", "elements: and there is no `editions` field to gate on");
   /* A repair site, an upgrade site and an energy space are NOT elements. They
    * are markings a square carries in addition to being floor, because the same
@@ -84,11 +84,34 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
   for (const gone of ["w", "W", "E"]) {
     eq(elemOf(gone), undefined, "elements: " + JSON.stringify(gone) + " is a site now, not an element");
   }
-  // the two elements that share a name across printings must be separate entries
+  /* ONE TILE, ONE ENTRY. Oil and portals had two entries each -- an
+   * edition-classic and an edition-modern character -- which put an edition
+   * claim in a square on a board that declares no edition, and drew both with
+   * the same glyph so nothing on screen could tell them apart. */
   const oils = chars.filter(c => ELEMENTS[c].props.oil);
   const portals = chars.filter(c => ELEMENTS[c].props.portal);
-  eq(oils.length, 2, "elements: classic and modern oil are separate entries -- different rules, not a variant");
-  eq(portals.length, 2, "elements: classic and modern portals are separate entries");
+  eq(oils.length, 1, "elements: one oil slick -- both boxes print the same tile");
+  eq(portals.length, 1, "elements: one portal -- both boxes print the same tile");
+  for (const c of [...oils, ...portals]) {
+    eq(ELEMENTS[c].printedIn.length, 2,
+       "elements: " + JSON.stringify(c) + " is printed in both editions");
+  }
+
+  /* AND THE RULE DIFFERENCE MUST STILL BE SOMEWHERE. Merging the tiles is only
+   * right if the resolution moved to the rulesets rather than evaporating, so
+   * assert the keys exist AND that the two editions disagree. Set them equal --
+   * the easy way to "simplify" this away -- and this goes red. */
+  for (const id of ["classic", "modern"]) {
+    const r = rulesetFor(id);
+    ok(typeof r.oilSlidePushes === "boolean",
+       "rulesets: " + id + " says whether an oil slide pushes a robot it meets");
+    ok(r.portalBlockedBy === "eitherEnd" || r.portalBlockedBy === "destination",
+       "rulesets: " + id + " says when a portal refuses to fire");
+  }
+  ok(rulesetFor("classic").oilSlidePushes !== rulesetFor("modern").oilSlidePushes,
+     "rulesets: the editions disagree about an oil slide meeting a robot");
+  ok(rulesetFor("classic").portalBlockedBy !== rulesetFor("modern").portalBlockedBy,
+     "rulesets: the editions disagree about when a portal refuses");
 }
 
 /* --- devices and sets ----------------------------------------------------- */
@@ -155,10 +178,21 @@ for (const [id, s] of Object.entries(SETS)) {
      "rulesets: a classic express conveyor also runs with the normal ones");
   eq(rulesetFor("modern").expressAlsoRunsWithNormals, false,
      "rulesets: a modern double belt does not");
-  ok(rulesetFor("classic").order.some(s2 => s2.step === "press"),
-     "rulesets: presses are in the classic order");
-  ok(rulesetFor("modern").order.some(s2 => s2.step === "crusher"),
-     "rulesets: crushers are in the modern order");
+  /* One device in both order tables, under each game's own name for it, and in
+   * the SAME slot -- after the gears, before the board lasers. The names differ
+   * and the beat does not, which is the whole argument for one device kind. */
+  for (const id of ["classic", "modern"]) {
+    const o = rulesetFor(id).order.map(s2 => s2.step);
+    ok(o.includes("crusher"), "rulesets: the overhead disc is in the " + id + " order");
+    eq(o.indexOf("crusher"), o.indexOf("gear") + 1,
+       "rulesets: the " + id + " disc comes down straight after the gears");
+    ok(o.indexOf("crusher") < o.indexOf("boardLaser"),
+       "rulesets: the " + id + " disc comes down before the board lasers");
+  }
+  eq(rulesetFor("classic").order.find(s2 => s2.step === "crusher").name, "Presses come down",
+     "rulesets: classic calls it a press");
+  eq(rulesetFor("modern").order.find(s2 => s2.step === "crusher").name, "Crushers come down",
+     "rulesets: modern calls it a crusher");
 }
 
 /* --- token and arms -------------------------------------------------------- */
@@ -216,7 +250,7 @@ function fixture() {
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 5, r: 4 }, face: N, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 1, r: 2 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 4, r: 1 }, regs: [2, 4] });
-  b.ceilingDevices.push({ kind: "press", c: 1, r: 3, regs: [2, 4] });
+  b.ceilingDevices.push({ kind: "crusher", c: 1, r: 3, regs: [2, 4] });
   return b;
 }
 
@@ -248,7 +282,7 @@ eq(rotatedDims(6, 4, 1), [4, 6], "rotate: an odd turn swaps the dimensions");
   ok(/\n +[0-9]{6}/.test(pic) || pic.includes("levels:"), "picture: a board with levels writes a levels section");
   ok(pic.includes("door "), "picture: a door is written with its registers");
   ok(pic.includes("reach2"), "picture: a reach-two jet says so");
-  ok(pic.includes("press "), "picture: a ceiling device is written");
+  ok(pic.includes("crusher "), "picture: a ceiling device is written");
   ok(pic.includes("sites:"), "picture: a marked square writes a sites section");
   ok(/0,1 repair battery flagspot/.test(pic), "picture: with every marking on it, in order");
   let back = null;

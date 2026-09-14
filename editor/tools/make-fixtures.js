@@ -45,7 +45,11 @@ function build() {
   setCell(b, 8, 1, "B>.");
 
   /* row 3 and row 5: one of everything else, from both printings at once --
-   * which is the point of the fixture and no longer a contradiction */
+   * which is the point of the fixture and no longer a contradiction.
+   *
+   * ONE oil and ONE portal, where there used to be an edition-classic and an
+   * edition-modern of each. The `t1` pair spans the two rows so that the
+   * paired-colour check has a pair to break that is not the teleporter's. */
   setCell(b, 1, 3, "o..");   setCell(b, 2, 3, "l..");   setCell(b, 3, 3, "r..");
   setCell(b, 6, 3, "L..");   setCell(b, 7, 3, "t1.");    setCell(b, 9, 3, "~..");
   setCell(b, 10, 3, "D..");
@@ -63,9 +67,8 @@ function build() {
   setSites(b, 7, 9, ["battery", "flagspot"]);
 
   setCell(b, 1, 5, "C>.");   setCell(b, 2, 5, "z..");   setCell(b, 3, 5, "A..");
-  setCell(b, 4, 5, "%..");   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T1.");
-  setCell(b, 8, 5, "T1.");   setCell(b, 9, 5, "t1.");   setCell(b, 10, 5, "P1.");
-  setCell(b, 10, 7, "P1.");
+  setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T1.");
+  setCell(b, 8, 5, "T1.");   setCell(b, 9, 5, "t1.");
 
   /* two levels, joined by the only thing that may join them */
   setCell(b, 5, 8, "R^.");
@@ -87,7 +90,11 @@ function build() {
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 8, r: 8 }, face: S, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 6, r: 6 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 3, r: 7 }, regs: [2, 4] });
-  b.ceilingDevices.push({ kind: "press", c: 10, r: 10, regs: [2, 4] });
+  /* Both ceiling kinds there are: the disc (a press in one game and a crusher
+   * in the other, one device either way) and the flamer, which is a different
+   * printed thing and stays its own kind. Two discs on ONE square is what the
+   * validator refuses, so they sit on two. */
+  b.ceilingDevices.push({ kind: "crusher", c: 10, r: 10, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 3, r: 10, regs: [1, 5] });
   b.ceilingDevices.push({ kind: "flamer", c: 4, r: 10 });   // no regs: every register
   return b;
