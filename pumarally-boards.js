@@ -2018,6 +2018,105 @@
         { c: 10, r: 10, in: "W" }
       ]
     },
+    tempest: {
+      name: "Tempest", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the six push panels and three lasers read at 300px per cell.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " o. bv .. .. .. .. b^ .. Bv .. b> E. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b^ b< b< b< b<|.. b^ b< B> Bv b^ b< ",
+        "+--+  +  +  +  +  +  +  +  +  +  +  +",
+        " .. E. r. .. b^ r. .. b^ b< B> B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|b> bv|.. .. b< b< .. .. b^ b<|.. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +--+",
+        " .. b> b> bv .. b^ .. o. .. b^ b< .. ",
+        "+  +--+  +  +  +  +--+  +  +  +  +  +",
+        " .. .. .. b> bv b^ b< b< r. .. b^ b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> bv .. l. b> b> bv b^ b< .. .. .. ",
+        "+  +  +  +  +  +--+  +  +  +  +--+  +",
+        " .. b> bv E. .. .. bv .. b^ b< .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. ..|b> bv .. .. b> bv ..|b^ b< b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. Bv B< b> bv .. l. bv .. l. .. .. ",
+        "+--+  +  +  +  +  +  +  +  +  +  +--+",
+        " b> bv B^ B< b> bv ..|b> b> b> b> bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " E. b< .. B^ .. bv .. .. E. .. b^ o. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 2, r: 3, d: "E", n: 1 },
+        { c: 2, r: 8, d: "E", n: 1 },
+        { c: 11, r: 4, d: "S", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 10, r: 0, in: "S" },
+        { c: 0, r: 1, in: "E" },
+        { c: 1, r: 1, in: "N" },
+        { c: 4, r: 1, in: "S" },
+        { c: 6, r: 1, in: "E" },
+        { c: 7, r: 1, in: "S" },
+        { c: 8, r: 1, in: "N" },
+        { c: 9, r: 1, in: "W" },
+        { c: 7, r: 2, in: "E" },
+        { c: 8, r: 2, in: "S" },
+        { c: 9, r: 2, in: "N" },
+        { c: 10, r: 2, in: "W" },
+        { c: 1, r: 3, in: "W" },
+        { c: 5, r: 3, in: "S" },
+        { c: 8, r: 3, in: "E" },
+        { c: 9, r: 3, in: "S" },
+        { c: 1, r: 4, in: "N" },
+        { c: 3, r: 4, in: "W" },
+        { c: 9, r: 4, in: "E" },
+        { c: 10, r: 4, in: "S" },
+        { c: 3, r: 5, in: "N" },
+        { c: 4, r: 5, in: "W" },
+        { c: 5, r: 5, in: "E" },
+        { c: 7, r: 5, in: "S" },
+        { c: 10, r: 5, in: "E" },
+        { c: 1, r: 6, in: "W" },
+        { c: 4, r: 6, in: "N" },
+        { c: 6, r: 6, in: "W" },
+        { c: 7, r: 6, in: "E" },
+        { c: 8, r: 6, in: "S" },
+        { c: 1, r: 7, in: "N" },
+        { c: 2, r: 7, in: "W" },
+        { c: 8, r: 7, in: "E" },
+        { c: 9, r: 7, in: "S" },
+        { c: 2, r: 8, in: "N" },
+        { c: 3, r: 8, in: "W" },
+        { c: 6, r: 8, in: "N" },
+        { c: 7, r: 8, in: "W" },
+        { c: 9, r: 8, in: "E" },
+        { c: 1, r: 9, in: "E" },
+        { c: 2, r: 9, in: "S" },
+        { c: 3, r: 9, in: "N" },
+        { c: 4, r: 9, in: "W" },
+        { c: 2, r: 10, in: "E" },
+        { c: 3, r: 10, in: "S" },
+        { c: 4, r: 10, in: "N" },
+        { c: 5, r: 10, in: "W" },
+        { c: 7, r: 10, in: "N" },
+        { c: 10, r: 10, in: "WS" },
+        { c: 11, r: 10, in: "W" },
+        { c: 1, r: 11, in: "N" }
+      ]
+      ,
+      pushers: [
+        { c: 5, r: 1, d: "E", regs: [2, 4] },
+        { c: 1, r: 5, d: "S", regs: [1, 3, 5] },
+        { c: 6, r: 5, d: "S", regs: [1, 3, 5] },
+        { c: 5, r: 6, d: "N", regs: [2, 4] },
+        { c: 10, r: 7, d: "S", regs: [1, 3, 5] },
+        { c: 6, r: 10, d: "W", regs: [2, 4] }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2122,6 +2221,17 @@
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       /* AUTHORED, like every quick game's -- see stepsRun. */
       flags: [[0, 10], [6, 6], [10, 0]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    tempestRun: {
+      name: "Tempest",
+      kind: "quick",
+      blurb: "Belts everywhere, six push panels, and three beams across the middle.",
+      boards: [{ id: "tempest", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[0, 9], [5, 7], [9, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
