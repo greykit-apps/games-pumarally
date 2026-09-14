@@ -12,7 +12,8 @@ drawings and the layouts are hand-transcribed tile data.
 > **Status: in development, and playable.** Program five registers and race up
 > to seven robots across seven transcribed factory floors, alone or
 > pass-and-play. Cannery Row is a first pass and not yet raceable, the modern
-> edition is part-built (no upgrade shop, and the damage deck is all SPAM),
+> edition is part-built (most upgrade cards do nothing yet, and the damage deck
+> is all SPAM),
 > and the option deck is 16 of its 26 cards — see
 > [What works today](#what-works-today).
 
@@ -30,7 +31,7 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 250 rule tests | done |
+| Headless simulation + 260 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
@@ -38,8 +39,10 @@ at play time.
 | Modern damage — SPAM | done |
 | Modern reboots — falling, re-entry, chosen facing | done |
 | Modern shutdown — declaration, the damage purge | done |
+| Modern upgrade phase — deck, shelf, buying, fitting, the mat caps | done |
+| Modern upgrade cards — roster | **40 of 40 transcribed, 11 built** |
 | Modern damage — Haywire | **not built** — the card faces are not transcribed |
-| Modern upgrade phase and shop | not yet |
+
 | Hot-seat pass-and-play | done |
 | Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | done |
@@ -249,7 +252,7 @@ project carries both.
 | Damage | Tokens; each costs a dealt card and locks registers | SPAM cards shuffled into a personal deck |
 | Falling | Destroyed; costs a life, and lives run out | Reboot; costs nothing, and nobody can be eliminated |
 | Powering down | Announced a turn ahead; buys a full repair | Declared for the round you are in; scraps the damage you hold |
-| Upgrades | Option cards, from upgrade sites | Energy cubes spent in a shop |
+| Upgrades | Option cards, from upgrade sites | 40 upgrade cards bought with Energy |
 | Repair sites | Repair 1 damage | Removed from the boards entirely |
 | Deck | One shared 84-card deck | A personal deck per player |
 
@@ -266,13 +269,23 @@ into a single word. What is built runs: the modern round order, Energy, the
 Priority Token, a personal twenty-card deck each, and SPAM damage, all
 simulated to a winner on every course with the conservation laws armed.
 
-What is not built is the **upgrade phase and shop** and the **Haywire half of
-the damage deck**. That last one is a transcription gap
-rather than an engineering one: the rules say the deck is forty cards of two
-types, but no page photographed here gives the split, and each Haywire carries
-its own programme on its own face. The deck therefore ships as forty SPAM, and
-a rule test asserts that it does — so the gap is a check that will go red when
-the faces arrive, not a silence.
+What is not built is the **Haywire half of the damage deck**, and the effects
+of most of the upgrade cards. The two gaps are different in kind and the README
+says which is which: Haywire is a **transcription** gap — the card faces are not
+photographed, so the deck ships as forty SPAM. The upgrades are the opposite.
+All forty are transcribed, named, priced and in the deck; **11 of them have
+effects that run**, and the rest can be bought, shelved, fitted and stripped out
+while doing nothing. `UPGRADE_ROSTER` holds all three numbers and the validator
+checks them, so closing the gap is editing one of them.
+
+No temporary upgrade is built, deliberately: a temporary is *used*, at a moment
+of the player's choosing, and there is no action in the game yet that reaches
+one. An effect nothing can fire is not built, it is dead code that reads as
+coverage.
+
+Both gaps are checks rather than silences: a rule test asserts the damage deck
+holds no Haywire, and another asserts the upgrade built-count, so each goes red
+the day it stops being true.
 
 Boards also declare which **box** they came from — base game, Armed and
 Dangerous, Wet and Wild, and so on — because picking a course by expansion is

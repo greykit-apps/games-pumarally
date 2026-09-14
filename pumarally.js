@@ -1046,6 +1046,8 @@
       throw new Error("more option cards transcribed than the deck prints");
     }
 
+
+
     /* Both directions of the hook binding. A card naming a hook that
        does not exist never fires; a hook no card uses is dead code
        that reads as coverage. */
@@ -1083,6 +1085,44 @@
       if (!OPTION_DEFS[artIds[ob]]) {
         throw new Error("OPTION_ART draws " + artIds[ob] + ", which is not a card in the deck");
       }
+    }
+
+    /* THE UPGRADE DECK, counted three ways. Printed is what the box
+       holds; transcribed is what this table names; built is how many
+       of them actually do anything. The gap between the last two is
+       the honest one, and it is a number here rather than a thing to
+       remember. */
+    var upIds = Object.keys(UPGRADE_DEFS), upBuilt = 0, upBy = { permanent: 0, temporary: 0 };
+    if (upIds.length !== UPGRADE_ROSTER.transcribed) {
+      throw new Error("upgrade roster declares " + UPGRADE_ROSTER.transcribed +
+        " cards but the table has " + upIds.length);
+    }
+    if (UPGRADE_ROSTER.transcribed > UPGRADE_ROSTER.printed) {
+      throw new Error("more upgrade cards transcribed than the deck prints");
+    }
+    for (var ui = 0; ui < upIds.length; ui++) {
+      var udef = UPGRADE_DEFS[upIds[ui]];
+      if (!udef.name || !udef.text) throw new Error("upgrade " + upIds[ui] + " has no name or text");
+      if (!INSTALL_LIMIT[udef.type]) throw new Error('upgrade "' + upIds[ui] + '" has unknown type "' + udef.type + '"');
+      if (typeof udef.cost !== "number" || udef.cost < 0 || udef.cost > MAX_ENERGY) {
+        throw new Error('upgrade "' + upIds[ui] + '" costs ' + udef.cost + ", which is not a price on the track");
+      }
+      upBy[udef.type]++;
+      if (!udef.hooks) continue;
+      upBuilt++;
+      for (var uh in udef.hooks) {
+        if (HOOKS.indexOf(uh) < 0) throw new Error('upgrade "' + upIds[ui] + '" binds unknown hook "' + uh + '"');
+      }
+    }
+    if (upBuilt !== UPGRADE_ROSTER.built) {
+      throw new Error("upgrade roster declares " + UPGRADE_ROSTER.built +
+        " cards built but " + upBuilt + " have effects");
+    }
+    /* The two halves of the deck are printed counts too, and a card
+       that drifted from one to the other would balance the total. */
+    if (upBy.permanent !== 24 || upBy.temporary !== 16) {
+      throw new Error("the deck splits " + upBy.permanent + " permanent and " +
+        upBy.temporary + " temporary, not 24 and 16");
     }
 
     /* Every step the help describes has to be a step the machine
@@ -1369,7 +1409,9 @@
       exec: { queue: [], resume: null, resumePhase: null },
       pendingChoices: [],
       damageDeck: [],
-      damageDiscard: []
+      damageDiscard: [],
+      upgradeDeck: [],
+      upgradeDiscard: []
     };
 
     /* YOUR CHOICE FIRST, EVERYONE ELSE AROUND IT.
@@ -1435,6 +1477,13 @@
         /* Off the board and still racing. The 2016 game only; a
            classic wreck is simply not alive until the next turn. */
         rebooting: false,
+        bought: false, fitted: false, upgradeDone: false,
+        /* TWO PILES, because the rules keep them apart. `shelf` is the
+           collection of uninstalled cards face down beside the mat,
+           which is explicitly uncapped; `installed` is what is on the
+           mat and actually doing something, three permanents and three
+           temporaries at most. Both empty under the classic rules. */
+        shelf: [], installed: [],
         ready: false,
         /* The 2016 resource, and the deck it is spent from. Setup puts
            the tracking cube on the "3" space, so a modern robot starts
@@ -1459,6 +1508,13 @@
       for (var dm = 0; dm < MODERN_DAMAGE.length; dm++) G.damageDeck.push(MODERN_DAMAGE_FIRST + dm);
       shuffle(G.damageDeck);
       G.damageSize = MODERN_DAMAGE.length;
+      /* Forty upgrades in a face-down deck, and three off the top to
+         each player before the race starts -- uninstalled, on the
+         shelf, yours to read whenever you like. You will not have the
+         Energy to install them all for a good while. */
+      for (var ug = 0; ug < UPGRADE_IDS.length; ug++) G.upgradeDeck.push(UPGRADE_IDS[ug]);
+      shuffle(G.upgradeDeck);
+      G.upgradeSize = UPGRADE_IDS.length;
       /* Each robot shuffles its own twenty and puts it face down on
          its own mat. The shared pile stays empty and unused. */
       for (var mp = 0; mp < G.players.length; mp++) {
@@ -1479,6 +1535,11 @@
        single card is ever fired. */
     var start = opts.startOptions || 0;
     for (var q = 0; q < start; q++) for (var pi = 0; pi < G.players.length; pi++) drawOption(G.players[pi]);
+    if (modern) {
+      for (var us = 0; us < UPGRADE_START; us++) {
+        for (var up = 0; up < G.players.length; up++) takeUpgrade(G.players[up]);
+      }
+    }
     return G;
   }
 
@@ -1604,6 +1665,74 @@
 
   function discardCards(list) {
     for (var i = 0; i < list.length; i++) if (list[i] !== null && list[i] !== undefined) G.discard.push(list[i]);
+  }
+
+  /* ============================================================
+     UPGRADES — the 2016 shop
+
+     One deck for the table, and every card in it is bought with
+     Energy: one card, once a round, for one cube. What you buy goes
+     face down on your shelf, and getting it onto the mat is a second
+     action on a later round -- so Energy is the whole economy and the
+     shelf is a queue you cannot rush.
+     ============================================================ */
+
+  /* One card off the top, reshuffling the discard when the deck runs
+     out. Returns the id, or null when there is nothing anywhere. */
+  function drawUpgrade() {
+    if (!G.upgradeDeck.length) {
+      if (!G.upgradeDiscard.length) return null;
+      G.upgradeDeck = shuffle(G.upgradeDiscard);
+      G.upgradeDiscard = [];
+    }
+    return G.upgradeDeck.pop();
+  }
+
+  /* Onto the shelf. Used both for the three dealt at setup and for
+     the one a robot buys in an upgrade phase. */
+  function takeUpgrade(p) {
+    var id = drawUpgrade();
+    if (id === null) return null;
+    p.shelf.push(id);
+    return id;
+  }
+
+  function installedCount(p, type) {
+    var n = 0;
+    for (var i = 0; i < p.installed.length; i++) {
+      if (UPGRADE_DEFS[p.installed[i].id].type === type) n++;
+    }
+    return n;
+  }
+
+  function canInstall(p, id) {
+    var def = UPGRADE_DEFS[id];
+    return !!def && installedCount(p, def.type) < INSTALL_LIMIT[def.type];
+  }
+
+  /* Off the shelf and onto the mat. The caps are per type, three and
+     three, and they are the reason a shelf can sit full of cards a
+     robot will never find room for. */
+  function installUpgrade(p, id) {
+    var at = p.shelf.indexOf(id);
+    if (at < 0 || !canInstall(p, id)) return false;
+    p.shelf.splice(at, 1);
+    p.installed.push({ id: id, st: null });
+    log(p.name + " installs " + UPGRADE_DEFS[id].name);
+    return true;
+  }
+
+  /* An uninstalled card is DISCARDED, not shelved again -- you are
+     throwing it away to make room, and the rules give nothing back. */
+  function uninstallUpgrade(p, id) {
+    for (var i = 0; i < p.installed.length; i++) {
+      if (p.installed[i].id !== id) continue;
+      p.installed.splice(i, 1);
+      G.upgradeDiscard.push(id);
+      log(p.name + " strips out " + UPGRADE_DEFS[id].name);
+      return true;
+    }
+    return false;
   }
 
   /* ============================================================
@@ -1958,6 +2087,332 @@
   var OPTION_IDS = Object.keys(OPTION_DEFS);
 
   /* ------------------------------------------------------------
+     THE 2016 UPGRADE DECK
+
+     Forty cards, and unlike the damage deck every one of them is
+     transcribed: the rulebook prints the whole catalogue -- name, cost
+     and effect -- over two pages, which is the thing the Haywire faces
+     are missing. Twenty-four permanent (installed on your mat, three
+     at a time, and they stay) and sixteen temporary (used once and
+     discarded).
+
+     `text` is this project's own description of the mechanic, not the
+     card's printed wording. Mechanics are not copyrightable; the
+     publisher's prose is, and none of it is in this repo.
+
+     A card with `hooks` is BUILT: its effect runs. A card without is
+     the catalogue entry only -- it is in the deck, it can be drawn,
+     paid for, installed and uninstalled, and it does nothing yet. The
+     two counts are in UPGRADE_ROSTER and validateTables checks them,
+     so the gap is a number in the source rather than something anyone
+     has to remember.
+     ------------------------------------------------------------ */
+  var UPGRADE_DEFS = {
+    /* ---- PERMANENT ---- */
+    brakes: {
+      name: "Brakes", cost: 2, type: "permanent",
+      text: "A Move 1 in your registers may be run as a Move 0.",
+      hooks: {
+        modifyMove: function (ctx) {
+          if (ctx.kind !== "move" || ctx.dist !== 1) return;
+          var pick = ctx.pick("brakes", "brake, and stand still instead of moving 1?", ["Move 1", "Brake"]);
+          if (pick === 1) ctx.dist = 0;
+        }
+      },
+      botPrefers: 0
+    },
+
+    chaosTheory: {
+      name: "Chaos Theory", cost: 2, type: "permanent",
+      text: "Revealing SPAM in one of the first three registers earns you an Energy."
+    },
+
+    crabLegs: {
+      name: "Crab Legs", cost: 5, type: "permanent",
+      text: "A Move 1 alongside a rotate slides you sideways instead of turning."
+    },
+
+    deflectorShield: {
+      name: "Deflector Shield", cost: 2, type: "permanent",
+      text: "Spend an Energy to shrug off every laser and weapon hit this register.",
+      hooks: {
+        /* SPENT WITHOUT ASKING, which the card leaves to the player.
+           A question here would park the game inside a laser volley --
+           damage lands from belts, pushes and pits as well, and not all
+           of those are places a question can wait. A robot with the
+           Energy always prefers not to be shot, so the automatic
+           choice is the one a player would make; it is in the README
+           beside the other places a bot answers instantly. */
+        onDamage: function (ctx, st) {
+          if (ctx.amount <= 0) return;
+          if (ctx.source !== "laser" && ctx.source !== "weapon") return;
+          var p = ctx.player;
+          if (st.register !== G.register || st.turn !== G.turn) {
+            if ((p.energy || 0) < 1) return;
+            p.energy -= 1;
+            st.register = G.register;
+            st.turn = G.turn;
+            log(p.name + " spends an Energy on the deflector shield");
+          }
+          ctx.absorbed += ctx.amount;
+          ctx.amount = 0;
+        }
+      },
+      init: function () { return { register: -1, turn: -1 }; }
+    },
+
+    doubleBarrelLaser: {
+      name: "Double-Barrel Laser", cost: 2, type: "permanent",
+      text: "Your main laser hits for one more.",
+      hooks: {
+        laserShots: function (ctx) {
+          for (var i = 0; i < ctx.shots.length; i++) if (ctx.shots[i].own && ctx.shots[i].main) ctx.shots[i].damage += 1;
+        }
+      }
+    },
+
+    drifting: {
+      name: "Drifting", cost: 4, type: "permanent",
+      text: "After a left rotate you may roll one square forward."
+    },
+
+    energyConversion: {
+      name: "Energy Conversion", cost: 3, type: "permanent",
+      text: "A board laser hit lets you shift one square either way."
+    },
+
+    firewall: {
+      name: "Firewall", cost: 1, type: "permanent",
+      text: "Falling into a pit costs you no damage cards."
+    },
+
+    flashDrive: {
+      name: "Flash Drive", cost: 4, type: "permanent",
+      text: "One extra programming card in every deal.",
+      hooks: { modifyDealt: function (ctx) { ctx.count += 1; } }
+    },
+
+    hoverUnit: {
+      name: "Hover Unit", cost: 1, type: "permanent",
+      text: "You cross pits, and fall in only if you stop on one."
+    },
+
+    laserKata: {
+      name: "Laser Kata", cost: 1, type: "permanent",
+      text: "A U-turn fires your main laser all four ways.",
+      hooks: {
+        laserShots: function (ctx) {
+          var cd = cardAt(ctx.player, G.register);
+          if (!cd || cd.kind !== "uturn") return;
+          for (var d = 0; d < 4; d++) {
+            if (d === ctx.player.face) continue;
+            ctx.shots.push({ own: true, dir: d, damage: 1, pierce: 0 });
+          }
+        }
+      }
+    },
+
+    memoryCards: {
+      name: "Memory Cards", cost: 3, type: "permanent",
+      text: "Park cards here at the end of programming and take them back next round."
+    },
+
+    miniHowitzer: {
+      name: "Mini Howitzer", cost: 3, type: "permanent",
+      text: "Spend an Energy to fire for two and shove the target back."
+    },
+
+    modularChassis: {
+      name: "Modular Chassis", cost: 1, type: "permanent",
+      text: "Shove somebody and you may trade this card for one of theirs."
+    },
+
+    powerSlide: {
+      name: "Power Slide", cost: 4, type: "permanent",
+      text: "After a right rotate you may roll one square forward."
+    },
+
+    pressorBeam: {
+      name: "Pressor Beam", cost: 3, type: "permanent",
+      text: "Fire this instead of your laser to shove the target one square away.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          var pick = ctx.pick("pressorBeam", "shove " + ctx.target.name + " instead of damaging it?",
+            ["Damage", "Shove away"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "push", dir: ctx.shotDir, n: 1 };
+        }
+      },
+      botPrefers: 0
+    },
+
+    railGun: {
+      name: "Rail Gun", cost: 2, type: "permanent",
+      text: "Your main laser shoots through walls and robots alike.",
+      hooks: {
+        laserShots: function (ctx) {
+          for (var i = 0; i < ctx.shots.length; i++) if (ctx.shots[i].own && ctx.shots[i].main) ctx.shots[i].pierce = 99;
+        }
+      }
+    },
+
+    rammingGear: {
+      name: "Ramming Gear", cost: 2, type: "permanent",
+      text: "A robot you shove takes a point of damage for it.",
+      hooks: { onPush: function (ctx) { ctx.pushDamage += 1; } }
+    },
+
+    rearLaser: {
+      name: "Rear Laser", cost: 2, type: "permanent",
+      text: "A second laser fires backwards alongside your main one.",
+      hooks: {
+        laserShots: function (ctx) {
+          ctx.shots.push({ own: true, dir: B.opposite(ctx.player.face), damage: 1, pierce: 0 });
+        }
+      }
+    },
+
+    scrambler: {
+      name: "Scrambler", cost: 4, type: "permanent",
+      text: "Fire this instead of your laser to swap the target's next card for a blind draw.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          if (G.register >= REGISTERS - 1) return;      // nothing left to scramble
+          var pick = ctx.pick("scrambler", "scramble " + ctx.target.name + "'s next register instead?",
+            ["Damage", "Scramble"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "scramble" };
+        }
+      },
+      botPrefers: 0
+    },
+
+    selfDiagnostics: {
+      name: "Self-Diagnostics", cost: 2, type: "permanent",
+      text: "Reaching a checkpoint lets you tear one card out of your deck for good."
+    },
+
+    spamFilter: {
+      name: "Spam Filter", cost: 3, type: "permanent",
+      text: "You see the top card of your deck before you programme."
+    },
+
+    spiky: {
+      name: "Spiky", cost: 2, type: "permanent",
+      text: "Anything that moves or is shoved into you takes a point of damage."
+    },
+
+    tractorBeam: {
+      name: "Tractor Beam", cost: 3, type: "permanent",
+      text: "Fire this instead of your laser to drag a distant target one square closer.",
+      hooks: {
+        onLaserHit: function (ctx) {
+          if (ctx.damage <= 0) return;
+          /* Not on somebody already next to you: the beam pulls, and
+             there is nowhere closer to pull them to. */
+          var p = ctx.player, t = ctx.target;
+          if (Math.abs(p.c - t.c) + Math.abs(p.r - t.r) <= 1) return;
+          var pick = ctx.pick("tractorBeam", "pull " + t.name + " toward you instead?",
+            ["Damage", "Pull closer"]);
+          if (pick !== 1) return;
+          ctx.damage = 0;
+          ctx.replaceWith = { kind: "push", dir: B.opposite(ctx.shotDir), n: 1 };
+        }
+      },
+      botPrefers: 0
+    },
+
+    /* ---- TEMPORARY ----
+       Every one of these is a catalogue entry and nothing more. A
+       temporary upgrade is USED, at a moment of the player's choosing,
+       and there is no "play a temporary" action in the game yet -- so
+       building an effect with no way to reach it would be building
+       something no check could watch run. They are in the deck, they
+       cost Energy, they install and uninstall, and they do nothing. */
+    abortSwitch: {
+      name: "Abort Switch", cost: 1, type: "temporary",
+      text: "Swap a register you have just turned over for a blind draw."
+    },
+    allAboard: {
+      name: "All Aboard", cost: 1, type: "temporary",
+      text: "Run every conveyor once more, for you alone."
+    },
+    boink: {
+      name: "Boink", cost: 1, type: "temporary",
+      text: "Hop to a free neighbouring square without turning."
+    },
+    calibrationProtocol: {
+      name: "Calibration Protocol", cost: 2, type: "temporary",
+      text: "Scrap every damage card in your hand and draw that many fresh ones."
+    },
+    displacingBlast: {
+      name: "Displacing Blast", cost: 2, type: "temporary",
+      text: "Fire this instead of your laser to send the target back to its reboot square."
+    },
+    luckyBooster: {
+      name: "Lucky Booster", cost: 1, type: "temporary",
+      text: "Dig through the damage deck for a Haywire, and take it or bin it."
+    },
+    magnetic: {
+      name: "Magnetic", cost: 1, type: "temporary",
+      text: "When a neighbour moves on its own card, you may ride along."
+    },
+    memorySwap: {
+      name: "Memory Swap", cost: 2, type: "temporary",
+      text: "Draw three, then stack three from your hand back on top in any order."
+    },
+    overclocked: {
+      name: "Overclocked", cost: 2, type: "temporary",
+      text: "A free Move 2, either side of your card."
+    },
+    piercingDrill: {
+      name: "Piercing Drill", cost: 1, type: "temporary",
+      text: "The next robot you shove takes damage and is spun to face wherever you like."
+    },
+    pressureRelease: {
+      name: "Pressure Release", cost: 2, type: "temporary",
+      text: "Reverse up to five squares, stopping short of anybody in the way."
+    },
+    reInitialize: {
+      name: "Re-Initialize", cost: 1, type: "temporary",
+      text: "Hand the Priority Token to anyone you choose."
+    },
+    recharge: {
+      name: "Recharge", cost: 0, type: "temporary",
+      text: "Three Energy, at once."
+    },
+    rewire: {
+      name: "Rewire", cost: 1, type: "temporary",
+      text: "Take every face-down Haywire out of your registers and programme them where you like."
+    },
+    switchPlaces: {
+      name: "Switch", cost: 2, type: "temporary",
+      text: "Trade places with a neighbour, both of you keeping your facing."
+    },
+    zoop: {
+      name: "Zoop", cost: 1, type: "temporary",
+      text: "Spin on the spot to face any direction."
+    }
+  };
+
+  var UPGRADE_IDS = Object.keys(UPGRADE_DEFS);
+
+  /* The deck is forty and every one of them is written down; `built`
+     is how many actually do something. All three are checked. */
+  var UPGRADE_ROSTER = { printed: 40, transcribed: 40, built: 11 };
+
+  /* Three permanents on the mat, three temporaries beside it. The
+     uninstalled collection is explicitly uncapped. */
+  var INSTALL_LIMIT = { permanent: 3, temporary: 3 };
+  var UPGRADE_START = 3;          // dealt to each player during setup
+  var UPGRADE_DRAW_COST = 1;      // Energy, for one card, once per phase
+
+
+  /* ------------------------------------------------------------
      THE DISPATCHER
      ------------------------------------------------------------ */
 
@@ -1989,7 +2444,15 @@
       return have;
     };
 
-    ctx.discard = function () { if (current) discardOption(player, current.id); };
+    ctx.discard = function () {
+      if (!current) return;
+      /* The two lists share these hooks and nothing else, so a card
+         burning itself out has to go back to the pile it came from.
+         Routed by where it actually is rather than by which table
+         defined it, because that is the thing that can be wrong. */
+      if (player.installed.indexOf(current) >= 0) uninstallUpgrade(player, current.id);
+      else discardOption(player, current.id);
+    };
 
     /* Iterate a snapshot: a hook may discard its own card mid-loop
        (Ablative Coat burning off is the ordinary case), and mutating
@@ -2003,6 +2466,22 @@
       if (!h.st) h.st = def.init ? def.init() : {};
       current = h;
       def.hooks[hook](ctx, h.st, h);
+    }
+    current = null;
+    /* AN INSTALLED UPGRADE IS AN OPTION CARD AS FAR AS THIS IS
+       CONCERNED. Same hooks, same ctx, same snapshot rule. What is not
+       the same is everything around it -- what it cost, where it came
+       from, how many you may hold and what happens to it when you are
+       wrecked -- so the two lists stay apart and only meet here. */
+    var fitted = player.installed.slice();
+    for (var j = 0; j < fitted.length; j++) {
+      var u = fitted[j];
+      if (player.installed.indexOf(u) < 0) continue;
+      var udef = UPGRADE_DEFS[u.id];
+      if (!udef || !udef.hooks || !udef.hooks[hook]) continue;
+      if (!u.st) u.st = udef.init ? udef.init() : {};
+      current = u;
+      udef.hooks[hook](ctx, u.st, u);
     }
     current = null;
     return ctx;
@@ -2560,7 +3039,13 @@
     for (i = 0; i < alive.length; i++) {
       var p = alive[i];
       if (p.poweredDown) continue;                    // a powered-down robot does not shoot
-      var ctx = fire(p, "laserShots", { shots: [{ own: true, dir: p.face, damage: 1, pierce: 0 }] });
+      /* THE MAIN LASER IS MARKED AS SUCH. The classic cards never had
+         to tell one of a robot's guns from another -- "your laser"
+         meant all of it. The 2016 upgrades say "main laser" and mean
+         it: Rear Laser's beam is explicitly not the main one, so it
+         does not take Double-Barrel's extra damage and does not
+         inherit Rail Gun's ability to shoot through a wall. */
+      var ctx = fire(p, "laserShots", { shots: [{ own: true, main: true, dir: p.face, damage: 1, pierce: 0 }] });
       for (s2 = 0; s2 < ctx.shots.length; s2++) {
         var sh = ctx.shots[s2];
         if (sh.damage <= 0) continue;
@@ -3035,6 +3520,35 @@
         return any ? animate([{ type: "render" }]) : NEXT;
       },
 
+      /* THE UPGRADE PHASE, and it is the first of the three. A 2016
+         round is upgrade, then programming, then activation -- so this
+         sits ahead of the deal, and the classic round walks straight
+         through it.
+
+         Three actions, in any order you like, and each is capped: buy
+         ONE card for one Energy, fit ONE card from the shelf for its
+         printed cost, and strip out as many as you want for nothing.
+         The buy is blind, off the top of the deck, so Energy does not
+         shop -- it gambles. */
+      upgrade: function () {
+        if (rulesetOf(houseRules) !== "modern") { go("turn", "deal"); return NEXT; }
+        var racing = racers(), i, any = false;
+        for (i = 0; i < racing.length; i++) {
+          var p = racing[i];
+          if (p.upgradeDone) continue;
+          /* A PERSON SHOPS FOR THEMSELVES. The step parks with them as
+             the actor and the panel does the rest -- the alternative
+             is the bot policy quietly spending somebody else's
+             Energy, which is the one thing an upgrade phase must not
+             do. The flags were cleared at the end of last round. */
+          if (isHuman(p)) { G.actor = p.id; return WAIT; }
+          if (botUpgradeTurn(p)) any = true;
+          p.upgradeDone = true;
+        }
+        go("turn", "deal");
+        return any ? animate([{ type: "render" }, { type: "wait", delay: 200 }]) : NEXT;
+      },
+
       /* Damage clears at the START of a powered-down turn, not when
          it was announced. Announcing and repairing in one step would
          hand out a free repair on the announce turn. */
@@ -3045,7 +3559,7 @@
           alive[i].damage = 0;
           log(alive[i].name + " is powered down and fully repaired");
         }
-        go("turn", "deal");
+        go("turn", "upgrade");
         return NEXT;
       },
 
@@ -3521,6 +4035,12 @@
              there is no repair to stay down FOR. */
           p.poweredDown = rulesetOf(houseRules) === "modern" ? false : p.announceDown;
           p.announceDown = false;
+          /* The upgrade phase's own once-a-round flags, cleared where
+             every other round-boundary reset happens rather than at
+             the top of a step that can be re-entered. */
+          p.bought = false;
+          p.fitted = false;
+          p.upgradeDone = false;
         }
         /* Answers are keyed by turn and register, so last turn's can
            never match this turn's question -- but they would pile up
@@ -3867,6 +4387,21 @@
             G.phase + "." + G.step + " turn " + G.turn);
         }
       }
+      /* AND THE FORTY UPGRADES, by the same law and for the same
+         reason: they move between the deck, four shelves, four mats
+         and the discard, and every one of those is somewhere a card
+         can be dropped. */
+      if (G.upgradeSize !== undefined) {
+        var ups = G.upgradeDeck.length + G.upgradeDiscard.length;
+        for (i = 0; i < G.players.length; i++) {
+          ups += G.players[i].shelf.length + G.players[i].installed.length;
+        }
+        if (ups !== G.upgradeSize) {
+          throw new Error("upgrade card conservation broken: " + ups + "/" + G.upgradeSize +
+            " at " + G.phase + "." + G.step + " turn " + G.turn);
+        }
+      }
+
       /* Gated on the stack having been BUILT, not on it having cards
          in it. Gating on "there is something in the deck or discard"
          switches the law off in exactly the state it is there to
@@ -3910,6 +4445,17 @@
       var en = p.energy || 0;
       if (en < 0 || en > MAX_ENERGY) throw new Error(p.name + " holds " + en + " Energy");
       if (p.out && p.alive) throw new Error(p.name + " is out of the race and still on the board");
+
+      /* Three on the mat and three beside it. The shelf is deliberately
+         uncapped and is not checked; what is on the MAT is the thing
+         the rules limit, and the only thing an install path can get
+         wrong. */
+      for (var ut in INSTALL_LIMIT) {
+        if (installedCount(p, ut) > INSTALL_LIMIT[ut]) {
+          throw new Error(p.name + " has " + installedCount(p, ut) + " " + ut +
+            " upgrades fitted, and the mat holds " + INSTALL_LIMIT[ut]);
+        }
+      }
 
       // 3. Flags touched are a prefix: no gaps, ever.
       if (p.flags < 0 || p.flags > C.flags.length) throw new Error(p.name + " has touched " + p.flags + " of " + C.flags.length + " flags");
@@ -4249,6 +4795,55 @@
      damage it is actually holding -- SPAM already in the deck is not
      touched -- so the threshold counts hand and discard and nothing
      else. */
+  /* WHAT A BOT DOES WITH ITS ENERGY.
+
+     Fitting beats buying, every time. A card on the shelf is doing
+     nothing and a card on the mat is doing something, and the shelf is
+     uncapped -- so there is never a reason to buy ahead of fitting
+     what you already own.
+
+     Cheapest first, because the alternative is saving for Crab Legs
+     while three one-cost cards sit unused. And it keeps a cube back
+     rather than spending to the last one: Deflector Shield and Mini
+     Howitzer both want Energy in hand, and a robot at zero has bought
+     itself out of using what it just fitted.
+
+     Returns true if it did anything, so the step knows whether the
+     screen is worth redrawing. */
+  function botUpgradeTurn(p) {
+    /* This phase's flags belong to this phase. Left over from the last
+       one, "bought" reads as a purchase nobody made. */
+    p.bought = false;
+    p.fitted = false;
+    var did = false, i, best = -1, bestCost = Infinity;
+    for (i = 0; i < p.shelf.length; i++) {
+      var def = UPGRADE_DEFS[p.shelf[i]];
+      if (!canInstall(p, p.shelf[i])) continue;
+      if (def.cost > (p.energy || 0)) continue;
+      if (def.cost < bestCost) { bestCost = def.cost; best = i; }
+    }
+    if (best >= 0) {
+      var id = p.shelf[best];
+      p.energy -= UPGRADE_DEFS[id].cost;
+      installUpgrade(p, id);
+      p.fitted = true;
+      G.installs = (G.installs || 0) + 1;
+      did = true;
+    }
+    /* And a card off the top, if there is a cube to spare after it. */
+    if ((p.energy || 0) >= UPGRADE_DRAW_COST + 1) {
+      var got = takeUpgrade(p);
+      if (got !== null) {
+        p.energy -= UPGRADE_DRAW_COST;
+        p.bought = true;
+        G.buys = (G.buys || 0) + 1;
+        log(p.name + " buys an upgrade");
+        did = true;
+      }
+    }
+    return did;
+  }
+
   function botWantsShutdown(p) {
     if (p.skill <= 0) return false;
     var held = 0, i;
@@ -4383,7 +4978,7 @@
       optionDeck: [], optionDiscard: [], optionAnswers: {},
       gameOver: false, winner: null, unfinished: false, log: [],
       exec: { queue: [], resume: null, resumePhase: null }, pendingChoices: [],
-      damageDeck: [], damageDiscard: []
+      damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: []
     };
     for (var i = 0; i < robots.length; i++) {
       var rb = robots[i], face = rb.face === undefined ? N : rb.face;
@@ -4403,6 +4998,7 @@
           return { id: id, st: def.init ? def.init() : {} };
         }),
         poweredDown: !!rb.poweredDown, announceDown: false, ready: false, rebooting: false,
+        bought: false, fitted: false, upgradeDone: false, shelf: [], installed: [],
         energy: rb.energy || 0,
         alive: rb.alive !== false, out: false
       });
@@ -4435,6 +5031,8 @@
     }
     for (var m = 0; m < MODERN_DAMAGE.length; m++) G.damageDeck.push(MODERN_DAMAGE_FIRST + m);
     G.damageSize = MODERN_DAMAGE.length;
+    for (var u = 0; u < UPGRADE_IDS.length; u++) G.upgradeDeck.push(UPGRADE_IDS[u]);
+    G.upgradeSize = UPGRADE_IDS.length;
     return G;
   }
 
@@ -6183,6 +6781,61 @@
         "expected " + OPTION_ROSTER.transcribed + " option cards, found " + total);
     } },
 
+    { name: "the table rejects an upgrade deck that has drifted", run: function () {
+      /* The roster numbers are the whole point of a declared gap: they
+         say the deck is forty, that all forty are written down, and
+         how many of them actually run. Every one of those has to
+         refuse when it stops being true, or the gap is a comment. */
+      function refuses(what, wreck, undo, want) {
+        var threw = null;
+        wreck();
+        try { validateTables(); } catch (e) { threw = e.message; }
+        undo();
+        assert(threw && want.test(threw), what + ": expected " + want + ", got " + threw);
+        validateTables();                              // and the table is sound again
+      }
+
+      refuses("a card added without the roster noticing",
+        function () { UPGRADE_DEFS.__bogus = { name: "Bogus", text: "x", cost: 1, type: "permanent" }; },
+        function () { delete UPGRADE_DEFS.__bogus; },
+        /roster declares 40 cards but the table has 41/);
+
+      refuses("an effect nobody counted",
+        function () { UPGRADE_DEFS.crabLegs.hooks = { modifyMove: function () {} }; },
+        function () { delete UPGRADE_DEFS.crabLegs.hooks; },
+        /cards built but/);
+
+      refuses("an effect that quietly stopped being built",
+        function () { UPGRADE_ROSTER.built++; },
+        function () { UPGRADE_ROSTER.built--; },
+        /cards built but/);
+
+      refuses("a card that drifted from one half of the deck to the other",
+        function () { UPGRADE_DEFS.crabLegs.type = "temporary"; },
+        function () { UPGRADE_DEFS.crabLegs.type = "permanent"; },
+        /splits 23 permanent and 17 temporary/);
+
+      refuses("a type the mat has no slot for",
+        function () { UPGRADE_DEFS.crabLegs.type = "structural"; },
+        function () { UPGRADE_DEFS.crabLegs.type = "permanent"; },
+        /unknown type/);
+
+      refuses("a price that is not on the Energy track",
+        function () { UPGRADE_DEFS.crabLegs.cost = MAX_ENERGY + 1; },
+        function () { UPGRADE_DEFS.crabLegs.cost = 5; },
+        /not a price on the track/);
+
+      refuses("an upgrade bound to a hook that does not exist",
+        function () { UPGRADE_DEFS.crabLegs.hooks = { onNothing: function () {} }; UPGRADE_ROSTER.built++; },
+        function () { delete UPGRADE_DEFS.crabLegs.hooks; UPGRADE_ROSTER.built--; },
+        /binds unknown hook/);
+
+      refuses("more cards transcribed than the box prints",
+        function () { UPGRADE_ROSTER.printed = 39; },
+        function () { UPGRADE_ROSTER.printed = 40; },
+        /more upgrade cards transcribed than the deck prints/);
+    } },
+
     { name: "the table rejects a card bound to a hook that does not exist", run: function () {
       OPTION_DEFS.__bogus = { name: "Bogus", text: "x", hooks: { onNothing: function () {} } };
       OPTION_ROSTER.transcribed++;
@@ -7542,6 +8195,349 @@
       } finally { houseRules.ruleset = keepHouse; }
     } },
 
+    { name: "the upgrade deck is forty cards, all of them written down", run: function () {
+      /* Unlike the damage deck, nothing here is a gap in the
+         TRANSCRIPTION: the rulebook prints the whole catalogue over
+         two pages, name, cost and effect. What is incomplete is how
+         many of them the engine actually runs, and that is a separate
+         number so the two cannot be confused. */
+      var ids = Object.keys(UPGRADE_DEFS), i, perm = 0, temp = 0, built = 0;
+      assert(UPGRADE_ROSTER.printed === 40, "the box holds " + UPGRADE_ROSTER.printed + " upgrades, not 40");
+      assert(ids.length === 40, "the table names " + ids.length + " upgrades, not 40");
+      assert(UPGRADE_ROSTER.transcribed === 40, "the roster does not claim all forty are transcribed");
+      for (i = 0; i < ids.length; i++) {
+        var d = UPGRADE_DEFS[ids[i]];
+        if (d.type === "permanent") perm++; else if (d.type === "temporary") temp++;
+        if (d.hooks) built++;
+      }
+      assert(perm === 24, "there are " + perm + " permanent upgrades, not 24");
+      assert(temp === 16, "there are " + temp + " temporary upgrades, not 16");
+      assert(built === UPGRADE_ROSTER.built,
+        "the roster says " + UPGRADE_ROSTER.built + " are built and " + built + " have effects");
+      assert(built < UPGRADE_ROSTER.transcribed,
+        "every upgrade is built, so this gap should be closed rather than asserted");
+      /* NO TEMPORARY IS BUILT, and that is deliberate rather than an
+         oversight: a temporary is USED at a moment of the player's
+         choosing, and there is no action in the game yet that reaches
+         one. An effect nothing can fire is not built, it is dead. */
+      for (i = 0; i < ids.length; i++) {
+        assert(!(UPGRADE_DEFS[ids[i]].type === "temporary" && UPGRADE_DEFS[ids[i]].hooks),
+          "temporary upgrade " + ids[i] + " has an effect and nothing can play it");
+      }
+      /* Costs are prices on the Energy track and nowhere else. */
+      for (i = 0; i < ids.length; i++) {
+        var c = UPGRADE_DEFS[ids[i]].cost;
+        assert(typeof c === "number" && c >= 0 && c <= MAX_ENERGY,
+          ids[i] + " costs " + c + ", which is not a price on the track");
+      }
+    } },
+
+    { name: "three upgrades are dealt at setup, and the forty are conserved", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        newGame(11, { course: "exchangeRun", players: 3, ruleset: "modern" });
+        var i, out = G.upgradeDeck.length + G.upgradeDiscard.length;
+        for (i = 0; i < G.players.length; i++) {
+          assert(G.players[i].shelf.length === UPGRADE_START,
+            G.players[i].name + " was dealt " + G.players[i].shelf.length + " upgrades, not " + UPGRADE_START);
+          assert(G.players[i].installed.length === 0,
+            "an upgrade arrived already fitted; you have to spend a round on that");
+          out += G.players[i].shelf.length + G.players[i].installed.length;
+        }
+        assert(out === 40, "the table holds " + out + " upgrade cards, not 40");
+        assert(G.upgradeDeck.length === 40 - 3 * G.players.length,
+          "the deck has " + G.upgradeDeck.length + " left after dealing");
+        assertInvariants();
+
+        /* The classic game builds no upgrade deck at all. */
+        houseRules.ruleset = "classic";
+        newGame(11, { course: "exchangeRun", players: 3 });
+        assert(G.upgradeDeck.length === 0 && G.upgradeSize === undefined,
+          "a classic game dealt upgrade cards");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "fitting an upgrade costs its printed Energy and takes a slot", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        /* Off the deck onto the shelf, so the forty still balance. */
+        function shelve(id) {
+          G.upgradeDeck.splice(G.upgradeDeck.indexOf(id), 1);
+          p.shelf.push(id);
+        }
+        shelve("firewall");                              // cost 1
+        shelve("crabLegs");                              // cost 5
+        p.energy = 3;
+
+        assert(!installUpgrade(p, "hoverUnit"), "a card that was never on the shelf was fitted");
+        assert(installUpgrade(p, "firewall"), "the cheap card would not fit");
+        p.energy -= UPGRADE_DEFS.firewall.cost;
+        assert(p.shelf.indexOf("firewall") < 0, "the fitted card is still on the shelf");
+        assert(p.installed.length === 1 && p.installed[0].id === "firewall",
+          "the card did not reach the mat");
+        assert(p.energy === 2, "the price was " + (3 - p.energy) + " Energy, not 1");
+        assertInvariants();
+
+        /* Stripping one out costs nothing and gives nothing back: it
+           goes to the discard, not to the shelf. */
+        var discardBefore = G.upgradeDiscard.length;
+        assert(uninstallUpgrade(p, "firewall"), "the fitted card would not come out");
+        assert(p.installed.length === 0, "it is still on the mat");
+        assert(p.shelf.indexOf("firewall") < 0, "it went back to the shelf instead of the discard");
+        assert(G.upgradeDiscard.length === discardBefore + 1, "it did not reach the upgrade discard");
+        assert(!uninstallUpgrade(p, "firewall"), "the same card came out twice");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the mat holds three of each kind and no more", run: function () {
+      /* Three permanents on the mat and three temporaries beside it.
+         The shelf is uncapped on purpose, which is what makes the mat
+         caps bite: a robot can own ten cards it will never find room
+         for. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0], i;
+        var perms = ["firewall", "laserKata", "hoverUnit", "brakes"];
+        var temps = ["recharge", "zoop", "boink", "magnetic"];
+        function shelve(id) { G.upgradeDeck.splice(G.upgradeDeck.indexOf(id), 1); p.shelf.push(id); }
+        for (i = 0; i < perms.length; i++) shelve(perms[i]);
+        for (i = 0; i < temps.length; i++) shelve(temps[i]);
+        assert(p.shelf.length === 8, "the shelf refused cards, and it is meant to be uncapped");
+
+        for (i = 0; i < 3; i++) assert(installUpgrade(p, perms[i]), "permanent " + i + " would not fit");
+        assert(!canInstall(p, perms[3]), "a fourth permanent was allowed");
+        assert(!installUpgrade(p, perms[3]), "a fourth permanent was fitted anyway");
+
+        /* The temporary slots are their OWN three, not shared. */
+        for (i = 0; i < 3; i++) assert(installUpgrade(p, temps[i]), "temporary " + i + " would not fit");
+        assert(!installUpgrade(p, temps[3]), "a fourth temporary was fitted");
+        assert(p.installed.length === 6, "the mat holds " + p.installed.length + " cards, not 3 and 3");
+        assertInvariants();
+
+        /* And taking one out makes room again. */
+        uninstallUpgrade(p, perms[0]);
+        assert(installUpgrade(p, perms[3]), "stripping one out did not free a slot");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "an installed upgrade fires through the same hooks an option card does", run: function () {
+      /* The two lists are kept apart everywhere except here. If they
+         did not meet at fire(), every built upgrade would be inert and
+         nothing else in the game would notice. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        var plain = fire(p, "modifyDealt", { count: 9 }).count;
+        assert(plain === 9, "a robot with nothing fitted had its deal changed");
+
+        G.upgradeDeck.splice(G.upgradeDeck.indexOf("flashDrive"), 1);
+        p.shelf.push("flashDrive");
+        installUpgrade(p, "flashDrive");
+        assert(fire(p, "modifyDealt", { count: 9 }).count === 10,
+          "the fitted upgrade did not reach the hook it binds");
+
+        /* And through the real deal, not just a direct fire. */
+        STEP.turn.deal();
+        assert(p.dealtCount === cardsDealt(0) + 1,
+          "the deal was " + p.dealtCount + ", so the upgrade never reached it");
+
+        /* Stripped out, it stops. */
+        uninstallUpgrade(p, "flashDrive");
+        assert(fire(p, "modifyDealt", { count: 9 }).count === 9,
+          "an upgrade taken off the mat is still firing");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the shop panel is shut outside the upgrade phase, and in the classic game", run: function () {
+      /* A Fit button that does nothing for four fifths of the round is
+         worse than no button: it reads as something you forgot to do.
+         And the classic game has no shop at all -- its panel is the
+         option cards it has always been. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman;
+      var host = { innerHTML: "" }, wasEls = UI.els;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var me = G.players[0];
+        me.isBot = false;
+        me.energy = 5;
+        G.upgradeDeck.splice(G.upgradeDeck.indexOf("firewall"), 1);
+        me.shelf.push("firewall");
+        UI.els = { opts: host };
+
+        /* Mid-round: what is fitted, and no buttons. */
+        G.phase = "exec"; G.step = "move"; G.actor = me.id;
+        renderOptions();
+        assert(host.innerHTML.indexOf('data-act="ufit"') < 0, "the fit button is live during the race");
+        assert(host.innerHTML.indexOf('data-act="ubuy"') < 0, "the buy button is live during the race");
+
+        /* In the phase, with the player as actor: the shop opens. */
+        G.phase = "turn"; G.step = "upgrade"; me.upgradeDone = false;
+        renderOptions();
+        assert(host.innerHTML.indexOf('data-act="ufit" data-id="firewall"') >= 0,
+          "the shelved card has no fit button in the upgrade phase");
+        assert(host.innerHTML.indexOf('data-act="ubuy"') >= 0, "there is no way to buy a card");
+        assert(host.innerHTML.indexOf('data-act="udone"') >= 0, "there is no way to finish the phase");
+        assert(host.innerHTML.indexOf("Firewall") >= 0, "the card does not carry its name");
+        assert(host.innerHTML.indexOf("data-tip") >= 0, "the card has no tooltip to explain it");
+
+        /* Once they are done, it shuts again. */
+        me.upgradeDone = true;
+        renderOptions();
+        assert(host.innerHTML.indexOf('data-act="ufit"') < 0,
+          "the shop stayed open after the player finished");
+
+        /* A card it cannot pay for says so rather than offering. */
+        me.upgradeDone = false;
+        me.energy = 0;
+        renderOptions();
+        assert(host.innerHTML.indexOf('data-act="ufit"') < 0, "a card was offered at a price nobody could pay");
+        assert(/needs \d/.test(host.innerHTML), "the card does not say why it cannot be fitted");
+
+        /* And the classic game shows option cards, not a shop. */
+        houseRules.ruleset = "classic";
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var cme = G.players[0];
+        cme.isBot = false;
+        cme.options = [{ id: "recompile" }];
+        G.optionDeck.splice(G.optionDeck.indexOf("recompile"), 1);
+        G.phase = "turn"; G.step = "upgrade"; G.actor = cme.id;
+        renderOptions();
+        assert(host.innerHTML.indexOf("Recompile") >= 0, "the classic panel lost its option cards");
+        assert(host.innerHTML.indexOf('data-act="ubuy"') < 0, "a classic game was offered an upgrade shop");
+      } finally { houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; UI.els = wasEls; }
+    } },
+
+    { name: "a person shops for themselves, and the phase waits while they do", run: function () {
+      /* The one thing an upgrade phase must not do is let the bot
+         policy spend somebody else's Energy. The step parks with the
+         person as the actor and does not move until they say so. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var me = G.players[0], bot = G.players[1];
+        me.isBot = false;
+        assert(isHuman(me), "the fixture did not seat a person");
+        function shelve(p, id) { G.upgradeDeck.splice(G.upgradeDeck.indexOf(id), 1); p.shelf.push(id); }
+        shelve(me, "firewall");                          // cost 1
+        shelve(me, "hoverUnit");                         // cost 1, and a second chance to fit
+        shelve(bot, "laserKata");                        // cost 1
+        me.energy = 3; bot.energy = 3;
+        G.phase = "turn"; G.step = "upgrade";
+
+        var r = STEP.turn.upgrade();
+        assert(r === WAIT, "the phase walked past the player without asking");
+        assert(G.actor === me.id, "the game is waiting on the wrong seat");
+        assert(me.installed.length === 0, "something was fitted on the player's behalf");
+        assert(me.energy === 3, "the player's Energy was spent for them");
+
+        /* The buttons go through the same functions the bot uses, so
+           a slot and a price mean one thing in this game. */
+        onUpgradeFit("firewall");
+        assert(me.installed.length === 1, "the fit button did nothing");
+        assert(me.energy === 2, "the fit charged " + (3 - me.energy) + " Energy, not 1");
+        assert(me.fitted, "a second fit is still allowed this round");
+        /* A DIFFERENT card, and one it can afford and has room for, so
+           the only thing that can refuse it is the once-a-round cap. */
+        assert(canInstall(me, "hoverUnit") && UPGRADE_DEFS.hoverUnit.cost <= me.energy,
+          "the fixture's second card was unfittable for the wrong reason");
+        onUpgradeFit("hoverUnit");
+        assert(me.installed.length === 1, "a second card was fitted in one phase");
+
+        var deckBefore = G.upgradeDeck.length, shelfBefore = me.shelf.length;
+        onUpgradeBuy();
+        assert(me.shelf.length === shelfBefore + 1, "the buy button did not put a card on the shelf");
+        assert(G.upgradeDeck.length === deckBefore - 1, "the card did not come off the deck");
+        assert(me.energy === 1, "the buy charged " + (2 - me.energy) + " Energy, not 1");
+        onUpgradeBuy();
+        assert(me.shelf.length === shelfBefore + 1, "a second card was bought in one phase");
+        assertInvariants();
+
+        /* Done hands the phase on, and THEN the bots shop. */
+        assert(bot.installed.length === 0, "the bot shopped while the player was still deciding");
+        me.upgradeDone = true;
+        STEP.turn.upgrade();
+        assert(bot.installed.length === 1, "the bot never got its turn");
+        assert(G.phase === "turn" && G.step === "deal", "the phase did not move on to the deal");
+        assertInvariants();
+
+        /* AND NEXT ROUND THE CAPS LIFT AGAIN. "One a round" is only a
+           rule if something puts the counter back; left standing, a
+           player fits one card in the whole race. */
+        STEP.cleanup.endTurn();
+        assert(!me.fitted && !me.bought && !me.upgradeDone,
+          "the once-a-round flags survived the end of the round");
+        me.energy = 3;
+        G.phase = "turn"; G.step = "upgrade";
+        onUpgradeFit("hoverUnit");
+        assert(me.installed.length === 2, "the player could not fit anything on the following round");
+      } finally { houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; }
+    } },
+
+    { name: "a bot fits what it owns before it buys more, and keeps a cube back", run: function () {
+      /* A card on the shelf does nothing and a card on the mat does
+         something, and the shelf is uncapped -- so there is never a
+         reason to buy ahead of fitting. Cheapest first, or a robot
+         saves for Crab Legs while three one-cost cards sit unused. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        function shelve(id) { G.upgradeDeck.splice(G.upgradeDeck.indexOf(id), 1); p.shelf.push(id); }
+        shelve("crabLegs");                              // 5
+        shelve("firewall");                              // 1
+        p.energy = 3;
+        botUpgradeTurn(p);
+        assert(p.installed.length === 1 && p.installed[0].id === "firewall",
+          "the bot did not fit the cheapest card it could afford");
+        assert(p.shelf.indexOf("crabLegs") >= 0, "the bot spent five Energy it did not have");
+        /* 3 - 1 for the card, and then a cube for a blind draw, which
+           still leaves one in hand. */
+        assert(p.bought, "the bot had two cubes spare and bought nothing");
+        assert(p.energy === 1, "the bot finished on " + p.energy + " Energy, not 1");
+        assertInvariants();
+
+        /* At one cube it fits nothing it cannot afford and refuses to
+           spend its last on a gamble. */
+        p.energy = 1;
+        p.shelf = [];
+        shelve("drifting");                              // 4
+        botUpgradeTurn(p);
+        assert(!p.bought, "the bot spent its last cube on a blind draw");
+        assert(p.energy === 1, "the bot spent something it should have kept");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the upgrade deck reshuffles, and runs out honestly", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        G.upgradeDiscard = G.upgradeDeck.slice();
+        G.upgradeDeck = [];
+        assert(drawUpgrade() !== null, "an empty deck did not reshuffle its discard");
+        assert(G.upgradeDeck.length === 39, "the reshuffled deck is " + G.upgradeDeck.length + ", not 39");
+        assert(G.upgradeDiscard.length === 0, "the discard was not emptied into the new deck");
+        G.upgradeDeck = []; G.upgradeDiscard = [];
+        assert(drawUpgrade() === null, "a card came out of a deck and a discard that were both empty");
+        assert(takeUpgrade(G.players[0]) === null, "a robot shelved a card that does not exist");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
     { name: "the damage deck is forty cards, and what is on them is a declared gap", run: function () {
       /* The forty is printed and is not in doubt. The SPLIT between
          SPAM and Haywire is not printed on either page that describes
@@ -7770,6 +8766,10 @@
           "the 2016 help never explains how a robot gets back on the board");
         assert(mod.indexOf("Declare a shutdown") >= 0,
           "the 2016 help never mentions shutting down");
+        assert(mod.indexOf("The upgrade phase") >= 0,
+          "the 2016 help never mentions the upgrade phase, which is a third of the round");
+        assert(cls.indexOf("The upgrade phase") < 0,
+          "the classic help describes an upgrade phase that game does not have");
         assert(!/Declared now, for next turn/.test(mod),
           "the 2016 help says a shutdown is for next round, which is the wrong round");
         assert(mod.indexOf("Stay down?") < 0,
@@ -10739,7 +11739,7 @@
       games: 0, wins: {}, crashes: [], unfinished: 0,
       turns: { min: Infinity, max: 0, total: 0 },
       deaths: 0, flagsTouched: 0, spamDealt: 0, reboots: 0, returns: 0, stranded: 0,
-      shutdowns: 0, scrapped: 0
+      shutdowns: 0, scrapped: 0, buys: 0, installs: 0
     };
     for (var s = seed; s < seed + n; s++) {
       try {
@@ -10761,6 +11761,8 @@
         out.returns += G.returns || 0;
         out.shutdowns += G.shutdowns || 0;
         out.scrapped += G.scrapped || 0;
+        out.buys += G.buys || 0;
+        out.installs += G.installs || 0;
         for (var sr = 0; sr < G.players.length; sr++) if (G.players[sr].rebooting) out.stranded++;
       } catch (e) {
         out.crashes.push({ seed: s, turn: G ? G.turn : -1, at: G ? G.phase + "." + G.step : "?", error: e.message });
@@ -11307,6 +12309,22 @@
     "border:1px solid var(--pr-border);border-top:3px solid var(--pr-warn);",
     "background:var(--pr-panel-alt);color:var(--pr-text);cursor:help}",
     ".pr-opt:hover,.pr-opt:focus{border-color:var(--pr-warn);outline:none}",
+    /* THE TWO KINDS OF UPGRADE ARE TWO COLOURS ON THE PRINTED CARDS --
+       permanent yellow, temporary red -- and which one you are looking
+       at decides where it can go and whether it survives being used,
+       so the stripe carries it here too. */
+    ".pr-up-permanent{border-top-color:var(--pr-warn)}",
+    ".pr-up-temporary{border-top-color:var(--pr-danger)}",
+    ".pr-up-shelf{border-top-color:var(--pr-border);opacity:.75}",
+    ".pr-opt>button{font:inherit;font-size:10px;line-height:1;padding:2px 4px;",
+    "border:1px solid var(--pr-border);background:var(--pr-panel);color:var(--pr-text);cursor:pointer}",
+    ".pr-opt>button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-accent)}",
+    ".pr-up-no{font-size:9px;font-style:normal;opacity:.6}",
+    ".pr-up-acts{display:flex;flex-direction:column;gap:4px;justify-content:center}",
+    ".pr-up-acts button{font:inherit;font-size:11px;padding:4px 8px;cursor:pointer;",
+    "border:1px solid var(--pr-border);background:var(--pr-panel);color:var(--pr-text)}",
+    ".pr-up-acts button:disabled{opacity:.4;cursor:default}",
+    ".pr-up-acts button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-accent)}",
     /* THE NAME WRAPS INSIDE THE CARD.
        In a centred flex column the label takes its max-content width
        and hangs out over both edges -- twelve of the sixteen names did,
@@ -12643,12 +13661,95 @@
     return null;
   }
 
+  /* ONE UPGRADE, AS MARKUP. `where` is which pile it is in, which is
+     what decides the button on it: a shelved card can be fitted, a
+     fitted one can be stripped out, and a card you cannot afford or
+     have no room for says so instead of pretending. */
+  function upgradeCardHtml(p, id, where) {
+    var def = UPGRADE_DEFS[id];
+    if (!def) return "";
+    var why = "", act = "";
+    if (where === "shelf") {
+      if (!canInstall(p, id)) why = "no " + def.type + " slot";
+      else if (def.cost > (p.energy || 0)) why = "needs " + def.cost;
+      else if (p.fitted) why = "one a round";
+      else act = '<button data-act="ufit" data-id="' + id + '">Fit ' + def.cost + "\u26a1</button>";
+    } else if (where === "mat") {
+      act = '<button data-act="ustrip" data-id="' + id + '">Strip</button>';
+    }
+    return '<span class="pr-opt pr-up-' + def.type + '" tabindex="0" role="img"' +
+      tipAttr(def.name + " \u2014 " + def.cost + " Energy, " + def.type + ". " + def.text) +
+      ' aria-label="' + esc(def.name + ", " + def.cost + " Energy, " + def.type + ". " + def.text) + '">' +
+      "<b>" + esc(def.name) + "</b>" +
+      (why ? '<i class="pr-up-no">' + esc(why) + "</i>" : "") + act + "</span>";
+  }
+
   function renderOptions() {
-    var me = humanSeat(), out = [];
-    if (me) {
-      for (var i = 0; i < me.options.length; i++) out.push(optionCardHtml(me.options[i].id));
+    var me = humanSeat(), out = [], i;
+    if (!me) { UI.els.opts.innerHTML = ""; return; }
+    if (rulesetOf(houseRules) !== "modern") {
+      for (i = 0; i < me.options.length; i++) out.push(optionCardHtml(me.options[i].id));
+      UI.els.opts.innerHTML = out.join("");
+      return;
+    }
+    /* THE SHOP IS ONLY OPEN IN THE UPGRADE PHASE. Outside it the panel
+       shows what is fitted and nothing else -- a Fit button that did
+       nothing for four fifths of the round would be worse than no
+       button, because it reads as a thing you forgot to do. */
+    var shopping = inPhase("turn", "upgrade") && G.actor === me.id && !me.upgradeDone;
+    for (i = 0; i < me.installed.length; i++) {
+      out.push(upgradeCardHtml(me, me.installed[i].id, shopping ? "mat" : "fitted"));
+    }
+    if (shopping) {
+      for (i = 0; i < me.shelf.length; i++) out.push(upgradeCardHtml(me, me.shelf[i], "shelf"));
+      var canBuy = !me.bought && (me.energy || 0) >= UPGRADE_DRAW_COST &&
+                   (G.upgradeDeck.length + G.upgradeDiscard.length) > 0;
+      out.push('<span class="pr-up-acts">' +
+        '<button data-act="ubuy"' + (canBuy ? "" : " disabled") + ">Buy a card 1\u26a1</button>" +
+        '<button data-act="udone">Done</button></span>');
+    } else if (!me.installed.length && me.shelf.length) {
+      out.push('<span class="pr-opt pr-up-shelf"><b>' + me.shelf.length +
+        " on the shelf</b><i class=\"pr-up-no\">nothing fitted yet</i></span>");
     }
     UI.els.opts.innerHTML = out.join("");
+  }
+
+  /* The three things a person may do in their upgrade phase. Each one
+     goes through the same functions the bot uses, so there is exactly
+     one definition of what an install costs and what a slot is. */
+  function onUpgradeBuy() {
+    var p = actor();
+    if (!p || !inPhase("turn", "upgrade") || p.bought) return;
+    if ((p.energy || 0) < UPGRADE_DRAW_COST) return;
+    if (takeUpgrade(p) === null) return;
+    p.energy -= UPGRADE_DRAW_COST;
+    p.bought = true;
+    log(p.name + " buys an upgrade");
+    updateAll();
+  }
+
+  function onUpgradeFit(id) {
+    var p = actor();
+    if (!p || !inPhase("turn", "upgrade") || p.fitted) return;
+    var def = UPGRADE_DEFS[id];
+    if (!def || def.cost > (p.energy || 0) || !canInstall(p, id)) return;
+    if (!installUpgrade(p, id)) return;
+    p.energy -= def.cost;
+    p.fitted = true;
+    updateAll();
+  }
+
+  function onUpgradeStrip(id) {
+    var p = actor();
+    if (!p || !inPhase("turn", "upgrade")) return;
+    if (uninstallUpgrade(p, id)) updateAll();
+  }
+
+  function onUpgradeDone() {
+    var p = actor();
+    if (!p || !inPhase("turn", "upgrade")) return;
+    p.upgradeDone = true;
+    advance();
   }
 
   /* A HAND THAT DOES NOT MOVE UNDER YOU.
@@ -13066,6 +14167,10 @@
     else if (a === "slot") onSlotClick(i);
     else if (a === "clear") onClear();
     else if (a === "down") onPowerDown();
+    else if (a === "ubuy") onUpgradeBuy();
+    else if (a === "ufit") onUpgradeFit(el.dataset.id);
+    else if (a === "ustrip") onUpgradeStrip(el.dataset.id);
+    else if (a === "udone") onUpgradeDone();
     else if (a === "run") onRun();
     else if (a === "speed") onSpeed();
     else if (a === "new") onNewGame();
@@ -13707,6 +14812,12 @@
      directions, so a step the machine can reach with nothing written
      about it is a table error rather than a quiet blank. */
   var TURN_STEPS = [
+    { phase: "turn", step: "upgrade", title: "The upgrade phase", only: "modern",
+      body: "The first of the round's three phases. One Energy buys one card off the top of " +
+            "the upgrade deck, sight unseen, onto your shelf. Fitting one costs whatever is " +
+            "printed on it, and you may fit only one a round -- so Energy is the whole " +
+            "economy and the shelf is a queue you cannot rush. Three permanents on the mat " +
+            "and three temporaries beside it; strip any of them out for nothing." },
     { phase: "turn", step: "respawn", title: "Wrecks return", only: "classic",
       body: "Robots destroyed last turn come back on their archive with 2 damage." },
     { phase: "turn", step: "respawn", title: "Rebooted robots stay off", only: "modern",
