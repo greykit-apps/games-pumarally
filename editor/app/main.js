@@ -9,7 +9,7 @@ import { injectCSS } from "./style.js";
 import { newState, mark, keep, undo, redo, revalidate, saveLocal, readAll } from "./state.js";
 import {
   apply, erase, toolByKey, toolsFor, blankToolState, STEER_KEYS,
-  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe
+  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe, newStroke
 } from "./tools.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
 import { renderRail, renderInspector, renderDiagnostics } from "./panels.js";
@@ -168,8 +168,8 @@ export function mount(root) {
       return;
     }
     const h = hit(view, st, ev);
-    painting = { erase: ev.button === 2 };
-    edit(h, painting.erase);
+    painting = { erase: ev.button === 2, stroke: newStroke(isEdgeTool()) };
+    if (painting.stroke.wants(h)) edit(h, painting.erase);
   });
 
   view.viewport.addEventListener("pointermove", ev => {
@@ -190,7 +190,10 @@ export function mount(root) {
       if (h && h.inside) say("(" + h.c + "," + h.r + ")" +
         (h.face !== null && st.edgeTool ? " " + dirLetter(h.face) + " edge" : ""), "");
     }
-    if (painting && h && h.inside) edit(h, painting.erase);
+    /* Once per square per stroke. A drag still lays a run, but a tool that
+     * TOGGLES -- which is all of the site tools -- is not flipped back and
+     * forth by the pointer events a held button emits without moving. */
+    if (painting && painting.stroke.wants(h)) edit(h, painting.erase);
   });
 
   const endPointer = () => { painting = null; panning = null; };

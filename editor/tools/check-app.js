@@ -13,7 +13,7 @@ import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } 
 import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
   apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge,
-  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField
+  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, newStroke
 } from "../app/tools.js";
 import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
@@ -127,6 +127,58 @@ const fresh = (w = 8, h = 8) =>
   refused(apply(b, st, 4, 4, { face: W }), "wall: taking the wall out from under a pusher");
   refused(apply(b, st, 3, 4, { face: E }), "wall: the same edge, asked from the other side");
   eq(wallAt(b, 4, 4, W), EDGE_WALL, "wall: and the wall is still there");
+}
+
+/* --- one press-and-drag paints each square once ------------------------------
+ *
+ * The regression this exists for: holding the button down emits a stream of
+ * pointermove events even when the pointer has not left the square, the editor
+ * painted on every one of them, and the SITE tools toggle. So pressing "flag
+ * location" on a square set it, and the next dozen pointer events cleared it,
+ * set it, cleared it -- and whether a mark survived came down to the parity of
+ * a hand tremor. It read as the tool simply not working.
+ *
+ * The stroke is tested here rather than through the pointer handler because
+ * that handler needs a DOM this tree has no dependency for. What is asserted is
+ * the property the handler relies on: a square is offered ONCE per stroke. */
+{
+  const h = (c, r, face = null) => ({ c, r, face, inside: true });
+
+  /* A CELL TOOL IGNORES THE FACE, and this is the case the first version of
+   * this test missed by feeding it tidy `face: null` hits throughout. `hit()`
+   * hands back a face whenever the pointer is within EDGE_BAND of an edge, so a
+   * real drag entering a square near its rim and settling at its centre
+   * produces TWO hits on one square with different faces. Keyed on the face
+   * that was two keys, the square was painted twice, and a site toggled itself
+   * off again -- the very bug this block exists for, reintroduced by its fix
+   * and missed by its test. Every stroke assertion here now varies the face. */
+  const s1 = newStroke(false);
+  ok(s1.wants(h(2, 2, W)), "stroke: the square under the press is painted");
+  ok(!s1.wants(h(2, 2)), "stroke: the same square is not painted twice in one stroke");
+  ok(!s1.wants(h(2, 2, N)), "stroke: nor when the pointer drifts to another of its edges");
+  ok(s1.wants(h(3, 2, W)), "stroke: dragging onto a new square paints it");
+  ok(!s1.wants(h(3, 2)), "stroke: and only once, however the pointer crosses it");
+  ok(!s1.wants(h(2, 2)), "stroke: dragging back over a square does not toggle it again");
+  eq(s1.size, 2, "stroke: two squares painted across the drag");
+
+  /* An edge tool aims at a face, so running along a wall line has to keep
+   * marking -- the square repeats and the face does not. */
+  const s2 = newStroke(true);
+  ok(s2.wants(h(4, 4, N)), "stroke: an edge is painted");
+  ok(!s2.wants(h(4, 4, N)), "stroke: the same edge is not painted twice");
+  ok(s2.wants(h(4, 4, E)), "stroke: a different face of one square is a different edge");
+
+  ok(!newStroke(false).wants(null), "stroke: a pointer off the board paints nothing");
+  ok(!newStroke(false).wants({ c: 1, r: 1, face: null, inside: false }), "stroke: nor one outside it");
+
+  /* And the toggle itself, which is what made the repaint visible. */
+  const b = fresh();
+  const st = blankToolState();
+  st.tool = "site:flagspot";
+  apply(b, st, 1, 1);
+  eq(sitesAt(b, 1, 1), ["flagspot"], "site: a flag location is laid");
+  apply(b, st, 1, 1);
+  eq(sitesAt(b, 1, 1), [], "site: laying it again takes it off -- the tool toggles");
 }
 
 /* --- refusals that name the square ------------------------------------------ */

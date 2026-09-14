@@ -88,6 +88,51 @@ export function blankToolState() {
   };
 }
 
+/* ONE PRESS-AND-DRAG, and each square acted on ONCE within it.
+ *
+ * Holding the button down and moving fires `pointermove` continuously, and the
+ * editor paints on every one of them so that a drag lays a run of belt. For
+ * every tool that writes a value that is harmless: laying the same conveyor on
+ * the same square twice is a no-op and reports `changed: false`.
+ *
+ * SITES ARE THE ONE TOOL THAT TOGGLES. The same printed square is a wrench in
+ * one game and a battery in the other and a flag location can sit on either, so
+ * clicking adds or removes a marking rather than replacing the square -- and
+ * under a repainting drag that meant the mark flipped on and off once per
+ * pointer event. The square you pressed on ended up in whatever state the
+ * PARITY of your hand tremor left it in, so "place a flag location" mostly did
+ * nothing at all, which is exactly what it looked like from the outside.
+ *
+ * A Set rather than just the previous cell: dragging away from a square and
+ * back over it inside one stroke should not toggle it a second time either.
+ *
+ * `byFace` IS THE TOOL'S QUESTION, NOT THE POINTER'S, and getting that wrong
+ * was the first fix's own bug. `hit()` reports a face whenever the pointer is
+ * within EDGE_BAND of an edge, for every tool, because the caller decides
+ * whether that matters. So a stroke that always keyed on the face saw a square
+ * entered near its rim as `3,0,W` and the same square at its centre as `3,0,-`
+ * -- two keys, one square, painted twice, and a site toggled straight back off
+ * again. A wall tool DOES want the face in the key, so that running along a
+ * line marks each edge it crosses. Hence the flag, set from the held tool when
+ * the stroke begins.
+ */
+export function newStroke(byFace) {
+  const done = new Set();
+  return {
+    /** True the first time this stroke reaches this square (or this edge). */
+    wants(h) {
+      if (!h || !h.inside) return false;
+      const key = byFace
+        ? h.c + "," + h.r + "," + (h.face === null || h.face === undefined ? "-" : h.face)
+        : h.c + "," + h.r;
+      if (done.has(key)) return false;
+      done.add(key);
+      return true;
+    },
+    get size() { return done.size; }
+  };
+}
+
 /* --- what a tool refuses ---------------------------------------------------
  * Every refusal names the square and says why. A tool that simply does nothing
  * when clicked teaches nothing; the status line is where the rules get learned.
