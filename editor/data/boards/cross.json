@@ -1,0 +1,66 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "cross",
+  "name": "Cross",
+  "w": 12,
+  "h": 12,
+  "edition": "classic",
+  "set": "base",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board.",
+  "ground": {
+    "rows": [
+      "... bv. ... ... ... bv. b^. ... ... ... b^. w..",
+      "... b>l b>. b>. b>. bvR b^. ... ... ... b^r b<.",
+      "... ... ... ... ... bv. b^. ... ... o.. ... ...",
+      "... ... ... W.. bvl b<r b^. ... ... ... ... ...",
+      "... o.. o.. bvl b<r o.. b^r b<l ... ... ... ...",
+      "b<. b<. b<. b<r o.. o.. o.. b^r b<. b<. b<. b<.",
+      "b>. b>. b>. b>. bvr o.. b>r b>. b>. b>. b>. b>.",
+      "... ... ... ... b>l bvr b^. ... ... ... ... ...",
+      "... ... ... ... ... bv. b^. ... ... o.. ... ...",
+      "w.. ... ... ... ... bv. b^. ... ... ... ... ...",
+      "b>. bvr o.. ... ... bv. b^R b<. b<. b<. b<l ...",
+      "o.. bv. ... ... ... bv. b^. ... ... ... b^. ..."
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "        ##  ",
+      "            ",
+      "    #       ",
+      " # #   ## # ",
+      "         #  ",
+      "            ",
+      "  #    #    ",
+      " # ##     # ",
+      "            ",
+      "  #         ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "          #  ",
+      "#      #    #",
+      "  # #  #     ",
+      "#  #        #",
+      "             ",
+      "             ",
+      "#      #    #",
+      "  # #  # #   ",
+      "#       #   #",
+      "             ",
+      "        #    "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:4,3", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:8,4", "face": "N", "damage": 2 },
+      { "kind": "laser", "edge": "v:2,8", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,8", "face": "E", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

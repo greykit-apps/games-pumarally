@@ -1,0 +1,37 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "dockingBay",
+  "name": "Docking Bay",
+  "w": 12,
+  "h": 4,
+  "edition": "both",
+  "set": "authored",
+  "origin": "authored",
+  "notes": "Authored placeholder. Eight start positions; no printed belts. Belongs to neither edition: both games print a docking bay, and nothing on this one is exclusive to either.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... s3. ... s1. s2. ... s4. ... ... ...",
+      "s7. s5. ... ... ... ... ... ... ... ... s6. s8.",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "             ",
+      "             "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

@@ -1,0 +1,79 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "oRing",
+  "name": "The \"O\" Ring",
+  "w": 12,
+  "h": 12,
+  "edition": "modern",
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "notes": "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+  "ground": {
+    "rows": [
+      "... bv. ... ... ... Bv. ... ... bv. ... ... ...",
+      "... bv. r.. ... E.. Bv. ... ... b>l bvr o.. l..",
+      "... bv. ... ... Bvl B<r ... ... bvl b<r E.. ...",
+      "b>. bv. ... %.. %.. %.. %.. %.. %.. ... ... ...",
+      "... bv. ... %.. ... ... ... ... %.. ... ... ...",
+      "... bv. ... %.. ... ... ... ... %.. b<. b<. b<.",
+      "b>. bv. ... %.. ... ... ... ... %.. ... ... ...",
+      "... b>l b>. %.. ... ... ... ... %.. B<. B<l ...",
+      "... ... ... %.. %.. %.. %.. %.. %.. ... B^. B^.",
+      "... ... E.. ... ... b^. ... ... ... ... B^. ...",
+      "r.. o.. ... b>r b>. b^l ... l.. ... E.. B^. ...",
+      "... ... ... b^. ... ... ... ... ... ... B^. ..."
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "   #  # #   ",
+      "            ",
+      "    #  #    ",
+      "    #  #    ",
+      "#          #",
+      "    #  #    ",
+      "    #  #    ",
+      "            ",
+      "   #  # #   ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "      #      ",
+      "             ",
+      "#            ",
+      "  #       #  ",
+      "#            ",
+      "     ##      ",
+      "      ##     ",
+      "#            ",
+      "  #       #  ",
+      "#            ",
+      "             ",
+      "      #      "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:3,2", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:3,10", "face": "N", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:8,2", "face": "S", "regs": [1, 5] },
+      { "kind": "pusher", "edge": "h:8,10", "face": "N", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:2,3", "face": "E", "regs": [1, 5] },
+      { "kind": "pusher", "edge": "v:2,8", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:10,3", "face": "E", "regs": [1, 5] },
+      { "kind": "pusher", "edge": "v:10,8", "face": "E", "regs": [2, 4] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "flamer", "at": [4, 4], "regs": [2, 4] },
+      { "kind": "flamer", "at": [7, 4], "regs": [3, 5] },
+      { "kind": "flamer", "at": [5, 5], "regs": [1, 3] },
+      { "kind": "flamer", "at": [6, 6], "regs": [2, 5] },
+      { "kind": "flamer", "at": [4, 7], "regs": [1, 2] },
+      { "kind": "flamer", "at": [7, 7], "regs": [4, 5] }
+    ]
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "cactus",
+  "name": "Cactus",
+  "w": 12,
+  "h": 12,
+  "edition": "modern",
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "notes": "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+  "ground": {
+    "rows": [
+      "b>r l.. Bvr ... B>r B>. l.. ... ... ... ... ...",
+      "b^. ... Bv. ... B^. ... b^r b<l ... ... E.. ...",
+      "b^. ... Bv. o.. B^. ... ... b^. ... Bvl B<. B<l",
+      "b^r b<l B>l Bvr B^. ... ... b^. ... Bv. ... B^.",
+      "... b^. E.. Bv. B^. ... b>r b^l ... Bv. E.. B^.",
+      "... b^r b<l B>l B^l ... b^. ... o.. Bv. ... B^.",
+      "... ... b^. ... ... ... b^. ... Bvl B<r B>r B^l",
+      "... ... b<. b<. ... ... ... ... Bv. ... l.. ...",
+      "B>r l.. bvr o.. b^. ... b^r l.. B<r ... b^. ...",
+      "B^. E.. b>l b>. b^l ... ... ... E.. b>r b^l ...",
+      "B^r B<l ... ... ... ... ... b>r b>. b^l ... ...",
+      "... B^r B<. B<l ... ... b^. b^l ... ... ... ..."
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "          # ",
+      "            ",
+      "     #      ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "     #   #  ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      " #           ",
+      "         #   ",
+      "             ",
+      "             ",
+      "             ",
+      " #       #   ",
+      "             ",
+      "             ",
+      "   #      #  ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:5,11", "face": "N", "damage": 1 },
+      { "kind": "pusher", "edge": "h:10,1", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:1,2", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "v:1,7", "face": "E", "damage": 1 },
+      { "kind": "pusher", "edge": "v:9,3", "face": "W", "regs": [1, 3, 5] }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

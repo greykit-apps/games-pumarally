@@ -1,0 +1,64 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "pitMaze",
+  "name": "Pit Maze",
+  "w": 12,
+  "h": 12,
+  "edition": "classic",
+  "set": "base",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board.",
+  "ground": {
+    "rows": [
+      "o.. ... ... ... ... bv. b^r b<l ... ... b^. o..",
+      "... ... ... o.. ... bv. o.. b^. ... o.. b^R b<.",
+      "... ... w.. ... bvl b<r ... b^. ... b>r b^l ...",
+      "... o.. ... o.. bv. o.. ... b^. W.. b^. o.. ...",
+      "... ... ... bvl b<r ... ... b^. o.. b^r b<l ...",
+      "b<. b<. b<. b<r o.. W.. ... b^r b<l o.. b^r b<.",
+      "... ... o.. ... ... ... o.. o.. b^. o.. ... b>.",
+      "... ... ... ... ... ... ... ... b^r b<l ... ...",
+      "... ... o.. ... o.. W.. o.. ... o.. b^. o.. ...",
+      "... ... ... ... bvl b<. b<l ... ... b^. ... ...",
+      "b>. bvr o.. o.. bv. o.. b^. o.. ... b^r b<l ...",
+      "o.. bv. ... ... b>l bvr b^. ... ... ... b^. w.."
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "         #  ",
+      "   #        ",
+      "   #  # #   ",
+      "            ",
+      "     #      ",
+      "      #     ",
+      " # # # # #  ",
+      "            ",
+      " ## # #     ",
+      "            ",
+      "   #     #  ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "  #          ",
+      "#       #   #",
+      " # #       # ",
+      "#        #  #",
+      "     #   #   ",
+      "      #      ",
+      "##          #",
+      "             ",
+      "##          #",
+      "    #  ##    ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:6,3", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:6,6", "face": "S", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
