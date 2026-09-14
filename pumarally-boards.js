@@ -1968,6 +1968,56 @@
         { c: 5, r: 9, in: "E" }
       ]
     },
+    theKeep: {
+      name: "The Keep", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the printed board. Which box it came from is not established.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. bv b^ o. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv b< b< b< b< b^ b< b< b< b< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv|E. .. .. ..|.. .. .. E. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv ..|Bv B< B< B< B< B< ..|b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. Bv l. .. .. r. B^ .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +--+",
+        " .. bv .. Bv o. .. .. .. B^ .. b^ .. ",
+        "+  +  +--+  +  +  +  +  +  +--+  +  +",
+        " .. bv .. Bv .. .. .. o. B^ .. b^ .. ",
+        "+--+  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv .. Bv r. .. .. l. B^ .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv|.. B> B> B> B> B> B^|.. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv E. .. .. ..|.. .. .. E. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. b> b> b> b> bv b> b> b> b> b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. o. bv b^ .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 9, r: 3, d: "W", n: 1 },
+        { c: 2, r: 8, d: "E", n: 1 }
+      ]
+      ,
+      merges: [
+        { c: 1, r: 1, in: "E" },
+        { c: 5, r: 1, in: "N" },
+        { c: 6, r: 1, in: "E" },
+        { c: 10, r: 1, in: "S" },
+        { c: 3, r: 3, in: "E" },
+        { c: 8, r: 3, in: "S" },
+        { c: 3, r: 8, in: "N" },
+        { c: 8, r: 8, in: "W" },
+        { c: 1, r: 10, in: "N" },
+        { c: 5, r: 10, in: "W" },
+        { c: 6, r: 10, in: "S" },
+        { c: 10, r: 10, in: "W" }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2061,6 +2111,17 @@
          cards are ever photographed these should be replaced by the printed
          ones. Chosen off flagCandidates, so all three stand on floor. */
       flags: [[1, 9], [6, 7], [10, 0]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    theKeepRun: {
+      name: "The Keep",
+      kind: "quick",
+      blurb: "Two rings, one inside the other, turning opposite ways.",
+      boards: [{ id: "theKeep", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[0, 10], [6, 6], [10, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
