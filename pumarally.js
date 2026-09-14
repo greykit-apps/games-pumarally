@@ -1252,6 +1252,18 @@
   function go(phase, step) { G.phase = phase; G.step = step; }
   function players() { return G.players; }
   function live() { return G.players.filter(function (p) { return p.alive; }); }
+
+  /* ON THE BOARD versus IN THE RACE, which the classic game never had
+     to tell apart. A wrecked classic robot is simply gone until the
+     next turn begins, so "alive" answered both questions at once.
+
+     A rebooting 2016 robot is off the board and still racing: it is
+     dealt a hand, it programs all five registers, and it walks back on
+     during register 1. Every step that asks "whose turn is it" wants
+     this list; every step that asks "what is standing here" wants
+     live(). */
+  function inPlay(p) { return p.alive || p.rebooting; }
+  function racers() { return G.players.filter(inPlay); }
   function isHuman(p) { return !p.isBot && !UI.autoHuman; }
 
   /* A card index means a place in THIS GAME'S deck. The two decks are
@@ -1420,6 +1432,9 @@
         registers: [null, null, null, null, null],
         poweredDown: false,
         announceDown: false,
+        /* Off the board and still racing. The 2016 game only; a
+           classic wreck is simply not alive until the next turn. */
+        rebooting: false,
         ready: false,
         /* The 2016 resource, and the deck it is spent from. Setup puts
            the tracking cube on the "3" space, so a modern robot starts
@@ -2024,7 +2039,29 @@
      option-card queue stores ids and not callbacks. */
   function botBoardPick(p, choice) {
     if (choice.tag === "upgrade") return p.damage >= 2 ? 0 : 1;   // 0 repair 2, 1 take a card
+    /* COMING BACK FACING THE RIGHT WAY. A bot that always chose north
+       would land pointed at a wall half the time and spend its whole
+       first round turning round, which reads as the reboot being a
+       harsher punishment than it is. The distance field already knows
+       which way the flag is; the facing that steps closest to it wins. */
+    if (choice.tag === "reface") return bestFacing(p);
     return 0;
+  }
+
+  /* Which of the four headings puts the next flag nearest. Ties go to
+     the lowest index, so it is deterministic and replays. */
+  function bestFacing(p) {
+    var C = UI.course, idx = Math.min(p.flags, C.flags.length - 1);
+    if (idx < 0) return 0;
+    var d = distField(C, idx), best = 0, bestV = Infinity;
+    var at = { c: p.archive.c, r: p.archive.r };
+    for (var f = 0; f < 4; f++) {
+      var to = B.step(at.c, at.r, [N, E, S, W][f]);
+      var v = (B.isVoid(C, to.c, to.r) || B.wallAt(C, at.c, at.r, [N, E, S, W][f]))
+        ? 30000 : d[to.r * C.w + to.c];
+      if (v < bestV) { bestV = v; best = f; }
+    }
+    return best;
   }
 
   function botPick(p, choice) {
@@ -2094,7 +2131,7 @@
         var pctx = fire(chain[i - 1], "onPush", { pushed: m, dir: dir, pushDamage: 0 });
         if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage });
       }
-      if (isHole(C, m.c, m.r)) destroy(m, B.isVoid(C, m.c, m.r) ? "over the edge" : "into a pit");
+      if (isHole(C, m.c, m.r)) wreck(m, B.isVoid(C, m.c, m.r) ? "over the edge" : "into a pit");
       /* A JET BURNS WHAT PASSES THROUGH IT, not only what stops in it.
 
          The burner step at the end of the register scorches whoever is
@@ -2392,7 +2429,7 @@
       b.c = mv.to.c; b.r = mv.to.r;
       tread(b);
       throughPortal(b);
-      if (isHole(C, b.c, b.r)) { destroy(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
+      if (isHole(C, b.c, b.r)) { wreck(b, B.isVoid(C, b.c, b.r) ? "over the edge" : "into a pit"); continue; }
       /* Rotate ONLY because a belt carried the robot onto the curve,
          and only where the board PRINTS an arm on the side it came in
          by. A robot already standing there, or pushed on, does not
@@ -2448,7 +2485,7 @@
       var p = alive[i];
       if (!B.activeNow(C, p.c, p.r, G.register)) continue;
       log(p.name + " is crushed by a press");
-      destroy(p, "under a press");
+      wreck(p, "under a press");
     }
   }
 
@@ -2581,6 +2618,57 @@
     if (p.damage >= MAX_DAMAGE) destroy(p, "shot to pieces");
   }
 
+  /* WHAT HAPPENS TO A ROBOT THAT FALLS. The two editions do entirely
+     different things, and the difference is not a detail: a classic
+     robot is DESTROYED and spends a life, and runs out of them; a 2016
+     robot REBOOTS, spends nothing, and cannot be eliminated at all.
+     Routed here so that every caller -- pits, the edge of the board,
+     a crusher -- gets the right one without knowing which game it is
+     in, the same way damage() does. */
+  function wreck(p, how) {
+    if (rulesetOf(houseRules) === "modern") reboot(p, how); else destroy(p, how);
+  }
+
+  /* A 2016 robot that falls off the board or into a pit comes off the
+     board and onto its own mat. It does not die -- there is no such
+     thing in this edition -- and it is not out of the race; it is
+     still dealt a hand next round and still programs all five
+     registers, it simply is not standing anywhere until register 1.
+
+     Its upgrades all stay, including ones it has not installed. */
+  function reboot(p, how) {
+    if (!p.alive) return;
+    p.alive = false;
+    p.rebooting = true;
+
+    /* THE REST OF THE ROUND IS CANCELLED, whether or not this
+       register's card had already resolved. Everything still in a
+       register and everything in hand goes to the robot's own
+       discard -- SPAM included, and note that this is NOT where a
+       SPAM goes when you play one: a played SPAM leaves your deck
+       for good, a rebooted one comes back round. (A Haywire in a
+       register would go to the damage discard instead. There are no
+       Haywire cards built, so nothing takes that branch yet.) */
+    var reg;
+    for (reg = 0; reg < REGISTERS; reg++) {
+      if (p.registers[reg] === null) continue;
+      discardFor(p, [p.registers[reg]]);
+      p.registers[reg] = null;
+    }
+    discardFor(p, p.hand);
+    p.hand = [];
+
+    /* And two damage cards, one at a time like every other hit. */
+    takeDamage(p, 2);
+    /* Tallied on the game the way SPAM is, and for the same reason: a
+       2016 sim reports no deaths whatever happens, because nothing in
+       this edition dies. Without a count of its own, a run in which
+       reboots had quietly stopped working would look identical to a
+       clean one. */
+    G.reboots = (G.reboots || 0) + 1;
+    log(p.name + " reboots " + how);
+  }
+
   function destroy(p, how) {
     if (!p.alive) return;
     p.alive = false;
@@ -2696,6 +2784,63 @@
       if (v < bestV || (v === bestV && free[i].n < best.n)) { bestV = v; best = free[i]; }
     }
     return best;
+  }
+
+  /* WHERE A REBOOTED ROBOT COMES BACK, and facing which way.
+
+     The 2016 boards print a Reboot Token: a fixed square per board
+     with an arrow on it, and you land on the one belonging to the
+     board you fell off. NO TRANSCRIBED BOARD HERE CARRIES ONE -- every
+     board in this repo was read off a classic printing -- so the
+     archive stands in for it: the same square the classic game would
+     have sent the robot to. That is a simplification and it is in the
+     README, not a claim that the rules say archive.
+
+     What is faithful is the rest of it. You choose your facing, and
+     the token's own arrow is explicitly ignored when you do. If
+     somebody is standing on the square, they are shoved one along the
+     arrow to make room, and that shove is NOT a push -- it damages
+     nobody and starts no chain.
+
+     Returns the player when it has landed, or null when it is waiting
+     on the facing question. */
+  function landReboot(p) {
+    var C = UI.course;
+    var pick = askBoard(p, "reface", "Back on the board",
+      "Which way is " + p.name + " facing?", ["North", "East", "South", "West"]);
+    if (pick === null) return null;
+
+    var c = p.archive.c, r = p.archive.r;
+    var sitting = robotAt(c, r);
+    if (sitting) {
+      /* One square along the token's arrow. If the arrow points at a
+         wall or another robot there is nowhere to shove them, so the
+         returning robot takes the nearest free square instead --
+         which is what the classic game does anyway. */
+      var to = B.step(c, r, p.archive.face);
+      var blocked = B.wallAt(C, c, r, p.archive.face) ||
+                    B.isVoid(C, to.c, to.r) || robotAt(to.c, to.r);
+      if (blocked) {
+        var spot = freeSpotNear(c, r);
+        if (!spot) { p.rebooting = false; p.out = true; return p; }
+        c = spot.c; r = spot.r;
+      } else {
+        sitting.c = to.c; sitting.r = to.r;
+        log(sitting.name + " is shoved aside to make room");
+        if (isHole(C, to.c, to.r)) wreck(sitting, B.isVoid(C, to.c, to.r) ? "over the edge" : "into a pit");
+      }
+    }
+    p.c = c; p.r = r;
+    p.face = [N, E, S, W][pick];
+    p.alive = true;
+    p.rebooting = false;
+    p.trail = [[p.c, p.r]];
+    /* Counted apart from the reboots. A robot that came off and never
+       got back on is a different bug from one that never came off,
+       and one number cannot tell them apart. */
+    G.returns = (G.returns || 0) + 1;
+    log(p.name + " is back on the board at (" + p.c + "," + p.r + ")");
+    return p;
   }
 
   function freeSpotNear(c, r) {
@@ -2865,6 +3010,12 @@
         for (var i = 0; i < G.players.length; i++) {
           var p = G.players[i];
           if (p.alive || p.out) continue;
+          /* A 2016 robot walks back on DURING register 1, not before
+             the deal, and it chooses its own facing when it does. It
+             programs this round from off the board, which is the whole
+             tension of the rule: you plot the return blind, and so
+             does everyone else coming back with you. */
+          if (p.rebooting) continue;
           var spot = freeSpotNear(p.archive.c, p.archive.r);
           if (!spot) { p.out = true; continue; }
           var rctx = fire(p, "onRespawn", { damage: 2, facing: p.archive.face });
@@ -2875,7 +3026,11 @@
           any = true;
           log(p.name + " returns at (" + p.c + "," + p.r + ") with " + p.damage + " damage");
         }
-        if (!live().length) { G.gameOver = true; log("Every robot is scrap. Nobody wins."); return NEXT; }
+        /* Counted over everyone still IN THE RACE. Every 2016 robot
+           can be off the board at once -- they all fell in the same
+           register -- and that is a normal round, not the end of the
+           game. */
+        if (!racers().length) { G.gameOver = true; log("Every robot is scrap. Nobody wins."); return NEXT; }
         go("turn", "powerStart");
         return any ? animate([{ type: "render" }]) : NEXT;
       },
@@ -2913,7 +3068,7 @@
            unreachable, and it stays only as a belt-and-braces. */
         G.deck = shuffle(G.deck.concat(G.discard));
         G.discard = [];
-        var alive = live();
+        var alive = racers();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           p.ready = false;                     // this turn's confirmation, not last turn's
@@ -2949,7 +3104,7 @@
          because a step that can park for a question has to be safe to
          re-run, and the deal itself is not. */
       postDeal: function () {
-        var alive = live(), pending = false;
+        var alive = racers(), pending = false;
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           if (p.poweredDown) continue;
@@ -2976,7 +3131,7 @@
       },
 
       program: function () {
-        var alive = live();
+        var alive = racers();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           if (p.poweredDown) continue;
@@ -3032,18 +3187,28 @@
 
     exec: {
       reveal: function () {
-        var alive = live(), q = [];
+        /* Rebooting robots are in the queue too: register 1 is when
+           they walk back on, so they need a place in the order to
+           walk back on IN. */
+        var alive = racers(), q = [];
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           if (p.poweredDown) continue;
           var cd = cardAt(p, G.register);
-          if (!cd) continue;
-          q.push({ id: p.id, pri: cd.pri });
+          /* A robot with nothing in this register does nothing -- with
+             one exception: a rebooting robot's place in register 1 is
+             what it uses to come back, and it may well have nothing
+             programmed there yet if it fell before it could plot a
+             return. */
+          if (!cd && !(p.rebooting && G.register === 0)) continue;
+          q.push({ id: p.id, pri: cd ? cd.pri : 0 });
         }
         /* A new register, a new trail. It starts at where each robot
            stands, so a robot that does not move has a trail of one and
            behaves identically under either rule. */
-        for (var ti = 0; ti < alive.length; ti++) alive[ti].trail = [[alive[ti].c, alive[ti].r]];
+        for (var ti = 0; ti < alive.length; ti++) {
+          alive[ti].trail = alive[ti].alive ? [[alive[ti].c, alive[ti].r]] : [];
+        }
         /* WHO ACTS FIRST, and it is not the same question in the two
            games. The classic deck prints a priority on every card, so
            the order is read off the cards and can differ from one
@@ -3084,6 +3249,14 @@
         /* Peek rather than shift: an option card can park this step
            for a question, and a shifted queue would lose the robot. */
         var p = G.players[G.exec.queue[0]];
+        /* WALKING BACK ON, before anything else this robot does. It
+           lands when its priority comes up in register 1 and then
+           resolves that register's card like everybody else, so the
+           return and the first move are one turn of the queue rather
+           than two. */
+        if (!p.alive && p.rebooting) {
+          if (landReboot(p) === null) return park("exec", "move");
+        }
         if (!p.alive) { G.exec.queue.shift(); return NEXT; }
         var cd = cardAt(p, G.register);
         if (cd && cd.kind === "spam") cd = resolveSpam(p);
@@ -3155,7 +3328,14 @@
           return NEXT;
         }
         var ch = q[0], p = G.players[ch.owner];
-        if (isHuman(p) && p.alive) { G.actor = p.id; return WAIT; }
+        /* A ROBOT OFF THE BOARD IS STILL SOMEBODY'S ROBOT. The guard
+           used to be `p.alive`, which is right for the classic game --
+           a wrecked robot is gone and cannot be asked anything -- and
+           wrong for the 2016 one, where the first question a rebooting
+           robot faces is which way it is facing when it comes back.
+           A person would have had that decision made for them by the
+           bot picker. */
+        if (isHuman(p) && inPlay(p)) { G.actor = p.id; return WAIT; }
         G.optionAnswers[ch.key] = botPick(p, ch);
         q.shift();
         return NEXT;
@@ -3285,7 +3465,7 @@
       },
 
       discard: function () {
-        var alive = live();
+        var alive = racers();
         for (var i = 0; i < alive.length; i++) {
           var p = alive[i];
           /* EVERYTHING GOES BUT THE SPAM. You are stuck with damage
@@ -3717,7 +3897,7 @@
          second number and would turn this into a false alarm. The
          conservation property is the one that matters: every card
          dealt is either still in hand or sitting in a register. */
-      if (G.phase === "turn" && G.step === "program" && p.alive && !p.poweredDown) {
+      if (G.phase === "turn" && G.step === "program" && inPlay(p) && !p.poweredDown) {
         /* DAMAGE CARDS ARE NOT PART OF THE DEAL. Under the 2016 rules
            a hand is what you were dealt PLUS the SPAM you failed to
            get rid of last round, so counting the hand whole would call
@@ -4128,7 +4308,7 @@
           if (!def) throw new Error("bench robot given unknown option " + id);
           return { id: id, st: def.init ? def.init() : {} };
         }),
-        poweredDown: !!rb.poweredDown, announceDown: false, ready: false,
+        poweredDown: !!rb.poweredDown, announceDown: false, ready: false, rebooting: false,
         energy: rb.energy || 0,
         alive: rb.alive !== false, out: false
       });
@@ -6819,6 +6999,279 @@
         "the classic order must come from the cards, it was " + G.exec.queue.join(","));
     } },
 
+    { name: "a 2016 robot does not die, it reboots", run: function () {
+      /* Nothing in this edition dies. A robot that falls off the board
+         or into a pit comes off onto its own mat, keeps every life it
+         has because lives are not a thing here, keeps every upgrade
+         including the ones it has not installed, and is still in the
+         race -- it is simply not standing anywhere. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "o.", ".."]], [{ c: 0, r: 0, face: E }, { c: 2, r: 0 }]);
+        var p = G.players[0];
+        p.options = [{ id: "recompile" }];
+        G.optionDeck.splice(G.optionDeck.indexOf("recompile"), 1);
+        /* Taken OUT of the robot's own deck rather than conjured: the
+           conservation law counts what a robot owns, and a fixture
+           that invents cards fails on that instead of on the rule it
+           is asking about. */
+        function own(kind) {
+          var ix = modernCard(kind);
+          p.deck.splice(p.deck.indexOf(ix), 1);
+          return ix;
+        }
+        p.registers = [own("move1"), own("left"), own("right"), null, null];
+        p.hand = [own("move2")];
+        var lives = p.lives, damageBefore = G.damageDeck.length;
+
+        wreck(p, "into a pit");
+
+        assert(!p.alive, "the robot is still standing on the board");
+        assert(p.rebooting, "the robot is off the board and not marked as coming back");
+        assert(!p.out, "a 2016 robot was put out of the race, which cannot happen");
+        assert(p.lives === lives, "a reboot spent a life; this edition has none to spend");
+        assert(p.options.length === 1, "the reboot took an upgrade away");
+
+        /* Registers and hand are cancelled for the rest of the round,
+           into the robot's OWN discard -- not the damage discard,
+           which is where a SPAM goes when you play one. */
+        for (var r = 0; r < REGISTERS; r++) assert(p.registers[r] === null, "a register survived the reboot");
+        assert(p.hand.length === 0, "the hand survived the reboot");
+        var mine = 0, spam = 0;
+        for (var q = 0; q < p.pile.length; q++) (isDamageCard(p.pile[q]) ? spam++ : mine++);
+        assert(mine === 4, "the four cancelled cards are not in its own discard, " + mine + " are");
+        /* AND THE TWO SPAM LAND IN THE SAME PILE, which is what makes
+           a reboot expensive: the cards you were going to play and the
+           damage you took for falling are shuffled back together. */
+        assert(spam === 2, "the reboot's two SPAM are not in the robot's discard, " + spam + " are");
+
+        /* And two damage cards, one at a time like every other hit. */
+        assert(G.damageDeck.length === damageBefore - 2,
+          "a reboot drew " + (damageBefore - G.damageDeck.length) + " damage cards, not 2");
+        assertInvariants();
+
+        /* IT IS STILL IN THE RACE, and that is the distinction the
+           classic game never had to make. */
+        assert(inPlay(p), "a rebooting robot is not counted as racing");
+        assert(live().indexOf(p) < 0, "a rebooting robot is still counted as standing on the board");
+        assert(racers().indexOf(p) >= 0, "a rebooting robot was dropped from the race");
+      } finally { houseRules.ruleset = keepHouse; }
+
+      /* The classic game still destroys, and still spends a life. */
+      benchGame(bench([["..", "o.", ".."]]), [{ c: 0, r: 0 }, { c: 2, r: 0 }]);
+      var cp = G.players[0], was = cp.lives;
+      wreck(cp, "into a pit");
+      assert(!cp.alive && !cp.rebooting, "a classic robot rebooted instead of being destroyed");
+      assert(cp.lives === was - 1, "a classic wreck did not cost a life");
+    } },
+
+    { name: "a rebooting robot is dealt a hand and programs from off the board", run: function () {
+      /* You plot the return blind, while the round you fell out of is
+         still resolving, and so does everybody else coming back with
+         you. A robot skipped by the deal could not do that. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", ".."]], [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        p.alive = false; p.rebooting = true;
+        STEP.turn.respawn();
+        assert(!p.alive && p.rebooting,
+          "the respawn step put a 2016 robot back before register 1");
+        STEP.turn.deal();
+        assert(p.hand.length === cardsDealt(0),
+          "a rebooting robot was dealt " + p.hand.length + " cards, not " + cardsDealt(0));
+        assert(!p.alive, "the deal put the robot back on the board");
+
+        /* AND IT ACTUALLY FILLS ITS REGISTERS. Being dealt a hand it
+           never programs is the same as not being dealt one: it would
+           arrive at register 1 with nothing to resolve, every round,
+           for the rest of the race. */
+        STEP.turn.program();
+        assert(programmed(p), "a rebooting robot was dealt a hand and never programmed it");
+        assert(!p.alive, "programming put the robot back on the board");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a rebooting robot walks back on at register 1 and then plays it", run: function () {
+      /* The return and the first move are one turn of the queue, not
+         two: it lands when its priority comes up and resolves that
+         register's card like everybody else. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 3, r: 0 }, { c: 3, r: 1 }]);
+        var p = G.players[0];
+        p.archive = { c: 0, r: 0, face: E };
+        p.alive = false; p.rebooting = true;
+        p.registers[0] = modernCard("move1");
+        G.register = 0;
+        G.priority = 0;
+        STEP.exec.reveal();
+        assert(G.exec.queue.indexOf(0) >= 0,
+          "a rebooting robot was left out of the register 1 order, so it has no moment to return in");
+        /* The bot answers the facing question the way any bot answers
+           a board question. */
+        G.optionAnswers[choiceKey(p, "board", "reface", "")] = 1;   // East
+        STEP.exec.move();
+        assert(p.alive, "the robot never came back");
+        assert(!p.rebooting, "the robot is on the board and still marked as coming back");
+        assert(p.face === E, "the robot chose east and came back facing " + p.face);
+        assert(p.c === 1 && p.r === 0,
+          "it should land on its archive and then play its Move 1, it is at (" + p.c + "," + p.r + ")");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the player panel shows the tracks the edition actually has", run: function () {
+      /* A meter that cannot move is worse than no meter: the player
+         reads an empty damage track as good news. The 2016 mat has no
+         lives and no damage track -- nothing dies and damage is cards
+         -- and it has an Energy track the classic mat does not. */
+      var keepHouse = houseRules.ruleset;
+      try {
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0 }, { c: 1, r: 0 }]);
+        var p = G.players[0];
+        p.damage = 3; p.lives = 2; p.energy = 4;
+
+        houseRules.ruleset = "classic";
+        var cls = playerTracks(p);
+        assert(cls.indexOf('title="damage"') >= 0, "the classic panel lost its damage track");
+        assert(cls.indexOf('title="lives"') >= 0, "the classic panel lost its lives");
+        assert(cls.indexOf('title="energy"') < 0, "the classic panel shows Energy, which that game has none of");
+        assert((cls.match(/pr-pip on/g) || []).length === 3, "the classic damage track is not showing 3 damage");
+
+        houseRules.ruleset = "modern";
+        var mod = playerTracks(p);
+        assert(mod.indexOf('title="energy"') >= 0, "the 2016 panel has no Energy track");
+        assert(mod.indexOf('title="damage"') < 0,
+          "the 2016 panel draws a damage track, which cannot move in that game");
+        assert(mod.indexOf('title="lives"') < 0,
+          "the 2016 panel draws lives, which cannot be spent in that game");
+        assert((mod.match(/pr-pip life/g) || []).length === 4, "the Energy track is not showing 4 cubes");
+
+        /* AND A ROBOT OFF THE BOARD IS NOT A WRECK. Both are !alive,
+           so the word has to be chosen in the right order or a reboot
+           reads as a life lost. */
+        p.alive = false; p.rebooting = true;
+        assert(playerState(p) === "rebooting",
+          "a rebooting robot reads as \"" + playerState(p) + "\"");
+        p.rebooting = false;
+        assert(playerState(p) === "wrecked", "a wreck stopped reading as wrecked");
+        p.out = true;
+        assert(playerState(p) === "out", "a robot out of the race reads as something else");
+        p.out = false; p.alive = true;
+        assert(playerState(p) === "", "a robot going about its business is labelled anyway");
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "the person whose robot is rebooting is the one who picks its facing", run: function () {
+      /* The guard on the question step was p.alive, which is exactly
+         right in the classic game -- a wrecked robot is gone and there
+         is nothing to ask anybody about it -- and exactly wrong in the
+         2016 one, where the first decision a rebooting robot faces is
+         which way it comes back. A person would have had it made for
+         them by the bot picker, silently, every single reboot. */
+      var keepHouse = houseRules.ruleset, wasAuto = UI.autoHuman;
+      houseRules.ruleset = "modern";
+      UI.autoHuman = false;
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 3, r: 0 }, { c: 3, r: 1 }]);
+        var p = G.players[0];
+        p.isBot = false;
+        assert(isHuman(p), "the fixture did not seat a person");
+        p.archive = { c: 0, r: 0, face: E };
+        p.alive = false; p.rebooting = true;
+        p.registers[0] = modernCard("move1");
+        G.register = 0; G.priority = 0;
+        STEP.exec.reveal();
+        STEP.exec.move();                       // parks on the facing question
+        assert(G.pendingChoices.length === 1,
+          "the facing was never asked, it was decided");
+        assert(G.pendingChoices[0].owner === p.id, "somebody else was asked");
+        assert(G.pendingChoices[0].labels.length === 4, "the facing offered fewer than four ways to face");
+
+        /* And the question waits for the person rather than being
+           answered on their behalf. */
+        G.phase = "exec"; G.step = "optionChoice";
+        var r = STEP.exec.optionChoice();
+        assert(r === WAIT, "the question was answered for the player instead of waiting");
+        assert(G.actor === p.id, "the game is waiting on the wrong seat");
+        assert(G.optionAnswers[G.pendingChoices[0].key] === undefined,
+          "an answer was filled in behind the player's back");
+      } finally { houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; }
+    } },
+
+    { name: "a bot comes back facing the way the flag is", run: function () {
+      /* The facing is the returning player's choice, and a bot that
+         always chose north would land pointed at a wall half the time
+         and spend its first round turning round -- which reads as the
+         reboot being a far harsher punishment than the rules make it.
+         The distance field already knows where the flag is. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        var pic = [["..", "..", "..", ".."],
+                   ["..", "..", "..", ".."],
+                   ["..", "..", "..", ".."],
+                   ["..", "..", "..", ".."]];
+        modernBench(pic, [{ c: 0, r: 0 }], [{ n: 1, c: 3, r: 0 }]);
+        var p = G.players[0];
+        p.archive = { c: 0, r: 0, face: N };
+        p.flags = 0;
+        assert(bestFacing(p) === 1, "the flag is due east and the bot faces " + bestFacing(p));
+        /* THROUGH THE QUESTION, not just the helper. The facing is
+           asked as a board question like any other, and a bot that
+           answers it with the default 0 would come back facing north
+           however good the helper underneath is. */
+        assert(botBoardPick(p, { tag: "reface", labels: ["N", "E", "S", "W"] }) === 1,
+          "the bot answered the facing question without consulting the board");
+
+        modernBench(pic, [{ c: 0, r: 0 }], [{ n: 1, c: 0, r: 3 }]);
+        p = G.players[0];
+        p.archive = { c: 0, r: 0, face: N };
+        p.flags = 0;
+        assert(bestFacing(p) === 2, "the flag is due south and the bot faces " + bestFacing(p));
+
+        /* AND IT READS THE FLAG IT IS ACTUALLY GOING FOR, not the
+           first one. A bot that has taken flag 1 is heading for flag
+           2, and facing back at the one behind it is exactly the wrong
+           way round. */
+        modernBench(pic, [{ c: 3, r: 3 }], [{ n: 1, c: 0, r: 3 }, { n: 2, c: 3, r: 0 }]);
+        p = G.players[0];
+        p.archive = { c: 3, r: 3, face: N };
+        p.flags = 1;
+        assert(bestFacing(p) === 0, "with flag 1 taken it should face north, it faces " + bestFacing(p));
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
+    { name: "a robot standing on the reboot square is shoved aside, and that is not a push", run: function () {
+      /* The rulebook is explicit that moving the obstructing robot
+         does not count as the returning robot "pushing" it -- so it
+         takes no damage and starts no chain. */
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        modernBench([["..", "..", "..", ".."]], [{ c: 3, r: 0 }, { c: 0, r: 0 }]);
+        var p = G.players[0], sitting = G.players[1];
+        p.archive = { c: 0, r: 0, face: E };
+        p.alive = false; p.rebooting = true;
+        p.registers[0] = null;
+        G.register = 0; G.priority = 0;
+        var dmgBefore = G.damageDeck.length;
+        STEP.exec.reveal();
+        G.optionAnswers[choiceKey(p, "board", "reface", "")] = 0;   // North
+        STEP.exec.move();
+        assert(p.c === 0 && p.r === 0, "the returning robot did not take the square");
+        assert(sitting.c === 1 && sitting.r === 0,
+          "the occupant should be shoved one along the arrow, it is at (" + sitting.c + "," + sitting.r + ")");
+        assert(G.damageDeck.length === dmgBefore,
+          "the shove dealt damage, so it was treated as a push");
+        assert(sitting.alive, "the shove wrecked the occupant");
+        assertInvariants();
+      } finally { houseRules.ruleset = keepHouse; }
+    } },
+
     { name: "the damage deck is forty cards, and what is on them is a declared gap", run: function () {
       /* The forty is printed and is not in doubt. The SPLIT between
          SPAM and Haywire is not printed on either page that describes
@@ -7043,6 +7496,14 @@
           "the 2016 help says damage shrinks the deal, which is the rule the edition replaced");
         assert(mod.indexOf("SPAM") >= 0, "the 2016 help never mentions the damage cards");
         assert(mod.indexOf("Batteries") >= 0, "the 2016 help lost the battery step");
+        assert(mod.indexOf("Rebooted robots walk back on") >= 0,
+          "the 2016 help never explains how a robot gets back on the board");
+        assert(!/come back on their archive with 2 damage/.test(mod),
+          "the 2016 help describes the classic respawn, which that game does not have");
+        assert(/come back on their archive with 2 damage/.test(cls),
+          "the classic help lost its respawn rule");
+        assert(cls.indexOf("Rebooted robots walk back on") < 0,
+          "the classic help describes a reboot, which that game does not have");
 
         /* Neither list may be empty of the steps both share. */
         assert(cls.indexOf("Robots move") >= 0 && mod.indexOf("Robots move") >= 0,
@@ -9997,7 +10458,7 @@
     var out = {
       games: 0, wins: {}, crashes: [], unfinished: 0,
       turns: { min: Infinity, max: 0, total: 0 },
-      deaths: 0, flagsTouched: 0, spamDealt: 0
+      deaths: 0, flagsTouched: 0, spamDealt: 0, reboots: 0, returns: 0, stranded: 0
     };
     for (var s = seed; s < seed + n; s++) {
       try {
@@ -10015,6 +10476,9 @@
           out.flagsTouched += G.players[i].flags;
         }
         out.spamDealt += G.spamDealt || 0;
+        out.reboots += G.reboots || 0;
+        out.returns += G.returns || 0;
+        for (var sr = 0; sr < G.players.length; sr++) if (G.players[sr].rebooting) out.stranded++;
       } catch (e) {
         out.crashes.push({ seed: s, turn: G ? G.turn : -1, at: G ? G.phase + "." + G.step : "?", error: e.message });
       }
@@ -11446,22 +11910,53 @@
     h.querySelector("[data-act=mute]").textContent = UI.muted ? "Sound: off" : "Sound: on";
   }
 
+  /* THE PANEL SHOWS THE TRACKS THE GAME BEING PLAYED ACTUALLY HAS.
+
+     A classic mat has lives and a damage track. A 2016 mat has neither
+     -- nothing dies and damage is cards -- and it has an Energy track
+     instead. Drawing the classic pair under the 2016 rules was two
+     rows that could never change: ten damage pips that stay empty
+     however hard a robot is shot, and three lives that cannot be
+     spent. A meter that cannot move is worse than no meter, because
+     the player reads it as good news. */
+  function playerTracks(p) {
+    var j, pips = "", out = "";
+    if (rulesetOf(houseRules) === "modern") {
+      for (j = 0; j < MAX_ENERGY; j++) pips += '<i class="pr-pip' + (j < (p.energy || 0) ? " life" : "") + '"></i>';
+      return '<span class="pr-pips" title="energy">' + pips + "</span>";
+    }
+    for (j = 0; j < START_LIVES; j++) pips += '<i class="pr-pip' + (j < p.lives ? " life" : "") + '"></i>';
+    out = '<span class="pr-pips" title="lives">' + pips + "</span>";
+    pips = "";
+    for (j = 0; j < MAX_DAMAGE; j++) pips += '<i class="pr-pip' + (j < p.damage ? " on" : "") + '"></i>';
+    return out + '<span class="pr-pips" title="damage">' + pips + "</span>";
+  }
+
+  /* What the panel says is going on with a robot, in one word.
+
+     A rebooting robot is not a wrecked one and must not read as one:
+     it is coming back next register, it lost nothing, and "wrecked"
+     would be telling the player the race is going worse than it is.
+     Checked before !alive, because a rebooting robot is both. */
+  function playerState(p) {
+    if (p.out) return "out";
+    if (p.rebooting) return "rebooting";
+    if (!p.alive) return "wrecked";
+    if (p.poweredDown) return "powered down";
+    return "";
+  }
+
   function renderPlayers() {
-    var host = UI.els.players, out = [], i, j;
+    var host = UI.els.players, out = [], i;
     for (i = 0; i < G.players.length; i++) {
       var p = G.players[i];
-      var dmg = "";
-      for (j = 0; j < MAX_DAMAGE; j++) dmg += '<i class="pr-pip' + (j < p.damage ? " on" : "") + '"></i>';
-      var lives = "";
-      for (j = 0; j < START_LIVES; j++) lives += '<i class="pr-pip' + (j < p.lives ? " life" : "") + '"></i>';
-      var state = p.out ? "out" : !p.alive ? "wrecked" : p.poweredDown ? "powered down" : "";
+      var state = playerState(p);
       out.push(
         '<div class="pr-bot' + (isHuman(p) ? " pr-me" : "") + (p.out ? " pr-gone" : "") + '">' +
         '<i class="pr-swatch" style="background:' + LIVERIES[p.livery].a + '"></i>' +
         '<span class="pr-bot-name">' + esc(p.name) + (isHuman(p) ? " (you)" : "") + "</span>" +
         '<span title="flags">' + p.flags + "/" + UI.course.flags.length + "</span>" +
-        '<span class="pr-pips" title="lives">' + lives + "</span>" +
-        '<span class="pr-pips" title="damage">' + dmg + "</span>" +
+        playerTracks(p) +
         "</div>" +
         (state ? '<div class="pr-bot pr-gone"><span class="pr-bot-name">' + esc(state) + "</span></div>" : "")
       );
@@ -12913,9 +13408,13 @@
      directions, so a step the machine can reach with nothing written
      about it is a table error rather than a quiet blank. */
   var TURN_STEPS = [
-    { phase: "turn", step: "respawn", title: "Wrecks return",
+    { phase: "turn", step: "respawn", title: "Wrecks return", only: "classic",
       body: "Robots destroyed last turn come back on their archive with 2 damage." },
-    { phase: "turn", step: "powerStart", title: "Powered-down robots repair",
+    { phase: "turn", step: "respawn", title: "Rebooted robots stay off", only: "modern",
+      body: "A robot that fell is still off the board, and stays off until register 1. " +
+            "It is dealt a hand and programs all five registers from its mat, so you plot " +
+            "the return blind -- and so does everybody else coming back with you." },
+    { phase: "turn", step: "powerStart", title: "Powered-down robots repair", only: "classic",
       body: "Damage clears at the start of the powered-down turn, not when it was announced." },
     { phase: "turn", step: "deal", title: "Deal", only: "classic",
       body: "You are dealt 9 cards minus your damage. Every point of damage is a card you do not get." },
@@ -12942,6 +13441,10 @@
             "order in all five registers, and the token moves one seat at the end of the round." },
     { phase: "exec", step: "move", title: "Robots move",
       body: "One at a time, in priority order. A robot moving into another pushes it, and a wall stops the whole chain." },
+    { phase: "exec", step: "move", title: "Rebooted robots walk back on", only: "modern",
+      body: "When its priority comes up in register 1, a rebooted robot lands and then plays " +
+            "that register like everyone else. You choose which way it faces. Anyone standing " +
+            "on the square is shoved aside, which is not a push and hurts nobody." },
     { phase: "exec", step: "blue1", title: "Blue conveyors", only: "modern",
       body: "Blue belts move one square." },
     { phase: "exec", step: "blue2", title: "Blue conveyors again", only: "modern",
