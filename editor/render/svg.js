@@ -11,6 +11,7 @@
  */
 
 import { CELL, ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
+import { ART_DEFS, PALETTE_CSS, ART_CSS, STAMP_CSS, SPOT_CSS, TOKENS } from "./palette.js";
 import { GLYPHS, DEVICE_GLYPHS, siteOverlay } from "./glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
@@ -95,46 +96,62 @@ function levelLayer(board, mode) {
          '<path d="' + d + '" ' + markStroke(MARK.level, 2.4) + ' stroke-dasharray="9 5"/>' + marks;
 }
 
+/* WALLS ARE CONCRETE, and the thickness is the game's: 0.19 of a tile, centred
+ * on the edge so half lies in each square. A wall is not a property of a square,
+ * it is the edge between two of them, and it exists equally from both sides.
+ *
+ * The game draws these as absolutely-positioned divs with CSS gradients; an SVG
+ * cannot take a gradient the same way, so they are bars filled from a linear
+ * gradient of the same stops, with the shadow as a filter. A wall you can see
+ * standing up is a wall you do not try to drive through -- the depth is the
+ * whole reason for the shadow.
+ *
+ * NOT hazard striped, deliberately: in this art language stripes mean "this
+ * will move or swallow you", and a wall is the one thing that will not.
+ */
+const WT = CELL * 0.19;
+
 function wallLayer(board, mode) {
-  const walls = [], doors = [];
+  const bars = [], doors = [];
+  const push = (list, x, y, w, h, vertical) => list.push({ x, y, w, h, vertical });
   for (let r = 0; r <= board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       const code = board.wallH[r * board.w + c];
       if (!code) continue;
-      (code === EDGE_DOOR ? doors : walls).push("M " + c * CELL + " " + r * CELL + " l " + CELL + " 0");
+      push(code === EDGE_DOOR ? doors : bars, c * CELL, r * CELL - WT / 2, CELL, WT, false);
     }
   }
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c <= board.w; c++) {
       const code = board.wallV[r * (board.w + 1) + c];
       if (!code) continue;
-      (code === EDGE_DOOR ? doors : walls).push("M " + c * CELL + " " + r * CELL + " l 0 " + CELL);
+      push(code === EDGE_DOOR ? doors : bars, c * CELL - WT / 2, r * CELL, WT, CELL, true);
     }
   }
+
+  if (mode !== "art") {
+    const path = b => "M " + b.x + " " + (b.y + b.h / 2) + " l " + (b.vertical ? 0 : b.w) + " " + (b.vertical ? b.h : 0);
+    const wall = bars.map(b => "M " + (b.vertical ? b.x + b.w / 2 : b.x) + " " +
+      (b.vertical ? b.y : b.y + b.h / 2) + " l " + (b.vertical ? 0 : b.w) + " " + (b.vertical ? b.h : 0)).join(" ");
+    const door = doors.map(b => "M " + (b.vertical ? b.x + b.w / 2 : b.x) + " " +
+      (b.vertical ? b.y : b.y + b.h / 2) + " l " + (b.vertical ? 0 : b.w) + " " + (b.vertical ? b.h : 0)).join(" ");
+    let out = "";
+    if (wall) out += '<path d="' + wall + '" ' + haloStroke() + "/>" +
+      '<path d="' + wall + '" ' + markStroke(MARK.wall, 2.6) + "/>";
+    if (door) out += '<path d="' + door + '" ' + haloStroke() + "/>" +
+      '<path d="' + door + '" ' + markStroke(MARK.door, 2.6) + ' stroke-dasharray="10 7"/>';
+    return out;
+  }
+
   let out = "";
-  if (mode === "art") {
-    if (walls.length) {
-      const d = walls.join(" ");
-      out += '<path d="' + d + '" fill="none" stroke="' + ART.wallShadow +
-        '" stroke-width="16" stroke-linecap="round" opacity="0.55" transform="translate(3,3)"/>';
-      out += '<path d="' + d + '" fill="none" stroke="' + ART.wall + '" stroke-width="12" stroke-linecap="round"/>';
-      out += '<path d="' + d + '" fill="none" stroke="' + ART.wallTop + '" stroke-width="4" stroke-linecap="round"/>';
-    }
-    if (doors.length) {
-      out += '<path d="' + doors.join(" ") + '" fill="none" stroke="' + ART.door +
-        '" stroke-width="10" stroke-linecap="round" stroke-dasharray="16 10"/>';
-    }
-  } else {
-    if (walls.length) {
-      const d = walls.join(" ");
-      out += '<path d="' + d + '" ' + haloStroke() + "/>";
-      out += '<path d="' + d + '" ' + markStroke(MARK.wall, 2.6) + "/>";
-    }
-    if (doors.length) {
-      const d = doors.join(" ");
-      out += '<path d="' + d + '" ' + haloStroke() + "/>";
-      out += '<path d="' + d + '" ' + markStroke(MARK.door, 2.6) + ' stroke-dasharray="10 7"/>';
-    }
+  for (const b of bars) {
+    out += '<rect class="pr-wall" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
+      '" height="' + b.h + '" fill="url(#pr-concrete-' + (b.vertical ? "v" : "h") +
+      ')" filter="url(#pr-wallshadow)"/>';
+  }
+  for (const b of doors) {
+    out += '<rect class="pr-doorbar" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
+      '" height="' + b.h + '"/>';
   }
   return out;
 }
@@ -171,6 +188,8 @@ function deviceLayer(board, mode) {
     if (def.faced) {
       const cell = deviceCell(dev);
       if (!cell || !inBoard(board, cell[0], cell[1])) continue;
+      /* The stamp is inside the glyph, so it turns with the device -- see the
+       * note on stampArt in glyphs.js. */
       out += g(at(cell[0], cell[1]) + spin(dev.face), glyph[mode](ctx));
     } else {
       /* A door has no face, so it is drawn along the edge it stands on: the
@@ -221,7 +240,7 @@ export function boardSVG(board, opts = {}) {
   const w = board.w * CELL, h = board.h * CELL;
   const body =
     (o.background && o.mode === "art"
-      ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#0b0d14"/>' : "") +
+      ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
     siteLayer(board, o.mode) +
     wallLayer(board, o.mode) +
@@ -230,7 +249,16 @@ export function boardSVG(board, opts = {}) {
     levelLayer(board, o.mode) +
     (o.coords ? coordLayer(board) : "");
 
+  /* The palette and the art's stylesheet travel WITH the drawing. The art is
+   * class-based and the palette drives it, so an SVG that carried the shapes
+   * without the rules would come out as unfilled outlines -- and shipping them
+   * together is what lets a board render identically in the editor, in a
+   * snapshot, and anywhere else the string is dropped. */
+  const style = "<style>" + PALETTE_CSS + ART_CSS + STAMP_CSS + SPOT_CSS +
+    ".pr-doorbar{fill:none;stroke:var(--pr-warn);stroke-width:4;stroke-dasharray:14 9}" +
+    "</style>";
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-m) + " " + (-m) + " " +
     (w + m * 2) + " " + (h + m * 2) + '" width="100%" preserveAspectRatio="xMidYMid meet"' +
-    ' data-board="' + esc(board.id) + '" data-mode="' + o.mode + '">' + body + "</svg>";
+    ' data-board="' + esc(board.id) + '" data-mode="' + o.mode + '">' +
+    style + ART_DEFS + body + "</svg>";
 }

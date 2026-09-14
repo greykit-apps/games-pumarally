@@ -15,6 +15,7 @@
 import { ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
 import { ARM_CODES } from "../lib/token.js";
 import { beltPaths } from "./belt.js";
+import * as A from "./art.js";
 import { cogPath, turnPath, HUB_R } from "./gear.js";
 import { N } from "../lib/dir.js";
 
@@ -60,16 +61,14 @@ const rivets = () => [[12, 12], [88, 12], [12, 88], [88, 88]]
  * with the reasoning that produced it. */
 
 function beltArt(arms, express) {
+  /* The game's own belt: rail, then bed over it so only the rail's edges show,
+   * then the arrow painted on the bed. Classes rather than inline colour, so
+   * the palette drives it -- a livery is a colour on an element. */
   const p = beltPaths(arms, N, express ? 2 : 1);
-  const rail = express ? ART.expressRail : ART.beltRail;
-  const bed = express ? ART.express : ART.belt;
-  const arrow = express ? ART.expressArrow : ART.beltArrow;
-  const join = (list, attrs) => list.map(d => '<path d="' + d + '" ' + attrs + "/>").join("");
-  return plate() +
-    join(p.beds, 'fill="none" stroke="' + bed + '" stroke-width="68" stroke-linecap="butt" stroke-linejoin="round"') +
-    join(p.rails, 'fill="none" stroke="' + rail + '" stroke-width="7" stroke-linecap="butt"') +
-    join(p.marks, 'fill="none" stroke="' + arrow + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"') +
-    join(p.chevrons, 'fill="none" stroke="' + arrow + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"');
+  const join = (list, cls) => list.map(d => '<path class="' + cls + '" d="' + d + '"/>').join("");
+  return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' +
+    join(p.beds, "pr-bed") + join(p.rails, "pr-rail") +
+    join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
 }
 
 function beltMark(arms, express) {
@@ -108,54 +107,49 @@ export const GLYPHS = {
   },
 
   gearCW: {
-    art: () => gearArt(1),
+    art: () => A.gearSvg(1),
     markup: () => gearMark(1)
   },
 
   gearCCW: {
-    art: () => gearArt(-1),
+    art: () => A.gearSvg(-1),
     markup: () => gearMark(-1)
   },
 
   dockingBay: {
-    art: ctx => plate(ART.dock) + rivets() + artText(ctx.arg, 50, 52, ART.dockText, 40),
+    art: ctx => A.dockSvg(ctx.arg),
     markup: ctx => mk("M 20 20 L 80 20 L 80 80 L 20 80 Z", MARK.ground, 1.4) +
       mkText(ctx.arg, 50, 52, MARK.ground, 30)
   },
 
-  oilClassic: { art: () => oilArt(), markup: () => oilMark() },
-  oilModern: { art: () => oilArt(), markup: () => oilMark() },
+  oilClassic: { art: () => A.oilSvg(), markup: () => oilMark() },
+  oilModern: { art: () => A.oilSvg(), markup: () => oilMark() },
 
-  portalClassic: { art: ctx => ringArt(ctx, ART.portal), markup: ctx => ringMark(ctx) },
-  portalModern: { art: ctx => ringArt(ctx, ART.portal), markup: ctx => ringMark(ctx) },
-  teleporter: { art: ctx => ringArt(ctx, ART.teleport), markup: ctx => ringMark(ctx) },
+  portalClassic: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
+  portalModern: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
+  teleporter: { art: ctx => A.teleporterSvg(ctx.arg), markup: ctx => ringMark(ctx) },
 
-  water: { art: () => waterArt(), markup: () => waterMark() },
+  water: { art: () => A.waterSvg(), markup: () => waterMark() },
 
   drain: {
-    art: () => waterArt() + '<circle cx="50" cy="52" r="22" fill="#000" stroke="' + ART.pitEdge + '" stroke-width="3"/>',
+    art: () => A.drainSvg(),
     markup: () => waterMark() + mk("M 30 52 A 20 20 0 1 1 70 52 A 20 20 0 1 1 30 52 M 36 38 L 64 66 M 64 38 L 36 66", MARK.hazard, 1.6)
   },
 
   current: {
     /* a belt that is also water: the water plate, then the belt over it */
-    art: ctx => waterArt() + beltArt(ctx.arms, false).replace(plate(), ""),
+    art: ctx => A.waterSvg() + beltArt(ctx.arms, false),
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
   ramp: {
     /* Drawn pointing north, which is uphill. The wedge is thickest at the top. */
-    art: () => plate("#2f3b32", "#4d6b52") + rivets() +
-      '<path d="M 20 86 L 80 86 L 50 14 Z" fill="#3f5a46" stroke="#7fd39a" stroke-width="3"/>' +
-      '<path d="M 36 70 L 50 54 L 64 70 M 40 84 L 50 72 L 60 84" fill="none" stroke="#7fd39a" stroke-width="5" stroke-linecap="round"/>',
+    art: () => A.rampSvg(0),
     markup: () => mk("M 20 86 L 80 86 L 50 14 Z M 36 70 L 50 54 L 64 70", MARK.level, 1.5)
   },
 
   randomizer: {
-    art: () => plate("#3a2d3f") + rivets() +
-      '<rect x="24" y="26" width="52" height="52" rx="10" fill="#54405c" stroke="#c79ad8" stroke-width="3"/>' +
-      [[38, 40], [62, 40], [50, 52], [38, 64], [62, 64]]
-        .map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="5" fill="#e9d2f4"/>').join(""),
+    art: () => A.randomizerSvg(),
     markup: () => mk("M 24 26 L 76 26 L 76 78 L 24 78 Z", MARK.ground, 1.4) +
       mkText("?", 50, 53, MARK.ground, 34)
   },
@@ -240,29 +234,26 @@ function ringMark(ctx) {
  * the SOUTH edge of their square, firing north -- and the caller rotates. */
 
 export const DEVICE_GLYPHS = {
+  /* The game's drawings. Each is drawn as if mounted on the SOUTH edge firing
+   * NORTH and the caller rotates, which is the convention the rest of this file
+   * uses -- the game's own functions take a direction, so they are called with
+   * the one that matches and turned from there. */
   laser: {
-    art: ctx => '<path d="M 40 96 L 40 74 M 60 96 L 60 74" fill="none" stroke="' + ART.laser +
-      '" stroke-width="7" stroke-linecap="round"/>' +
-      '<rect x="32" y="86" width="36" height="12" rx="3" fill="#5a3030" stroke="' + ART.laser + '" stroke-width="2"/>' +
-      (ctx.damage > 1 ? artText(ctx.damage, 50, 68, ART.laser, 22) : ""),
+    art: ctx => A.emitterSvg(N) +
+      (ctx.damage > 1 ? artText(ctx.damage, 50, 30, ART.laser, 20) : ""),
     markup: ctx => mk("M 34 96 L 34 78 M 50 96 L 50 74 M 66 96 L 66 78 M 28 96 L 72 96",
       MARK.device, 1.5) + (ctx.damage > 1 ? mkText(ctx.damage, 50, 66, MARK.device, 22) : "")
   },
 
   pusher: {
-    art: ctx => '<path d="M 26 92 L 50 68 L 74 92" fill="none" stroke="' + ART.pusher +
-      '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="M 26 100 L 74 100" stroke="' + ART.pusher + '" stroke-width="8" stroke-linecap="round"/>' +
-      regsArt(ctx.regs, ART.pusher),
+    art: ctx => A.pusherSvg(N, true) + stampArt(ctx.regs),
     markup: ctx => mk("M 26 92 L 50 70 L 74 92 M 24 99 L 76 99", MARK.device, 1.6) +
       regsMark(ctx.regs, MARK.device)
   },
 
   jet: {
-    art: ctx => '<path d="M 40 98 L 40 88 L 60 88 L 60 98 Z" fill="' + ART.jet + '"/>' +
-      '<path d="M 44 84 q 6 -14 -2 -22 q 14 8 14 22" fill="none" stroke="' + ART.jet +
-      '" stroke-width="5" stroke-linecap="round"/>' +
-      (ctx.reach > 1 ? artText("2", 68, 84, ART.jet, 20) : "") + regsArt(ctx.regs, ART.jet),
+    art: ctx => A.burnerSvg(N, true) + stampArt(ctx.regs) +
+      (ctx.reach > 1 ? artText("2", 82, 78, ART.jet, 20) : ""),
     markup: ctx => mk("M 40 98 L 40 88 L 60 88 L 60 98 M 44 84 q 6 -14 -2 -22 q 14 8 14 22",
       MARK.device, 1.5) + (ctx.reach > 1 ? mkText("2", 70, 84, MARK.device, 20) : "") +
       regsMark(ctx.regs, MARK.device)
@@ -271,33 +262,58 @@ export const DEVICE_GLYPHS = {
   door: {
     /* Symmetric: no facing. Drawn along the edge it stands on. */
     art: ctx => '<path d="M 14 98 L 86 98" stroke="' + ART.door +
-      '" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 8"/>' + regsArt(ctx.regs, ART.door),
+      '" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 8"/>' + stampArt(ctx.regs),
     markup: ctx => mk("M 12 98 L 88 98", MARK.door, 2.2) + regsMark(ctx.regs, MARK.door)
   },
 
   press: {
-    art: ctx => ceilingArt(ART.press, ctx),
+    art: ctx => A.pressSvg() + stampArt(ctx.regs),
     markup: ctx => ceilingMark(ctx)
   },
   crusher: {
-    art: ctx => ceilingArt(ART.crusher, ctx),
+    /* No game drawing to port: the 2016 ceiling traps are not on any board the
+     * game ships, so it never drew one. Kept in the same vocabulary. */
+    art: ctx => ceilingArt(ART.crusher) + stampArt(ctx.regs),
     markup: ctx => ceilingMark(ctx)
   },
   flamer: {
     art: ctx => '<circle cx="50" cy="52" r="26" fill="none" stroke="' + ART.flamer +
       '" stroke-width="5" stroke-dasharray="7 6"/>' +
       '<path d="M 44 62 q 8 -18 -2 -28 q 18 10 18 28" fill="none" stroke="' + ART.flamer +
-      '" stroke-width="5" stroke-linecap="round"/>' + regsArt(ctx.regs, ART.flamer, 22),
+      '" stroke-width="5" stroke-linecap="round"/>' + stampArt(ctx.regs),
     markup: ctx => mk("M 24 52 A 26 26 0 1 1 76 52 A 26 26 0 1 1 24 52 " +
       "M 44 62 q 8 -18 -2 -28 q 18 10 18 28", MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22)
   }
 };
 
-function ceilingArt(colour, ctx) {
+/* THE REGISTER STAMP, in the game's place and the game's colours.
+ *
+ * Which registers a thing fires on is a RULE, not decoration, so the digits go
+ * on the tile rather than into a legend. The game overlays an HTML span; this
+ * is SVG text, since the editor emits one self-contained SVG.
+ *
+ * IT TURNS WITH THE DEVICE, and that is a deliberate departure. The game keeps
+ * the digits upright in a fixed corner whichever way the ram points, on the
+ * reasoning that a rotated number is a number nobody reads. Here the stamp sits
+ * inside the rotation, so it lies along the wall the thing is bolted to and
+ * reads as part of the machine rather than as a label on the square. Preferred
+ * on sight, which is the only way this kind of question gets settled.
+ *
+ * No list means every register, and the board prints nothing there -- so this
+ * draws nothing either, rather than inventing a mark for the commonest case. */
+export function stampArt(regs) {
+  if (!regs || !regs.length) return "";
+  const text = regs.join("");
+  return '<g class="pr-art pr-stamp-g">' +
+    '<rect class="pr-stamp-bg" x="1" y="1" width="' + (6 + text.length * 11) + '" height="21" rx="2"/>' +
+    '<text class="pr-stamp" x="4" y="5">' + esc(text) + "</text></g>";
+}
+
+function ceilingArt(colour) {
   return '<rect x="18" y="20" width="64" height="64" rx="6" fill="none" stroke="' + colour +
     '" stroke-width="5" stroke-dasharray="10 7"/>' +
     '<path d="M 30 32 L 50 52 L 70 32 M 30 72 L 50 52 L 70 72" fill="none" stroke="' + colour +
-    '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' + regsArt(ctx.regs, colour, 22);
+    '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
 }
 function ceilingMark(ctx) {
   return mk("M 18 20 L 82 20 L 82 84 L 18 84 Z M 30 32 L 50 52 L 70 32 M 30 72 L 50 52 L 70 72",
@@ -341,36 +357,35 @@ export function siteOverlay(has, mode) {
 
   /* the wrench and the battery share the square when both are printed on it */
   const both = wrenches && battery;
-  const k = both ? 0.52 : 0.82;
-  const wx = both ? -2 : 9, bx = both ? 46 : 9;
-  const y = both ? 24 : 9;
+  const k = both ? 0.52 : 1;
+  const wx = both ? -2 : 0, bx = both ? 46 : 0;
+  const y = both ? 24 : 0;
 
   if (wrenches) {
-    const body = wrenches === 2
-      ? (art ? wrench(34) + wrench(66) : mk(wrenchPath(34) + " " + wrenchPath(66), MARK.ground, 2.4))
-      : (art ? wrench(50) : mk(wrenchPath(50), MARK.ground, 2.4));
+    const body = art ? A.repairSvg(wrenches === 2)
+      : mk(wrenches === 2 ? wrenchPath(34) + " " + wrenchPath(66) : wrenchPath(50), MARK.ground, 2.4);
     out += box(wx, y, k, body);
   }
   if (battery) {
-    const body = art
-      ? '<path d="' + BOLT + '" fill="' + ART.spark + '"/>'
-      : mk(BOLT, MARK.ground, 2.4);
+    const body = art ? A.batterySvg() : mk(BOLT, MARK.ground, 2.4);
     out += box(bx, y, k, body);
   }
   if (flag) {
-    /* Always the same corner at the same size: a flag location is a question
-     * about the square, not a thing standing on it, and it has to be countable
-     * at a glance across a whole board. */
+    /* Always the same corner at the same size. A flag LOCATION is a question
+     * about the square -- somewhere a flag may go -- not a flag standing on it,
+     * so it is drawn hollow: the game's banner outlined rather than filled, and
+     * small enough to be counted at a glance across a whole board. */
     const body = art
-      ? '<path d="' + FLAGPOLE + '" fill="' + ART.danger + '" stroke="' + ART.danger +
-        '" stroke-width="9" stroke-linejoin="round"/>'
+      ? '<g class="pr-art pr-flagspot">' +
+        '<path class="pr-spot" d="M25 14H92L79 40L92 66H25Z"/>' +
+        '<path class="pr-spot-pole" d="M21 10L21 92"/></g>'
       : mk(FLAGPOLE, MARK.hazard, 4);
-    out += box(60, 4, 0.36, body);
+    out += box(58, 2, 0.4, body);
   }
   return out;
 }
 
 /** A swatch for the rail: the marking alone, on a plain plate. */
 export function siteSwatch(key, mode) {
-  return (mode === "art" ? plate() : "") + siteOverlay([key], mode);
+  return siteOverlay([key], mode);
 }

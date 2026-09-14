@@ -301,6 +301,45 @@ is the only view control there is. Backtick does the same.
 
 ---
 
+## The board art is the game's
+
+Not re-derived — ported, with the class names and the reasoning intact. The art
+is class-based and the palette drives it, so `render/palette.js` carries the
+game's tokens and its tile-art stylesheet across with the shapes; re-typing every
+colour into every drawing would have been a transcription job with nothing
+checking it.
+
+The drawings carry rules, and that is why fidelity matters:
+
+- a pusher is a striped plate on a scissor, not an arrow, *"because every other
+  arrow on this board means a conveyor, so an arrow here said 'you will be
+  carried' when it means 'you will be shoved, on these registers and not the
+  others'"*
+- a pit's hazard frame is dimmed, because *"at full strength a course of pits
+  reads as a warning label rather than as a floor with holes in it"*
+- a gear's arrow sweeps 250°, because a short one made clockwise and
+  anticlockwise indistinguishable at tile size — *"a rules bug wearing an art
+  bug's clothes"*
+- a conveyor's arrow follows the **run**, so a curve looks like a curve
+
+**Which registers a thing fires on is stamped on the tile.** It is a rule, not
+decoration, so it goes on the board rather than into a legend — hazard yellow on
+the dark ground, in the corner. Here the stamp **turns with its device**, so it
+lies along the wall the thing is bolted to and reads as part of the machine; the
+game keeps it upright instead. A chosen difference, not a slip. An empty register
+list means *every* register and the board prints nothing, so neither does this.
+
+Two things had to change for an editor that emits one self-contained SVG rather
+than positioned DOM. **Walls** are drawn as bars of the same width (0.19 of a
+tile, centred on the edge) filled from a gradient of the game's concrete stops,
+with the shadow as a filter — concrete and *not* hazard-striped, because in this
+art language stripes mean "this will move or swallow you" and a wall is the one
+thing that will not. And the **stamp** is SVG text rather than an HTML span.
+
+The palette and the stylesheet travel *inside* the SVG, so a board renders
+identically in the editor, in a snapshot, and anywhere else the string is
+dropped.
+
 ## Markup mode
 
 The play art is solid, because a player picking a route reads depth as much as

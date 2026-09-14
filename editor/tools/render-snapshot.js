@@ -236,6 +236,38 @@ for (const [kind, glyph] of Object.entries(DEVICE_GLYPHS)) {
   }
 }
 
+/* EVERY device with a register list gets exactly one stamp, on EVERY board.
+ *
+ * The first version of this looked at one board -- the first that had any
+ * device with registers -- which turned out to be one with only flame jets on
+ * it, so deleting the pusher's stamp changed nothing it examined and it passed.
+ * A check that samples is a check that misses.
+ *
+ * The stamp turns WITH its device, deliberately: it lies along the wall the
+ * thing is bolted to and reads as part of the machine. The game keeps it
+ * upright instead, so this is a chosen difference rather than a slip, and what
+ * is checked is that the digits are THERE -- which registers a thing fires on
+ * is a rule, and a rule the board does not show is a rule nobody can read.
+ */
+{
+  let looked = 0;
+  for (const { id, board } of boards) {
+    const want = [...board.wallDevices, ...board.ceilingDevices]
+      .filter(d => d.regs && d.regs.length).length;
+    if (!want) continue;
+    looked += want;
+    const got = (boardSVG(board, { mode: "art" }).match(/class="pr-stamp"/g) || []).length;
+    if (got !== want) {
+      problems.push(id + " has " + want + " device(s) with a register list but " +
+        got + " stamp(s) drawn");
+    }
+  }
+  if (looked < 10) {
+    problems.push("only " + looked + " stamped device(s) across every board; this check is " +
+      "not covering enough to mean anything");
+  }
+}
+
 /* --- 3. snapshots ----------------------------------------------------------- */
 const check = process.argv.includes("--check");
 if (check) {
