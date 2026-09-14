@@ -117,8 +117,28 @@
     back:  { label: "Back Up",  move: -1, glyph: "b" },
     move1: { label: "Move 1",   move: 1,  glyph: "1" },
     move2: { label: "Move 2",   move: 2,  glyph: "2" },
-    move3: { label: "Move 3",   move: 3,  glyph: "3" }
+    move3: { label: "Move 3",   move: 3,  glyph: "3" },
+    /* THE 2016 DECK ONLY. The classic 84 has no equivalent of either,
+       and validateTables checks the deck's kinds against this table
+       rather than the other way round, so a kind no classic card uses
+       is legal here. */
+    powerUp: { label: "Power Up", glyph: "e" },
+    again: { label: "Again", glyph: "a" }
   };
+
+  /* A ROBOT'S OWN DECK, twenty cards, counted off a photograph of one
+     laid out (manual1/IMG_1308). The card index prints the nine types
+     and no quantities, and the setup page does not break the deck
+     down, so this is the only place the numbers exist.
+
+     Note the printed names differ between the cards and the rulebook
+     index: the cards say ROTATE LEFT and ROTATE RIGHT where the index
+     says LEFT TURN and RIGHT TURN. Same card. */
+  var MODERN_DECK_COUNTS = {
+    move1: 4, move2: 3, move3: 1, back: 1,
+    left: 4, right: 4, uturn: 1, powerUp: 1, again: 1
+  };
+  var MODERN_DECK_SIZE = 20;
 
   var DECK_RANGES = [
     ["uturn",  10,  60, 10],
@@ -140,6 +160,16 @@
   })();
 
   var DECK_COUNTS = { uturn: 6, left: 18, right: 18, back: 6, move1: 18, move2: 12, move3: 6 };
+
+  /* Built from the counts, the same way the classic 84 is built from
+     the printed ranges: a typo is impossible and the total is
+     checkable arithmetic. No priorities, because the cards print
+     none -- the order comes from the Priority Token. */
+  var MODERN_DECK = (function () {
+    var out = [], k, i;
+    for (k in MODERN_DECK_COUNTS) for (i = 0; i < MODERN_DECK_COUNTS[k]; i++) out.push({ kind: k, pri: 0 });
+    return out;
+  })();
 
   /* Registers lock from the right as damage mounts: 5 damage locks
      register 5, 6 locks 4, and so on. Every published lock table is
@@ -1166,7 +1196,12 @@
   function live() { return G.players.filter(function (p) { return p.alive; }); }
   function isHuman(p) { return !p.isBot && !UI.autoHuman; }
 
-  function card(i) { return PROGRAM_DECK[i]; }
+  /* A card index means a place in THIS GAME'S deck. The two decks are
+     different lengths and different cards, so an index is only ever
+     meaningful alongside the ruleset that produced it -- which is why
+     a saved game carries its ruleset. */
+  function deckTable() { return rulesetOf(houseRules) === "modern" ? MODERN_DECK : PROGRAM_DECK; }
+  function card(i) { return deckTable()[i]; }
   function cardAt(p, reg) { var i = p.registers[reg]; return i === null || i === undefined ? null : card(i); }
 
   function log(msg) {
@@ -1341,8 +1376,20 @@
       });
     }
 
-    for (var d = 0; d < PROGRAM_DECK.length; d++) G.deck.push(d);
-    shuffle(G.deck);
+    if (modern) {
+      /* Each robot shuffles its own twenty and puts it face down on
+         its own mat. The shared pile stays empty and unused. */
+      for (var mp = 0; mp < G.players.length; mp++) {
+        var mdeck = [];
+        for (var mc = 0; mc < MODERN_DECK.length; mc++) mdeck.push(mc);
+        G.players[mp].deck = shuffle(mdeck);
+        G.players[mp].pile = [];
+        G.players[mp].deckSize = MODERN_DECK.length;
+      }
+    } else {
+      for (var d = 0; d < PROGRAM_DECK.length; d++) G.deck.push(d);
+      shuffle(G.deck);
+    }
     for (var o = 0; o < OPTION_IDS.length; o++) G.optionDeck.push(OPTION_IDS[o]);
     shuffle(G.optionDeck);
     /* A house rule for exercising the option hooks: without it a sim
@@ -1951,10 +1998,36 @@
      has something to rewrite. Firing the hook from inside the walk
      would mean unwinding a half-finished move when a card asks the
      player a question. */
-  function planFor(cd) {
+  /* `p` is wanted only by Again, which is the one card whose meaning
+     depends on what else the robot programmed. Everything else reads
+     off the card alone, and the argument stays optional so the tests
+     that ask about a card in isolation still can. */
+  function planFor(cd, p) {
     var k = CARD_KINDS[cd.kind];
+    if (cd.kind === "powerUp") return { kind: "energy", gain: 1, turn: 0, dist: 0, lateral: 0 };
+    if (cd.kind === "again") {
+      var prev = againTarget(p);
+      /* Nothing to repeat is not an error -- it is register 1, where
+         the card cannot be played, or a register whose card is gone.
+         A plan that does nothing is the honest answer. */
+      return prev ? planFor(prev, p) : { kind: "move", turn: 0, dist: 0, lateral: 0 };
+    }
     if (k.turn !== undefined) return { kind: "turn", turn: k.turn, dist: 0, lateral: 0 };
     return { kind: "move", turn: 0, dist: k.move, lateral: 0 };
+  }
+
+  /* WHAT AGAIN REPEATS: the card in the register before it, walking
+     back past any further Agains so that two in a row repeat the last
+     real card rather than each other. Register 1 has nothing before
+     it, which is why the card may not be played there. */
+  function againTarget(p) {
+    if (!p) return null;
+    for (var i = G.register - 1; i >= 0; i--) {
+      var cd = cardAt(p, i);
+      if (!cd) return null;
+      if (cd.kind !== "again") return cd;
+    }
+    return null;
   }
 
   /* CRASH AND BURN: portals.
@@ -2069,6 +2142,7 @@
   }
 
   function runPlan(p, plan) {
+    if (plan.kind === "energy") { gainEnergy(p, plan.gain || 1); return; }
     if (plan.kind === "turn") { p.face = B.rot(p.face, plan.turn); return; }
     var dir = plan.lateral ? B.rot(p.face, plan.lateral)
             : plan.dist > 0 ? p.face : B.opposite(p.face);
@@ -2088,7 +2162,7 @@
 
   function playCard(p, cd) {
     log(p.name + " " + CARD_KINDS[cd.kind].label.toLowerCase());
-    runPlan(p, planFor(cd));
+    runPlan(p, planFor(cd, p));
   }
 
   /* One conveyor pass. speed 2 moves express belts only; speed 1
@@ -2808,7 +2882,7 @@
         var cd = cardAt(p, G.register);
         if (!cd) { G.exec.queue.shift(); return NEXT; }
 
-        var plan = planFor(cd);
+        var plan = planFor(cd, p);
         var ctx = fire(p, "modifyMove", plan);
         if (ctx.pending) return park("exec", "move");
 
@@ -3092,6 +3166,15 @@
   /* Setup puts the tracking cube on the "3" space of the track. */
   var START_ENERGY = 3;
 
+  /* One cube onto the track, never past its end. Batteries and the
+     Power Up card both come through here so the cap is one rule. */
+  function gainEnergy(p, n) {
+    if (p.energy >= MAX_ENERGY) return 0;
+    var was = p.energy;
+    p.energy = Math.min(MAX_ENERGY, p.energy + n);
+    return p.energy - was;
+  }
+
   function batteryPass() {
     var C = UI.course, alive = live(), i;
     for (i = 0; i < alive.length; i++) {
@@ -3099,13 +3182,7 @@
       if (p.poweredDown) continue;
       var def = B.elemOf(B.codeAt(C, p.c, p.r));
       if (!def || !def.energy) continue;
-      if (p.energy >= MAX_ENERGY) continue;
-      /* Math.min is belt and braces for an element worth more than one
-         cube, which nothing prints today -- the guard above already
-         stops a full track, so with every battery worth one this line
-         can never clamp anything. Kept, and known to be unreachable
-         rather than merely unobserved. */
-      p.energy = Math.min(MAX_ENERGY, p.energy + def.energy);
+      if (!gainEnergy(p, def.energy)) continue;      // track already full
       log(p.name + " draws an Energy (" + p.energy + ")");
     }
   }
@@ -6317,6 +6394,87 @@
       assert(B.timerAt(built, 2, 2), "the crusher did not survive into the board");
       assert(B.beltArms(built, 2, 2).join(",") === String(N), "the belt arm did not survive into the board");
       ED = keep;
+    } },
+
+    { name: "a robot's deck is the twenty cards printed for it", run: function () {
+      /* Counted off a photograph of one laid out. The card index gives
+         the nine types and no quantities and the setup page does not
+         break the deck down, so these numbers exist nowhere else. */
+      var want = { move1: 4, move2: 3, move3: 1, back: 1,
+                   left: 4, right: 4, uturn: 1, powerUp: 1, again: 1 };
+      var got = {}, i, total = 0;
+      for (i = 0; i < MODERN_DECK.length; i++) {
+        got[MODERN_DECK[i].kind] = (got[MODERN_DECK[i].kind] || 0) + 1;
+        total++;
+      }
+      assert(total === MODERN_DECK_SIZE, "the deck is " + total + " cards, not " + MODERN_DECK_SIZE);
+      for (var k in want) {
+        assert(got[k] === want[k], k + ": " + (got[k] || 0) + " in the deck, " + want[k] + " on the table");
+      }
+      for (k in got) assert(want[k], "the deck carries " + k + ", which is not printed on one");
+      /* No card carries a priority, which is WHY the token exists. */
+      for (i = 0; i < MODERN_DECK.length; i++) {
+        assert(!MODERN_DECK[i].pri, "a 2016 card carries a priority number");
+      }
+
+      /* And every robot is dealt its own shuffled copy. */
+      newGame(9, { course: "exchangeRun", players: 3, ruleset: "modern" });
+      for (i = 0; i < G.players.length; i++) {
+        assert(G.players[i].deck.length === MODERN_DECK_SIZE,
+          G.players[i].name + " was dealt " + G.players[i].deck.length + " cards");
+        assert(G.players[i].deckSize === MODERN_DECK_SIZE, "its deck size was not recorded");
+      }
+      assert(G.deck.length === 0 && G.discard.length === 0,
+        "the shared pile should be empty in a 2016 game, it holds " + G.deck.length);
+    } },
+
+    { name: "Power Up takes a cube, and Again repeats the register before it", run: function () {
+      var keepHouse = houseRules.ruleset;
+      houseRules.ruleset = "modern";
+      try {
+        var idx = {}, i;
+        for (i = 0; i < MODERN_DECK.length; i++) {
+          if (idx[MODERN_DECK[i].kind] === undefined) idx[MODERN_DECK[i].kind] = i;
+        }
+
+        /* POWER UP: one cube, and never past the end of the track. */
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, face: E }]);
+        var p = G.players[0];
+        p.energy = 0;
+        runPlan(p, planFor(card(idx.powerUp), p));
+        assert(p.energy === 1, "Power Up should take one cube, it took " + p.energy);
+        assert(p.c === 0, "Power Up moved the robot");
+        p.energy = MAX_ENERGY;
+        runPlan(p, planFor(card(idx.powerUp), p));
+        assert(p.energy === MAX_ENERGY, "Power Up filled the track past its end");
+
+        /* AGAIN: repeats the register before it. */
+        benchGame(bench([["..", "..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+        p = G.players[0];
+        p.registers[0] = idx.move2;
+        p.registers[1] = idx.again;
+        G.register = 1;
+        runPlan(p, planFor(card(idx.again), p));
+        assert(p.c === 2, "Again should have repeated the Move 2, it reached " + p.c);
+
+        /* Two in a row repeat the last REAL card, not each other. */
+        benchGame(bench([["..", "..", "..", ".."]]), [{ c: 0, r: 0, face: E }]);
+        p = G.players[0];
+        p.registers[0] = idx.move1;
+        p.registers[1] = idx.again;
+        p.registers[2] = idx.again;
+        G.register = 2;
+        runPlan(p, planFor(card(idx.again), p));
+        assert(p.c === 1, "a second Again should repeat the Move 1, it reached " + p.c);
+
+        /* In register 1 it has nothing to repeat and does nothing. */
+        benchGame(bench([["..", ".."]]), [{ c: 0, r: 0, face: E }]);
+        p = G.players[0];
+        p.registers[0] = idx.again;
+        G.register = 0;
+        runPlan(p, planFor(card(idx.again), p));
+        assert(p.c === 0, "Again in the first register moved the robot");
+      } finally { houseRules.ruleset = keepHouse; }
     } },
 
     { name: "the Priority Token decides who acts, and moves one seat a round", run: function () {
@@ -10649,6 +10807,16 @@
 
   function cardArt(kind) {
     var d = CARD_KINDS[kind], i, out = [];
+    /* THE TWO 2016 CARDS. Neither moves nor turns, so neither goes
+       through the arrow machinery below -- and both are stroked in the
+       same two classes everything else on a card uses. */
+    if (kind === "powerUp") {
+      return '<path class="pr-cshaft" d="M60 14L34 52h20l-12 34"/>';
+    }
+    if (kind === "again") {
+      return '<path class="pr-cshaft" d="M74 50a24 24 0 1 1-9-18.6"/>' +
+             '<path class="pr-cmark" d="M52 22l16 6-7 15"/>';
+    }
     if (d.move) {
       /* ONE ARROW PER SQUARE, SIDE BY SIDE.
 
@@ -10944,7 +11112,19 @@
      same every time, so a card returned to the hand goes back exactly
      where it came from, and the hand reads the way a player would lay
      it out on the table anyway. */
+  var MODERN_HAND_ORDER = ["move1", "move2", "move3", "back", "left", "right", "uturn", "powerUp", "again"];
+
   function handOrder(p) {
+    if (rulesetOf(houseRules) === "modern") {
+      /* Sorted by KIND, because the 2016 cards carry no priority to
+         sort on -- and the hand still has to hold still between the
+         look and the click, which is the whole reason this exists. */
+      p.hand.sort(function (a, b) {
+        var ka = MODERN_HAND_ORDER.indexOf(card(a).kind), kb = MODERN_HAND_ORDER.indexOf(card(b).kind);
+        return ka === kb ? a - b : ka - kb;
+      });
+      return p.hand;
+    }
     p.hand.sort(function (a, b) { return card(a).pri - card(b).pri; });
     return p.hand;
   }
