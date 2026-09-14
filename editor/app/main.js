@@ -306,6 +306,10 @@ export function mount(root) {
       if (d.seldigit !== undefined) { change(() => setArg(String(d.seldigit))); return; }
       if (d.selpair !== undefined) { change(() => setArg(String(d.selpair))); return; }
       if (d.sellevel !== undefined) { change(() => setLevelHere(+d.sellevel)); return; }
+      if (d.selsite !== undefined) {
+        change(() => apply(st.board, { ...st.hand, tool: "site:" + d.selsite }, st.sel.c, st.sel.r));
+        return;
+      }
       if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
       if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
 

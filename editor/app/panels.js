@@ -6,7 +6,7 @@
  */
 
 import { TOOLS, GROUPS, toolsFor, toolByKey, describe } from "./tools.js";
-import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
+import { GLYPHS, DEVICE_GLYPHS, siteSwatch } from "../render/glyphs.js";
 import { ELEMENTS, ARG_DIR, ARG_DIGIT, ARG_PAIR } from "../rulesets/elements.js";
 import { DEVICE_KINDS, REGS_NONE } from "../rulesets/devices.js";
 import { ARM_CHARS, ARM_NAMES, ARM_CODES } from "../lib/token.js";
@@ -15,6 +15,7 @@ import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
 import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
 import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
+import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
 
 const swatch = body =>
@@ -30,6 +31,7 @@ function toolSwatch(tool) {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
       DEVICE_GLYPHS[tool.device].art(ctx));
   }
+  if (tool.kind === "site") return swatch(siteSwatch(tool.site, "art"));
   if (tool.kind === "wall") {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
       '<path d="M 0 96 L 100 96" stroke="#d8a52c" stroke-width="14" stroke-linecap="round"/>');
@@ -192,6 +194,10 @@ export function renderInspector(el, st, hover, isCourse) {
       if (tool.kind === "ground" && tool.arg === ARG_PAIR) t.pair = st.hand.pair;
       if (tool.kind === "level") t.level = st.hand.level;
       html += propRows(t, "");
+      if (tool.kind === "site") {
+        html += '<div class="row"><span class="none">' + esc(SITES[tool.site].source) +
+          " Click a floor square to add it, click again to take it off; it sits alongside whatever else is marked there.</span></div>";
+      }
 
       if (tool.kind === "device" || tool.kind === "ceiling") {
         const def = DEVICE_KINDS[tool.device];
@@ -222,6 +228,18 @@ export function renderInspector(el, st, hover, isCourse) {
       if (edef && edef.arg === ARG_PAIR) t.pair = +cellAt(st.board, d.c, d.r).charAt(1);
       t.level = d.level;
       html += propRows(t, "sel");
+
+      /* The markings, as toggles rather than a picker: a square can carry more
+       * than one, and which of them is live is the engine's business at play
+       * time. Only offered on floor, which is the only thing they mark. */
+      if (edef && edef.key === "floor") {
+        html += btnRow("Marked", SITE_ORDER.map(k => ({ v: k, label: SITES[k].name, title: SITES[k].short })),
+          "selsite", k => d.sites.indexOf(k) >= 0);
+        html += '<div class="row"><span class="none">' +
+          (d.sites.length
+            ? esc(d.sites.map(k => SITES[k].short).join(", ")) + " &mdash; the engine picks which is live"
+            : "Nothing marked here.") + "</span></div>";
+      }
 
       d.wallDevices.forEach((dev, i) => {
         const def = DEVICE_KINDS[dev.kind];

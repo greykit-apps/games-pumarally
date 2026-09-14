@@ -17,13 +17,14 @@ import { SETS, EDITIONS } from "../rulesets/sets.js";
 import { ARM_CODES, isVoidToken, readToken, tokenBeltSpeed } from "../lib/token.js";
 import {
   idx, inBoard, isVoid, cellAt, elementAt, propAt, beltDir, levelAt,
-  deviceCell, laserPath, blockedAt, doorOn
+  deviceCell, laserPath, blockedAt, doorOn, siteList
 } from "../lib/board.js";
 import {
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, edgeCodeAt, edgeInBounds,
   wallAt, isNormalOf, edgeOf
 } from "../lib/edges.js";
 import { isLedge, rampsOf, levelsUsed, rampDir } from "../lib/levels.js";
+import { SITES, EXCLUSIVE, checkSites } from "../rulesets/sites.js";
 import { DC, DR, N, E, S, W, opposite, dirLetter } from "../lib/dir.js";
 import { REGISTER_COUNT } from "../lib/registers.js";
 
@@ -136,6 +137,48 @@ function checkGround(board, d) {
 /* Exported so a course can run it over the ASSEMBLED grid. A conveyor running
  * off one board into a wall on the next is the same fault as one doing it
  * inside a board, and it is worth having exactly one implementation of. */
+export /* A site sits ON plain floor. Every one of them is somewhere a robot comes to
+ * rest to collect something, and a belt, a gear or a pit is not somewhere a
+ * robot rests. What is NOT refused is more than one on a square: that is the
+ * whole point of the layer. */
+function checkSquareSites(board, d) {
+  for (const s of siteList(board)) {
+    const ptr = "/ground/sites";
+    const where = at(s.c, s.r);
+    if (!inBoard(board, s.c, s.r)) {
+      d.error("site.badEntry", "A site is marked at " + where + ", which is off a " +
+        board.w + "x" + board.h + " board.", where, ptr);
+      continue;
+    }
+    if (!Array.isArray(s.has) || !s.has.length) {
+      d.error("site.empty", where + " is listed in the sites but carries none. " +
+        "Leave the square out instead.", where, ptr);
+      continue;
+    }
+    const seen = new Set();
+    for (const k of s.has) {
+      if (!SITES[k]) {
+        d.error("site.unknown", JSON.stringify(k) + " at " + where + " is not a site.", where, ptr);
+      } else if (seen.has(k)) {
+        d.error("site.repeated", SITES[k].name + " is listed twice at " + where + ".", where, ptr);
+      }
+      seen.add(k);
+    }
+    for (const pair of EXCLUSIVE) {
+      if (pair.every(k => seen.has(k))) {
+        d.error("site.exclusive", where + " is marked with both " +
+          pair.map(k => SITES[k].short).join(" and ") +
+          ". A square is printed with one or the other, not both.", where, ptr);
+      }
+    }
+    const def = elementAt(board, s.c, s.r);
+    if (!def || def.key !== "floor") {
+      d.error("site.notFloor", where + " is " + (def ? def.name.toLowerCase() : "not floor") +
+        ", and a site marks plain floor -- it is somewhere a robot comes to rest.", where, ptr);
+    }
+  }
+}
+
 export function checkBelts(board, d) {
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c < board.w; c++) {
@@ -409,6 +452,7 @@ function checkLevels(board, d) {
 export function validateBoard(board, d) {
   checkMeta(board, d);
   checkGround(board, d);
+  checkSquareSites(board, d);
   checkBelts(board, d);
   checkWallLattice(board, d);
   checkWallDevices(board, d);

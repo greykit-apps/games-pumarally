@@ -5,7 +5,10 @@
  * learned. So each refusal is asserted to happen AND to say why.
  */
 
-import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell } from "../lib/board.js";
+import {
+  blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell,
+  sitesAt, setSites, flagSpots, propAt
+} from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
 import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
@@ -27,6 +30,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBoardDocument } from "../validate/index.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
+import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 
 let passed = 0, failed = 0;
 const eq = (a, b, m) => {
@@ -71,10 +75,12 @@ const fresh = (w = 8, h = 8) =>
     const offered = new Set(toolsFor(true).map(t => t.key));
     const stranded = [
       ...Object.values(ELEMENTS).filter(d => !offered.has("el:" + d.key)).map(d => "element " + d.key),
-      ...Object.keys(DEVICE_KINDS).filter(k => !offered.has("dev:" + k)).map(k => "device " + k)
+      ...Object.keys(DEVICE_KINDS).filter(k => !offered.has("dev:" + k)).map(k => "device " + k),
+      ...SITE_ORDER.filter(k => !offered.has("site:" + k)).map(k => "site " + k)
     ];
     eq(stranded, [], "rail: every element and every device is on the rail");
-    for (const key of ["el:water", "el:ramp", "el:repairSite", "dev:crusher", "dev:jet"]) {
+    for (const key of ["el:water", "el:ramp", "site:repair", "site:battery", "site:flagspot",
+                       "dev:crusher", "dev:jet"]) {
       ok(offered.has(key), "rail: " + key + " is offered, whatever printing it comes from");
     }
   }
@@ -217,6 +223,58 @@ const fresh = (w = 8, h = 8) =>
   apply(walled, st3, 3, 3);
   setWall(walled, 3, 3, E, EDGE_WALL);
   ok(!checkBoard(walled).ok, "jet: and one whose flame is stopped by a wall after the first square");
+}
+
+/* --- sites: markings a square carries as well as being floor -------------------
+ * The reason this layer exists is that more than one can share a square. The
+ * same printed floor is a wrench in one game and a battery in the other, and a
+ * flag location has to be able to sit on either -- so the tool TOGGLES rather
+ * than replaces, and none of these cases may refuse a stack. */
+{
+  const b = fresh();
+  const st = blankToolState();
+
+  st.tool = "site:repair";
+  ok(apply(b, st, 2, 2).changed, "site: a repair site goes on plain floor");
+  eq(sitesAt(b, 2, 2), ["repair"], "site: and is the only marking there");
+
+  st.tool = "site:battery";
+  ok(apply(b, st, 2, 2).changed, "site: a battery goes on the SAME square");
+  eq(sitesAt(b, 2, 2), ["repair", "battery"], "site: both, in canonical order");
+
+  st.tool = "site:flagspot";
+  ok(apply(b, st, 2, 2).changed, "site: and a flag location on top of both");
+  eq(sitesAt(b, 2, 2), ["repair", "battery", "flagspot"], "site: three markings on one square");
+  eq(checkBoard(b).ok, true, "site: which is a board the validator accepts");
+
+  /* the engine's question, answered from the square rather than from which of
+   * the two spellings happened to be used */
+  eq(propAt(b, 2, 2, "repair"), 1, "site: the square repairs");
+  eq(propAt(b, 2, 2, "energy"), 1, "site: and gives energy; the ruleset picks which is live");
+
+  st.tool = "site:repair";
+  ok(apply(b, st, 2, 2).changed, "site: clicking a marking again takes it off");
+  eq(sitesAt(b, 2, 2), ["battery", "flagspot"], "site: and leaves the others alone");
+
+  /* one wrench or two, never both */
+  setSites(b, 2, 2, ["repair", "battery", "flagspot"]);
+  st.tool = "site:upgrade";
+  refused(apply(b, st, 2, 2), "site: an upgrade site on a square already marked with one wrench");
+  eq(sitesAt(b, 2, 2), ["repair", "battery", "flagspot"], "site: and the square is untouched by the refusal");
+
+  /* markings sit on plain floor, and the square cannot stop being floor under them */
+  st.tool = "el:pit";
+  refused(apply(b, st, 2, 2), "site: digging a pit under a marking");
+  setCell(b, 4, 4, "o..");
+  st.tool = "site:battery";
+  refused(apply(b, st, 4, 4), "site: a battery on a pit");
+
+  /* flag locations are countable, which is what the engine chooses from */
+  const m = fresh(10, 10);
+  for (const [c, r] of [[1, 1], [3, 3], [5, 5], [7, 7], [9, 9]]) setSites(m, c, r, ["flagspot"]);
+  eq(flagSpots(m).length, 5, "site: flag locations can be counted off a board");
+  setSites(m, 5, 5, ["flagspot", "upgrade", "battery"]);
+  eq(flagSpots(m).length, 5, "site: and stacking more onto one does not change the count");
 }
 
 /* --- levels ------------------------------------------------------------------ */

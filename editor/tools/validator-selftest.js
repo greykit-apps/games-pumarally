@@ -134,6 +134,16 @@ const CASES = [
   ["regs.missing", FIXTURE, d => { delete wallDev(d, "door").regs; }],
   ["regs.notAllowed", FIXTURE, d => { wallDev(d, "laser").regs = [1, 3]; }],
 
+  /* sites -- markings a square carries in addition to what it is */
+  ["site.badEntry", FIXTURE, d => { d.ground.sites[0] = { has: ["repair"] }; }],
+  ["site.duplicate", FIXTURE, d => { d.ground.sites.push({ at: [4, 3], has: ["battery"] }); }],
+  ["site.unknown", FIXTURE, d => { d.ground.sites[0].has = ["trapdoor"]; }],
+  ["site.repeated", FIXTURE, d => { d.ground.sites[0].has = ["repair", "repair"]; }],
+  ["site.exclusive", FIXTURE, d => { d.ground.sites[0].has = ["repair", "upgrade"]; }],
+  ["site.empty", FIXTURE, d => { d.ground.sites[0].has = []; }],
+  /* a marking sits on plain floor: the pit at (1,3) is not somewhere a robot rests */
+  ["site.notFloor", FIXTURE, d => { d.ground.sites[0].at = [1, 3]; }],
+
   /* ceiling */
   ["ceiling.offBoard", FIXTURE, d => { d.ceiling.devices[0].at = [99, 0]; }],
   ["ceiling.overPit", FIXTURE, d => { d.ceiling.devices[0].at = [1, 3]; }],
@@ -270,7 +280,12 @@ const COURSE_CASES = [
     c.stamps.push({ role: "board", board: FIXTURE, rot: 0, at: [12, 0] });
     c.flags = [[4, 6], [20, 6]];
   }],
-  ["course.flagDuplicate", c => { c.flags = [[4, 6], [4, 6]]; }]
+  ["course.flagDuplicate", c => { c.flags = [[4, 6], [4, 6]]; }],
+  /* The fixture marks three flag locations, so the base course -- which lays
+   * two boards -- has six and clears the guideline. One board alone has three,
+   * which does not. (noDock fires too; the case only needs its own code to be
+   * among what comes back.) */
+  ["course.fewFlagSpots", c => { c.stamps = [c.stamps[0]]; }]
 ];
 
 /* two dock variants the cases above need */

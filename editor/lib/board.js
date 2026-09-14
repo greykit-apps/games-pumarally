@@ -17,6 +17,7 @@
 import { VOID_TOKEN } from "../rulesets/elements.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
+import { canonSites, siteProps, SITES } from "../rulesets/sites.js";
 import { TOKEN_WIDTH, isVoidToken, tokenElement, tokenBeltSpeed } from "./token.js";
 import { dirOfLetter, dirLetter, dirOfChar, N, E, S, W, DC, DR } from "./dir.js";
 import {
@@ -67,10 +68,16 @@ export function elementAt(board, c, r) {
   return tokenElement(cellAt(board, c, r));
 }
 
-/** A named behaviour property at a square, or undefined. */
+/**
+ * A named behaviour property at a square, from the element AND its sites.
+ * An engine asking "does this square repair" gets the same answer whether the
+ * wrench is printed as the square or marked on it.
+ */
 export function propAt(board, c, r, name) {
   const def = elementAt(board, c, r);
-  return def && def.props[name];
+  if (def && def.props[name] !== undefined) return def.props[name];
+  const sp = siteProps(sitesAt(board, c, r));
+  return sp[name];
 }
 
 /** The exit direction of a belt at a square, or undefined when it is not a belt. */
@@ -78,6 +85,45 @@ export function beltDir(board, c, r) {
   const tok = cellAt(board, c, r);
   if (!tokenBeltSpeed(tok)) return undefined;
   return dirOfChar(tok.charAt(1));
+}
+
+/* --- sites ----------------------------------------------------------------
+ * A square's markings, on top of what the square IS. Which of them is live is
+ * decided at play time by the ruleset in force -- a wrench for the classic
+ * game, a battery for the 2016 one, on the same piece of floor. */
+
+export function sitesAt(board, c, r) {
+  return board.sites.get(c + "," + r) || [];
+}
+
+export function hasSite(board, c, r, key) {
+  return sitesAt(board, c, r).indexOf(key) >= 0;
+}
+
+export function setSites(board, c, r, has) {
+  const next = canonSites(has);
+  if (!next.length) board.sites.delete(c + "," + r);
+  else board.sites.set(c + "," + r, next);
+  return next;
+}
+
+/** Toggle one marking on a square, keeping the list canonical. */
+export function toggleSite(board, c, r, key) {
+  const now = sitesAt(board, c, r);
+  const next = now.indexOf(key) >= 0 ? now.filter(k => k !== key) : now.concat(key);
+  return setSites(board, c, r, next);
+}
+
+/** Every marked square, in canonical order: row-major. */
+export function siteList(board) {
+  return [...board.sites.entries()]
+    .map(([k, has]) => { const [c, r] = k.split(",").map(Number); return { c, r, has }; })
+    .sort((a, b) => a.r - b.r || a.c - b.c);
+}
+
+/** Squares a flag may be placed on, as marked by the board. */
+export function flagSpots(board) {
+  return siteList(board).filter(s => s.has.indexOf("flagspot") >= 0);
 }
 
 /** The level of a square; 0 everywhere on a board that declares none. */
@@ -197,6 +243,9 @@ export function blankBoard(meta = {}) {
     allowVoid: !!meta.allowVoid,
     notes: meta.notes || "",
     cells: new Array(w * h).fill("..."),
+    /* key "c,r" -> canonical site list. Sparse: most squares carry none, and a
+     * board has ten or twenty of these against a hundred and forty-four cells. */
+    sites: new Map(),
     levels: null,
     wallH: new Uint8Array(w * (h + 1)),
     wallV: new Uint8Array((w + 1) * h),
@@ -215,6 +264,7 @@ export function cloneBoard(board) {
   return {
     ...board,
     cells: board.cells.slice(),
+    sites: new Map([...board.sites].map(([k, v]) => [k, v.slice()])),
     levels: board.levels ? board.levels.slice() : null,
     wallH: board.wallH.slice(),
     wallV: board.wallV.slice(),
@@ -339,8 +389,9 @@ function readGround(doc, board, d) {
     }
   }
   if (g.levels !== undefined && g.levels !== null) readLevels(g.levels, board, d);
+  if (g.sites !== undefined && g.sites !== null) readSites(g.sites, board, d);
   for (const k of Object.keys(g)) {
-    if (k !== "rows" && k !== "levels") {
+    if (k !== "rows" && k !== "levels" && k !== "sites") {
       d.error("doc.unknownKey", "`ground." + k + "` is not part of the ground layer.", null, "/ground/" + k);
     }
   }
@@ -369,6 +420,38 @@ function readLevels(rows, board, d) {
       board.levels[idx(board, c, r)] = +ch;
     }
   }
+}
+
+function readSites(list, board, d) {
+  if (!Array.isArray(list)) {
+    d.error("site.badEntry", "`ground.sites` must be an array.", null, "/ground/sites");
+    return;
+  }
+  list.forEach((raw, i) => {
+    const ptr = "/ground/sites/" + i;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      d.error("site.badEntry", "Site " + i + " is not an object.", null, ptr);
+      return;
+    }
+    for (const k of Object.keys(raw)) {
+      if (k !== "at" && k !== "has" && k !== "note") {
+        d.error("doc.unknownKey", "`" + k + "` is not part of a site.", null, ptr + "/" + k);
+      }
+    }
+    if (!Array.isArray(raw.at) || raw.at.length !== 2 || !isInt(raw.at[0]) || !isInt(raw.at[1])) {
+      d.error("site.badEntry", "Site " + i + " has no `at: [c, r]`.", null, ptr);
+      return;
+    }
+    const key = raw.at[0] + "," + raw.at[1];
+    if (board.sites.has(key)) {
+      d.error("site.duplicate", "Two site entries for (" + key + "); one square, one entry.",
+        "(" + key + ")", ptr);
+      return;
+    }
+    /* stored as written; the validator judges it, so a bad list is reported
+     * against the square rather than silently canonicalised away */
+    board.sites.set(key, Array.isArray(raw.has) ? raw.has.slice() : raw.has);
+  });
 }
 
 function readLattice(rows, expectRows, expectWidth, board, arr, label, ptrBase, d, code) {

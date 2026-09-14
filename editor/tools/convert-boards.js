@@ -22,7 +22,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { blankBoard, setCell, idx, deviceCell, laserPath, blockedAt as newBlocked } from "../lib/board.js";
+import { blankBoard, setCell, idx, deviceCell, laserPath, propAt, blockedAt as newBlocked } from "../lib/board.js";
 import { setWall, EDGE_WALL, EDGE_DOOR, edgeOf, wallAt as newWallAt } from "../lib/edges.js";
 import { boardJSON } from "../lib/canon.js";
 import { rotateBoard } from "../lib/rotate.js";
@@ -44,6 +44,14 @@ const B = require(join(REPO, "pumarally-boards.js"));
 
 const DIRS = [N, E, S, W];
 const REGS = [1, 2, 3, 4, 5];
+
+/* Three old legend characters are not elements any more. A repair site, an
+ * upgrade site and an energy space are SITES -- markings a square carries in
+ * addition to being floor -- because the same printed square is a wrench in one
+ * game and a battery in the other, and a flag location has to be able to sit on
+ * either. The square underneath becomes plain floor and the marking moves to
+ * `ground.sites`. */
+const AS_SITE = { w: "repair", W: "upgrade", E: "battery" };
 
 /* --- the one place a legend character changes meaning ----------------------
  * The old legend had ONE oil slick and ONE portal marked as printed by both
@@ -106,6 +114,12 @@ function convert(g, id, meta) {
     for (let c = 0; c < g.w; c++) {
       const code = B.codeAt(g, c, r);
       if (!code) { setCell(board, c, r, "   "); continue; }
+      const asSite = AS_SITE[code.charAt(0)];
+      if (asSite) {
+        setCell(board, c, r, "...");
+        board.sites.set(c + "," + r, [asSite]);
+        continue;
+      }
       const ch = mapChar(code.charAt(0), edition);
       let arms = ".";
       if (B.beltSpeed(code)) {
@@ -204,6 +218,24 @@ function compare(id, g, board, q, meta) {
       const oldCode = B.codeAt(g, c, r);
       const tok = board.cells[idx(board, c, r)];
       if (!oldCode) { if (tok !== "   ") note(id, q, "(" + c + "," + r + ") should be a hole"); continue; }
+
+      /* A square the old data spelled as an element and the new data spells as
+       * a marking on floor. Compared by the PROPERTIES it gives a robot, which
+       * is the only thing either spelling was ever for. */
+      const asSite = AS_SITE[oldCode.charAt(0)];
+      if (asSite) {
+        if (tok !== "...") note(id, q, "(" + c + "," + r + ") should be floor under a site, not " + JSON.stringify(tok));
+        /* the old defs carry their behaviour flags at the top level, not under
+         * a `props` key -- the new ones nest them, and this is the seam */
+        const oldProps = B.ELEMENT_DEFS[oldCode.charAt(0)];
+        for (const key of ["repair", "option", "energy"]) {
+          const want = oldProps[key], got = propAt(board, c, r, key);
+          if ((want === undefined ? undefined : want) !== (got === undefined ? undefined : got)) {
+            note(id, q, "(" + c + "," + r + ") " + key + " " + JSON.stringify(want) + " vs " + JSON.stringify(got));
+          }
+        }
+        continue;
+      }
       if (tok.charAt(0) !== mapChar(oldCode.charAt(0), meta.edition) || tok.charAt(1) !== oldCode.charAt(1)) {
         note(id, q, "(" + c + "," + r + ") element " + JSON.stringify(oldCode) + " vs " + JSON.stringify(tok));
         continue;

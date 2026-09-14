@@ -15,13 +15,14 @@
  * `/ground/rows/3` maps to a line number exactly rather than by searching.
  */
 
-import { hasLevels, idx, BOARD_FORMAT, BOARD_VERSION } from "./board.js";
+import { hasLevels, idx, siteList, BOARD_FORMAT, BOARD_VERSION } from "./board.js";
 import { edgeId } from "./edges.js";
 import { dirLetter } from "./dir.js";
 import { edgeGlyph } from "./edges.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { TOKEN_WIDTH } from "./token.js";
 import { canonRegs } from "./registers.js";
+import { canonSites } from "../rulesets/sites.js";
 
 const q = s => JSON.stringify(s);
 
@@ -131,16 +132,25 @@ export function stringifyBoard(board) {
   if (board.notes) put('  "notes": ' + q(board.notes) + ",", "/notes");
 
   const levels = levelRows(board);
+  const sites = siteList(board);
   put('  "ground": {', "/ground");
   put('    "rows": [', "/ground/rows");
   const rows = groundRows(board);
   rows.forEach((row, i) =>
     put('      ' + q(row) + (i < rows.length - 1 ? "," : ""), "/ground/rows/" + i));
-  put("    ]" + (levels ? "," : ""));
+  put("    ]" + (levels || sites.length ? "," : ""));
   if (levels) {
     put('    "levels": [', "/ground/levels");
     levels.forEach((row, i) =>
       put('      ' + q(row) + (i < levels.length - 1 ? "," : ""), "/ground/levels/" + i));
+    put("    ]" + (sites.length ? "," : ""));
+  }
+  if (sites.length) {
+    put('    "sites": [', "/ground/sites");
+    sites.forEach((s2, i) =>
+      put('      { "at": [' + s2.c + ", " + s2.r + '], "has": [' +
+        canonSites(s2.has).map(q).join(", ") + "] }" + (i < sites.length - 1 ? "," : ""),
+        "/ground/sites/" + i));
     put("    ]");
   }
   put("  },");

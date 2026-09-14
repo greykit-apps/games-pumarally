@@ -9,7 +9,7 @@
   "origin": "transcribed",
   "ground": {
     "rows": [
-      "w.. bv. ... ... ... bv. b^. ... ... ... ... ...",
+      "... bv. ... ... ... bv. b^. ... ... ... ... ...",
       "... b>l b>. b>. b>. b>L b>. b>. b>. b>. bvx b<.",
       "... B>r B>. B>. B>. B>. B>. B>. B>. Bvr bv. ...",
       "... B^. b>r b>. b>. b>. b>. b>. bvr Bv. bv. ...",
@@ -17,10 +17,15 @@
       "b<. B^. b^. B^. b>r o.. o.. Bv. bv. Bv. bvL b<.",
       "B>. B^L b^. B^. b^. o.. o.. B<r bv. Bv. bv. ...",
       "... B^. b^. B^. b^r b<. b<. b<. b<r Bv. bv. ...",
-      "W.. B^. b^. B^r B<. B<. B<. B<. B<. B<r bv. ...",
+      "... B^. b^. B^r B<. B<. B<. B<. B<. B<r bv. ...",
       "... B^. b^r b<. b<. b<. b<. b<. b<. b<. b<r ...",
       "B>. B^x B<. B<. B<. B<. B<L B<. B<. B<. B<l ...",
-      "... ... ... ... ... ... B^. ... ... ... B^. w.."
+      "... ... ... ... ... ... B^. ... ... ... B^. ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["repair"] },
+      { "at": [0, 8], "has": ["upgrade"] },
+      { "at": [11, 11], "has": ["repair"] }
     ]
   },
   "wall": {

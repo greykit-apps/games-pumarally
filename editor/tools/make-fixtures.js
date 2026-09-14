@@ -19,13 +19,14 @@
 import { writeFileSync, readFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { blankBoard, setCell, setLevel } from "../lib/board.js";
+import { blankBoard, setCell, setLevel, setSites } from "../lib/board.js";
 import { setWall, EDGE_WALL, EDGE_DOOR } from "../lib/edges.js";
 import { boardJSON } from "../lib/canon.js";
 import { N, E, S, W } from "../lib/dir.js";
 import { ARM_CHARS } from "../lib/token.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
+import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, "..", "tests", "fixtures");
@@ -46,9 +47,20 @@ function build() {
   /* row 3 and row 5: one of everything else, from both printings at once --
    * which is the point of the fixture and no longer a contradiction */
   setCell(b, 1, 3, "o..");   setCell(b, 2, 3, "l..");   setCell(b, 3, 3, "r..");
-  setCell(b, 4, 3, "w..");   setCell(b, 5, 3, "W..");   setCell(b, 6, 3, "L..");
-  setCell(b, 7, 3, "t1.");   setCell(b, 8, 3, "E..");   setCell(b, 9, 3, "~..");
+  setCell(b, 6, 3, "L..");   setCell(b, 7, 3, "t1.");    setCell(b, 9, 3, "~..");
   setCell(b, 10, 3, "D..");
+
+  /* THE MARKINGS, including the combinations that are the reason the layer
+   * exists: the same printed floor is a wrench in one game and a battery in the
+   * other, and a flag location can sit on either. One of each alone, one of
+   * each stacked, so a mutation has both cases to break. */
+  setSites(b, 4, 3, ["repair"]);
+  setSites(b, 5, 3, ["upgrade"]);
+  setSites(b, 8, 3, ["battery"]);
+  setSites(b, 4, 9, ["flagspot"]);
+  setSites(b, 5, 9, ["repair", "battery", "flagspot"]);
+  setSites(b, 6, 9, ["upgrade", "battery"]);
+  setSites(b, 7, 9, ["battery", "flagspot"]);
 
   setCell(b, 1, 5, "C>.");   setCell(b, 2, 5, "z..");   setCell(b, 3, 5, "A..");
   setCell(b, 4, 5, "%..");   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T1.");
@@ -89,9 +101,11 @@ const board = build();
 const covered = new Set();
 for (const tok of board.cells) covered.add(tok.charAt(0));
 for (const dev of [...board.wallDevices, ...board.ceilingDevices]) covered.add("dev:" + dev.kind);
+for (const has of board.sites.values()) for (const k of has) covered.add("site:" + k);
 const missing = [
   ...Object.keys(ELEMENTS).filter(ch => !covered.has(ch)).map(ch => "element " + JSON.stringify(ch)),
-  ...Object.keys(DEVICE_KINDS).filter(k => !covered.has("dev:" + k)).map(k => "device " + k)
+  ...Object.keys(DEVICE_KINDS).filter(k => !covered.has("dev:" + k)).map(k => "device " + k),
+  ...SITE_ORDER.filter(k => !covered.has("site:" + k)).map(k => "site " + k)
 ];
 if (missing.length) {
   console.error("The fixture does not carry:\n  " + missing.join("\n  "));
@@ -113,4 +127,4 @@ if (check) {
   }
   console.log("wrote " + path);
 }
-console.log("ok the fixture carries every element and every device kind");
+console.log("ok the fixture carries every element, every device kind and every site");

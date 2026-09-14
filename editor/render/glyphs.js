@@ -123,28 +123,12 @@ export const GLYPHS = {
       mkText(ctx.arg, 50, 52, MARK.ground, 30)
   },
 
-  repairSite: {
-    art: () => plate(ART.repair) + rivets() + wrench(50),
-    markup: () => mk(wrenchPath(50), MARK.ground, 1.5)
-  },
-
-  upgradeSite: {
-    art: () => plate(ART.upgrade) + rivets() + wrench(34) + wrench(66),
-    markup: () => mk(wrenchPath(34) + " " + wrenchPath(66), MARK.ground, 1.5)
-  },
-
   oilClassic: { art: () => oilArt(), markup: () => oilMark() },
   oilModern: { art: () => oilArt(), markup: () => oilMark() },
 
   portalClassic: { art: ctx => ringArt(ctx, ART.portal), markup: ctx => ringMark(ctx) },
   portalModern: { art: ctx => ringArt(ctx, ART.portal), markup: ctx => ringMark(ctx) },
   teleporter: { art: ctx => ringArt(ctx, ART.teleport), markup: ctx => ringMark(ctx) },
-
-  energySpace: {
-    art: () => plate(ART.energy) + rivets() +
-      '<path d="M 56 16 L 34 54 L 48 54 L 42 84 L 66 44 L 52 44 Z" fill="' + ART.spark + '"/>',
-    markup: () => mk("M 56 16 L 34 54 L 48 54 L 42 84 L 66 44 L 52 44 Z", MARK.ground, 1.5)
-  },
 
   water: { art: () => waterArt(), markup: () => waterMark() },
 
@@ -325,3 +309,68 @@ function ceilingMark(ctx) {
 function regsLabel(regs) { return regs && regs.length ? regs.join("") : "*"; }
 function regsArt(regs, colour, y = 78) { return artText(regsLabel(regs), 50, y, colour, 18); }
 function regsMark(regs, colour, y = 78) { return mkText(regsLabel(regs), 50, y, colour, 18); }
+
+
+/* --- sites -----------------------------------------------------------------
+ * Markings a square carries in addition to what it is, drawn OVER the square's
+ * own glyph. More than one can be on a square -- the same printed floor is a
+ * wrench in one game and a battery in the other -- so they have to share the
+ * space rather than each assume they have it.
+ *
+ * The layout is the whole design here. A wrench and a battery split the square
+ * left and right when both are present and take the middle when alone; a flag
+ * location always goes in the top-right corner, small, so it never has to
+ * negotiate with anything and reads the same on every square that has one.
+ */
+
+const BOLT = "M 56 16 L 34 54 L 48 54 L 42 84 L 66 44 L 52 44 Z";
+const FLAGPOLE = "M 30 90 L 30 12 L 76 30 L 30 48";
+
+function box(x, y, k, body) {
+  return '<g transform="translate(' + x + " " + y + ") scale(" + k + ')">' + body + "</g>";
+}
+
+/** The site markings on a square, as one overlay. `has` is canonical. */
+export function siteOverlay(has, mode) {
+  if (!has || !has.length) return "";
+  const wrenches = has.indexOf("upgrade") >= 0 ? 2 : has.indexOf("repair") >= 0 ? 1 : 0;
+  const battery = has.indexOf("battery") >= 0;
+  const flag = has.indexOf("flagspot") >= 0;
+  const art = mode === "art";
+  let out = "";
+
+  /* the wrench and the battery share the square when both are printed on it */
+  const both = wrenches && battery;
+  const k = both ? 0.52 : 0.82;
+  const wx = both ? -2 : 9, bx = both ? 46 : 9;
+  const y = both ? 24 : 9;
+
+  if (wrenches) {
+    const body = wrenches === 2
+      ? (art ? wrench(34) + wrench(66) : mk(wrenchPath(34) + " " + wrenchPath(66), MARK.ground, 2.4))
+      : (art ? wrench(50) : mk(wrenchPath(50), MARK.ground, 2.4));
+    out += box(wx, y, k, body);
+  }
+  if (battery) {
+    const body = art
+      ? '<path d="' + BOLT + '" fill="' + ART.spark + '"/>'
+      : mk(BOLT, MARK.ground, 2.4);
+    out += box(bx, y, k, body);
+  }
+  if (flag) {
+    /* Always the same corner at the same size: a flag location is a question
+     * about the square, not a thing standing on it, and it has to be countable
+     * at a glance across a whole board. */
+    const body = art
+      ? '<path d="' + FLAGPOLE + '" fill="' + ART.danger + '" stroke="' + ART.danger +
+        '" stroke-width="9" stroke-linejoin="round"/>'
+      : mk(FLAGPOLE, MARK.hazard, 4);
+    out += box(60, 4, 0.36, body);
+  }
+  return out;
+}
+
+/** A swatch for the rail: the marking alone, on a plain plate. */
+export function siteSwatch(key, mode) {
+  return (mode === "art" ? plate() : "") + siteOverlay([key], mode);
+}

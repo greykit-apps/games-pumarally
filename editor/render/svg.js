@@ -11,12 +11,12 @@
  */
 
 import { CELL, ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
-import { GLYPHS, DEVICE_GLYPHS } from "./glyphs.js";
+import { GLYPHS, DEVICE_GLYPHS, siteOverlay } from "./glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { ARM_CODES } from "../lib/token.js";
 import {
-  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath
+  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
 import { isLedge } from "../lib/levels.js";
@@ -50,6 +50,20 @@ function groundLayer(board, mode) {
       if (!body) continue;
       out += g(at(c, r) + spin(d), body);
     }
+  }
+  return out;
+}
+
+/* Site markings, drawn over the squares they mark. Their own layer rather than
+ * part of the ground glyph, because a square's markings are not what the square
+ * IS -- and because more than one can sit on a square, which a single glyph
+ * lookup has nowhere to put. */
+function siteLayer(board, mode) {
+  let out = "";
+  for (const s of siteList(board)) {
+    if (!inBoard(board, s.c, s.r)) continue;
+    const body = siteOverlay(s.has, mode);
+    if (body) out += g(at(s.c, s.r), body);
   }
   return out;
 }
@@ -209,6 +223,7 @@ export function boardSVG(board, opts = {}) {
     (o.background && o.mode === "art"
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#0b0d14"/>' : "") +
     groundLayer(board, o.mode) +
+    siteLayer(board, o.mode) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +
     deviceLayer(board, o.mode) +

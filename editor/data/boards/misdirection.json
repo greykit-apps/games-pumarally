@@ -11,17 +11,24 @@
   "ground": {
     "rows": [
       "r.. bv. ... b^. ... ... B^. ... bv. o.. B>r Bvr",
-      "b<. l.. ... b^. ... ... B^. ... bv. E.. B^r B<r",
+      "b<. l.. ... b^. ... ... B^. ... bv. ... B^r B<r",
       "... r.. ... r.. ... ... ... ... bv. ... l.. b<l",
-      "B>. Bvr bvl b<l E.. Bv. b>r bvr Bv. ... b>r b^l",
+      "B>. Bvr bvl b<l ... Bv. b>r bvr Bv. ... b>r b^l",
       "B>r Bvr o.. b^. ... Bv. b^r b<r Bv. ... b^. ...",
       "B^r l.. ... b^r b<. l.. l.. B<. B<r ... r.. b<.",
       "b>. b^l l.. Bvl B<. r.. ... b>. bvr r.. l.. ...",
-      "... ... ... Bv. ... b^. ... E.. bv. ... B^. ...",
-      "b<. b<. E.. Bv. ... b^. ... o.. bv. ... B^r B<.",
-      "... ... ... r.. ... l.. r.. ... l.. ... E.. ...",
+      "... ... ... Bv. ... b^. ... ... bv. ... B^. ...",
+      "b<. b<. ... Bv. ... b^. ... o.. bv. ... B^r B<.",
+      "... ... ... r.. ... l.. r.. ... l.. ... ... ...",
       "... l.. ... B^. ... bv. b^. ... Bv. ... r.. bvr",
       "... B>l B>. B^l ... ... ... ... Bv. ... b^r bv."
+    ],
+    "sites": [
+      { "at": [9, 1], "has": ["battery"] },
+      { "at": [4, 3], "has": ["battery"] },
+      { "at": [7, 7], "has": ["battery"] },
+      { "at": [2, 8], "has": ["battery"] },
+      { "at": [10, 9], "has": ["battery"] }
     ]
   },
   "wall": {

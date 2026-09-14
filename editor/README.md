@@ -120,6 +120,46 @@ board's rim is printed straight, or printed as a merge, and stays that way
 whatever board is laid beside it; the printing cannot know. Deriving it made the
 same board turn a robot on one course and not on another.
 
+### Sites: markings a square carries as well as being floor
+
+A repair site, an upgrade site and an energy space used to be ground elements,
+one to a square. **They are not one to a square.** The same printed square is a
+wrench in the classic game and a battery in the 2016 one, and which of them is
+live is decided at play time by the ruleset in force. Making them elements
+forced a choice the board does not make.
+
+```json
+"ground": {
+  "rows": [ … ],
+  "sites": [
+    { "at": [4, 3], "has": ["repair"] },
+    { "at": [7, 4], "has": ["upgrade", "battery", "flagspot"] }
+  ]
+}
+```
+
+**A flag location is the same kind of thing, and the reason the layer exists.**
+The board marks where a flag *may* go — five or six on a map is the shape to aim
+for — and the engine picks the three or so a given race uses, so the same course
+does not run identically every time. A flag location therefore has to sit on a
+wrench, an upgrade or a battery, because those are exactly the squares worth
+racing to.
+
+| | |
+|---|---|
+| stacks freely | battery + either wrench, flag location + anything |
+| never both | one wrench and two — a square is printed with one or the other |
+| sits on | plain floor, and only plain floor |
+
+That last one is not fussiness: every site is somewhere a robot comes to rest to
+collect something, and a belt, a gear or a pit is not somewhere a robot rests.
+Turning a marked square into anything but floor is refused rather than silently
+dropping the marking, which is how a board ends up carrying data nothing can see.
+
+`propAt()` merges the element's properties with its sites', so an engine asking
+*does this square repair* gets the same answer whichever way the wrench is
+spelled.
+
 ### Walls: one storage slot per edge
 
 `hRows[r][c]` is the horizontal edge between `(c, r−1)` and `(c, r)`; `vRows[r][c]`

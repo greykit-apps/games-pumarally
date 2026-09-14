@@ -89,6 +89,19 @@ export const CODES = Object.freeze({
   "regs.missing":         "a kind that must name its registers and does not",
   "regs.notAllowed":      "a register list on a kind that takes none",
 
+  /* --- sites ---------------------------------------------------------------
+   * A site is a marking a square carries in addition to what it is, and more
+   * than one may sit on a square: the same printed floor is a wrench in one
+   * game and a battery in the other, and a flag location can sit on either.
+   * What is refused is a combination the board cannot print. */
+  "site.badEntry":        "a site entry that is not `{ at: [c, r], has: [...] }`",
+  "site.duplicate":       "two site entries for one square",
+  "site.unknown":         "a site name that is not in the registry",
+  "site.repeated":        "one site listed twice on a square",
+  "site.exclusive":       "a square marked with both one wrench and two",
+  "site.notFloor":        "a site on something other than plain floor",
+  "site.empty":           "a square listed with no sites on it",
+
   /* --- ceiling ---------------------------------------------------------- */
   "ceiling.offBoard":     "a ceiling device off the board",
   "ceiling.overPit":      "a ceiling device over a pit",
@@ -136,7 +149,8 @@ export const CODES = Object.freeze({
   "course.flagUnderDevice":"a flag on a square a wall device stands in",
   "course.flagInCorner":  "a flag in the very corner of the board that wrote it",
   "course.flagGap":       "a flag further from the previous one than the ruleset allows",
-  "course.flagDuplicate": "two flags on one square"
+  "course.flagDuplicate": "two flags on one square",
+  "course.fewFlagSpots":  "a course marking fewer flag locations than a race wants to choose from"
 });
 
 export const ALL_CODES = Object.freeze(Object.keys(CODES));

@@ -19,7 +19,7 @@
  * levels, ceiling devices and the register sets of wall devices.
  */
 
-import { blankBoard, idx, cellAt, setCell, levelAt, setLevel, hasLevels } from "./board.js";
+import { blankBoard, idx, cellAt, setCell, levelAt, setLevel, hasLevels, siteList, setSites } from "./board.js";
 import { edgeGlyph, edgeCodeOf, EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, parseEdge } from "./edges.js";
 import { dirLetter, dirOfLetter } from "./dir.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
@@ -60,6 +60,11 @@ export function toPicture(board) {
       tail.push("  " + s);
     }
   }
+  const sites = siteList(board);
+  if (sites.length) {
+    tail.push("sites:");
+    for (const s of sites) tail.push("  " + s.c + "," + s.r + " " + s.has.join(" "));
+  }
   const wd = board.wallDevices.filter(d => needsTail(d));
   if (wd.length) {
     tail.push("wall:");
@@ -96,7 +101,7 @@ function regsSuffix(regs) {
 /** The inverse. Returns a board, or throws with the line that would not read. */
 export function fromPicture(text, meta = {}) {
   const all = text.replace(/\r/g, "").split("\n");
-  let end = all.findIndex(l => /^(levels|wall|ceiling):\s*$/.test(l));
+  let end = all.findIndex(l => /^(levels|sites|wall|ceiling):\s*$/.test(l));
   if (end < 0) end = all.length;
   const grid = all.slice(0, end).filter(l => l.length);
   if (grid.length < 3 || grid.length % 2 !== 1) {
@@ -131,13 +136,17 @@ export function fromPicture(text, meta = {}) {
   for (let i = end; i < all.length; i++) {
     const line = all[i];
     if (!line.trim()) continue;
-    const head = /^(levels|wall|ceiling):\s*$/.exec(line);
+    const head = /^(levels|sites|wall|ceiling):\s*$/.exec(line);
     if (head) { section = head[1]; if (section === "levels") board.levels = new Uint8Array(w * h); continue; }
     const body = line.trim();
     if (section === "levels") {
       const r = countLevelRows(board, w, h);
       if (body.length !== w) throw new Error("level row " + r + " is " + body.length + " characters, expected " + w);
       for (let c = 0; c < w; c++) setLevel(board, c, r, +body.charAt(c));
+    } else if (section === "sites") {
+      const m = /^(\d+),(\d+)\s+(.+)$/.exec(body);
+      if (!m) throw new Error("not a site line: " + JSON.stringify(body));
+      setSites(board, +m[1], +m[2], m[3].split(/\s+/));
     } else if (section === "wall") {
       board.wallDevices.push(readWallLine(body));
     } else if (section === "ceiling") {

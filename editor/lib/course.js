@@ -93,6 +93,8 @@ export function assemble(course, library) {
         from[gr * grid.w + gc] = si;
         const lvl = levelAt(b, c, r);
         if (lvl) setLevel(grid, gc, gr, lvl);
+        const has = b.sites.get(c + "," + r);
+        if (has) grid.sites.set(gc + "," + gr, has.slice());
       }
     }
     for (let r = 0; r <= b.h; r++) {

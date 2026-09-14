@@ -21,6 +21,12 @@
  * would quietly play the wrong game, so `oil` and `portal` each appear twice
  * with the edition in the key.
  *
+ * REPAIR SITES, UPGRADE SITES AND ENERGY SPACES ARE NOT HERE. They are not one
+ * to a square -- the same printed square carries a wrench for one game and a
+ * battery for the other -- so they are SITES, markings a square carries in
+ * addition to what it is. See rulesets/sites.js. A flag location is the same
+ * kind of thing, which is the reason that layer exists at all.
+ *
  * CONVEYORS ARE DELIBERATELY *NOT* SPLIT that way, though both editions print
  * them and resolve them differently. The difference there is one of ORDER
  * (classic runs express alone then express-and-normal together; modern runs
@@ -78,14 +84,6 @@ export const ELEMENTS = {
 
   /* --- Classic only ------------------------------------------------------ */
 
-  "w": { key: "repairSite", name: "Repair site", arg: ARG_NONE, printedIn: CLASSIC,
-         props: { repair: 1 },
-         source: "Classic pp.28-29. Removed from the boards entirely in 2016." },
-
-  "W": { key: "upgradeSite", name: "Upgrade site", arg: ARG_NONE, printedIn: CLASSIC,
-         props: { repair: 2, option: true },
-         source: "Classic p.36: two wrenches, repair 2 or take an option card." },
-
   "L": { key: "oilClassic", name: "Oil slick", arg: ARG_NONE, printedIn: CLASSIC,
          props: { oil: "classic" },
          source: "Crash and Burn (AMIGO Spielanleitung). Slides on; stops at a robot." },
@@ -95,10 +93,6 @@ export const ELEMENTS = {
          source: "Crash and Burn. Switches off while a robot stands on one." },
 
   /* --- Modern only ------------------------------------------------------- */
-
-  "E": { key: "energySpace", name: "Energy space", arg: ARG_NONE, printedIn: MODERN,
-         props: { energy: 1 },
-         source: "Modern Game Guide. Take an energy cube for ending a register on it." },
 
   "~": { key: "water", name: "Water", arg: ARG_NONE, printedIn: MODERN,
          props: { water: true },

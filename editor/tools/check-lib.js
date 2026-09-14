@@ -19,7 +19,8 @@ import {
   edgeInBounds, setWall, wallAt, EDGE_WALL, EDGE_DOOR
 } from "../lib/edges.js";
 import {
-  blankBoard, setCell, setLevel, levelAt, boardFromDocument, idx, deviceCell, laserPath, docksOf
+  blankBoard, setCell, setLevel, levelAt, boardFromDocument, idx, deviceCell, laserPath,
+  docksOf, setSites, sitesAt, siteList
 } from "../lib/board.js";
 import { rotateBoard, rotateOnce, rotatedDims } from "../lib/rotate.js";
 import { boardJSON } from "../lib/canon.js";
@@ -29,6 +30,7 @@ import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SETS, EDITIONS } from "../rulesets/sets.js";
 import { rulesetFor, rulesetIds } from "../rulesets/index.js";
+import { SITES, SITE_ORDER, canonSites, checkSites, siteProps } from "../rulesets/sites.js";
 
 let passed = 0, failed = 0;
 const eq = (a, b, m) => {
@@ -74,8 +76,14 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
   /* `printedIn` is PROVENANCE and nothing in the format may treat it as a
    * constraint: a board is just a board, and which of its squares matter is the
    * engine's business at play time. */
-  eq(elemOf("w").printedIn, ["classic"], "elements: a repair site records which printing prints it");
-  eq(typeof elemOf("w").editions, "undefined", "elements: and there is no `editions` field to gate on");
+  eq(elemOf("L").printedIn, ["classic"], "elements: an element records which printing prints it");
+  eq(typeof elemOf("L").editions, "undefined", "elements: and there is no `editions` field to gate on");
+  /* A repair site, an upgrade site and an energy space are NOT elements. They
+   * are markings a square carries in addition to being floor, because the same
+   * printed square is a wrench in one game and a battery in the other. */
+  for (const gone of ["w", "W", "E"]) {
+    eq(elemOf(gone), undefined, "elements: " + JSON.stringify(gone) + " is a site now, not an element");
+  }
   // the two elements that share a name across printings must be separate entries
   const oils = chars.filter(c => ELEMENTS[c].props.oil);
   const portals = chars.filter(c => ELEMENTS[c].props.portal);
@@ -104,6 +112,23 @@ for (const [id, s] of Object.entries(SETS)) {
   eq([jet.fields.reach.min, jet.fields.reach.max], [1, 2],
      "jet: it reaches one or two squares, and never three");
   eq(jet.fields.reach.default, 1, "jet: one is the default, so a plain jet writes no reach at all");
+}
+
+/* --- sites: markings a square carries as well as being floor ---------------- */
+{
+  eq(SITE_ORDER, ["repair", "upgrade", "battery", "flagspot"], "sites: canonical order");
+  eq(canonSites(["flagspot", "repair"]), ["repair", "flagspot"], "sites: a list has one spelling");
+  eq(canonSites(["repair", "repair"]), ["repair"], "sites: and no repeats");
+  eq(checkSites(["repair", "battery", "flagspot"]), [],
+     "sites: a wrench, a battery and a flag location on one square is the point of the layer");
+  eq(checkSites(["repair", "upgrade"]).length, 1, "sites: one wrench or two, never both");
+  eq(checkSites([]).length, 1, "sites: an empty list is refused");
+  eq(siteProps(["upgrade", "battery"]), { repair: 2, option: true, energy: 1 },
+     "sites: the properties merge, and the ruleset picks which is live");
+  for (const k of SITE_ORDER) {
+    ok(SITES[k].name && SITES[k].short && SITES[k].source, "sites: " + k + " is named and sourced");
+    ok(Array.isArray(SITES[k].printedIn), "sites: " + k + " records its printing");
+  }
 }
 
 /* --- the two orders, and the one place they differ on participation ---------
@@ -181,6 +206,8 @@ function fixture() {
   setCell(b, 1, 0, "b>."); setCell(b, 2, 0, "bvr"); setCell(b, 3, 1, "B<L");
   setCell(b, 4, 2, "bvX"); setCell(b, 5, 3, "o.."); setCell(b, 0, 3, "s1.");
   setCell(b, 2, 2, "R^."); setLevel(b, 3, 2, 1); setLevel(b, 3, 3, 1);
+  setSites(b, 0, 1, ["repair", "battery", "flagspot"]);
+  setSites(b, 1, 1, ["upgrade"]);
   setWall(b, 3, 0, N, EDGE_WALL); setWall(b, 2, 1, E, EDGE_WALL); setWall(b, 5, 3, S, EDGE_WALL);
   setWall(b, 1, 2, W, EDGE_DOOR);
   setWall(b, 4, 1, N, EDGE_DOOR);   // and one on the other lattice -- see make-fixtures.js
@@ -222,6 +249,8 @@ eq(rotatedDims(6, 4, 1), [4, 6], "rotate: an odd turn swaps the dimensions");
   ok(pic.includes("door "), "picture: a door is written with its registers");
   ok(pic.includes("reach2"), "picture: a reach-two jet says so");
   ok(pic.includes("press "), "picture: a ceiling device is written");
+  ok(pic.includes("sites:"), "picture: a marked square writes a sites section");
+  ok(/0,1 repair battery flagspot/.test(pic), "picture: with every marking on it, in order");
   let back = null;
   try { back = fromPicture(pic, meta); }
   catch (e) { eq("threw: " + e.message, "read back", "picture: round trip"); }

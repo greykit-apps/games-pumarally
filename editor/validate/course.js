@@ -18,12 +18,19 @@ import {
   components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner
 } from "../lib/course.js";
 import { checkBelts } from "./board.js";
-import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt } from "../lib/board.js";
+import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 /* The classic rulebook's guideline on how far apart flags may be. Kept here
  * rather than on a ruleset because the editor has no ruleset in force -- it
  * reports the guideline and lets the designer decide. */
 const FLAG_GAP_GUIDE = 12;
+
+/* How many squares a map should MARK as possible flag locations. A race uses
+ * about three; marking five or six leaves the engine something to choose
+ * between, so the same course does not run identically every time. A guideline,
+ * so it is a warning -- and it counts what the assembled boards mark between
+ * them, because that is what the engine will be choosing from. */
+const FLAG_SPOTS_WANTED = 5;
 import { DC, DR, N, E, S, W } from "../lib/dir.js";
 import { REGISTERS } from "../lib/registers.js";
 
@@ -154,6 +161,14 @@ export function validateCourse(course, library, d) {
   }
 
   checkFlags(course, library, grid, from, bounds, d);
+
+  const spots = flagSpots(grid).length;
+  if (spots < FLAG_SPOTS_WANTED) {
+    d.warn("course.fewFlagSpots", "This course marks " + spots + " flag location" +
+      (spots === 1 ? "" : "s") + ". A race uses about three, and marking " + FLAG_SPOTS_WANTED +
+      " or six leaves the engine something to choose between so the same course does not " +
+      "run identically every time.", null, "/stamps");
+  }
   return d;
 }
 
@@ -233,7 +248,13 @@ function checkFlags(course, library, grid, from, bounds, d) {
     if (!def || def.key !== "floor") {
       /* Structural, not ruleset-specific: a flag has to be somewhere a robot can
        * come to rest, and plain floor is the only square that is true of under
-       * either set of rules. */
+       * either set of rules.
+       *
+       * A square MARKED with a wrench, an upgrade or a battery is still plain
+       * floor and still takes a flag -- those are markings on the square, not
+       * the square itself, and a flag sitting on one is exactly the sort of
+       * place worth racing to. This used to be refused, back when a repair site
+       * was an element. */
       d.error("course.flagNotFloor", "Flag " + n + " at " + at(c, r) + " is on " +
         (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor.", at(c, r), ptr);
     }

@@ -39,6 +39,13 @@ export function rotateOnce(board) {
     }
   }
 
+  /* A site is a marking ON a square, so it goes exactly where the square goes.
+   * Nothing in it is directional -- a wrench does not face anywhere. */
+  for (const [key, has] of board.sites) {
+    const [c, r] = key.split(",").map(Number);
+    out.sites.set((board.h - 1 - r) + "," + c, has.slice());
+  }
+
   if (hasLevels(board)) {
     out.levels = new Uint8Array(out.w * out.h);
     for (let r = 0; r < board.h; r++) {

@@ -12,13 +12,14 @@
  */
 
 import { ELEMENTS, CHAR_OF_KEY, ARG_DIR, ARG_DIGIT, ARG_PAIR, ARG_NONE } from "../rulesets/elements.js";
+import { SITES, SITE_ORDER, EXCLUSIVE } from "../rulesets/sites.js";
 import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS } from "../rulesets/devices.js";
 import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken } from "../lib/token.js";
 import { describeRegs } from "../lib/registers.js";
 import { dirChar, dirLetter, dirOfChar, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
 import {
   idx, inBoard, cellAt, setCell, isVoid, elementAt, propAt, levelAt, setLevel,
-  deviceCell, wallDevicesAt, ceilingAt, doorOn
+  deviceCell, wallDevicesAt, ceilingAt, doorOn, sitesAt, setSites, toggleSite
 } from "../lib/board.js";
 import {
   edgeOf, edgeId, setWall, wallAt, edgeCodeAt, setEdgeCode,
@@ -40,6 +41,14 @@ export const TOOLS = [
   })),
   { key: "level", label: "Level", kind: "level", group: "Floor" },
 
+  /* Sites TOGGLE rather than replace. A square is floor that also carries a
+   * wrench, or a battery, or a flag location, or several of those -- clicking
+   * one adds or removes that marking and leaves everything else alone. */
+  ...SITE_ORDER.map(k => ({
+    key: "site:" + k, label: SITES[k].name, kind: "site", site: k,
+    group: "Sites", printedIn: SITES[k].printedIn
+  })),
+
   { key: "wall", label: "Wall", kind: "wall", hot: "b", group: "Walls" },
   ...WALL_KINDS.map(k => ({
     key: "dev:" + k, label: DEVICE_KINDS[k].name, kind: "device", device: k,
@@ -51,7 +60,7 @@ export const TOOLS = [
   }))
 ];
 
-export const GROUPS = ["Hand", "Floor", "Walls", "Ceiling"];
+export const GROUPS = ["Hand", "Floor", "Sites", "Walls", "Ceiling"];
 
 /* THE RAIL OFFERS EVERYTHING. It used to filter by a board's declared edition,
  * and a board started classic -- so nine elements and the whole of elevation
@@ -101,6 +110,7 @@ export function apply(board, st, c, r, opts = {}) {
   switch (tool.kind) {
     case "ground": return applyGround(board, st, tool, c, r);
     case "level": return applyLevel(board, st, c, r, opts);
+    case "site": return applySite(board, st, tool, c, r, opts);
     case "wall": return applyWall(board, st, c, r, opts);
     case "device": return applyDevice(board, st, tool, c, r);
     case "ceiling": return applyCeiling(board, st, tool, c, r);
@@ -120,6 +130,16 @@ function applyGround(board, st, tool, c, r) {
   if (def.props.pit && ceilingAt(board, c, r).length) {
     return { ok: false, why: "Something hangs over " + at(c, r) + "; a pit has nothing under it to come down on." };
   }
+  /* A site marks plain floor, so turning the square into anything else has to
+   * take the markings with it -- silently leaving a wrench under a pit is how a
+   * board ends up carrying data nothing can see. */
+  const marks = sitesAt(board, c, r);
+  if (marks.length && def.key !== "floor") {
+    return { ok: false, why: at(c, r) + " is marked with " +
+      marks.map(k => SITES[k].short).join(" and ") +
+      ", and a marking sits on plain floor. Take it off first." };
+  }
+
   const arms = def.props.belt ? st.arms : ".";
   const was = cellAt(board, c, r);
   const tok = writeToken(ch, arg, arms);
@@ -151,6 +171,43 @@ function applyGround(board, st, tool, c, r) {
   return { ok: true, changed: true, note: def.name + " at " + at(c, r) +
     (def.props.belt ? ", " + ARM_NAMES[arms] + ", running " + dirLetter(st.dir) : "") +
     (raised ? "; raised " + at(raised[0], raised[1]) + " to level " + raised[2] : "") };
+}
+
+/**
+ * Add or remove one marking. The square keeps whatever else it has -- that is
+ * the point of the layer: the same printed floor is a wrench in one game and a
+ * battery in the other, and a flag location can sit on either.
+ */
+function applySite(board, st, tool, c, r, opts) {
+  const key = tool.site;
+  const def = SITES[key];
+  const now = sitesAt(board, c, r);
+  const had = now.indexOf(key) >= 0;
+
+  if (opts.erase || had) {
+    if (!had) return { ok: true, changed: false };
+    setSites(board, c, r, now.filter(k => k !== key));
+    return { ok: true, changed: true, note: def.name + " taken off " + at(c, r) + "." };
+  }
+
+  const el = elementAt(board, c, r);
+  if (!el || el.key !== "floor") {
+    return { ok: false, why: "A " + def.name.toLowerCase() + " marks plain floor. " +
+      at(c, r) + " is " + (el ? el.name.toLowerCase() : "not floor") + "." };
+  }
+  for (const pair of EXCLUSIVE) {
+    if (pair.indexOf(key) >= 0) {
+      const other = pair.find(k => k !== key);
+      if (now.indexOf(other) >= 0) {
+        return { ok: false, why: at(c, r) + " is already marked with " + SITES[other].short +
+          ". A square is printed with one or the other." };
+      }
+    }
+  }
+  const next = toggleSite(board, c, r, key);
+  return { ok: true, changed: true,
+    note: def.name + " at " + at(c, r) +
+      (next.length > 1 ? ", with " + next.filter(k => k !== key).map(k => SITES[k].short).join(" and ") : "") + "." };
 }
 
 function applyLevel(board, st, c, r, opts) {
@@ -263,6 +320,12 @@ export function erase(board, st, c, r, opts = {}) {
      * wrong in either direction loses data the photograph has */
     return { ok: true, changed: true, note: "Took the " + DEVICE_KINDS[dev.kind].name.toLowerCase() +
       " off " + at(c, r) + ". Its wall is still there." };
+  }
+  const marks = sitesAt(board, c, r);
+  if (marks.length) {
+    const last = marks[marks.length - 1];
+    setSites(board, c, r, marks.slice(0, -1));
+    return { ok: true, changed: true, note: SITES[last].name + " taken off " + at(c, r) + "." };
   }
   if (opts.face !== undefined && edgeCodeAt(board, edgeOf(c, r, opts.face)) !== EDGE_NONE) {
     return applyWall(board, st, c, r, { face: opts.face, erase: true });
@@ -378,6 +441,7 @@ export function describe(board, c, r) {
     level: levelAt(board, c, r),
     arms: def && def.props.belt ? ARM_NAMES[t.arms] : null,
     dir: def && def.arg === ARG_DIR ? t.arg : null,
+    sites: sitesAt(board, c, r),
     walls: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_WALL).map(dirLetter),
     doors: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_DOOR).map(dirLetter),
     wallDevices: wallDevicesAt(board, c, r),

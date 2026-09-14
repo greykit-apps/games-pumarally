@@ -26,6 +26,8 @@ import { toPicture, fromPicture } from "../lib/picture.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { printingsOn } from "../rulesets/index.js";
+import { SITES, SITE_ORDER } from "../rulesets/sites.js";
+import { flagSpots } from "../lib/board.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -44,6 +46,8 @@ let errors = 0;
 const warnings = [];
 const entries = [];
 const usedElements = new Set();
+const usedSites = new Set();
+let flagSpotTotal = 0;
 const usedDevices = new Set();
 
 for (const file of files) {
@@ -95,6 +99,8 @@ for (const file of files) {
   }
 
   for (const tok of board.cells) usedElements.add(tok.charAt(0));
+  for (const has of board.sites.values()) for (const k of has) usedSites.add(k);
+  flagSpotTotal += flagSpots(board).length;
   for (const dev of [...board.wallDevices, ...board.ceilingDevices]) usedDevices.add(dev.kind);
 }
 
@@ -133,8 +139,22 @@ for (const x of d.items) {
 }
 
 if (warnings.length) {
+  /* A warning that fires on nearly everything is a state of the library, not a
+   * list of faults, and printing it nineteen times buries the ones that are. */
+  const byCode = new Map();
+  for (const w of warnings) {
+    const code = /: ([a-z][\w.]+) --/.exec(w);
+    const k = code ? code[1] : w;
+    if (!byCode.has(k)) byCode.set(k, []);
+    byCode.get(k).push(w);
+  }
   console.log(warnings.length + " warning(s):");
-  for (const w of warnings) console.log(w);
+  for (const [code, list] of byCode) {
+    if (list.length > 3) {
+      console.log("  " + code + " -- " + list.length + " of them. First: " +
+        list[0].trim().replace(/^\S+: \S+ -- /, ""));
+    } else for (const w of list) console.log(w);
+  }
 }
 
 const unusedE = Object.keys(ELEMENTS).filter(ch => !usedElements.has(ch));
@@ -146,6 +166,12 @@ if (unusedE.length) {
 if (unusedD.length) {
   console.log("note: no shipped board uses " + unusedD.length + " device kind(s): " + unusedD.join(", "));
 }
+const unusedS = SITE_ORDER.filter(k => !usedSites.has(k));
+if (unusedS.length) {
+  console.log("note: no shipped board marks " + unusedS.map(k => SITES[k].name.toLowerCase()).join(" or ") + ".");
+}
+console.log("note: " + flagSpotTotal + " flag location(s) marked across " + entries.length +
+  " board(s). A race chooses about three per course from whatever its boards mark.");
 
 /* Provenance, printed as a note and never as a verdict: a board carrying
  * elements from both printings is perfectly ordinary. */
