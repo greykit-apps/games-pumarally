@@ -8220,6 +8220,32 @@
           "the 2016 panel draws lives, which cannot be spent in that game");
         assert((mod.match(/pr-pip life/g) || []).length === 4, "the Energy track is not showing 4 cubes");
 
+        /* AND IT SAYS HOW HURT THE ROBOT IS. Taking the damage track
+           off the 2016 panel was right; leaving nothing in its place
+           was not. A robot choking on SPAM looked identical to one
+           that had never been shot. */
+        assert(mod.indexOf('title="SPAM cards carried"') >= 0,
+          "the 2016 panel reports no damage at all");
+        assert(/pr-spam[^>]*>0</.test(mod), "a robot carrying no SPAM should read 0");
+        assert(!/pr-spam on/.test(mod), "a robot with no damage is shouting about it");
+
+        /* The count is every place one of your cards can be, because
+           SPAM in the deck is damage you have not paid for yet. */
+        p.deck = [MODERN_DAMAGE_FIRST];
+        p.pile = [MODERN_DAMAGE_FIRST + 1, modernCard("move1")];
+        p.hand = [MODERN_DAMAGE_FIRST + 2];
+        p.registers = [MODERN_DAMAGE_FIRST + 3, null, null, null, null];
+        assert(spamHeld(p) === 4, "counted " + spamHeld(p) + " SPAM across the four piles, not 4");
+        var hurt = playerTracks(p);
+        assert(/pr-spam on[^>]*>4</.test(hurt), "the panel does not show the 4 it counted: " + hurt);
+
+        /* A classic robot has no deck or discard of its own, and the
+           renderer must not throw drawing one. */
+        houseRules.ruleset = "classic";
+        var cp = { damage: 1, lives: 2, energy: 0, hand: [], registers: [null, null, null, null, null] };
+        assert(playerTracks(cp).indexOf("pr-spam") < 0, "a classic panel grew a SPAM readout");
+        houseRules.ruleset = "modern";
+
         /* AND A ROBOT OFF THE BOARD IS NOT A WRECK. Both are !alive,
            so the word has to be chosen in the right order or a reboot
            reads as a life lost. */
@@ -12644,6 +12670,11 @@
     ".pr-up-permanent{border-top-color:var(--pr-warn)}",
     ".pr-up-temporary{border-top-color:var(--pr-danger)}",
     ".pr-up-shelf{border-top-color:var(--pr-border);opacity:.75}",
+    /* The 2016 damage readout. Sits where the damage track sits on a
+       classic panel, and goes loud only when there is something to
+       report -- a zero that shouts is a zero nobody reads. */
+    ".pr-spam{min-width:14px;text-align:right;opacity:.45}",
+    ".pr-spam.on{opacity:1;color:var(--pr-danger);font-weight:bold}",
     ".pr-opt>button{font:inherit;font-size:10px;line-height:1;padding:2px 4px;",
     "border:1px solid var(--pr-border);background:var(--pr-panel);color:var(--pr-text);cursor:pointer}",
     ".pr-opt>button:hover:not(:disabled){border-color:var(--pr-accent);color:var(--pr-accent)}",
@@ -13548,11 +13579,47 @@
      however hard a robot is shot, and three lives that cannot be
      spent. A meter that cannot move is worse than no meter, because
      the player reads it as good news. */
+  /* HOW HURT A 2016 ROBOT IS, which is a number nothing was showing.
+
+     Taking the damage track off the 2016 panel was right -- that game
+     has no such track -- but it went out and nothing went in, so the
+     panel reported flags and Energy and said nothing at all about
+     damage. A robot can be choking on SPAM and look identical to one
+     that has never been shot.
+
+     In this edition your health IS your SPAM: every damage card you
+     are carrying is a card that will come round and cost you a
+     register. So that is the readout -- the count in your deck, your
+     discard, your hand and your registers, which is everywhere one of
+     yours can be.
+
+     Not a rule change. At a table you can count somebody's discard
+     pile and your own hand; the number is public information that is
+     merely tedious to gather, and a screen gathering it is the same
+     affordance as drawing the board for you. */
+  function spamHeld(p) {
+    /* A classic robot has no deck of its own and no shelf; the lists
+       are simply absent rather than empty, and this is called from a
+       renderer that must not throw whichever game it is drawing. */
+    var n = 0, i, pile, piles = [p.deck, p.pile, p.hand, p.registers];
+    for (pile = 0; pile < piles.length; pile++) {
+      if (!piles[pile]) continue;
+      for (i = 0; i < piles[pile].length; i++) {
+        var c = piles[pile][i];
+        if (c !== null && c !== undefined && isDamageCard(c)) n++;
+      }
+    }
+    return n;
+  }
+
   function playerTracks(p) {
     var j, pips = "", out = "";
     if (rulesetOf(houseRules) === "modern") {
+      var spam = spamHeld(p);
+      out = '<span class="pr-spam' + (spam ? " on" : "") + '" title="SPAM cards carried">' +
+            spam + "</span>";
       for (j = 0; j < MAX_ENERGY; j++) pips += '<i class="pr-pip' + (j < (p.energy || 0) ? " life" : "") + '"></i>';
-      return '<span class="pr-pips" title="energy">' + pips + "</span>";
+      return out + '<span class="pr-pips" title="energy">' + pips + "</span>";
     }
     for (j = 0; j < START_LIVES; j++) pips += '<i class="pr-pip' + (j < p.lives ? " life" : "") + '"></i>';
     out = '<span class="pr-pips" title="lives">' + pips + "</span>";
