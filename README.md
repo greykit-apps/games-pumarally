@@ -468,6 +468,19 @@ the HTML; this is the first one split across files, so the split is ours to
 compensate for. Hashing content rather than counting versions means the URL
 changes exactly when the bytes do.
 
+**Four green tools are not a green battery.** `check-boards`,
+`validator-selftest`, `check-rules` and `check-assets` all pass with the asset
+stamp stale, because none of them calls `stamp-assets.js --check`. So editing
+any `.js` file and running the four obvious checks leaves the one check that
+would have noticed unrun, and the first thing to notice is CI — which has now
+failed a pipeline for exactly this twice, in two different hands. Run
+`node tools/stamp-assets.js --check` before pushing, or just run
+`stamp-assets.js` and commit whatever it changes.
+
+The shape of that is worth more than the fix: a suite that is *nearly*
+exhaustive reads as exhaustive, and the one tool outside it is the one nobody
+runs.
+
 All of these run in CI ahead of deploy. `check-rules.js` fails when no simulated
 game is ever *won* — a run reporting only "no crashes" cannot distinguish a
 working engine from one whose win condition is unreachable, and that
