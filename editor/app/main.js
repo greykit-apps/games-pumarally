@@ -7,7 +7,10 @@
 
 import { injectCSS } from "./style.js";
 import { newState, mark, keep, undo, redo, revalidate, saveLocal, readAll } from "./state.js";
-import { apply, erase, toolByKey, toolsFor, blankToolState, STEER_KEYS } from "./tools.js";
+import {
+  apply, erase, toolByKey, toolsFor, blankToolState, STEER_KEYS,
+  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe
+} from "./tools.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
 import { renderRail, renderInspector, renderDiagnostics } from "./panels.js";
 import { blankBoard, cloneBoard, boardFromDocument } from "../lib/board.js";
@@ -119,10 +122,32 @@ export function mount(root) {
 
   /* --- editing ------------------------------------------------------------- */
 
+  /* Every edit to something already down goes through here, so undo, live
+   * validation and the status line behave the same as laying a new thing. */
+  function change(fn) {
+    const token = mark(st);
+    const res = fn();
+    if (!res || !res.ok) { say(res ? res.why : "Nothing to change.", "bad"); return; }
+    if (keep(st, token)) { say(res.note || "", ""); refresh(); }
+    else if (res.note) say(res.note, "");
+  }
+
+  function selected() {
+    return st.sel ? describe(st.board, st.sel.c, st.sel.r) : null;
+  }
+
   function edit(h, isErase) {
     if (!h || !h.inside) return;
     const tool = toolByKey(st.hand.tool);
-    if (!tool || tool.kind === "select" || tool.kind === "pan") return;
+    if (tool && tool.kind === "select") {
+      st.sel = { c: h.c, r: h.r };
+      refresh({ board: false });
+      const d = describe(st.board, h.c, h.r);
+      say(d ? d.element + " at (" + h.c + "," + h.r + ")" +
+        (d.arms ? ", " + d.arms : "") + ". Change it on the right." : "", "");
+      return;
+    }
+    if (!tool || tool.kind === "pan") return;
     const token = mark(st);
     const opts = { face: h.face === null ? undefined : h.face, erase: isErase };
     const res = isErase ? erase(st.board, st.hand, h.c, h.r, opts)
@@ -203,7 +228,11 @@ export function mount(root) {
       if (st.photo && !st.photo.solo) { st.photo.solo = true; layout(view, st); }
       return;
     }
-    if (k === "escape") { st.hand.tool = "select"; refresh({ board: false }); return; }
+    if (k === "escape") { st.hand.tool = "select"; st.sel = null; refresh({ board: false }); return; }
+    if ((k === "delete" || k === "backspace") && st.sel) {
+      change(() => erase(st.board, st.hand, st.sel.c, st.sel.r));
+      return;
+    }
     if (k === "`") { toggleMode(); return; }
     if (k === "+" || k === "=") { zoomAbout(view, st, 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
     if (k === "-") { zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
@@ -263,6 +292,14 @@ export function mount(root) {
       if (d.reach !== undefined) { st.hand.reach = +d.reach; refresh({ board: false }); return; }
       if (d.reg !== undefined) { toggleReg(+d.reg); return; }
       if (d.lens !== undefined) { st.lens = d.lens; refresh({ board: false }); return; }
+      if (d.arm !== undefined) { change(() => toggleArm(st.board, st.sel.c, st.sel.r, d.arm)); return; }
+      if (d.turnto !== undefined) { change(() => faceTo(+d.turnto)); return; }
+      if (d.devface !== undefined) { change(() => devFace(d.devface)); return; }
+      if (d.devfield !== undefined) { change(() => devField(d.devfield)); return; }
+      if (d.devreg !== undefined) { change(() => devReg(d.devreg)); return; }
+      if (d.ceilreg !== undefined) { change(() => ceilReg(d.ceilreg)); return; }
+      if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
+      if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
       if (d.metaToggle !== undefined) {
         const token = mark(st);
         st.board[d.metaToggle] = !st.board[d.metaToggle];
@@ -275,6 +312,68 @@ export function mount(root) {
     const li = ev.target.closest("li[data-goto]");
     if (li) goTo(li.dataset.goto);
   });
+
+  /* Turning a placed element to an absolute facing rather than by quarters:
+   * the panel shows four compass buttons, and clicking one should mean that
+   * direction rather than "one more turn from wherever it is". */
+  function faceTo(want) {
+    const d = selected();
+    if (!d || !d.dir) return { ok: false, why: "That square has no facing." };
+    const now = "^>v<".indexOf(d.dir);
+    if (now < 0) return { ok: false, why: "That square's facing is unreadable." };
+    if (now === want) return { ok: true, changed: false };
+    return turnHere(st.board, st.sel.c, st.sel.r, (want - now + 4) % 4);
+  }
+
+  function devAt(spec) {
+    const [i] = spec.split(":");
+    const d = selected();
+    return d ? d.wallDevices[+i] : null;
+  }
+  function devFace(spec) {
+    const [i, want] = spec.split(":");
+    const d = selected();
+    const dev = d && d.wallDevices[+i];
+    if (!dev) return { ok: false, why: "Nothing there to turn." };
+    if (dev.face === +want) return { ok: true, changed: false };
+    return turnHere(st.board, st.sel.c, st.sel.r, (+want - dev.face + 4) % 4, dev);
+  }
+  function devField(spec) {
+    const [i, key, v] = spec.split(":");
+    const dev = devAt(i);
+    return dev ? setDeviceField(dev, key, +v) : { ok: false, why: "Nothing there." };
+  }
+  function devReg(spec) {
+    const [i, n] = spec.split(":");
+    const dev = devAt(i);
+    if (!dev) return { ok: false, why: "Nothing there." };
+    return setDeviceRegs(dev, flip(dev.regs, +n));
+  }
+  function ceilReg(spec) {
+    const [i, n] = spec.split(":");
+    const d = selected();
+    const dev = d && d.ceiling[+i];
+    if (!dev) return { ok: false, why: "Nothing there." };
+    return setDeviceRegs(dev, flip(dev.regs, +n));
+  }
+  /* An absent list means EVERY register, so a device with no list showing all
+   * five lit is telling the truth -- and clicking one of them has to mean
+   * "these four", not "this one". */
+  function flip(regs, n) {
+    const cur = regs && regs.length ? [...regs] : [1, 2, 3, 4, 5];
+    const i = cur.indexOf(n);
+    if (i >= 0) cur.splice(i, 1); else cur.push(n);
+    return cur.sort((a, b) => a - b);
+  }
+  function takeOff(layer, i) {
+    const d = selected();
+    if (!d) return { ok: false, why: "Nothing selected." };
+    const dev = layer === "wall" ? d.wallDevices[i] : d.ceiling[i];
+    if (!dev) return { ok: false, why: "Nothing there." };
+    const list = layer === "wall" ? st.board.wallDevices : st.board.ceilingDevices;
+    list.splice(list.indexOf(dev), 1);
+    return { ok: true, changed: true, note: "Taken off. Its wall is still there." };
+  }
 
   function toggleReg(n) {
     const t = toolByKey(st.hand.tool);

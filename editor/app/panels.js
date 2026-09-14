@@ -10,6 +10,7 @@ import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
 import { ELEMENTS, ARG_DIR, ARG_DIGIT, ARG_PAIR } from "../rulesets/elements.js";
 import { DEVICE_KINDS, REGS_NONE } from "../rulesets/devices.js";
 import { ARM_CHARS, ARM_NAMES, ARM_CODES } from "../lib/token.js";
+import { cellAt } from "../lib/board.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
 import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
@@ -162,6 +163,70 @@ export function renderInspector(el, st, hover, isCourse) {
         html += '<div class="row"><span class="none">Fires in ' + esc(describeRegs(regs)) +
           (def.regs === "required" ? "" : ". None chosen means every register.") + "</span></div>";
       }
+    }
+  }
+
+  /* --- editing what is already down -----------------------------------------
+   * The rail says what goes DOWN; this changes what is already there. A belt
+   * whose arms were transcribed wrong has to be fixable where it stands --
+   * re-laying it loses its facing, and on a square with a device it loses the
+   * device too. */
+  if (st.sel) {
+    const d = describe(st.board, st.sel.c, st.sel.r);
+    if (d) {
+      html += "<h3>This square &mdash; (" + d.c + "," + d.r + ")</h3>";
+      const edef = d.key && Object.values(ELEMENTS).find(x => x.key === d.key);
+
+      if (edef && edef.props.belt) {
+        const arms = ARM_CODES[cellAt(st.board, d.c, d.r).charAt(2)] || ARM_CODES["."];
+        html += '<div class="row"><label>Arms</label>' +
+          [["back", "Behind"], ["left", "From the left"], ["right", "From the right"]].map(([slot, label]) =>
+            '<button data-arm="' + slot + '" aria-pressed="' + !!arms[slot] + '">' + label + "</button>").join("") +
+          "</div>";
+        html += '<div class="row"><span class="none">' + esc(d.arms) +
+          ". This is printed data, not something to read off the neighbours.</span></div>";
+      }
+      if (edef && edef.arg === ARG_DIR) {
+        html += '<div class="row"><label>Runs</label>' +
+          [N, E, S, W].map(dd => '<button data-turnto="' + dd + '" aria-pressed="' +
+            (d.dir === "^>v<".charAt(dd)) + '">' + dirLetter(dd) + "</button>").join("") + "</div>";
+      }
+
+      d.wallDevices.forEach((dev, i) => {
+        const def = DEVICE_KINDS[dev.kind];
+        html += "<h3>" + esc(def.name) + "</h3>";
+        if (def.faced) {
+          html += '<div class="row"><label>Faces</label>' +
+            [N, E, S, W].map(dd => '<button data-devface="' + i + ":" + dd + '" aria-pressed="' +
+              (dev.face === dd) + '">' + dirLetter(dd) + "</button>").join("") + "</div>";
+        }
+        for (const key of Object.keys(def.fields)) {
+          const spec = def.fields[key];
+          const cur = dev[key] === undefined ? (spec.default === undefined ? spec.min : spec.default) : dev[key];
+          const opts = [];
+          for (let v = spec.min; v <= spec.max; v++) opts.push(v);
+          html += '<div class="row"><label>' + key.charAt(0).toUpperCase() + key.slice(1) + "</label>" +
+            opts.map(v => '<button data-devfield="' + i + ":" + key + ":" + v + '" aria-pressed="' +
+              (cur === v) + '">' + v + "</button>").join("") + "</div>";
+        }
+        if (def.regs !== REGS_NONE) {
+          html += '<div class="row"><label>Registers</label>' +
+            REGISTERS.map(n => '<button data-devreg="' + i + ":" + n + '" aria-pressed="' +
+              (!!dev.regs && dev.regs.indexOf(n) >= 0) + '">' + n + "</button>").join("") + "</div>";
+          html += '<div class="row"><span class="none">' + esc(describeRegs(dev.regs)) + "</span></div>";
+        }
+        html += '<div class="row"><button data-devoff="' + i + '">Take it off</button></div>';
+      });
+
+      d.ceiling.forEach((dev, i) => {
+        const def = DEVICE_KINDS[dev.kind];
+        html += "<h3>" + esc(def.name) + "</h3>";
+        html += '<div class="row"><label>Registers</label>' +
+          REGISTERS.map(n => '<button data-ceilreg="' + i + ":" + n + '" aria-pressed="' +
+            (!!dev.regs && dev.regs.indexOf(n) >= 0) + '">' + n + "</button>").join("") + "</div>";
+        html += '<div class="row"><span class="none">' + esc(describeRegs(dev.regs)) + "</span>" +
+          '<button data-ceiloff="' + i + '">Take it off</button></div>';
+      });
     }
   }
 

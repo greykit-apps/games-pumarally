@@ -27,6 +27,7 @@ export function newState(board) {
     lens: "classic",
     hand: blankToolState(),
     hover: null,
+    sel: null,            // the square being edited, if any
     undo: [],
     redo: [],
     dirty: false,

@@ -8,7 +8,10 @@
 import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
 import { N, E, S, W, opposite, DC, DR } from "../lib/dir.js";
-import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge } from "../app/tools.js";
+import {
+  apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge,
+  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField
+} from "../app/tools.js";
 import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
 import { ELEMENTS } from "../rulesets/elements.js";
@@ -225,6 +228,75 @@ const fresh = (w = 8, h = 8) =>
   eq(levelAt(b, 2, 2), 1, "level: it took");
   ok(erase(b, st, 2, 2).changed, "level: erasing lowers it");
   eq(levelAt(b, 2, 2), 0, "level: back to zero");
+}
+
+/* --- editing what is already down ---------------------------------------------
+ * The rail decides what goes down; these change what is already there. A belt
+ * whose arms are wrong has to be fixable without laying it again, because
+ * re-laying it loses the facing, and on a square with a device it loses more. */
+{
+  const b = fresh();
+  const st = blankToolState();
+  st.tool = "el:conveyor"; st.dir = E; st.arms = ".";
+  apply(b, st, 2, 2);
+  eq(cellAt(b, 2, 2), "b>.", "edit: a plain straight went down");
+
+  ok(setArms(b, 2, 2, "l").changed, "edit: its arms can be changed where it stands");
+  eq(cellAt(b, 2, 2), "b>l", "edit: and only the arms character moved");
+
+  ok(toggleArm(b, 2, 2, "back").changed, "edit: one arm can be toggled on its own");
+  eq(cellAt(b, 2, 2), "b>L", "edit: left plus back is a T-merge");
+  toggleArm(b, 2, 2, "back");
+  eq(cellAt(b, 2, 2), "b>l", "edit: and off again");
+
+  /* the set can never be emptied: a belt with no arms behaves exactly as a
+   * plain straight, so there is no code point for it */
+  toggleArm(b, 2, 2, "left");
+  eq(cellAt(b, 2, 2), "b>.", "edit: clearing the last arm falls back to the rear one");
+
+  refused(setArms(b, 3, 3, "l"), "edit: arms on a square that is not a belt");
+  refused(setArms(b, 2, 2, "Z"), "edit: an arms character that is not one of the seven");
+
+  /* turning what is already there */
+  ok(turnHere(b, 2, 2, 1).changed, "edit: a placed belt turns where it stands");
+  eq(cellAt(b, 2, 2), "bv.", "edit: east turned once is south");
+  eq(turnHere(b, 2, 2, 1).changed && cellAt(b, 2, 2), "b<.", "edit: and again");
+  st.tool = "el:pit"; apply(b, st, 4, 4);
+  refused(turnHere(b, 4, 4, 1), "edit: turning a pit, which has no facing");
+}
+
+{
+  /* a device turns WITH ITS MOUNT: the wall follows it round, or the board goes
+   * red the moment you turn anything */
+  const b = fresh();
+  const st = blankToolState();
+  st.tool = "dev:laser"; st.dir = S; st.damage = 2;
+  apply(b, st, 4, 4);
+  const dev = b.wallDevices[0];
+  eq(wallAt(b, 4, 4, N), EDGE_WALL, "edit: the laser mounted on its north wall");
+  ok(turnHere(b, 4, 4, 1, dev).changed, "edit: and turns");
+  eq(dev.face, W, "edit: south turned once is west");
+  eq(wallAt(b, 4, 4, E), EDGE_WALL, "edit: its mount moved to the east wall");
+  eq(checkBoard(b).ok, true, "edit: and the board is still valid after turning it");
+
+  ok(setDeviceField(dev, "damage", 3).changed, "edit: a laser's damage can be changed");
+  eq(dev.damage, 3, "edit: it took");
+  refused(setDeviceField(dev, "damage", 9), "edit: damage outside one to three");
+  refused(setDeviceField(dev, "reach", 2), "edit: a laser has no reach");
+
+  st.tool = "dev:jet"; st.dir = E; st.reach = 1;
+  apply(b, st, 2, 6);
+  const jet = b.wallDevices.find(d => d.kind === "jet");
+  ok(setDeviceField(jet, "reach", 2).changed, "edit: a jet's reach can be changed");
+  eq(jet.reach, 2, "edit: reach two is written");
+  setDeviceField(jet, "reach", 1);
+  eq(jet.reach, undefined, "edit: and reach one is written by not writing it");
+
+  ok(setDeviceRegs(jet, [1, 3, 5]).changed, "edit: a jet's registers can be changed");
+  eq(jet.regs, [1, 3, 5], "edit: they took");
+  setDeviceRegs(jet, []);
+  eq(jet.regs, undefined, "edit: and every register is spelled by removing the list");
+  refused(setDeviceRegs(b.wallDevices.find(d => d.kind === "laser"), [1]), "edit: registers on a laser");
 }
 
 /* --- describe ----------------------------------------------------------------- */

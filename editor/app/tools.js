@@ -14,7 +14,8 @@
 import { ELEMENTS, CHAR_OF_KEY, ARG_DIR, ARG_DIGIT, ARG_PAIR, ARG_NONE } from "../rulesets/elements.js";
 import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS } from "../rulesets/devices.js";
 import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken } from "../lib/token.js";
-import { dirChar, dirLetter, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
+import { describeRegs } from "../lib/registers.js";
+import { dirChar, dirLetter, dirOfChar, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
 import {
   idx, inBoard, cellAt, setCell, isVoid, elementAt, propAt, levelAt, setLevel,
   deviceCell, wallDevicesAt, ceilingAt, doorOn
@@ -272,6 +273,96 @@ export function erase(board, st, c, r, opts = {}) {
     return { ok: true, changed: true, note: "Floor at " + at(c, r) };
   }
   return { ok: true, changed: false };
+}
+
+/* --- editing what is already down -------------------------------------------
+ * The rail sets what goes DOWN. These change what is already there, which is a
+ * different job: a belt whose arms are wrong has to be fixable without laying
+ * it again, because re-laying it loses everything else on the square.
+ */
+
+/** Set a placed belt's arms. Returns {ok, why} like the laying tools. */
+export function setArms(board, c, r, arms) {
+  const tok = cellAt(board, c, r);
+  if (!tokenBeltSpeed(tok)) return { ok: false, why: "Only a conveyor has arms." };
+  if (!ARM_CODES[arms]) return { ok: false, why: "That is not one of the seven shapes." };
+  if (tok.charAt(2) === arms) return { ok: true, changed: false };
+  setCell(board, c, r, tok.charAt(0) + tok.charAt(1) + arms);
+  return { ok: true, changed: true, note: "The conveyor at " + at(c, r) + " is a " + ARM_NAMES[arms] + "." };
+}
+
+/**
+ * Toggle one arm of a placed belt, by its RELATIVE slot.
+ * The set can never be emptied: a belt with no arms behaves exactly as a plain
+ * straight does -- arms only decide turning, and a square with nothing to turn
+ * you is the same square either way -- so there is no code point for it and
+ * clearing the last arm puts the rear one back.
+ */
+export function toggleArm(board, c, r, slot) {
+  const tok = cellAt(board, c, r);
+  if (!tokenBeltSpeed(tok)) return { ok: false, why: "Only a conveyor has arms." };
+  const now = ARM_CODES[tok.charAt(2)];
+  if (!now) return { ok: false, why: "That conveyor's shape is unreadable." };
+  const want = { ...now, [slot]: !now[slot] };
+  if (!want.back && !want.left && !want.right) want.back = true;
+  for (const ch of ARM_CHARS) {
+    const a = ARM_CODES[ch];
+    if (a.back === want.back && a.left === want.left && a.right === want.right) {
+      return setArms(board, c, r, ch);
+    }
+  }
+  return { ok: false, why: "No printed shape has those arms." };
+}
+
+/** Turn a placed thing: the square's own element, or a device standing on it. */
+export function turnHere(board, c, r, quarters, which) {
+  if (which && which.kind) {
+    const def = DEVICE_KINDS[which.kind];
+    if (!def || !def.faced) return { ok: false, why: DEVICE_KINDS[which.kind].name + " faces nowhere." };
+    const face = rot(which.face, quarters);
+    const edge = mountEdge(c, r, face);
+    const blocking = whatNeedsEdge(board, edge);
+    if (blocking && blocking !== which) {
+      return { ok: false, why: blocking.name + " is already on the wall it would turn onto." };
+    }
+    /* the mount moves with it, and raises the wall it lands on */
+    which.edge = edge;
+    which.face = face;
+    setEdgeCode(board, edge, EDGE_WALL);
+    return { ok: true, changed: true, note: def.name + " at " + at(c, r) + " now faces " + dirLetter(face) + "." };
+  }
+  const tok = cellAt(board, c, r);
+  const def = ELEMENTS[tok.charAt(0)];
+  if (!def || def.arg !== ARG_DIR) return { ok: false, why: (def ? def.name : "That square") + " has no facing." };
+  const d = dirOfChar(tok.charAt(1));
+  if (d === undefined) return { ok: false, why: "That square's facing is unreadable." };
+  setCell(board, c, r, tok.charAt(0) + dirChar(rot(d, quarters)) + tok.charAt(2));
+  return { ok: true, changed: true, note: def.name + " at " + at(c, r) + " now runs " + dirLetter(rot(d, quarters)) + "." };
+}
+
+/** Set a placed device's register list. `regs` empty means every register. */
+export function setDeviceRegs(dev, regs) {
+  const def = DEVICE_KINDS[dev.kind];
+  if (!def || def.regs === "none") return { ok: false, why: def.name + " fires every register." };
+  const next = regs && regs.length && regs.length < 5 ? [...regs].sort((a, b) => a - b) : null;
+  if (def.regs === "required" && !next) {
+    return { ok: false, why: "A swing door must stand open in some registers and not others." };
+  }
+  if (next) dev.regs = next; else delete dev.regs;
+  return { ok: true, changed: true, note: def.name + " fires in " + describeRegs(next) + "." };
+}
+
+/** Set a placed device's numeric field (a laser's damage, a jet's reach). */
+export function setDeviceField(dev, key, value) {
+  const def = DEVICE_KINDS[dev.kind];
+  const spec = def && def.fields[key];
+  if (!spec) return { ok: false, why: def.name + " has no " + key + "." };
+  if (!Number.isInteger(value) || value < spec.min || value > spec.max) {
+    return { ok: false, why: key + " is " + spec.min + " to " + spec.max + "." };
+  }
+  if (spec.default !== undefined && value === spec.default) delete dev[key];
+  else dev[key] = value;
+  return { ok: true, changed: true, note: def.name + "'s " + key + " is " + value + "." };
 }
 
 /** Everything standing on a square, for the inspector and the status line. */

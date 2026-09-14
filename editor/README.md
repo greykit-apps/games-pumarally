@@ -90,7 +90,21 @@ belt's own exit**:
 
 Three things are **derived** from that character and never stored, so they
 cannot disagree with it: the quarter-turn a robot makes, the arc the renderer
-draws, and what happens under rotation. Relative arms are rotation-invariant —
+draws, and what happens under rotation.
+
+**Each arm is drawn as its own run**, arcing from its entry edge to the shared
+exit edge, so a corner visibly bends and a merge visibly converges. The painted
+arrow follows the *run*, not the exit axis — and that distinction is the whole
+point: a curve rotates the robot on it and a straight one does not, so a board
+that drew both with a straight arrow would be hiding a rule. A plain straight
+carries an arrowhead; a turn or a merge does not, because the curve already says
+rotation and a head there would compete with it. `render-snapshot.js` asserts the
+seven shapes draw seven different things in both modes, and that a curve never
+draws the same path as a straight.
+
+**Arms can be changed where the belt stands.** Pick up the select tool, click a
+belt, and toggle *Behind*, *From the left*, *From the right*. Re-laying it would
+lose the facing, and on a square with something on it, more than that. Relative arms are rotation-invariant —
 the exit turns and the arms follow — where the old absolute spelling had to be
 remapped on every quarter-turn.
 

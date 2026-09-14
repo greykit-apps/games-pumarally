@@ -29,6 +29,7 @@ import { checkBoardDocument } from "../validate/index.js";
 import { boardSVG } from "../render/svg.js";
 import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
+import { ARM_CHARS, ARM_CODES } from "../lib/token.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,46 @@ for (const key of Object.keys(GLYPHS)) {
 }
 for (const kind of Object.keys(DEVICE_GLYPHS)) {
   if (!DEVICE_KINDS[kind]) problems.push("glyph " + kind + " draws a device that is not in the registry");
+}
+
+/* THE SEVEN BELT SHAPES MUST DRAW SEVEN DIFFERENT THINGS, in both modes.
+ *
+ * A belt's arms are the one piece of printed data with no other visual tell: if
+ * the drawing does not show the shape, a board whose corners have been
+ * transcribed as straights looks exactly like a correct one, and the validator
+ * cannot help because both are legal. The first version of the belt art drew
+ * each arm as a straight spoke to the centre, so a corner, a T-merge and a
+ * crossing were three arrangements of the same asterisk and the arrow pointed
+ * the same way on all of them.
+ *
+ * Distinctness is the cheap half. The other half is that a CURVE MUST NOT DRAW
+ * THE SAME PATH AS A STRAIGHT -- a curve rotates the robot on it and a straight
+ * does not, so if both carry a straight arrow the board is hiding a rule. */
+{
+  for (const m of MODES) {
+    const seen = new Map();
+    for (const ch of ARM_CHARS) {
+      const drawn = GLYPHS.conveyor[m]({ arms: ARM_CODES[ch], arg: "^", dir: 0 });
+      if (seen.has(drawn)) {
+        problems.push("belt arms " + JSON.stringify(ch) + " and " + JSON.stringify(seen.get(drawn)) +
+          " draw identically in " + m + " mode -- the shape is not visible");
+      }
+      seen.set(drawn, ch);
+    }
+    /* and the two that matter most: a curve is not a straight */
+    const straight = GLYPHS.conveyor[m]({ arms: ARM_CODES["."], arg: "^", dir: 0 });
+    for (const ch of ["l", "r"]) {
+      const curve = GLYPHS.conveyor[m]({ arms: ARM_CODES[ch], arg: "^", dir: 0 });
+      if (curve === straight) {
+        problems.push("a belt curve (" + ch + ") draws the same as a plain straight in " + m +
+          " mode -- a curve turns the robot on it and a straight does not");
+      }
+      if (!/[AQ]/.test(curve)) {
+        problems.push("a belt curve (" + ch + ") in " + m + " mode has no arc or quadratic in it; " +
+          "it is being drawn with straight segments");
+      }
+    }
+  }
 }
 
 /* Coverage failures stop the run here. Everything below renders boards, and a

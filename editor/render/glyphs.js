@@ -14,6 +14,8 @@
 
 import { ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
 import { ARM_CODES } from "../lib/token.js";
+import { beltPaths } from "./belt.js";
+import { N } from "../lib/dir.js";
 
 const p = (...parts) => parts.join(" ");
 
@@ -43,45 +45,40 @@ const rivets = () => [[12, 12], [88, 12], [12, 88], [88, 88]]
   .map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + ART.rivet + '"/>').join("");
 
 /* --- conveyors -------------------------------------------------------------
- * Drawn exiting NORTH. The arms character says which edges show an incoming
- * path, relative to that exit, so this is a direct transcription of the data
- * into geometry: back is the bottom edge, left is the left edge, right is the
- * right edge. A corner is one arm and no back; a T is back plus one side. */
-function beltSpine(arms) {
-  const segs = ["M 50 50 L 50 0"];                       // centre to the exit
-  if (arms.back) segs.push("M 50 100 L 50 50");
-  if (arms.left) segs.push("M 0 50 L 50 50");
-    if (arms.right) segs.push("M 100 50 L 50 50");
-  return segs.join(" ");
-}
+ * Drawn exiting NORTH; the caller rotates. The arms character says which edges
+ * show an incoming path relative to that exit, and EACH ARM IS ITS OWN RUN,
+ * arcing from its entry edge to the shared exit edge. That is what makes a
+ * corner look like a corner and a merge look like a junction -- draw the arms
+ * as straight spokes meeting in the middle and every shape becomes the same
+ * asterisk, which is what the first version of this file did.
+ *
+ * Beds first and rails after, ALL of them: at a junction the rails have to be
+ * able to cross a neighbouring bed, which is what a junction looks like.
+ *
+ * The geometry is in render/belt.js, ported from the prototype's tile art along
+ * with the reasoning that produced it. */
 
 function beltArt(arms, express) {
-  const d = beltSpine(arms);
+  const p = beltPaths(arms, N, express ? 2 : 1);
   const rail = express ? ART.expressRail : ART.beltRail;
   const bed = express ? ART.express : ART.belt;
   const arrow = express ? ART.expressArrow : ART.beltArrow;
-  const head = express
-    ? '<path d="M 34 44 L 50 26 L 66 44 M 34 66 L 50 48 L 66 66" fill="none" stroke="' + arrow +
-      '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'
-    : '<path d="M 34 48 L 50 30 L 66 48" fill="none" stroke="' + arrow +
-      '" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>';
+  const join = (list, attrs) => list.map(d => '<path d="' + d + '" ' + attrs + "/>").join("");
   return plate() +
-    '<path d="' + d + '" fill="none" stroke="' + rail + '" stroke-width="66" stroke-linejoin="round"/>' +
-    '<path d="' + d + '" fill="none" stroke="' + bed + '" stroke-width="52" stroke-linejoin="round"/>' +
-    head;
+    join(p.beds, 'fill="none" stroke="' + bed + '" stroke-width="68" stroke-linecap="butt" stroke-linejoin="round"') +
+    join(p.rails, 'fill="none" stroke="' + rail + '" stroke-width="7" stroke-linecap="butt"') +
+    join(p.marks, 'fill="none" stroke="' + arrow + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"') +
+    join(p.chevrons, 'fill="none" stroke="' + arrow + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"');
 }
 
 function beltMark(arms, express) {
   const colour = express ? MARK.express : MARK.belt;
-  const shaft = beltSpine(arms);
-  const head = "M 38 26 L 50 12 L 62 26";
-  const second = express ? " M 38 42 L 50 28 L 62 42" : "";
-  /* A tick across each arm's entrance, so a T-merge is distinguishable from a
-   * plain straight at a glance without counting line ends. */
-  let ticks = "";
-  if (arms.left) ticks += " M 6 40 L 6 60";
-  if (arms.right) ticks += " M 94 40 L 94 60";
-  return mk(shaft + " " + head + second + ticks, colour, express ? 1.8 : 1.4);
+  const p = beltPaths(arms, N, express ? 2 : 1);
+  /* The painted line and the chevron, and no bed: over a photograph the shape
+   * has to sit on the printed belt rather than cover it. The line follows the
+   * run, so a curve reads as a curve at a glance. */
+  const d = p.marks.concat(p.chevrons).join(" ");
+  return mk(d, colour, express ? 1.8 : 1.4);
 }
 
 /* --- the table -------------------------------------------------------------- */
@@ -156,7 +153,8 @@ export const GLYPHS = {
   },
 
   current: {
-    art: ctx => waterArt() + beltArt(ctx.arms, false).replace(plate(), "").replace(ART.belt, "#1d5a7a"),
+    /* a belt that is also water: the water plate, then the belt over it */
+    art: ctx => waterArt() + beltArt(ctx.arms, false).replace(plate(), ""),
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
