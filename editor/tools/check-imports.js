@@ -69,11 +69,17 @@ for (const p of ignored) {
 }
 
 /* 1. specifiers */
-const SPEC = /(?:^|[\s;{(])(?:import|export)\s[\s\S]*?from\s*["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|import\s*["']([^"']+)["']/g;
+/* ANCHORED TO THE START OF A LINE, and that is not cosmetic: the first version
+ * matched the word `import` wherever it appeared -- including inside the string
+ * `case "import":` -- and then searched forward for the next `from "`, which
+ * was several lines away in a different statement. It reported two bare
+ * specifiers in a file that has none. A static import always begins its line. */
+const SPEC = /^[ \t]*(?:import|export)\b[^\n]*?\bfrom\s*["']([^"']+)["']|^[ \t]*import\s*["']([^"']+)["']/gm;
+const DYNAMIC = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 for (const f of scripts) {
   const src = readFileSync(f, "utf8");
-  for (const m of src.matchAll(SPEC)) {
-    const spec = m[1] || m[2] || m[3];
+  for (const m of [...src.matchAll(SPEC), ...src.matchAll(DYNAMIC)]) {
+    const spec = m[1] || m[2];
     if (!spec) continue;
     if (spec.startsWith("node:")) continue;                    // tools may use the platform
     if (!spec.startsWith("./") && !spec.startsWith("../")) {

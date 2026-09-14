@@ -202,6 +202,24 @@ export function blankBoard(meta = {}) {
   };
 }
 
+/**
+ * A deep copy. The undo stack keeps these rather than serialized documents,
+ * because a board mid-edit is often one the serializer would have to be asked
+ * politely about -- undo has to work on a board that does not validate yet,
+ * which is most of them while somebody is drawing.
+ */
+export function cloneBoard(board) {
+  return {
+    ...board,
+    cells: board.cells.slice(),
+    levels: board.levels ? board.levels.slice() : null,
+    wallH: board.wallH.slice(),
+    wallV: board.wallV.slice(),
+    wallDevices: board.wallDevices.map(d => ({ ...d, edge: { ...d.edge } })),
+    ceilingDevices: board.ceilingDevices.map(d => ({ ...d }))
+  };
+}
+
 /* --- document -> board ----------------------------------------------------- */
 
 const isInt = n => Number.isInteger(n);
