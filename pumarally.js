@@ -8290,6 +8290,23 @@
         dead.alive = false; dead.rebooting = false;
         assert(!inPlay(dead), "a classic wreck is still counted as in play");
         assert(!placeCard(0, 0), "a destroyed classic robot was allowed to program");
+
+        /* AND THE PANEL MUST ASK THE SAME FUNCTION.
+
+           Fixing actor() alone moved the deadlock one step down
+           rather than clearing it: the handlers took the click and
+           renderProgram drew the whole row disabled, because it asked
+           the question again in its own words. Both halves of this
+           bug were one predicate written twice.
+
+           The row itself cannot be rendered here -- the test runner
+           has no DOM -- so what is checked is that it holds no
+           opinion of its own to drift. */
+        var src = String(renderProgram).replace(/\/\*[\s\S]*?\*\//g, "");
+        assert(/\bactor\(\)/.test(src),
+          "the register row no longer decides with actor(), so it can disagree with the handlers");
+        assert(!/\.alive\b/.test(src),
+          "the register row tests alive itself again, which is the copy that deadlocked it");
       } finally {
         houseRules.ruleset = keepHouse; UI.autoHuman = wasAuto; UI.headless = wasHead;
       }
@@ -14185,7 +14202,15 @@
        hidden rather than drawn empty -- an empty row of five slots
        during the draft looks like something you failed to fill in. */
     if (UI.els.program) UI.els.program.hidden = G.phase === "draft";
-    var mine = me && isHuman(me) && me.alive;
+    /* WHETHER TO DRAW A CONTROL AND WHETHER TO OBEY ONE ARE THE SAME
+       QUESTION, so they are one function. This line used to ask it
+       again in its own words -- isHuman && alive -- and the two
+       copies drifted apart the moment a rebooting robot was allowed
+       to play: the handlers took the click and the row was drawn
+       disabled, which is the same deadlock as the reverse and just as
+       silent. Everything below rides on `programming`, so this is the
+       only place the panel gets to have an opinion. */
+    var mine = actor() === me;
     var programming = inPhase("turn", "program") && mine;
     var open = me ? openRegisters(me.damage) : REGISTERS;
     var i;
