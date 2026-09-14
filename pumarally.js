@@ -8556,6 +8556,39 @@
       } finally { houseRules.ruleset = keepHouse; }
     } },
 
+    { name: "a stacked side panel costs the board height, not width", run: function () {
+      /* THE BUG: the board was sized by subtracting the side panel's
+         width from the row -- even when the CSS had already stacked
+         the panel UNDER the board, where it takes no width at all. The
+         board and the panel were each given the room the other was
+         already using, so a 1072px row produced a 420px board with
+         acres of nothing beside it.
+
+         The old test guessed from widths: "narrower than the room by a
+         margin, so presumably beside". Below the breakpoint the panel
+         is 640 and the row is 1072, and 640 is comfortably less than
+         972, so the guess was confidently wrong. */
+
+      /* Stacked: the panel is under the board and costs it no width,
+         however narrow the panel happens to be. */
+      assert(sideIsBeside("column", 640, 1072) === false,
+        "a stacked panel was counted as taking width from the board");
+      assert(sideIsBeside("column", 100, 2000) === false,
+        "a narrow stacked panel was still counted as beside");
+
+      /* Side by side: it does take width, and that is the whole point
+         of the measurement. */
+      assert(sideIsBeside("row", 470, 1500) === true,
+        "a panel genuinely beside the board was not counted");
+
+      /* And the original guard survives: a panel nearly as wide as the
+         row cannot be beside anything, whatever the flex direction
+         claims, because there would be no board left. */
+      assert(sideIsBeside("row", 1000, 1072) === false,
+        "a panel filling the row was treated as leaving space beside it");
+      assert(sideIsBeside("row", 0, 1500) === false, "a panel with no width was counted");
+    } },
+
     { name: "a 2016 player can see everything a player at the table can see", run: function () {
       /* Each of these was countable by anybody sitting at the table
          and invisible on screen. They are listed together because the
@@ -19852,6 +19885,15 @@
     return Math.max(0, m.top + sy) + Math.max(0, bottom - mainBottom);
   }
 
+  /* Whether the side panel is taking width from the board or sitting
+     under it. Split out so the rule can be tested without a browser:
+     the bug it exists for was a width heuristic that contradicted the
+     stylesheet, and a rule you cannot test is how that survived. */
+  function sideIsBeside(flexDir, sideWidth, avail) {
+    if (flexDir === "column") return false;      // stacked: costs height, not width
+    return !!(sideWidth && sideWidth < avail - 100);
+  }
+
   function fitBoard(C, host, opts) {
     var avail = host.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 960);
     var cs = (typeof getComputedStyle === "function") ? getComputedStyle(host) : null;
@@ -19859,9 +19901,27 @@
     var sideW = 0, beside = false;
     if (UI.els && UI.els.side) {
       var sr = UI.els.side.getBoundingClientRect();
-      /* Only subtract the column when it really is a column. Below the
-         breakpoint it wraps under the board and costs height instead. */
-      beside = !!(sr.width && sr.width < avail - 100);
+      /* ASK THE LAYOUT, DO NOT INFER IT.
+
+         "Only subtract the column when it really is a column" was the
+         right intent and the wrong test. It guessed from widths --
+         narrower than the room by a margin, so presumably beside --
+         and below the 1180px breakpoint the CSS has already stacked
+         the panel UNDER the board, where it costs height and no width
+         at all. The panel is 640 there, the row is 1072, 640 is
+         comfortably less than 972, so the guess said "beside" and the
+         board was sized into 420px of a 1072px row.
+
+         That is the tiny board with acres of space beside it. The
+         board and the panel were each being given the room the other
+         was already using.
+
+         The stacking is decided in one place -- a media query on
+         .pr-main -- so the honest question is what flex-direction that
+         element actually ended up with. */
+      var mainCs = (typeof getComputedStyle === "function" && UI.els.main)
+        ? getComputedStyle(UI.els.main) : null;
+      beside = sideIsBeside(mainCs ? mainCs.flexDirection : "row", sr.width, avail);
       if (beside) sideW = sr.width + 12;
     }
     avail -= sideW;
