@@ -23,6 +23,7 @@ import {
 } from "../lib/board.js";
 import { rotateBoard, rotateOnce, rotatedDims } from "../lib/rotate.js";
 import { boardJSON } from "../lib/canon.js";
+import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
 import { ELEMENTS, checkArg, elemOf, elementAllowed } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
@@ -135,10 +136,12 @@ function fixture() {
   setCell(b, 2, 2, "R^."); setLevel(b, 3, 2, 1); setLevel(b, 3, 3, 1);
   setWall(b, 3, 0, N, EDGE_WALL); setWall(b, 2, 1, E, EDGE_WALL); setWall(b, 5, 3, S, EDGE_WALL);
   setWall(b, 1, 2, W, EDGE_DOOR);
+  setWall(b, 4, 1, N, EDGE_DOOR);   // and one on the other lattice -- see make-fixtures.js
   b.wallDevices.push({ kind: "laser", edge: { kind: "h", c: 3, r: 0 }, face: S, damage: 2 });
   b.wallDevices.push({ kind: "pusher", edge: { kind: "v", c: 3, r: 1 }, face: W, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 5, r: 4 }, face: N, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 1, r: 2 }, regs: [1, 3, 5] });
+  b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 4, r: 1 }, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "press", c: 1, r: 3, regs: [2, 4] });
   return b;
 }
@@ -156,6 +159,27 @@ const text1 = boardJSON(b);
 eq(boardJSON(rotateBoard(b, 4)), text1, "rotate: four quarter-turns is the identity");
 ok(boardJSON(rotateOnce(b)) !== text1, "rotate: one quarter-turn changes something");
 eq(rotatedDims(6, 4, 1), [4, 6], "rotate: an odd turn swaps the dimensions");
+
+/* --- the ASCII picture, on the one board that has everything ---------------
+ * The shipped boards carry no door, no level and no ceiling crusher between
+ * them, so a round-trip over those alone would prove the picture handles a
+ * board without the three things a 2h+1 x 3w+1 grid has nowhere to put. This
+ * fixture has all of them. */
+{
+  const meta = {
+    id: b.id, name: b.name, edition: b.edition, set: b.set,
+    origin: b.origin, unverified: b.unverified, notes: b.notes
+  };
+  const pic = toPicture(b);
+  ok(/\n +[0-9]{6}/.test(pic) || pic.includes("levels:"), "picture: a board with levels writes a levels section");
+  ok(pic.includes("door "), "picture: a door is written with its registers");
+  ok(pic.includes("reach2"), "picture: a reach-two jet says so");
+  ok(pic.includes("press "), "picture: a ceiling device is written");
+  let back = null;
+  try { back = fromPicture(pic, meta); }
+  catch (e) { eq("threw: " + e.message, "read back", "picture: round trip"); }
+  if (back) eq(boardJSON(back), text1, "picture: fromPicture(toPicture(b)) is byte-exact");
+}
 
 /* --- rotation, checked cell by cell against the mapping -------------------- */
 for (let q = 1; q <= 3; q++) {

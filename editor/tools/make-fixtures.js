@@ -57,12 +57,17 @@ function classic() {
   setWall(b, 5, 0, N, EDGE_WALL);             // laser mount
   setWall(b, 2, 5, W, EDGE_WALL);             // pusher mount
   setWall(b, 8, 8, N, EDGE_WALL);             // jet mount
-  setWall(b, 6, 6, W, EDGE_DOOR);             // the swing door's lattice glyph
+  /* A door on EACH lattice orientation. One alone tests only half the reader:
+   * a picture parser that read a horizontal door as a plain wall passed every
+   * round-trip in the suite, because the only door in the fixture was vertical. */
+  setWall(b, 6, 6, W, EDGE_DOOR);
+  setWall(b, 3, 7, N, EDGE_DOOR);
 
   b.wallDevices.push({ kind: "laser", edge: { kind: "h", c: 5, r: 0 }, face: S, damage: 2 });
   b.wallDevices.push({ kind: "pusher", edge: { kind: "v", c: 2, r: 5 }, face: E, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 8, r: 8 }, face: S, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 6, r: 6 }, regs: [1, 3, 5] });
+  b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 3, r: 7 }, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "press", c: 10, r: 10, regs: [2, 4] });
   return b;
 }

@@ -22,6 +22,7 @@ import { checkBoardDocument } from "../validate/index.js";
 import { validateLibrary } from "../validate/library.js";
 import { sink } from "../validate/diagnostic.js";
 import { boardJSON } from "../lib/canon.js";
+import { toPicture, fromPicture } from "../lib/picture.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { playableEditions } from "../rulesets/index.js";
@@ -68,6 +69,29 @@ for (const file of files) {
     errors++;
   }
 
+  /* The ASCII picture is a LOSSLESS second spelling, not a lossy report -- it
+   * is the recovery hatch for the eyeball-diff that three JSON layers cost us,
+   * and a transcriber must be able to paste one back in. So it round-trips
+   * too, and through the canonical writer so the comparison is byte-exact. */
+  try {
+    const back = fromPicture(toPicture(board), {
+      id: board.id, name: board.name, edition: board.edition, set: board.set,
+      origin: board.origin, unverified: board.unverified, notes: board.notes
+    });
+    const rewritten = boardJSON(back);
+    if (rewritten !== text) {
+      const a = text.split("\n"), b2 = rewritten.split("\n");
+      const line = a.findIndex((x, i) => x !== b2[i]);
+      console.error("  " + id + ": does not survive the ASCII picture. First difference at line " +
+        (line + 1) + "\n      board:   " + JSON.stringify(a[line]) +
+        "\n      picture: " + JSON.stringify(b2[line]));
+      errors++;
+    }
+  } catch (e) {
+    console.error("  " + id + ": the ASCII picture will not read back -- " + e.message);
+    errors++;
+  }
+
   for (const tok of board.cells) usedElements.add(tok.charAt(0));
   for (const dev of [...board.wallDevices, ...board.ceilingDevices]) usedDevices.add(dev.kind);
 }
@@ -105,4 +129,4 @@ if (errors) {
   console.error("check-format: " + errors + " error(s)");
   process.exit(1);
 }
-console.log("ok " + entries.length + " boards validate and round-trip byte for byte");
+console.log("ok " + entries.length + " boards validate, round-trip byte for byte, and survive the ASCII picture");

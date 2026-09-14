@@ -34,7 +34,7 @@
       "            ",
       "            ",
       "            ",
-      "            ",
+      "   D        ",
       "        #   ",
       "            ",
       "            ",
@@ -56,6 +56,7 @@
       "             "
     ],
     "devices": [
+      { "kind": "door", "edge": "h:3,7", "regs": [2, 4] },
       { "kind": "laser", "edge": "h:5,0", "face": "S", "damage": 2 },
       { "kind": "jet", "edge": "h:8,8", "face": "S", "reach": 2, "regs": [2, 4] },
       { "kind": "pusher", "edge": "v:2,5", "face": "E", "regs": [1, 3, 5] },
