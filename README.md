@@ -448,6 +448,7 @@ your hand while you program, the board while it runs.
 ## Development
 
 ```bash
+node tools/check-no-photos.js     # no reference photograph is tracked or staged
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
 node tools/check-rules.js 200     # 265 rule tests + 200 bot-vs-bot games
@@ -467,6 +468,29 @@ games in this portfolio are immune by accident, since their whole game *is*
 the HTML; this is the first one split across files, so the split is ours to
 compensate for. Hashing content rather than counting versions means the URL
 changes exactly when the bytes do.
+
+**The reference photographs are checked, not just ignored.** `maps/`,
+`manual*/` and `rules/` hold photographs of printed board art and rulebook
+pages, this repo is public, and a `.gitignore` line was the only thing standing
+between the two — until it turned out they had been public anyway, and were
+untracked in a hurry on 2026-09-12. `origin` is clean now and a fresh clone
+gets fourteen files and no photographs, but the pattern has a hole worth
+knowing: **a gitignore pattern ending in `/` matches a directory, and a symlink
+is not one.**
+
+```
+.gitignore contains  manual*/
+$ ln -s ../elsewhere/manual1 manual1
+$ git status --short
+?? manual1                       # not ignored
+$ git add -A                     # stages it — no force, no warning
+```
+
+That is not hypothetical: linking rather than copying is exactly what a second
+worktree does with an 800MB directory. So `check-no-photos.js` checks the thing
+that matters rather than the mechanism meant to achieve it — nothing under
+those paths tracked, staged, or visible to git by any route — and it runs first
+in CI, against the fresh clone, which is what the public actually gets.
 
 **Merging wants the full 40-character SHA, through the API.** `glab mr merge`
 does not work on this project; the API form does:

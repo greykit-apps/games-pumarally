@@ -9,6 +9,13 @@ stages:
 # board that is plausible and wrong, which is the one failure a game promising
 # faithful maps cannot survive. Catch it before it reaches the site.
 #
+# check-no-photos.js runs FIRST, and runs against the fresh clone CI just made
+# -- which is exactly what the public gets. maps/, manual*/ and rules/ hold
+# photographs of someone else's printed board art, this repo is public, and
+# they were public once already before anyone noticed. A .gitignore line was
+# all that stood there, and it has a hole: a pattern ending in a slash does not
+# match a symlink, which is how a worktree links an 800MB directory.
+#
 # check-rules.js also fails when no simulated game is ever WON. A sim that only
 # reports "no crashes" cannot tell a working engine from one where the win
 # condition is unreachable, and that distinction has already mattered once here.
@@ -18,6 +25,7 @@ validate:
   script:
     - node --check pumarally.js
     - node --check pumarally-boards.js
+    - node tools/check-no-photos.js
     - node tools/check-boards.js
     - node tools/validator-selftest.js
     - node tools/check-rules.js 200
