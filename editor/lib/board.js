@@ -420,10 +420,19 @@ function readWall(doc, board, d) {
         JSON.stringify(raw.edge) + ", which is not an edge id like \"h:3,0\".", null, ptr);
       return;
     }
-    const dev = { kind: raw.kind, edge, face: null, _ptr: ptr, _raw: raw };
+    /* NO `_raw` ON THE DEVICE. The validator used to read `dev._raw.regs`, which
+     * meant it only worked on boards that came from a document -- and the
+     * editor validates on every edit, against boards it built itself. It threw
+     * a TypeError the first time one reached it. Everything the validator needs
+     * is on the device now: `regs` absent means every register, and `face`
+     * present on an unfaced kind is the error it looks for. */
+    const dev = { kind: raw.kind, edge, face: null, _ptr: ptr };
     if (def.faced) {
       const f = dirOfLetter(raw.face);
       dev.face = f === undefined ? null : f;
+    } else if (raw.face !== undefined) {
+      const f = dirOfLetter(raw.face);
+      dev.face = f === undefined ? raw.face : f;
     }
     if (raw.damage !== undefined) dev.damage = raw.damage;
     if (raw.reach !== undefined) dev.reach = raw.reach;
@@ -477,7 +486,7 @@ function readCeiling(doc, board, d) {
       d.error("ceiling.offBoard", "Ceiling device " + i + " has no `at: [c, r]`.", null, ptr);
       return;
     }
-    const dev = { kind: raw.kind, c: raw.at[0], r: raw.at[1], _ptr: ptr, _raw: raw };
+    const dev = { kind: raw.kind, c: raw.at[0], r: raw.at[1], _ptr: ptr };
     if (raw.regs !== undefined) dev.regs = raw.regs;
     if (raw.note !== undefined) dev.note = raw.note;
     board.ceilingDevices.push(dev);

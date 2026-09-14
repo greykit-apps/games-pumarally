@@ -249,7 +249,7 @@ function checkWallDevices(board, d) {
       d.error("device.wrongEdition", label + " is not something the " + board.edition +
         " edition printed.", null, ptr);
     }
-    checkRegs(d, dev._raw.regs, def.regs, label, ptr);
+    checkRegs(d, dev.regs, def.regs, label, ptr);
 
     /* fields */
     for (const [key, spec] of Object.entries(def.fields)) {
@@ -270,8 +270,10 @@ function checkWallDevices(board, d) {
     }
 
     /* facing */
+    /* `dev.face` rather than a parse-only field: the editor validates boards it
+     * built itself, and the validator must not need a document to have existed. */
     if (!def.faced) {
-      if (dev._raw.face !== undefined) {
+      if (dev.face !== null && dev.face !== undefined) {
         d.error("device.faceNotAllowed", label + " is symmetric and takes no face.", null, ptr);
       }
     } else if (dev.face === null || dev.face === undefined) {
@@ -370,7 +372,7 @@ function checkCeiling(board, d) {
       d.error("device.wrongEdition", def.name + " is not something the " + board.edition +
         " edition printed.", at(dev.c, dev.r), ptr);
     }
-    checkRegs(d, dev._raw.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr);
+    checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr);
     if (propAt(board, dev.c, dev.r, "pit")) {
       d.error("ceiling.overPit", def.name + " at " + at(dev.c, dev.r) +
         " hangs over a pit, and there is nothing under it to come down on.", at(dev.c, dev.r), ptr);
