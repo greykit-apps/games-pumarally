@@ -2258,6 +2258,77 @@
         { c: 8, r: 3, d: "W", regs: [1, 3, 5] }
       ]
     },
+    misdirection: {
+      name: "Misdirection", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " r. bv .. b^ .. .. B^ .. bv o. B> Bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< l. .. b^ .. .. B^ .. bv E. B^ B< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. r. .. r.|.. .. ..|.. bv .. l. b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> Bv bv b< E. Bv b> bv Bv .. b> b^ ",
+        "+  +  +  +  +  +  +  +  +  +--+  +  +",
+        " B> Bv o. b^|.. Bv b^ b< Bv .. b^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B^ l. .. b^ b< l. l. B< B<|.. r. b< ",
+        "+  +  +  +  +  +  +  +  +--+  +  +  +",
+        " b> b^ l. Bv B< r. .. b> bv r. l. .. ",
+        "+  +  +  +  +--+  +--+  +  +  +  +  +",
+        "|.. .. .. Bv|.. b^ .. E. bv .. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< b< E. Bv .. b^ .. o. bv|.. B^ B< ",
+        "+  +  +  +  +  +  +  +--+  +--+  +  +",
+        " .. .. .. r. .. l. r. .. l. .. E.|.. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. l. .. B^ .. bv b^ .. Bv .. r. bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. B> B> B^ .. .. .. .. Bv .. b^ bv ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: [
+        { c: 4, r: 2, d: "E", n: 1 },
+        { c: 0, r: 7, d: "E", n: 1 },
+        { c: 7, r: 9, d: "S", n: 2 }
+      ]
+      ,
+      merges: [
+        { c: 10, r: 0, in: "S" },
+        { c: 11, r: 0, in: "W" },
+        { c: 10, r: 1, in: "E" },
+        { c: 11, r: 1, in: "N" },
+        { c: 11, r: 2, in: "S" },
+        { c: 1, r: 3, in: "W" },
+        { c: 2, r: 3, in: "E" },
+        { c: 3, r: 3, in: "S" },
+        { c: 6, r: 3, in: "S" },
+        { c: 7, r: 3, in: "W" },
+        { c: 10, r: 3, in: "S" },
+        { c: 11, r: 3, in: "W" },
+        { c: 0, r: 4, in: "S" },
+        { c: 1, r: 4, in: "W" },
+        { c: 6, r: 4, in: "E" },
+        { c: 7, r: 4, in: "N" },
+        { c: 0, r: 5, in: "E" },
+        { c: 3, r: 5, in: "E" },
+        { c: 8, r: 5, in: "N" },
+        { c: 1, r: 6, in: "W" },
+        { c: 3, r: 6, in: "E" },
+        { c: 8, r: 6, in: "W" },
+        { c: 10, r: 8, in: "E" },
+        { c: 11, r: 10, in: "W" },
+        { c: 1, r: 11, in: "N" },
+        { c: 3, r: 11, in: "W" },
+        { c: 10, r: 11, in: "E" }
+      ]
+      ,
+      pushers: [
+        { c: 3, r: 4, d: "W", regs: [2, 4] },
+        { c: 8, r: 8, d: "W", regs: [1, 3] }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2395,6 +2466,17 @@
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       /* AUTHORED, like every quick game's -- see stepsRun. */
       flags: [[2, 10], [5, 6], [10, 0]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    misdirectionRun: {
+      name: "Misdirection",
+      kind: "quick",
+      blurb: "Nineteen gears, a roundabout in the middle, and a two-barrel laser down the bottom.",
+      boards: [{ id: "misdirection", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[1, 9], [6, 6], [9, 2]],
       minPlayers: 2, maxPlayers: 8
     },
 
