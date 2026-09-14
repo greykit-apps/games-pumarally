@@ -17,9 +17,11 @@ export default {
   years: "1994-2005",
 
   /* Flags must be within this many squares of the one before, measured as a
-   * Manhattan distance. A rulebook heuristic about race length that happens to
-   * equal a classic board's width -- which is exactly why it used to be written
-   * as `% 12` in the geometry and read as the same twelve. It is not. */
+   * CHEBYSHEV distance -- the larger of the two axis differences, so "twelve"
+   * is a reach of one board's span in any direction rather than twelve steps of
+   * travel. A rulebook heuristic about race length that happens to equal a
+   * classic board's width, which is exactly why it used to be written as `% 12`
+   * in the geometry and read as the same twelve. It is not the same twelve. */
   maxFlagGap: 12,
 
   /* The board's turn, in printed order. */

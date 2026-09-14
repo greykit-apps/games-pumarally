@@ -1,0 +1,44 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "boardHRun",
+  "name": "Board H",
+  "kind": "quick",
+  "blurb": "Sixteen flamethrowers and a conveyor under half the rams.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "boardH",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        0,
+        12
+      ]
+    }
+  ],
+  "flags": [
+    [
+      2,
+      2
+    ],
+    [
+      10,
+      7
+    ],
+    [
+      5,
+      9
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}

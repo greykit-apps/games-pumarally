@@ -146,7 +146,10 @@ function checkGround(board, d) {
   }
 }
 
-function checkBelts(board, d) {
+/* Exported so a course can run it over the ASSEMBLED grid. A conveyor running
+ * off one board into a wall on the next is the same fault as one doing it
+ * inside a board, and it is worth having exactly one implementation of. */
+export function checkBelts(board, d) {
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       const speed = tokenBeltSpeed(cellAt(board, c, r));

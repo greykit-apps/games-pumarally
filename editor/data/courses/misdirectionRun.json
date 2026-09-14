@@ -1,0 +1,44 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "misdirectionRun",
+  "name": "Misdirection",
+  "kind": "quick",
+  "blurb": "Nineteen gears, a roundabout in the middle, and a two-barrel laser down the bottom.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "misdirection",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        0,
+        12
+      ]
+    }
+  ],
+  "flags": [
+    [
+      1,
+      9
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      9,
+      2
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}

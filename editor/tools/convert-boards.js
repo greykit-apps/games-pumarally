@@ -30,11 +30,16 @@ import { armsFromAbsolute, absoluteArms, tokenBeltSpeed } from "../lib/token.js"
 import { opposite, dirLetter, N, E, S, W } from "../lib/dir.js";
 import { firesIn } from "../lib/registers.js";
 import { checkBoardDocument } from "../validate/index.js";
+import { assemble, courseBounds } from "../lib/course.js";
+import { courseFromDocument, validateCourse } from "../validate/course.js";
+import { sink } from "../validate/diagnostic.js";
+import { cellAt, isVoid } from "../lib/board.js";
 
 const require = createRequire(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
 const OUT = join(HERE, "..", "data", "boards");
+const OUT_C = join(HERE, "..", "data", "courses");
 const B = require(join(REPO, "pumarally-boards.js"));
 
 const DIRS = [N, E, S, W];
@@ -272,6 +277,7 @@ function compare(id, g, board, q, meta) {
 
 const check = process.argv.includes("--check");
 if (!check && !existsSync(OUT)) mkdirSync(OUT, { recursive: true });
+if (!check && !existsSync(OUT_C)) mkdirSync(OUT_C, { recursive: true });
 
 const ids = Object.keys(B.BOARD_SPECS);
 const converted = {};
@@ -326,6 +332,72 @@ for (const id of ids) {
   }
 }
 
+/* --- courses ---------------------------------------------------------------
+ * `boards` + `dock` become one ordered `stamps` list with a role on each. That
+ * one change is what kills the hardcoded dock footprint: the old dockBoxOf
+ * computed x1 = at[0]+11, y1 = at[1]+3, so the docking bay had to be exactly
+ * twelve by four. A dock's box is now derived from its own rotated dimensions.
+ */
+const library = new Map(Object.entries(converted));
+const courseIds = Object.keys(B.COURSES);
+let wroteC = 0;
+
+for (const id of courseIds) {
+  const spec = B.COURSES[id];
+  const stamps = spec.boards.map(b => ({ role: "board", board: b.id, rot: b.rot | 0, at: [b.at[0], b.at[1]] }));
+  if (spec.dock) stamps.push({ role: "dock", board: spec.dock.id, rot: spec.dock.rot | 0, at: [spec.dock.at[0], spec.dock.at[1]] });
+
+  const doc = {
+    format: "PRCourse", version: 1, id,
+    name: spec.name, kind: spec.kind || "track",
+    blurb: spec.blurb || "",
+    stamps,
+    flags: (spec.flags || []).map(f => [f[0], f[1]]),
+    minPlayers: spec.minPlayers, maxPlayers: spec.maxPlayers
+  };
+  const text = JSON.stringify(doc, null, 2) + "\n";
+
+  /* equivalence: the assembled grid, square for square, against buildCourse */
+  const d = sink();
+  const course = courseFromDocument(JSON.parse(text), d, id);
+  if (!course) { note(id, 0, "course will not read back"); continue; }
+  validateCourse(course, library, d);
+  for (const x of d.items) {
+    if (x.severity === "error") note(id, 0, "course validator: " + x.code + " " + x.message);
+  }
+
+  const old = B.buildCourse(id);
+  const { grid } = assemble(course, library);
+  if (old.w !== grid.w || old.h !== grid.h) {
+    note(id, 0, "assembled " + old.w + "x" + old.h + " vs " + grid.w + "x" + grid.h);
+  } else {
+    for (let r = 0; r < old.h; r++) {
+      for (let c = 0; c < old.w; c++) {
+        const oc = B.codeAt(old, c, r);
+        const nt = cellAt(grid, c, r);
+        if (!oc) { if (!isVoid(grid, c, r)) note(id, 0, "(" + c + "," + r + ") should be a hole"); continue; }
+        if (isVoid(grid, c, r)) { note(id, 0, "(" + c + "," + r + ") is a hole and should not be"); continue; }
+        if (nt.charAt(1) !== oc.charAt(1)) note(id, 0, "(" + c + "," + r + ") argument " + JSON.stringify(oc) + " vs " + JSON.stringify(nt));
+        for (const dd of DIRS) {
+          if (!!B.wallAt(old, c, r, dd) !== (newWallAt(grid, c, r, dd) === EDGE_WALL)) {
+            note(id, 0, "(" + c + "," + r + ") wall " + dirLetter(dd));
+          }
+        }
+      }
+    }
+    const oldFlags = (old.flags || []).map(f => f.c + "," + f.r).join(" ");
+    const newFlags = course.flags.map(f => f[0] + "," + f[1]).join(" ");
+    if (oldFlags !== newFlags) note(id, 0, "flags [" + oldFlags + "] vs [" + newFlags + "]");
+  }
+
+  const path = join(OUT_C, id + ".json");
+  if (check) {
+    const have = existsSync(path) ? readFileSync(path, "utf8") : null;
+    if (have === null) { note(id, 0, "no checked-in course JSON"); }
+    else if (have !== text) { note(id, 0, "checked-in course JSON differs from a fresh conversion"); }
+  } else { writeFileSync(path, text); wroteC++; }
+}
+
 if (problems.length) {
   console.error("convert-boards: " + problems.length + " problem(s)");
   for (const p of problems.slice(0, 40)) console.error("  " + p);
@@ -344,3 +416,5 @@ for (const id of ids) {
 console.log("ok " + ids.length + " boards" + (check ? " match the checked-in JSON" : ", " + wrote + " written") +
   "; every one identical in behaviour to the old data under all four rotations" +
   (warned ? " (" + warned + " warning(s) above)" : ""));
+console.log("ok " + courseIds.length + " courses" + (check ? " match" : ", " + wroteC + " written") +
+  "; every assembled grid identical to buildCourse, square for square");

@@ -111,6 +111,32 @@ export const CODES = Object.freeze({
   "library.duplicateId":  "two boards with the same id",
   "library.duplicateBoard":"two boards with identical ground and wall layers",
 
+  /* --- course -------------------------------------------------------------
+   * There is deliberately NO code for conveyors meeting head-on across a seam.
+   * The belt geometry checks are run over the ASSEMBLED grid, so belt.headOn
+   * and belt.intoWall fire at a seam the same way they fire inside a board,
+   * from the same code. A second code for the same fault would be a check that
+   * can never be the one that fires. */
+  "course.unknownBoard":  "a stamp naming a board that is not in the library",
+  "course.badRotation":   "a stamp rotation that is not 0-3",
+  "course.badPlacement":  "a stamp position that is missing or negative",
+  "course.badRole":       "a stamp role that is not board or dock",
+  "course.overlap":       "two stamps covering the same square",
+  "course.disconnected":  "the course is not one connected area",
+  "course.mixedEditions": "stamps from two editions in one course",
+  "course.twoDocks":      "more than one docking bay",
+  "course.noDock":        "a course with no docking bay",
+  "course.bayNumbering":  "docking bays not numbered 1..n with no gaps",
+  "course.bayCount":      "fewer docking bays than the course seats",
+  "course.bayTrapped":    "a docking bay with no unblocked way out of the dock",
+  "course.noFlags":       "a course with no flags",
+  "course.flagOffCourse": "a flag off the course or on a void square",
+  "course.flagNotFloor":  "a flag on something other than plain floor",
+  "course.flagInDock":    "a flag inside the docking bay's footprint",
+  "course.flagUnderDevice":"a flag on a square a wall device stands in",
+  "course.flagInCorner":  "a flag in the very corner of the board that wrote it",
+  "course.flagGap":       "a flag further from the previous one than the ruleset allows",
+  "course.flagDuplicate": "two flags on one square"
 });
 
 export const ALL_CODES = Object.freeze(Object.keys(CODES));

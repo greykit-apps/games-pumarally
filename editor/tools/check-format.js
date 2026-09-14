@@ -15,7 +15,7 @@
  * somebody can close; a gap that is a silence is one nobody knows about.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBoardDocument } from "../validate/index.js";
@@ -26,9 +26,11 @@ import { toPicture, fromPicture } from "../lib/picture.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { playableEditions } from "../rulesets/index.js";
+import { courseFromDocument, validateCourse } from "../validate/course.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIR = join(HERE, "..", "data", "boards");
+const DIR_C = join(HERE, "..", "data", "courses");
 
 const files = readdirSync(DIR).filter(f => f.endsWith(".json")).sort();
 if (!files.length) {
@@ -96,6 +98,33 @@ for (const file of files) {
   for (const dev of [...board.wallDevices, ...board.ceilingDevices]) usedDevices.add(dev.kind);
 }
 
+/* --- courses ---------------------------------------------------------------
+ * A course is checked against the boards it actually names, so a board edit
+ * that breaks a course -- a flag square turned into a conveyor, a docking bay
+ * walled in -- is caught here rather than at play time. */
+const library = new Map(entries.map(e => [e.id, e.board]));
+let courseCount = 0;
+if (existsSync(DIR_C)) {
+  for (const file of readdirSync(DIR_C).filter(f => f.endsWith(".json")).sort()) {
+    const id = basename(file, ".json");
+    const cd = sink();
+    let doc;
+    try { doc = JSON.parse(readFileSync(join(DIR_C, file), "utf8")); }
+    catch (e) { console.error("  " + file + ": not valid JSON -- " + e.message); errors++; continue; }
+    const course = courseFromDocument(doc, cd, id);
+    if (course) validateCourse(course, library, cd);
+    for (const x of cd.items) {
+      if (x.severity === "error") { console.error("  " + id + ": " + x.code + " " + x.message); errors++; }
+      else warnings.push("  " + id + ": " + x.code + " -- " + x.message);
+    }
+    courseCount++;
+  }
+}
+if (!courseCount) {
+  console.error("check-format: there are no courses in " + DIR_C + ".");
+  errors++;
+}
+
 const d = sink();
 validateLibrary(entries, d);
 for (const x of d.items) {
@@ -129,4 +158,5 @@ if (errors) {
   console.error("check-format: " + errors + " error(s)");
   process.exit(1);
 }
-console.log("ok " + entries.length + " boards validate, round-trip byte for byte, and survive the ASCII picture");
+console.log("ok " + entries.length + " boards validate, round-trip byte for byte and survive the ASCII picture; " +
+  courseCount + " courses assemble and validate against them");

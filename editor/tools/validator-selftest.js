@@ -22,6 +22,8 @@ import { fileURLToPath } from "node:url";
 import { ALL_CODES } from "../validate/diagnostic.js";
 import { checkBoardDocument } from "../validate/index.js";
 import { validateLibrary } from "../validate/library.js";
+import { courseFromDocument, validateCourse } from "../validate/course.js";
+import { blankBoard } from "../lib/board.js";
 import { sink } from "../validate/diagnostic.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -195,6 +197,126 @@ for (const [code, fixture, mutate] of CASES) {
   const d = sink();
   validateLibrary([{ id: "one", board: a }, { id: "two", board: b }], d);
   if (d.items.length) fail("library: two different boards were wrongly refused");
+  else pass();
+}
+
+/* --- course cases ----------------------------------------------------------
+ * Built from scratch rather than by mutating a shipped course and restoring it
+ * in a `finally`. The old self-test swapped tables in and out of the live
+ * COURSES object; nothing leaks between cases here because there is nothing to
+ * put back. */
+const LIB = new Map();
+for (const id of [CLASSIC, MODERN]) {
+  LIB.set(id, checkBoardDocument(JSON.parse(raw(id)), id).board);
+}
+/* A tiny docking bay of its own, so a dock case does not depend on any shipped
+ * board being 12x4 or on the fixtures carrying bays in a particular place. */
+{
+  const bay = checkBoardDocument(JSON.parse(raw(CLASSIC)), CLASSIC).board;
+  LIB.set("bay", bay);
+}
+
+/* A SIX BY SIX, and it is not decoration.
+ *
+ * Every other board in this file is twelve square, and on a twelve-square board
+ * `c % 12` and a board-local coordinate give the same answer for "is this the
+ * corner" -- so reverting the corner rule to a modulus passed this whole suite.
+ * On a 6x6 laid at [12,0] the far corner is course (17,5), which `% 12` does
+ * not think is a corner at all. That is the case that tells the two rules
+ * apart, and it is the shape Master Builder actually ships. */
+{
+  const small = blankBoard({ id: "small", name: "Small", w: 6, h: 6, edition: "classic", set: "authored", origin: "authored" });
+  LIB.set("small", small);
+}
+
+function baseCourse() {
+  return {
+    format: "PRCourse", version: 1, id: "selftest", name: "Self test", kind: "track",
+    stamps: [
+      { role: "board", board: CLASSIC, rot: 0, at: [0, 0] },
+      { role: "dock", board: "bay", rot: 0, at: [0, 12] }
+    ],
+    /* (4,6) and (5,6) are plain floor on the classic fixture, off the dock,
+     * not in a corner, and within twelve of each other. */
+    flags: [[4, 6], [5, 6]],
+    minPlayers: 2, maxPlayers: 2
+  };
+}
+
+const COURSE_CASES = [
+  ["course.unknownBoard", c => { c.stamps[0].board = "noSuchBoard"; }],
+  ["course.badRotation", c => { c.stamps[0].rot = 7; }],
+  ["course.badPlacement", c => { c.stamps[0].at = [-1, 0]; }],
+  ["course.badRole", c => { c.stamps[0].role = "scenery"; }],
+  ["course.overlap", c => { c.stamps[1].at = [0, 6]; }],
+  ["course.disconnected", c => { c.stamps[1].at = [0, 20]; }],
+  ["course.mixedEditions", c => { c.stamps.push({ role: "board", board: MODERN, rot: 0, at: [12, 0] }); }],
+  ["course.twoDocks", c => { c.stamps.push({ role: "dock", board: "bay", rot: 0, at: [12, 0] }); }],
+  ["course.noDock", c => { c.stamps = [c.stamps[0]]; }],
+  ["course.bayNumbering", c => { c.stamps[1].board = "bayGap"; }],
+  ["course.bayCount", c => { c.maxPlayers = 8; }],
+  ["course.bayTrapped", c => { c.stamps[1].board = "bayWalled"; }],
+  ["course.noFlags", c => { c.flags = []; }],
+  ["course.flagOffCourse", c => { c.flags[0] = [99, 99]; }],
+  ["course.flagNotFloor", c => { c.flags[0] = [1, 3]; }],           // the fixture's pit
+  ["course.flagInDock", c => { c.flags[0] = [4, 13]; }],
+  ["course.flagUnderDevice", c => { c.flags[0] = [2, 5]; }],        // the fixture's pusher
+  ["course.flagInCorner", c => {
+    c.stamps.push({ role: "board", board: "small", rot: 0, at: [12, 0] });
+    c.flags = [[4, 6], [17, 5]];           // the 6x6's own (5,5); `% 12` says (5,5) is not a corner
+  }],
+  /* two boards meeting only at a corner: 4-adjacency says that is two areas,
+   * and nothing can drive between them. An 8-adjacent flood fill would call it
+   * one course and be wrong. */
+  ["course.disconnected", c => {
+    /* the 12x12 covers (0..11, 0..11) and the bay (0..11, 12..23), so a 6x6 at
+     * [12,24] touches the bay at one corner and nothing else */
+    c.stamps.push({ role: "board", board: "small", rot: 0, at: [12, 24] });
+  }],
+  /* A single 12x12 board cannot hold two squares more than twelve apart in one
+   * direction, so this case has to lay a second board down to make the gap
+   * reachable at all. */
+  ["course.flagGap", c => {
+    c.stamps.push({ role: "board", board: CLASSIC, rot: 0, at: [12, 0] });
+    c.flags = [[4, 6], [20, 6]];
+  }],
+  ["course.flagDuplicate", c => { c.flags = [[4, 6], [4, 6]]; }]
+];
+
+/* two dock variants the cases above need */
+{
+  const gap = checkBoardDocument(JSON.parse(raw(CLASSIC)), CLASSIC).board;
+  gap.cells[11 * gap.w + 1] = "s3.";          // bays 1 and 3, no 2
+  LIB.set("bayGap", gap);
+
+  const walled = checkBoardDocument(JSON.parse(raw(CLASSIC)), CLASSIC).board;
+  /* wall bay 1 in on all four sides */
+  walled.wallH[11 * walled.w + 0] = 1;
+  walled.wallH[12 * walled.w + 0] = 1;
+  walled.wallV[11 * (walled.w + 1) + 0] = 1;
+  walled.wallV[11 * (walled.w + 1) + 1] = 1;
+  LIB.set("bayWalled", walled);
+}
+
+for (const [code, mutate] of COURSE_CASES) {
+  const c = baseCourse();
+  mutate(c);
+  const d = sink();
+  const course = courseFromDocument(JSON.parse(JSON.stringify(c)), d, "selftest");
+  if (course) validateCourse(course, LIB, d);
+  if (d.items.some(x => x.code === code)) { provoked.add(code); pass(); }
+  else fail(code + ": the mutation did not provoke it. Got: " +
+    (d.items.map(x => x.code).join(", ") || "nothing at all"));
+}
+
+/* and the pristine course must be clean, or every case above passes for free */
+{
+  const d = sink();
+  const course = courseFromDocument(JSON.parse(JSON.stringify(baseCourse())), d, "selftest");
+  if (course) validateCourse(course, LIB, d);
+  const errs = d.items.filter(x => x.severity === "error");
+  if (errs.length) fail("assertion zero: the pristine self-test course is not clean:\n    " +
+    errs.map(x => x.code + " " + x.message).join("\n    "));
   else pass();
 }
 

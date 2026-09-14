@@ -1,0 +1,62 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "longHaul",
+  "name": "The Long Haul",
+  "kind": "track",
+  "blurb": "Three floors end to end, and the starting block in the middle of them.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "cross",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "board",
+      "board": "exchange",
+      "rot": 1,
+      "at": [
+        12,
+        0
+      ]
+    },
+    {
+      "role": "board",
+      "board": "pitMaze",
+      "rot": 2,
+      "at": [
+        24,
+        0
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        12,
+        12
+      ]
+    }
+  ],
+  "flags": [
+    [
+      33,
+      2
+    ],
+    [
+      21,
+      9
+    ],
+    [
+      9,
+      3
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}
