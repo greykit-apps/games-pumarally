@@ -130,7 +130,15 @@
     /* CRASH AND BURN (1997). Both act on a register timer, which is
        printed on the square as a number -- so the argument slot, which
        these do not need for a direction, carries WHEN instead. */
-    "L": { name: "oil slick", arg: "none", oil: true, editions: ["classic"] },
+    /* BOTH editions, and that was checked rather than assumed. Thrills and
+       Spills prints an oil slick for the 2016 game, and its rules are the
+       ones already implemented here: movement reduced by 1 before moving and
+       only once per Move card, then a robot that ENDS its movement on oil
+       slides on until it is off the oil, stopped by a wall, or would slide
+       into a robot that is not itself on oil -- which is oilSlide()'s three
+       stopping conditions, in that order. Same element, same rule, two
+       boxes. */
+    "L": { name: "oil slick", arg: "none", oil: true, editions: BOTH },
     /* The argument is the COLOUR, and colours come in pairs -- the
        validator refuses a portal without its twin, because a lone
        portal is a transcription error that would otherwise render and
@@ -183,7 +191,21 @@
     /* Paired like a portal, and refused the same way when one is
        missing -- but a different element with different rules, which
        is why it is not the classic portal wearing new paint. */
-    "T": { name: "teleporter", arg: "pair", teleport: true, editions: ["modern"] }
+    "T": { name: "teleporter", arg: "pair", teleport: true, editions: ["modern"] },
+    /* A CURRENT IS NOT A NEW MECHANISM, IT IS TWO OLD ONES ON ONE SQUARE.
+       Wet and Wild: "Currents act just like green conveyor belts, but convey
+       robots on their spaces during Board Element Activation Step #3. They
+       are also water spaces, so follow the rules for water during
+       Programming Card Activation." So it carries `belt: 1` and `water:
+       true` and needs nothing else -- every belt question already asked of a
+       conveyor gets the right answer here, including the arms.
+
+       The one thing the DATA cannot say is the timing: a current conveys at
+       step 3 where a green belt conveys at step 2. That belongs to whoever
+       builds the effects, and it is why this is `current` rather than a belt
+       with a flag -- the name has to survive into the engine for the engine
+       to be able to tell them apart. */
+    "C": { name: "current", arg: "dir", belt: 1, water: true, current: true, editions: ["modern"] }
   };
 
   function elemOf(code) { return ELEMENT_DEFS[code.charAt(0)]; }
@@ -266,6 +288,43 @@
     return beltArms(g, c, r).indexOf(side) >= 0;
   }
   function gearTurn(code) { var e = elemOf(code); return e && e.gear || 0; }
+
+  /* CRUSHERS AND FLAMERS, the two 2016 traps that are SQUARES with a
+     register set rather than wall-mounted devices.
+
+     A crusher is a ceiling plate that comes down on its printed registers
+     and removes the robot from play; a flamer is a space of fire that is
+     lit for the whole of its printed register and burns anything entering,
+     passing through, or ending there. Neither is bolted to a wall, so
+     unlike a pusher or a jet the square IS the device -- but both carry a
+     register set, and a two-character cell has no room for one, which is
+     why they live beside the picture exactly as the presses do.
+
+     They are shaped alike and are still two layers, because they are two
+     rules: crushed is removed, burned is damaged. A single layer with a
+     kind flag would save thirty lines and lose the distinction the moment
+     anything asked "what is on this square". */
+  function crusherAt(g, c, r) {
+    for (var i = 0; i < (g.crushers || []).length; i++) {
+      if (g.crushers[i].c === c && g.crushers[i].r === r) return g.crushers[i];
+    }
+    return null;
+  }
+  function flamerAt(g, c, r) {
+    for (var i = 0; i < (g.flamers || []).length; i++) {
+      if (g.flamers[i].c === c && g.flamers[i].r === r) return g.flamers[i];
+    }
+    return null;
+  }
+  /* Both answer firesIn, so an EMPTY list means every register -- the
+     house rule the presses, pushers and jets already keep, and the reason
+     the validator refuses a list of all five. */
+  function crusherFires(g, c, r, register) {
+    var x = crusherAt(g, c, r); return !!x && firesIn(x.regs, register);
+  }
+  function flamerFires(g, c, r, register) {
+    var x = flamerAt(g, c, r); return !!x && firesIn(x.regs, register);
+  }
   /* A pit is a property, not a letter. The 2016 game prints drains --
      pits that sit in water -- and its expansions print deep pits, and
      the rules say each is a pit in every respect including wherever a
@@ -419,6 +478,9 @@
          cones fill the mount square and the bright ball lands in the
          next, brighter than the square it came from. */
       burners: [],
+      /* Crushers and flamers: { c, r, regs }. See crusherAt above. */
+      crushers: [],
+      flamers: [],
       docks: []
     };
   }
@@ -583,6 +645,31 @@
       timed[T.c + "," + T.r] = 1;
       g.timers.push({ c: T.c, r: T.r, regs: T.regs.slice().sort() });
     }
+
+    /* Crushers and flamers read identically, so they are read by one
+       function twice rather than by two that will drift apart. */
+    function readTraps(key, what) {
+      var seen = {}, k;
+      for (k = 0; k < (spec[key] || []).length; k++) {
+        var X = spec[key][k], where = what + " at (" + X.c + "," + X.r + ")";
+        if (!inGrid(g, X.c, X.r) || !g.cell[X.r * w + X.c]) E_(where + " is off the board");
+        if (isPit(g.cell[X.r * w + X.c])) E_(where + " is over a pit");
+        X.regs = X.regs || [];
+        if (X.regs.length === 5) {
+          E_(where + " lists all five registers; leave the list empty instead");
+        }
+        for (var ri2 = 0; ri2 < X.regs.length; ri2++) {
+          if (!(X.regs[ri2] >= 1 && X.regs[ri2] <= 5)) {
+            E_(where + " lists register " + X.regs[ri2] + "; registers run 1-5");
+          }
+        }
+        if (seen[X.c + "," + X.r]) E_("two " + what + "s at (" + X.c + "," + X.r + ")");
+        seen[X.c + "," + X.r] = 1;
+        g[key].push({ c: X.c, r: X.r, regs: X.regs.slice().sort() });
+      }
+    }
+    readTraps("crushers", "crusher");
+    readTraps("flamers", "flamer");
 
     var merged = {};
     for (var mi = 0; mi < (spec.merges || []).length; mi++) {
@@ -776,6 +863,17 @@
       }
       out.push("      ]");
     }
+    ["crushers", "flamers"].forEach(function (key) {
+      if (!g[key] || !g[key].length) return;
+      out.push("      ,");
+      out.push("      " + key + ": [");
+      for (var xi = 0; xi < g[key].length; xi++) {
+        var X = g[key][xi];
+        out.push("        { c: " + X.c + ", r: " + X.r + ", regs: [" + X.regs.join(", ") + "] }" +
+          (xi === g[key].length - 1 ? "" : ","));
+      }
+      out.push("      ]");
+    });
     out.push("    }");
     return out.join("\n");
   }
@@ -835,6 +933,12 @@
       var T2 = g.timers[tq];
       n.timers.push({ c: g.h - 1 - T2.r, r: T2.c, regs: T2.regs.slice() });
     }
+    ["crushers", "flamers"].forEach(function (key) {
+      for (var xq = 0; xq < (g[key] || []).length; xq++) {
+        var X2 = g[key][xq];
+        n[key].push({ c: g.h - 1 - X2.r, r: X2.c, regs: X2.regs.slice() });
+      }
+    });
     for (var j = 0; j < g.docks.length; j++) {
       var D = g.docks[j];
       n.docks.push({ c: g.h - 1 - D.r, r: D.c, n: D.n });
@@ -2147,6 +2251,12 @@
       var T3 = g.timers[tt];
       C.timers.push({ c: T3.c + ox, r: T3.r + oy, regs: T3.regs.slice() });
     }
+    ["crushers", "flamers"].forEach(function (key) {
+      for (var xt = 0; xt < (g[key] || []).length; xt++) {
+        var X3 = g[key][xt];
+        C[key].push({ c: X3.c + ox, r: X3.r + oy, regs: X3.regs.slice() });
+      }
+    });
     /* THE BELT ARMS COME TOO.
 
        A course is what you play, and it is built by stamping boards
@@ -2635,10 +2745,16 @@
     burners: ["classic"],
     timers: ["classic"],
     doors: ["classic"],
+    /* Both 2016 traps are expansion elements, and a classic board carrying
+       one is a transcription error rather than a variant -- the same
+       bargain the presses and jets make in the other direction. */
+    crushers: ["modern"],
+    flamers: ["modern"],
     pushers: ["classic", "modern"],
     lasers: ["classic", "modern"]
   };
-  var LAYER_NAMES = { burners: "flame jet", timers: "press", doors: "swing door" };
+  var LAYER_NAMES = { burners: "flame jet", timers: "press", doors: "swing door",
+                      crushers: "crusher", flamers: "flamer" };
 
   /* Every element a course carries, as {name, editions} -- one list so
      the two questions below cannot disagree about where to look.
@@ -2851,7 +2967,7 @@
   return {
     N: N, E: E, S: S, W: W, DC: DC, DR: DR, DIR_CHARS: DIR_CHARS, DIR_OF: DIR_OF,
     rot: rot, opposite: opposite, dirName: dirName, turnBetween: turnBetween, step: step,
-    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, badCellArg: badCellArg, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
+    ELEMENT_DEFS: ELEMENT_DEFS, elemOf: elemOf, badCellArg: badCellArg, dirOf: dirOf, activeNow: activeNow, timerAt: timerAt, crusherAt: crusherAt, crusherFires: crusherFires, flamerAt: flamerAt, flamerFires: flamerFires, pusherAt: pusherAt, pusherFires: pusherFires, burnerAt: burnerAt, burnerFires: burnerFires, isOil: isOil, EDITIONS: EDITIONS, SETS: SETS,
     beltSpeed: beltSpeed, gearTurn: gearTurn, isPit: isPit,
     mergeAt: mergeAt, beltArms: beltArms, beltTurnsFrom: beltTurnsFrom,
     BOARD_SPECS: BOARD_SPECS, COURSES: COURSES,
