@@ -22,7 +22,9 @@ import {
   newCourse, place, turn, remove, moveStamp, stampAt, snapTargets, nearestSnap,
   normalise, addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit
 } from "../app/compose.js";
-import { assemble, stampFootprint, stampDims } from "../lib/course.js";
+import {
+  assemble, stampFootprint, stampDims, suggestFlags, usableFlagSpots, flagRefusal
+} from "../lib/course.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
 import { sink } from "../validate/diagnostic.js";
 import { readFileSync } from "node:fs";
@@ -448,6 +450,145 @@ const fresh = (w = 8, h = 8) =>
   const { diagnostics } = checkBoard(b);
   eq(diagnostics.filter(x => x.severity === "error").map(x => x.code + " " + x.message).slice(0, 3), [],
      "rail: a board carrying the whole catalogue at once validates");
+}
+
+/* --- the course workshop ------------------------------------------------------
+ * The layout is chosen so two rules that AGREE on a tidy 3x3 of twelve-square
+ * boards disagree here:
+ *
+ *   big   12x12 at (0,0)
+ *   dock   6x2  at (6,12)      -- BESIDE and below, and not twelve by four
+ *   small  6x6  at (12,12)
+ *
+ * The dock's real footprint is (6..11, 12..13). A hardcoded twelve-by-four box
+ * from the same origin would be (6..17, 12..15), which swallows part of the 6x6
+ * -- so a flag at (13,13) is legal under the derived rule and "inside the
+ * starting block" under the old one. That is the only kind of layout that can
+ * tell them apart, and the old assembler could not express it at all.
+ */
+{
+  const FIX = join(dirname(fileURLToPath(import.meta.url)), "..", "tests", "fixtures");
+  const big = checkBoardDocument(JSON.parse(readFileSync(join(FIX, "provingGround.json"), "utf8")), "provingGround").board;
+  big.id = "big";
+  const lib = new Map([["big", big]]);
+
+  const dock = blankBoard({ id: "dock6", name: "Dock", w: 6, h: 2, set: "authored", origin: "authored" });
+  for (let c = 0; c < 6; c++) setCell(dock, c, 0, "s" + (c + 1) + ".");
+  lib.set("dock6", dock);
+
+  const small = blankBoard({ id: "small", name: "Small", w: 6, h: 6, set: "authored", origin: "authored" });
+  lib.set("small", small);
+
+  const course = newCourse("beside");
+  eq(place(course, lib, "big", 0, [0, 0]), 0, "compose: the first board goes down at the origin");
+  eq(place(course, lib, "big", 0, [6, 6]), -1, "compose: an overlapping placement is refused");
+  ok(place(course, lib, "dock6", 0, [6, 12], "dock") > 0, "compose: a 6x2 dock goes BESIDE the boards, not under them");
+  ok(place(course, lib, "small", 0, [12, 12]) > 0, "compose: a 6x6 joins on beyond the dock");
+  eq(place(course, lib, "dock6", 0, [0, 20], "dock"), -1, "compose: a second dock is refused");
+
+  const snaps = snapTargets(course, lib, "small", 0);
+  ok(snaps.length > 3, "compose: snapping offers " + snaps.length + " edge-adjacent positions");
+  ok(snaps.every(t => {
+    const [w, h] = stampDims(lib.get("small"), 0);
+    return !course.stamps.some(st2 => {
+      const f = stampFootprint(st2, lib.get(st2.board));
+      return t.at[0] <= f.x1 && f.x0 <= t.at[0] + w - 1 && t.at[1] <= f.y1 && f.y0 <= t.at[1] + h - 1;
+    });
+  }), "compose: no snap target overlaps something already down");
+
+  const smallIdx = stampAt(course, lib, 13, 13);
+  ok(smallIdx >= 0, "compose: stampAt finds the board under a square");
+  ok(turn(course, lib, smallIdx, 1), "compose: a placed board turns in place");
+
+  /* flags: the array index IS the number, so inserting renumbers */
+  const { grid } = assemble(course, lib);
+  ok(flagWouldFit(grid, 4, 6), "compose: (4,6) is plain floor and would take a flag");
+  addFlag(course, 4, 6);
+  addFlag(course, 5, 6);
+  addFlag(course, 13, 13);
+  addFlag(course, 6, 6, 0);
+  eq(course.flags[0], [6, 6], "compose: a flag inserted at 0 becomes flag 1 and renumbers the rest");
+  eq(flagAt(course, 4, 6), 1, "compose: and the one that was first is now second");
+  ok(!addFlag(course, 4, 6), "compose: two flags on one square is refused");
+  removeFlag(course, 0);
+  eq(course.flags, [[4, 6], [5, 6], [13, 13]], "compose: and taken off again");
+  moveFlag(course, 2, 0);
+  eq(course.flags[0], [13, 13], "compose: a flag can be moved earlier in the race");
+  moveFlag(course, 0, 2);
+  eq(course.flags, [[4, 6], [5, 6], [13, 13]], "compose: and back");
+
+  /* Shifting EVERY stamp by the same amount must leave the assembled grid and
+   * the flag coordinates untouched -- the grid's origin moved with them.
+   * Shifting ONE board is a different thing: that is a move, and it is allowed
+   * to strand a flag, which the validator then reports. */
+  {
+    const before = assemble(course, lib);
+    const flagsBefore = JSON.stringify(course.flags);
+    for (const st2 of course.stamps) { st2.at[0] -= 4; st2.at[1] -= 4; }
+    normalise(course, lib);
+    ok(course.stamps.every(st2 => st2.at[0] >= 0 && st2.at[1] >= 0),
+       "compose: normalise puts the course back at the origin");
+    eq(assemble(course, lib).grid.cells.join("|"), before.grid.cells.join("|"),
+       "compose: and the assembled grid is unchanged");
+    eq(JSON.stringify(course.flags), flagsBefore,
+       "compose: and the flags did NOT move -- the origin moved under them");
+  }
+
+  /* --- suggesting flags from what the boards mark ----------------------------
+   * A board says where a flag MAY go; a course says where the flags ARE. The
+   * marks exist so that when the computer offers a set it picks from squares
+   * the board's author was willing to see raced to, rather than from anywhere
+   * on the floor. */
+  {
+    for (const [c, r] of [[2, 2], [9, 2], [5, 6], [2, 9], [9, 9]]) setSites(big, c, r, ["flagspot"]);
+    setSites(big, 0, 0, ["flagspot"]);            // deliberately the corner of its board
+    setSites(small, 1, 1, ["flagspot"]);
+    setSites(small, 4, 4, ["flagspot"]);
+
+    const asm = assemble(course, lib);
+    const usable = usableFlagSpots(course, lib, asm);
+    ok(usable.length >= 6, "suggest: " + usable.length + " marked squares are usable");
+    ok(!usable.some(s2 => s2.c === 0 && s2.r === 0),
+       "suggest: a mark in a board's corner is not offered -- the validator would refuse it");
+    ok(flagRefusal(course, lib, asm, 0, 0), "suggest: and the refusal says why");
+
+    const three = suggestFlags(course, lib, { count: 3, asm });
+    eq(three.length, 3, "suggest: three flags when three are asked for");
+    let bad = [];
+    for (const [c, r] of three) {
+      if (flagRefusal(course, lib, asm, c, r)) bad.push("(" + c + "," + r + ") refused");
+      if (!usable.some(s2 => s2.c === c && s2.r === r)) bad.push("(" + c + "," + r + ") not marked");
+    }
+    eq(bad, [], "suggest: every offered flag is marked by a board AND accepted by the validator");
+    eq(new Set(three.map(f => f.join(","))).size, 3, "suggest: no square offered twice");
+
+    const each = suggestFlags(course, lib, { perBoard: true, asm });
+    const boards = new Set(each.map(([c, r]) => (usable.find(s2 => s2.c === c && s2.r === r) || {}).board));
+    eq(boards.size, each.length, "suggest: one per board means one from each board");
+    ok(boards.size >= 2, "suggest: and it reached both boards that mark any");
+
+    const withOffer = JSON.parse(JSON.stringify(toDocument(course)));
+    withOffer.flags = three;
+    withOffer.maxPlayers = 6;
+    const dd = sink();
+    const parsed2 = courseFromDocument(withOffer, dd, "beside");
+    if (parsed2) validateCourse(parsed2, lib, dd);
+    eq(dd.items.filter(x => x.severity === "error").map(x => x.code), [],
+       "suggest: a suggested set of flags validates as a course");
+
+    const bare = newCourse("bare");
+    const blank = blankBoard({ id: "blank", name: "Blank", w: 8, h: 8, set: "authored", origin: "authored" });
+    const bareLib = new Map([["blank", blank]]);
+    place(bare, bareLib, "blank", 0, [0, 0]);
+    eq(suggestFlags(bare, bareLib), [], "suggest: a board marking nothing offers nothing");
+  }
+
+  course.maxPlayers = 6;
+  const d = sink();
+  const parsed = courseFromDocument(JSON.parse(JSON.stringify(toDocument(course))), d, "beside");
+  if (parsed) validateCourse(parsed, lib, d);
+  eq(d.items.filter(x => x.severity === "error").map(x => x.code + " " + x.message), [],
+     "compose: a 6x2 dock beside a 12x12, with a flag where a 12x4 box would have swallowed it");
 }
 
 /* --- the zoom floor must clear the biggest course --------------------------

@@ -18,7 +18,10 @@
  * "not in the very corner of a board" expressible without `% 12`.
  */
 
-import { blankBoard, idx, inBoard, isVoid, setCell, levelAt, setLevel, hasLevels, cellAt } from "./board.js";
+import {
+  blankBoard, idx, inBoard, isVoid, setCell, levelAt, setLevel, hasLevels, cellAt,
+  elementAt, flagSpots, deviceCell
+} from "./board.js";
 import { rotateBoard, rotatedDims } from "./rotate.js";
 import { EDGE_NONE, EDGE_WALL, EDGE_DOOR } from "./edges.js";
 import { DC, DR, N, E, S, W } from "./dir.js";
@@ -210,4 +213,137 @@ export function dockBox(course, library, bounds) {
 
 export function inBox(box, c, r) {
   return !!box && c >= box.x0 && c <= box.x1 && r >= box.y0 && r <= box.y1;
+}
+
+
+/* --- flags ------------------------------------------------------------------
+ * A BOARD says where a flag MAY go. A COURSE says where the flags ARE.
+ *
+ * Those are different jobs and both are real. A board's flag locations are the
+ * squares its designer is willing to see raced to -- somewhere a robot can come
+ * to rest, not in a corner, not under a ram. A course's flags are the ones this
+ * particular race uses, and a premade course sets them by hand.
+ *
+ * What the marks are FOR is the suggestion: when the computer offers a set, it
+ * picks from the marked squares rather than from anywhere on the floor, so an
+ * offered course cannot put a flag somewhere the board's author would not have.
+ */
+
+/**
+ * Why this square cannot take a flag, or null when it can.
+ * ONE DEFINITION, used by the validator and by the suggester -- a suggester
+ * working to looser rules than the validator would offer sets the validator
+ * then refuses, which is the worst of both.
+ */
+export function flagRefusal(course, library, asm, c, r) {
+  const { grid, from, bounds } = asm;
+  if (!inBoard(grid, c, r) || isVoid(grid, c, r)) {
+    return { code: "course.flagOffCourse", why: "off the course" };
+  }
+  /* The starting block first: a square inside it is refused whatever else is
+   * true of it, and "inside the starting block" is the reason worth reading. */
+  if (inBox(dockBox(course, library, bounds), c, r)) {
+    return { code: "course.flagInDock", why: "inside the starting block" };
+  }
+  const def = elementAt(grid, c, r);
+  if (!def || def.key !== "floor") {
+    return { code: "course.flagNotFloor",
+      why: "on " + (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor" };
+  }
+  for (const dev of grid.wallDevices) {
+    const cell = deviceCell(dev);
+    if (cell && cell[0] === c && cell[1] === r) {
+      return { code: "course.flagUnderDevice", why: "sharing its square with something bolted to a wall" };
+    }
+  }
+  const local = boardLocal(course, library, from, bounds, grid.w, c, r);
+  if (inBoardCorner(local)) {
+    return { code: "course.flagInCorner",
+      why: "the very corner of " + (local ? JSON.stringify(local.boardId) : "its board") };
+  }
+  return null;
+}
+
+/** Every marked flag location on the assembled course that a flag could use. */
+export function usableFlagSpots(course, library, asm) {
+  const a = asm || assemble(course, library);
+  return flagSpots(a.grid)
+    .filter(s => !flagRefusal(course, library, a, s.c, s.r))
+    .map(s => {
+      const local = boardLocal(course, library, a.from, a.bounds, a.grid.w, s.c, s.r);
+      return { c: s.c, r: s.r, stamp: local ? local.index : -1, board: local ? local.boardId : null };
+    });
+}
+
+const dist = (a, b) => Math.max(Math.abs(a.c - b.c), Math.abs(a.r - b.r));
+
+/** The square a race starts from: the middle of the docking bay, or the course. */
+function startPoint(course, library, asm) {
+  const box = dockBox(course, library, asm.bounds);
+  if (box) return { c: (box.x0 + box.x1) / 2, r: (box.y0 + box.y1) / 2 };
+  return { c: (asm.grid.w - 1) / 2, r: (asm.grid.h - 1) / 2 };
+}
+
+/**
+ * Offer a set of flags, CHOSEN FROM WHAT THE BOARDS MARK.
+ *
+ * `perBoard` takes one from each board that marks any, which is the shape a
+ * multi-board race usually wants. Otherwise it takes `count`, spread as far
+ * apart as the marks allow -- greedily maximising the distance to whatever is
+ * already chosen, which is how you get a race that crosses the course rather
+ * than three flags in one corner.
+ *
+ * The ORDER is then a route: nearest-unvisited from the starting block onward.
+ * Choosing the spread and ordering it are different questions, and doing them
+ * in one pass gives you a set that is either badly spread or badly ordered.
+ */
+export function suggestFlags(course, library, opts = {}) {
+  const asm = opts.asm || assemble(course, library);
+  const spots = usableFlagSpots(course, library, asm);
+  if (!spots.length) return [];
+
+  const count = Math.max(1, opts.count === undefined ? 3 : opts.count);
+  let chosen = [];
+
+  if (opts.perBoard) {
+    /* one from each board that marks any, taking the spot furthest from the
+     * start on each so the race is not decided by which square was listed first */
+    const start = startPoint(course, library, asm);
+    const byStamp = new Map();
+    for (const s of spots) {
+      const cur = byStamp.get(s.stamp);
+      if (!cur || dist(s, start) > dist(cur, start)) byStamp.set(s.stamp, s);
+    }
+    chosen = [...byStamp.values()];
+  } else {
+    const start = startPoint(course, library, asm);
+    /* first the one furthest from the start, then each one maximising the
+     * distance to the nearest already chosen */
+    let best = spots[0];
+    for (const s of spots) if (dist(s, start) > dist(best, start)) best = s;
+    chosen = [best];
+    while (chosen.length < count && chosen.length < spots.length) {
+      let pick = null, pickD = -1;
+      for (const s of spots) {
+        if (chosen.some(x => x.c === s.c && x.r === s.r)) continue;
+        const d = Math.min(...chosen.map(x => dist(x, s)));
+        if (d > pickD) { pickD = d; pick = s; }
+      }
+      if (!pick) break;
+      chosen.push(pick);
+    }
+  }
+
+  /* order them into a route from the starting block */
+  const start = startPoint(course, library, asm);
+  const left = chosen.slice();
+  const order = [];
+  let at2 = start;
+  while (left.length) {
+    let i = 0;
+    for (let k = 1; k < left.length; k++) if (dist(left[k], at2) < dist(left[i], at2)) i = k;
+    at2 = left[i];
+    order.push(left.splice(i, 1)[0]);
+  }
+  return order.map(s => [s.c, s.r]);
 }

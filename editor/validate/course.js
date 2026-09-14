@@ -15,7 +15,7 @@
 
 import {
   COURSE_FORMAT, COURSE_VERSION, ROLES, assemble, courseBounds, stampFootprint,
-  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner
+  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal
 } from "../lib/course.js";
 import { checkBelts } from "./board.js";
 import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
@@ -244,47 +244,13 @@ function checkFlags(course, library, grid, from, bounds, d) {
     }
     seen.set(key, n);
 
-    const def = elementAt(grid, c, r);
-    if (!def || def.key !== "floor") {
-      /* Structural, not ruleset-specific: a flag has to be somewhere a robot can
-       * come to rest, and plain floor is the only square that is true of under
-       * either set of rules.
-       *
-       * A square MARKED with a wrench, an upgrade or a battery is still plain
-       * floor and still takes a flag -- those are markings on the square, not
-       * the square itself, and a flag sitting on one is exactly the sort of
-       * place worth racing to. This used to be refused, back when a repair site
-       * was an element. */
-      d.error("course.flagNotFloor", "Flag " + n + " at " + at(c, r) + " is on " +
-        (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor.", at(c, r), ptr);
-    }
-    if (inBox(box, c, r)) {
-      d.error("course.flagInDock", "Flag " + n + " at " + at(c, r) + " is inside the starting block.", at(c, r), ptr);
-    }
-    for (const dev of grid.wallDevices) {
-      const cell = deviceCell(dev);
-      if (cell && cell[0] === c && cell[1] === r) {
-        d.error("course.flagUnderDevice", "Flag " + n + " at " + at(c, r) + " shares its square with a " +
-          DEVICE_KINDS[dev.kind].name.toLowerCase() + ".", at(c, r), ptr);
-        break;
-      }
-    }
-    const local = boardLocal(course, library, from, bounds, grid.w, c, r);
-    if (inBoardCorner(local)) {
-      d.error("course.flagInCorner", "Flag " + n + " at " + at(c, r) + " is the very corner of " +
-        JSON.stringify(local.boardId) + " (its own " + at(local.c, local.r) + " of " +
-        local.w + "x" + local.h + ").", at(c, r), ptr);
-    }
-    /* A WARNING, and deliberately so. Northrup's twelve is a CLASSIC rulebook
-     * heuristic about race length; the modern books state no equivalent. This
-     * editor does not know which ruleset a course will be played under -- that
-     * is the engine's business -- so a guideline from one of them is advice,
-     * not a refusal.
-     *
-     * Chebyshev, not Manhattan: "within twelve" means twelve in any direction,
-     * a reach of one board's span, not twelve steps of travel. Measured
-     * Manhattan it flags eleven of the nineteen shipped courses, which is how
-     * the distinction was found -- the author placed those flags by this rule. */
+    /* ONE DEFINITION of where a flag may stand, shared with the suggester in
+     * lib/course.js. A suggester working to looser rules than the validator
+     * would offer sets the validator then refuses, which is the worst of both;
+     * a stricter one would refuse squares a person is allowed to use. */
+    const bad = flagRefusal(course, library, { grid, from, bounds }, c, r);
+    if (bad) d.error(bad.code, "Flag " + n + " at " + at(c, r) + " is " + bad.why + ".", at(c, r), ptr);
+
     if (prev && FLAG_GAP_GUIDE !== null) {
       const gap = Math.max(Math.abs(c - prev[0]), Math.abs(r - prev[1]));
       if (gap > FLAG_GAP_GUIDE) {

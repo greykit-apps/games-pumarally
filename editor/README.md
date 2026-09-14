@@ -196,6 +196,37 @@ change.
 
 ---
 
+## Boards mark where a flag *may* go; courses say where the flags *are*
+
+Those are different jobs and both are real.
+
+A board's **flag locations** are the squares its designer is willing to see raced
+to — somewhere a robot can come to rest, not in a corner, not under a ram. They
+are a `flagspot` site, so they stack with a wrench, an upgrade or a battery,
+because those are exactly the squares worth racing to.
+
+A course's **flags** are the ones this particular race uses. Premade courses set
+them by hand, and so can you.
+
+What the marks are *for* is the **suggestion**. When the computer offers a set it
+picks from the marked squares rather than from anywhere on the floor, so an
+offered course cannot put a flag somewhere the board's author would not have.
+The course workshop offers three, four or five, or one per board — one from each
+board that marks any, and it says which boards marked none rather than quietly
+coming back short.
+
+**One definition of where a flag may stand**, `flagRefusal()` in `lib/course.js`,
+used by the validator *and* the suggester. A suggester working to looser rules
+than the validator would offer sets the validator then refuses; a stricter one
+would refuse squares a person is allowed to use by hand. `check-app` asserts every
+offered flag is both marked by a board and accepted by the validator.
+
+A course **warns** when the boards it lays mark fewer than five between them: a
+race uses about three, and five or six leaves the engine something to choose
+between so the same course does not run identically every time. A guideline, so
+a warning — and every shipped course trips it today, because no board is marked
+yet.
+
 ## A course is a list of placements
 
 ```json

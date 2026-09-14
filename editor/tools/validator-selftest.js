@@ -259,7 +259,7 @@ const COURSE_CASES = [
   ["course.noFlags", c => { c.flags = []; }],
   ["course.flagOffCourse", c => { c.flags[0] = [99, 99]; }],
   ["course.flagNotFloor", c => { c.flags[0] = [1, 3]; }],           // the fixture's pit
-  ["course.flagInDock", c => { c.flags[0] = [4, 13]; }],
+  ["course.flagInDock", c => { c.flags[0] = [0, 13]; }],   // floor, and inside the block
   ["course.flagUnderDevice", c => { c.flags[0] = [2, 9]; }],   // the pusher stands there        // the fixture's pusher
   ["course.flagInCorner", c => {
     c.stamps.push({ role: "board", board: "small", rot: 0, at: [12, 0] });

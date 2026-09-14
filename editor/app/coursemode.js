@@ -8,7 +8,10 @@
 
 import { injectCSS } from "./style.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, cellRect } from "./view.js";
-import { assemble, stampFootprint, stampDims, dockStamp, dockBox, courseBounds } from "../lib/course.js";
+import {
+  assemble, stampFootprint, stampDims, dockStamp, dockBox, courseBounds,
+  suggestFlags, usableFlagSpots
+} from "../lib/course.js";
 import {
   newCourse, place, turn, remove, moveStamp, stampAt, nearestSnap, normalise,
   addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit
@@ -251,8 +254,24 @@ export async function mountCourse(root, wanted) {
         '<button data-act="drop">Take off</button></div>';
     }
 
+    /* WHAT THE BOARDS MARK, and what this race uses. A board says where a flag
+     * MAY go; a course says where the flags ARE. Premade courses set them by
+     * hand and so can you -- the marks are what the computer chooses from when
+     * you ask it to offer a set, so an offer cannot put a flag somewhere the
+     * board's author would not have. */
+    const spots = asm ? usableFlagSpots(st.course, library, asm) : [];
     html += "<h3>Flags, in race order</h3>";
-    if (!st.course.flags.length) html += '<p class="none">None yet. Pick the flag tool and click a floor square.</p>';
+    html += '<div class="row"><span class="none">' +
+      (spots.length
+        ? spots.length + " square" + (spots.length === 1 ? " is" : "s are") + " marked as possible flag locations."
+        : "No board here marks a flag location, so there is nothing to choose from.") +
+      "</span></div>";
+    html += '<div class="row"><label>Suggest</label>' +
+      [3, 4, 5].map(n => '<button data-suggest="' + n + '"' + (spots.length ? "" : " disabled") +
+        '>' + n + "</button>").join("") +
+      '<button data-suggest="each"' + (spots.length ? "" : " disabled") +
+      '" title="one from each board that marks any">one per board</button></div>';
+    if (!st.course.flags.length) html += '<p class="none">None yet. Pick the flag tool and click a floor square, or ask for a suggestion.</p>';
     else {
       html += '<ul class="flaglist">';
       st.course.flags.forEach(([c, r], i) => {
@@ -386,6 +405,28 @@ export async function mountCourse(root, wanted) {
     if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
     if (d.handrot !== undefined) { st.handRot = +d.handrot; refresh(); return; }
     if (d.view !== undefined) { st.mode = d.view; refresh(); return; }
+    if (d.suggest !== undefined) {
+      const opts = d.suggest === "each" ? { perBoard: true } : { count: +d.suggest };
+      const offer = suggestFlags(st.course, library, { ...opts, asm });
+      if (!offer.length) { say("Nothing here is marked as a flag location.", "bad"); return; }
+      st.course.flags = offer;
+      refresh();
+      /* One per board means one from each board that MARKS any, so the count
+       * can come back lower than the number of boards down -- and when it does,
+       * saying which boards had nothing to offer is the actionable half. */
+      const boards = st.course.stamps.filter(x => x.role === "board");
+      const marked = new Set(usableFlagSpots(st.course, library, asm).map(x => x.board));
+      const bare = boards.filter(x => !marked.has(x.board));
+      say("Offered " + offer.length + " flag" + (offer.length === 1 ? "" : "s") +
+        ", chosen from what the boards mark." +
+        (bare.length
+          ? " " + bare.map(x => library.get(x.board).name).join(" and ") +
+            " mark" + (bare.length === 1 ? "s" : "") + " none, so nothing was taken from " +
+            (bare.length === 1 ? "it" : "them") + "."
+          : "") +
+        " Move or replace any of them.", "ok");
+      return;
+    }
     if (d.seats !== undefined) { st.course.maxPlayers = +d.seats; refresh(); return; }
     if (d.flagup !== undefined) { moveFlag(st.course, +d.flagup, +d.flagup - 1); refresh(); return; }
     if (d.flagdown !== undefined) { moveFlag(st.course, +d.flagdown, +d.flagdown + 1); refresh(); return; }
