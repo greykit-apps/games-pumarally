@@ -798,13 +798,20 @@
     out.push("    " + id + ": {");
     var edition = meta.edition || g.edition || "classic";
     var set = meta.set || g.set || "authored";
-    out.push('      name: "' + name + '", w: ' + g.w + ", h: " + g.h +
+    /* A BOARD'S PRINTED NAME CAN CONTAIN A QUOTE, and until The "O" Ring
+       none did. Unescaped, the export produced `name: "The "O" Ring"` and
+       the file would not parse -- and because formatBoard is what the round
+       trip compares against, the board that triggers it is refused with
+       "does not reproduce its own source" rather than with anything about
+       quotes. Notes take the same treatment for the same reason. */
+    var esc = function (t) { return String(t).replace(/\\/g, "\\\\").replace(/"/g, '\\"'); };
+    out.push('      name: "' + esc(name) + '", w: ' + g.w + ", h: " + g.h +
              ', edition: "' + edition + '", set: "' + set + '", origin: "' + origin + '",');
     /* A board still being checked against its photograph says so in its
        own data, and the exporter has to carry that across or the round
        trip drops the one field that keeps it out of a race. */
     if (meta.unverified !== undefined ? meta.unverified : g.unverified) out.push("      unverified: true,");
-    if (notes) out.push('      notes: "' + notes + '",');
+    if (notes) out.push('      notes: "' + esc(notes) + '",');
     out.push("      pic: [");
     for (i = 0; i < pic.length; i++) out.push('        "' + pic[i] + '"' + (i === pic.length - 1 ? "" : ","));
     out.push("      ],");
@@ -2329,6 +2336,71 @@
         { c: 8, r: 8, d: "W", regs: [1, 3] }
       ]
     },
+    oRing: {
+      name: "The \"O\" Ring", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+      pic: [
+        "+  +  +--+  +--+  +  +--+  +--+  +  +",
+        " .. bv .. .. .. Bv|.. .. bv .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. bv r. .. E. Bv .. .. b> bv o. l. ",
+        "+  +  +  +--+  +  +--+  +--+  +  +  +",
+        "|.. bv .. .. Bv B< .. .. bv b< E. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b> bv|.. L. L. L. L. L. L. ..|.. .. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        "|.. bv .. L. .. .. .. .. L. .. .. .. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        " .. bv .. L. ..|..|.. .. L. b< b< b< ",
+        "+--+  +  +  +  +  +  +  +  +  +  +--+",
+        " b> bv .. L. .. ..|..|.. L. .. .. .. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        "|.. b> b> L. .. .. .. .. L. B< B< .. ",
+        "+  +  +  +  +--+  +  +--+  +  +  +  +",
+        " .. ..|.. L. L. L. L. L. L. ..|B^ B^ ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        "|.. .. E. .. .. b^ .. .. .. .. B^ .. ",
+        "+  +  +  +--+  +  +--+  +--+  +  +  +",
+        " r. o. .. b> b> b^ .. l. .. E. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. b^ .. ..|.. .. .. .. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: []
+      ,
+      merges: [
+        { c: 8, r: 1, in: "N" },
+        { c: 9, r: 1, in: "W" },
+        { c: 4, r: 2, in: "E" },
+        { c: 5, r: 2, in: "N" },
+        { c: 8, r: 2, in: "E" },
+        { c: 9, r: 2, in: "N" },
+        { c: 1, r: 7, in: "N" },
+        { c: 10, r: 7, in: "S" },
+        { c: 3, r: 10, in: "S" },
+        { c: 5, r: 10, in: "W" }
+      ]
+      ,
+      pushers: [
+        { c: 3, r: 2, d: "S", regs: [2, 4] },
+        { c: 8, r: 2, d: "S", regs: [1, 5] },
+        { c: 2, r: 3, d: "E", regs: [1, 5] },
+        { c: 10, r: 3, d: "E", regs: [1, 5] },
+        { c: 2, r: 8, d: "E", regs: [2, 4] },
+        { c: 10, r: 8, d: "E", regs: [2, 4] },
+        { c: 3, r: 9, d: "N", regs: [2, 4] },
+        { c: 8, r: 9, d: "N", regs: [1, 3, 5] }
+      ]
+      ,
+      flamers: [
+        { c: 4, r: 4, regs: [2, 4] },
+        { c: 7, r: 4, regs: [3, 5] },
+        { c: 5, r: 5, regs: [1, 3] },
+        { c: 6, r: 6, regs: [2, 5] },
+        { c: 4, r: 7, regs: [1, 2] },
+        { c: 7, r: 7, regs: [4, 5] }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2477,6 +2549,17 @@
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       /* AUTHORED, like every quick game's -- see stepsRun. */
       flags: [[1, 9], [6, 6], [9, 2]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    oRingRun: {
+      name: "The \"O\" Ring",
+      kind: "quick",
+      blurb: "A ring of oil round six flamers, and eight push panels on the rim.",
+      boards: [{ id: "oRing", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[1, 9], [6, 6], [10, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
