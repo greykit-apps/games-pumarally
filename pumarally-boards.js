@@ -2117,6 +2117,67 @@
         { c: 6, r: 10, d: "W", regs: [2, 4] }
       ]
     },
+    inAndOut: {
+      name: "In & Out", w: 12, h: 12, edition: "modern", set: "modernUnfiled", origin: "transcribed",
+      notes: "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+      pic: [
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. Bv .. B^ .. bv .. .. .. .. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. Bv .. B^ .. bv Bv B< B< B< B< B< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. Bv .. B^ .. bv Bv .. E.|.. .. .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. Bv E. B^ .. bv|B> B> B> B> B> B> ",
+        "+  +  +  +  +  +  +--+  +  +  +  +  +",
+        " .. Bv .. B^ .. bv .. .. bv b< b< b< ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " b< B> B> B^|bv b< .. bv b< .. .. b^ ",
+        "+  +  +  +--+  +  +  +  +--+  +  +  +",
+        " b^ b< b< bv b< .. .. bv|Bv B< B< .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. b^ b< .. .. .. bv Bv .. B^ .. ",
+        "+  +  +  +  +  +--+  +  +  +  +  +  +",
+        " B< B< B< B< B< B<|bv b< Bv E. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. E. .. B^ bv .. Bv .. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " B> B> B> B> B> B^ bv .. Bv .. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +",
+        " .. .. .. .. .. bv b< .. Bv .. B^ .. ",
+        "+  +  +  +  +  +  +  +  +  +  +  +  +"
+      ],
+      lasers: []
+      ,
+      merges: [
+        { c: 6, r: 1, in: "E" },
+        { c: 6, r: 3, in: "N" },
+        { c: 8, r: 4, in: "E" },
+        { c: 11, r: 4, in: "S" },
+        { c: 0, r: 5, in: "S" },
+        { c: 1, r: 5, in: "N" },
+        { c: 3, r: 5, in: "W" },
+        { c: 4, r: 5, in: "E" },
+        { c: 5, r: 5, in: "N" },
+        { c: 7, r: 5, in: "E" },
+        { c: 8, r: 5, in: "N" },
+        { c: 11, r: 5, in: "E" },
+        { c: 0, r: 6, in: "E" },
+        { c: 2, r: 6, in: "S" },
+        { c: 3, r: 6, in: "E" },
+        { c: 4, r: 6, in: "N" },
+        { c: 8, r: 6, in: "E" },
+        { c: 10, r: 6, in: "S" },
+        { c: 2, r: 7, in: "E" },
+        { c: 3, r: 7, in: "N" },
+        { c: 5, r: 8, in: "S" },
+        { c: 6, r: 8, in: "E" },
+        { c: 7, r: 8, in: "N" },
+        { c: 5, r: 10, in: "W" },
+        { c: 5, r: 11, in: "E" },
+        { c: 6, r: 11, in: "N" }
+      ]
+    },
 
     dockingBay: {
       name: "Docking Bay", w: 12, h: 4, edition: "both", set: "authored", origin: "authored",
@@ -2232,6 +2293,17 @@
       dock: { id: "dockingBay", rot: 0, at: [0, 12] },
       /* AUTHORED, like every quick game's -- see stepsRun. */
       flags: [[0, 9], [5, 7], [9, 0]],
+      minPlayers: 2, maxPlayers: 8
+    },
+
+    inAndOutRun: {
+      name: "In & Out",
+      kind: "quick",
+      blurb: "All belt, no floor to speak of: twenty-nine green and fifty-two blue.",
+      boards: [{ id: "inAndOut", rot: 0, at: [0, 0] }],
+      dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+      /* AUTHORED, like every quick game's -- see stepsRun. */
+      flags: [[1, 9], [6, 6], [10, 0]],
       minPlayers: 2, maxPlayers: 8
     },
 
