@@ -102,9 +102,16 @@ rotation and a head there would compete with it. `render-snapshot.js` asserts th
 seven shapes draw seven different things in both modes, and that a curve never
 draws the same path as a straight.
 
-**Arms can be changed where the belt stands.** Pick up the select tool, click a
-belt, and toggle *Behind*, *From the left*, *From the right*. Re-laying it would
-lose the facing, and on a square with something on it, more than that. Relative arms are rotation-invariant —
+**Arms can be changed where the belt stands**, on the same seven buttons you
+picked the shape with before laying it. Select tool, click a belt, click a shape
+— the board redraws on the click and the validator runs on it. Re-laying the belt
+instead would lose the facing, and on a square with something on it, more than
+that.
+
+The rail's *in hand* panel and the selected-square panel are built from the same
+rows, so learning the control once is enough. The hand and a selection are
+mutually exclusive: picking a tool means you are about to lay something,
+selecting a square means you are fixing what is there. Relative arms are rotation-invariant —
 the exit turns and the arms follow — where the old absolute spelling had to be
 remapped on every quarter-turn.
 

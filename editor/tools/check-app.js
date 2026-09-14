@@ -7,7 +7,7 @@
 
 import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
-import { N, E, S, W, opposite, DC, DR } from "../lib/dir.js";
+import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
   apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge,
   setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField
@@ -228,6 +228,58 @@ const fresh = (w = 8, h = 8) =>
   eq(levelAt(b, 2, 2), 1, "level: it took");
   ok(erase(b, st, 2, 2).changed, "level: erasing lowers it");
   eq(levelAt(b, 2, 2), 0, "level: back to zero");
+}
+
+/* --- one control, whichever end you are at ------------------------------------
+ * The rail's "in hand" panel and the selected-square panel are built from the
+ * same rows, so the shape you pick before laying a belt and the shape you fix
+ * afterwards are the same seven buttons with the same wording. There used to be
+ * two vocabularies -- seven shape characters in one place, three arm toggles in
+ * the other -- and which you got depended on whether you were about to lay a
+ * belt or repair one.
+ *
+ * The rows are built in panels.js, which touches the DOM; what is testable here
+ * is that the OPERATIONS behind them line up, so the same click means the same
+ * thing at both ends. */
+{
+  const b = fresh();
+  const st = blankToolState();
+
+  /* laying with a shape in hand, and fixing to that shape afterwards, must
+   * arrive at exactly the same square */
+  for (const arm of ["l", "r", "L", "R", "x", "X", "."]) {
+    const laid = fresh();
+    const hand = blankToolState();
+    hand.tool = "el:conveyor"; hand.dir = E; hand.arms = arm;
+    apply(laid, hand, 2, 2);
+
+    const fixed = fresh();
+    const plain = blankToolState();
+    plain.tool = "el:conveyor"; plain.dir = E; plain.arms = ".";
+    apply(fixed, plain, 2, 2);
+    setArms(fixed, 2, 2, arm);
+
+    eq(cellAt(fixed, 2, 2), cellAt(laid, 2, 2),
+       "one control: laying with shape " + JSON.stringify(arm) + " and fixing to it agree");
+  }
+
+  /* and the same for facing */
+  for (const d of [N, E, S, W]) {
+    const laid = fresh();
+    const hand = blankToolState();
+    hand.tool = "el:conveyor"; hand.dir = d; hand.arms = "l";
+    apply(laid, hand, 2, 2);
+
+    const fixed = fresh();
+    const plain = blankToolState();
+    plain.tool = "el:conveyor"; plain.dir = N; plain.arms = "l";
+    apply(fixed, plain, 2, 2);
+    const now = "^>v<".indexOf(cellAt(fixed, 2, 2).charAt(1));
+    turnHere(fixed, 2, 2, (d - now + 4) % 4);
+
+    eq(cellAt(fixed, 2, 2), cellAt(laid, 2, 2),
+       "one control: laying facing " + dirLetter(d) + " and turning to it agree");
+  }
 }
 
 /* --- editing what is already down ---------------------------------------------

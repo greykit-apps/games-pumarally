@@ -13,7 +13,7 @@ import {
 } from "./tools.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
 import { renderRail, renderInspector, renderDiagnostics } from "./panels.js";
-import { blankBoard, cloneBoard, boardFromDocument } from "../lib/board.js";
+import { blankBoard, cloneBoard, boardFromDocument, levelAt, setLevel } from "../lib/board.js";
 import { boardJSON } from "../lib/canon.js";
 import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
@@ -280,9 +280,15 @@ export function mount(root) {
 
   root.addEventListener("click", ev => {
     const b = ev.target.closest("button");
-    if (b && b.dataset.tool) { st.hand.tool = b.dataset.tool; refresh({ board: false }); return; }
+    if (b && b.dataset.tool) {
+      st.hand.tool = b.dataset.tool;
+      st.sel = null;                  // picking a tool means laying, not fixing
+      refresh({ board: false });
+      return;
+    }
     if (b) {
       const d = b.dataset;
+      /* THE HAND. These only ever appear when nothing is selected. */
       if (d.dir !== undefined) { st.hand.dir = +d.dir; refresh({ board: false }); return; }
       if (d.digit !== undefined) { st.hand.digit = +d.digit; refresh({ board: false }); return; }
       if (d.pair !== undefined) { st.hand.pair = +d.pair; refresh({ board: false }); return; }
@@ -291,27 +297,55 @@ export function mount(root) {
       if (d.damage !== undefined) { st.hand.damage = +d.damage; refresh({ board: false }); return; }
       if (d.reach !== undefined) { st.hand.reach = +d.reach; refresh({ board: false }); return; }
       if (d.reg !== undefined) { toggleReg(+d.reg); return; }
-      if (d.view !== undefined) { setMode(d.view); return; }
-      if (d.arm !== undefined) { change(() => toggleArm(st.board, st.sel.c, st.sel.r, d.arm)); return; }
-      if (d.turnto !== undefined) { change(() => faceTo(+d.turnto)); return; }
-      if (d.devface !== undefined) { change(() => devFace(d.devface)); return; }
-      if (d.devfield !== undefined) { change(() => devField(d.devfield)); return; }
-      if (d.devreg !== undefined) { change(() => devReg(d.devreg)); return; }
-      if (d.ceilreg !== undefined) { change(() => ceilReg(d.ceilreg)); return; }
+
+      /* THE SELECTED SQUARE, on the same rows. Every one of these writes to the
+       * board at once -- the drawing is the feedback, so there is no apply step
+       * and nothing to confirm. */
+      if (d.seldir !== undefined) { change(() => faceTo(+d.seldir)); return; }
+      if (d.selarms !== undefined) { change(() => setArms(st.board, st.sel.c, st.sel.r, d.selarms)); return; }
+      if (d.seldigit !== undefined) { change(() => setArg(String(d.seldigit))); return; }
+      if (d.selpair !== undefined) { change(() => setArg(String(d.selpair))); return; }
+      if (d.sellevel !== undefined) { change(() => setLevelHere(+d.sellevel)); return; }
       if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
       if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
-      if (d.metaToggle !== undefined) {
-        const token = mark(st);
-        st.board[d.metaToggle] = !st.board[d.metaToggle];
-        keep(st, token);
-        refresh({ board: false });
-        return;
-      }
+
+      /* A placed device's own rows, prefixed with which one it is. */
+      const dev = /^(wd|cd)(\d+)-(.+)$/.exec(Object.keys(d).find(k => /^(wd|cd)\d+-/.test(k)) || "");
+      if (dev) { change(() => devRow(dev[1], +dev[2], dev[3], d[dev[0] + dev[2] + "-" + dev[3]])); return; }
+
       if (d.act) { act(d.act); return; }
     }
     const li = ev.target.closest("li[data-goto]");
     if (li) goTo(li.dataset.goto);
   });
+
+  /* Set a placed element's argument character -- a bay number or a pair colour. */
+  function setArg(ch) {
+    const tok = st.board.cells[st.sel.r * st.board.w + st.sel.c];
+    if (tok.charAt(1) === ch) return { ok: true, changed: false };
+    st.board.cells[st.sel.r * st.board.w + st.sel.c] = tok.charAt(0) + ch + tok.charAt(2);
+    return { ok: true, changed: true, note: "Set to " + ch + " at (" + st.sel.c + "," + st.sel.r + ")." };
+  }
+
+  function setLevelHere(n) {
+    if (levelAt(st.board, st.sel.c, st.sel.r) === n) return { ok: true, changed: false };
+    setLevel(st.board, st.sel.c, st.sel.r, n);
+    return { ok: true, changed: true, note: "Level " + n + " at (" + st.sel.c + "," + st.sel.r + ")." };
+  }
+
+  /** One row of a placed device: its facing, a numeric field, or a register. */
+  function devRow(layer, i, key, value) {
+    const d = selected();
+    if (!d) return { ok: false, why: "Nothing selected." };
+    const dev = layer === "wd" ? d.wallDevices[i] : d.ceiling[i];
+    if (!dev) return { ok: false, why: "Nothing there." };
+    if (key === "face") {
+      if (dev.face === +value) return { ok: true, changed: false };
+      return turnHere(st.board, st.sel.c, st.sel.r, (+value - dev.face + 4) % 4, dev);
+    }
+    if (key === "reg") return setDeviceRegs(dev, flip(dev.regs, +value));
+    return setDeviceField(dev, key, +value);
+  }
 
   /* Turning a placed element to an absolute facing rather than by quarters:
    * the panel shows four compass buttons, and clicking one should mean that
@@ -442,6 +476,7 @@ export function mount(root) {
       case "picture": showText("The board as a picture", toPicture(st.board)); break;
       case "import": jsonIn.click(); break;
       case "new": newBoard(); break;
+      case "deselect": st.sel = null; refresh({ board: false }); break;
     }
   }
 

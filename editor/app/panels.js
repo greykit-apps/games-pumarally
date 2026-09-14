@@ -65,6 +65,66 @@ export function renderRail(el, st, isCourse) {
   el.innerHTML = html;
 }
 
+/* ONE CONTROL, WHEREVER IT APPEARS.
+ *
+ * There used to be two interfaces for the same properties: the rail's "in hand"
+ * panel offered a facing picker and seven shape buttons, and selecting a placed
+ * belt offered three arm toggles and a differently-worded facing row. Same
+ * facts, two vocabularies, and the one you got depended on whether you were
+ * about to lay a belt or fix one. These rows are built once and pointed at
+ * either target, so learning the control once is enough.
+ */
+function btnRow(label, opts, attr, isOn) {
+  return '<div class="row"><label>' + esc(label) + "</label>" +
+    opts.map(o => '<button data-' + attr + '="' + esc(String(o.v)) + '"' +
+      ' aria-pressed="' + (isOn(o.v) ? "true" : "false") + '"' +
+      (o.title ? ' title="' + esc(o.title) + '"' : "") + ">" + esc(o.label) + "</button>").join("") +
+    "</div>";
+}
+
+const DIR_OPTS = [N, E, S, W].map(d => ({ v: d, label: dirLetter(d) }));
+const ARM_OPTS = ARM_CHARS.map(a => ({ v: a, label: a, title: ARM_NAMES[a] }));
+const nOpts = (lo, hi) => { const o = []; for (let v = lo; v <= hi; v++) o.push({ v, label: String(v) }); return o; };
+
+/**
+ * The property rows for one thing, whether it is in your hand or already on the
+ * board. `t` says what it supports and what it currently is; `p` prefixes the
+ * data attributes so the caller knows where a click should land.
+ */
+function propRows(t, p) {
+  let html = "";
+  if (t.dir !== undefined) html += btnRow("Facing", DIR_OPTS, p + "dir", v => v === t.dir);
+  if (t.arms !== undefined) {
+    html += btnRow("Shape", ARM_OPTS, p + "arms", v => v === t.arms);
+    html += '<div class="row"><span class="none">' + esc(ARM_NAMES[t.arms] || "") +
+      " &mdash; printed data, never guessed from the neighbours</span></div>";
+  }
+  if (t.digit !== undefined) html += btnRow("Bay", nOpts(1, 8), p + "digit", v => v === t.digit);
+  if (t.pair !== undefined) html += btnRow("Colour", nOpts(1, 4), p + "pair", v => v === t.pair);
+  if (t.level !== undefined) html += btnRow("Level", nOpts(0, 3), p + "level", v => v === t.level);
+  return html;
+}
+
+/** The rows for one device, in hand or placed. Same builder, same wording. */
+function deviceRows(def, dev, p) {
+  let html = "";
+  if (def.faced && dev.face !== undefined) {
+    html += btnRow("Facing", DIR_OPTS, p + "face", v => v === dev.face);
+  }
+  for (const [key, spec] of Object.entries(def.fields)) {
+    const cur = dev[key] === undefined ? (spec.default === undefined ? spec.min : spec.default) : dev[key];
+    html += btnRow(key.charAt(0).toUpperCase() + key.slice(1), nOpts(spec.min, spec.max), p + key, v => v === cur);
+  }
+  if (def.regs !== REGS_NONE) {
+    const regs = dev.regs && dev.regs.length ? dev.regs : null;
+    html += btnRow("Registers", REGISTERS.map(v => ({ v, label: String(v) })), p + "reg",
+      v => !regs || regs.indexOf(v) >= 0);
+    html += '<div class="row"><span class="none">Fires in ' + esc(describeRegs(regs)) +
+      (def.regs === "required" ? "." : ". Lighting all five means every register.") + "</span></div>";
+  }
+  return html;
+}
+
 export function renderInspector(el, st, hover, isCourse) {
   const tool = toolByKey(st.hand.tool);
 
@@ -114,122 +174,66 @@ export function renderInspector(el, st, hover, isCourse) {
                       : "solid art, as the board is played") + '">' + label + "</button>").join("") +
     '<span class="hot">`</span></div>';
 
-  html += "<h3>In hand</h3>";
-  if (!tool) html += '<p class="none">Nothing.</p>';
-  else {
-    html += '<div class="row"><span class="pill">' + esc(tool.label) + "</span></div>";
-    const needsDir = tool.kind === "wall" || tool.kind === "device" ||
-      (tool.kind === "ground" && tool.arg === ARG_DIR);
-    if (needsDir) {
-      html += '<div class="row"><label>Facing</label>' +
-        [N, E, S, W].map(d => '<button data-dir="' + d + '" aria-pressed="' + (st.hand.dir === d) +
-          '">' + dirLetter(d) + "</button>").join("") + "</div>";
-    }
-    if (tool.kind === "ground" && tool.arg === ARG_DIGIT) {
-      html += '<div class="row"><label>Bay</label>' +
-        [1, 2, 3, 4, 5, 6, 7, 8].map(n => '<button data-digit="' + n + '" aria-pressed="' +
-          (st.hand.digit === n) + '">' + n + "</button>").join("") + "</div>";
-    }
-    if (tool.kind === "ground" && tool.arg === ARG_PAIR) {
-      html += '<div class="row"><label>Colour</label>' +
-        [1, 2, 3, 4].map(n => '<button data-pair="' + n + '" aria-pressed="' +
-          (st.hand.pair === n) + '">' + n + "</button>").join("") + "</div>";
-    }
-    if (tool.kind === "ground" && ELEMENTS[tool.element] && ELEMENTS[tool.element].props.belt) {
-      html += '<div class="row"><label>Shape</label>' +
-        ARM_CHARS.map(a => '<button data-arms="' + a + '" aria-pressed="' + (st.hand.arms === a) +
-          '" title="' + esc(ARM_NAMES[a]) + '">' + a + "</button>").join("") + "</div>";
-      html += '<div class="row"><span class="none">' + esc(ARM_NAMES[st.hand.arms]) +
-        ' &mdash; printed data, never guessed from the neighbours</span></div>';
-    }
-    if (tool.kind === "level") {
-      html += '<div class="row"><label>Level</label>' +
-        [1, 2, 3].map(n => '<button data-level="' + n + '" aria-pressed="' + (st.hand.level === n) +
-          '">' + n + "</button>").join("") + "</div>";
-    }
-    if (tool.kind === "device" || tool.kind === "ceiling") {
-      const def = DEVICE_KINDS[tool.device];
-      if ("damage" in def.fields) {
-        html += '<div class="row"><label>Damage</label>' +
-          [1, 2, 3].map(n => '<button data-damage="' + n + '" aria-pressed="' + (st.hand.damage === n) +
-            '">' + n + "</button>").join("") + "</div>";
+  /* The hand and a selection are mutually exclusive: picking a tool means you
+   * are about to lay something, selecting a square means you are fixing what is
+   * there. One panel at a time, and the same rows in both. */
+  if (!st.sel) {
+    html += "<h3>In hand</h3>";
+    if (!tool) html += '<p class="none">Nothing.</p>';
+    else {
+      html += '<div class="row"><span class="pill">' + esc(tool.label) + "</span></div>";
+      const t = {};
+      if (tool.kind === "wall" || tool.kind === "device" ||
+          (tool.kind === "ground" && tool.arg === ARG_DIR)) t.dir = st.hand.dir;
+      if (tool.kind === "ground" && ELEMENTS[tool.element] && ELEMENTS[tool.element].props.belt) {
+        t.arms = st.hand.arms;
       }
-      if ("reach" in def.fields) {
-        html += '<div class="row"><label>Reach</label>' +
-          [1, 2].map(n => '<button data-reach="' + n + '" aria-pressed="' + (st.hand.reach === n) +
-            '">' + n + "</button>").join("") + "</div>";
-      }
-      if (def.regs !== REGS_NONE) {
-        const regs = st.hand.regs[tool.device] || [];
-        html += '<div class="row"><label>Registers</label>' +
-          REGISTERS.map(n => '<button data-reg="' + n + '" aria-pressed="' + (regs.indexOf(n) >= 0) +
-            '">' + n + "</button>").join("") + "</div>";
-        html += '<div class="row"><span class="none">Fires in ' + esc(describeRegs(regs)) +
-          (def.regs === "required" ? "" : ". None chosen means every register.") + "</span></div>";
+      if (tool.kind === "ground" && tool.arg === ARG_DIGIT) t.digit = st.hand.digit;
+      if (tool.kind === "ground" && tool.arg === ARG_PAIR) t.pair = st.hand.pair;
+      if (tool.kind === "level") t.level = st.hand.level;
+      html += propRows(t, "");
+
+      if (tool.kind === "device" || tool.kind === "ceiling") {
+        const def = DEVICE_KINDS[tool.device];
+        const held = { face: undefined, regs: st.hand.regs[tool.device] };
+        for (const key of Object.keys(def.fields)) held[key] = st.hand[key];
+        html += deviceRows(def, held, "");
       }
     }
   }
 
-  /* --- editing what is already down -----------------------------------------
-   * The rail says what goes DOWN; this changes what is already there. A belt
-   * whose arms were transcribed wrong has to be fixable where it stands --
-   * re-laying it loses its facing, and on a square with a device it loses the
-   * device too. */
+  /* --- the selected square, on exactly the same rows -------------------------
+   * Everything here is the control the rail offers for laying the same thing.
+   * Changing one writes to the board at once, so the drawing is the feedback --
+   * there is no apply step and nothing to confirm. */
   if (st.sel) {
     const d = describe(st.board, st.sel.c, st.sel.r);
     if (d) {
-      html += "<h3>This square &mdash; (" + d.c + "," + d.r + ")</h3>";
-      const edef = d.key && Object.values(ELEMENTS).find(x => x.key === d.key);
+      html += "<h3>This square &mdash; (" + d.c + "," + d.r + ")" +
+        '<button class="count" data-act="deselect" title="Back to the rail">done</button></h3>';
+      html += '<div class="row"><span class="pill">' + esc(d.element) + "</span>" +
+        (d.level ? '<span class="pill">level ' + d.level + "</span>" : "") + "</div>";
 
-      if (edef && edef.props.belt) {
-        const arms = ARM_CODES[cellAt(st.board, d.c, d.r).charAt(2)] || ARM_CODES["."];
-        html += '<div class="row"><label>Arms</label>' +
-          [["back", "Behind"], ["left", "From the left"], ["right", "From the right"]].map(([slot, label]) =>
-            '<button data-arm="' + slot + '" aria-pressed="' + !!arms[slot] + '">' + label + "</button>").join("") +
-          "</div>";
-        html += '<div class="row"><span class="none">' + esc(d.arms) +
-          ". This is printed data, not something to read off the neighbours.</span></div>";
-      }
-      if (edef && edef.arg === ARG_DIR) {
-        html += '<div class="row"><label>Runs</label>' +
-          [N, E, S, W].map(dd => '<button data-turnto="' + dd + '" aria-pressed="' +
-            (d.dir === "^>v<".charAt(dd)) + '">' + dirLetter(dd) + "</button>").join("") + "</div>";
-      }
+      const edef = d.key && Object.values(ELEMENTS).find(x => x.key === d.key);
+      const t = {};
+      if (edef && edef.arg === ARG_DIR) t.dir = "^>v<".indexOf(d.dir);
+      if (edef && edef.props.belt) t.arms = cellAt(st.board, d.c, d.r).charAt(2);
+      if (edef && edef.arg === ARG_DIGIT) t.digit = +d.dir || +cellAt(st.board, d.c, d.r).charAt(1);
+      if (edef && edef.arg === ARG_PAIR) t.pair = +cellAt(st.board, d.c, d.r).charAt(1);
+      t.level = d.level;
+      html += propRows(t, "sel");
 
       d.wallDevices.forEach((dev, i) => {
         const def = DEVICE_KINDS[dev.kind];
-        html += "<h3>" + esc(def.name) + "</h3>";
-        if (def.faced) {
-          html += '<div class="row"><label>Faces</label>' +
-            [N, E, S, W].map(dd => '<button data-devface="' + i + ":" + dd + '" aria-pressed="' +
-              (dev.face === dd) + '">' + dirLetter(dd) + "</button>").join("") + "</div>";
-        }
-        for (const key of Object.keys(def.fields)) {
-          const spec = def.fields[key];
-          const cur = dev[key] === undefined ? (spec.default === undefined ? spec.min : spec.default) : dev[key];
-          const opts = [];
-          for (let v = spec.min; v <= spec.max; v++) opts.push(v);
-          html += '<div class="row"><label>' + key.charAt(0).toUpperCase() + key.slice(1) + "</label>" +
-            opts.map(v => '<button data-devfield="' + i + ":" + key + ":" + v + '" aria-pressed="' +
-              (cur === v) + '">' + v + "</button>").join("") + "</div>";
-        }
-        if (def.regs !== REGS_NONE) {
-          html += '<div class="row"><label>Registers</label>' +
-            REGISTERS.map(n => '<button data-devreg="' + i + ":" + n + '" aria-pressed="' +
-              (!!dev.regs && dev.regs.indexOf(n) >= 0) + '">' + n + "</button>").join("") + "</div>";
-          html += '<div class="row"><span class="none">' + esc(describeRegs(dev.regs)) + "</span></div>";
-        }
-        html += '<div class="row"><button data-devoff="' + i + '">Take it off</button></div>';
+        html += "<h3>" + esc(def.name) +
+          '<button class="count" data-devoff="' + i + '" title="Take it off">&times;</button></h3>';
+        html += deviceRows(def, dev, "wd" + i + "-");
       });
-
       d.ceiling.forEach((dev, i) => {
         const def = DEVICE_KINDS[dev.kind];
-        html += "<h3>" + esc(def.name) + "</h3>";
-        html += '<div class="row"><label>Registers</label>' +
-          REGISTERS.map(n => '<button data-ceilreg="' + i + ":" + n + '" aria-pressed="' +
-            (!!dev.regs && dev.regs.indexOf(n) >= 0) + '">' + n + "</button>").join("") + "</div>";
-        html += '<div class="row"><span class="none">' + esc(describeRegs(dev.regs)) + "</span>" +
-          '<button data-ceiloff="' + i + '">Take it off</button></div>';
+        html += "<h3>" + esc(def.name) +
+          '<button class="count" data-ceiloff="' + i + '" title="Take it off">&times;</button></h3>';
+        html += deviceRows(def, dev, "cd" + i + "-");
       });
     }
   }
