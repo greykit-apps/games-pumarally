@@ -306,6 +306,14 @@ export function mount(root) {
       if (d.seldigit !== undefined) { change(() => setArg(String(d.seldigit))); return; }
       if (d.selpair !== undefined) { change(() => setArg(String(d.selpair))); return; }
       if (d.sellevel !== undefined) { change(() => setLevelHere(+d.sellevel)); return; }
+      if (d.metaToggle !== undefined) {
+        change(() => {
+          st.board[d.metaToggle] = !st.board[d.metaToggle];
+          return { ok: true, changed: true,
+            note: d.metaToggle + (st.board[d.metaToggle] ? " set." : " cleared.") };
+        });
+        return;
+      }
       if (d.selsite !== undefined) {
         change(() => apply(st.board, { ...st.hand, tool: "site:" + d.selsite }, st.sel.c, st.sel.r));
         return;
@@ -313,9 +321,15 @@ export function mount(root) {
       if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
       if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
 
-      /* A placed device's own rows, prefixed with which one it is. */
-      const dev = /^(wd|cd)(\d+)-(.+)$/.exec(Object.keys(d).find(k => /^(wd|cd)\d+-/.test(k)) || "");
-      if (dev) { change(() => devRow(dev[1], +dev[2], dev[3], d[dev[0] + dev[2] + "-" + dev[3]])); return; }
+      /* A placed device's rows, all on one attribute: slot, field and value.
+       * Not a style choice -- `data-wd0-face` arrives here as `dataset.wd0Face`
+       * because the DOM camel-cases dataset keys and eats the dashes, so a
+       * handler matching the dashes never fires and the click falls through in
+       * silence. */
+      if (d.devrow !== undefined) {
+        const m2 = /^(wd|cd)(\d+):([a-z]+):(-?\d+)$/.exec(d.devrow);
+        if (m2) { change(() => devRow(m2[1], +m2[2], m2[3], +m2[4])); return; }
+      }
 
       if (d.act) { act(d.act); return; }
     }

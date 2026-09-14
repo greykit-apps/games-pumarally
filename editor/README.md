@@ -373,6 +373,7 @@ node editor/tools/make-fixtures.js --check  # the fixtures carry every element a
 node editor/tools/convert-boards.js --check # the JSON still means what the old data meant
 node editor/tools/check-format.js           # validate, round-trip, and the ASCII picture
 node editor/tools/render-snapshot.js --check
+node editor/tools/check-wiring.js           # no control the inspector draws is dead
 node editor/tools/check-editor-assets.js    # and the deploy will actually publish it all
 ```
 
@@ -395,3 +396,7 @@ for when a snapshot changes and you need to see what changed.
   export is where transcription errors get in.
 - **Watch a check fail before trusting it.** Every vacuous pass this project has
   found was found that way, never by reading.
+- **A dead control looks exactly like a live one.** An unrecognised click falls
+  through the handler chain and raises nothing, so `check-wiring.js` renders the
+  panels for real and requires every `data-` attribute they emit to be one the
+  handler names. It found two on its first run.

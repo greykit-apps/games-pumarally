@@ -107,19 +107,37 @@ function propRows(t, p) {
   return html;
 }
 
-/** The rows for one device, in hand or placed. Same builder, same wording. */
-function deviceRows(def, dev, p) {
+/**
+ * The rows for one device, in hand or placed. Same builder, same wording.
+ *
+ * `slot` is null for the thing in your hand and "wd0"/"cd1" for one already on
+ * the board. A PLACED device's rows go on ONE attribute carrying slot, field
+ * and value together, and that is not a style choice: `data-wd0-face` arrives
+ * in JavaScript as `dataset.wd0Face`, because the DOM camel-cases dataset keys
+ * and eats the dashes. The first version of this matched the dashes, so no
+ * click on a placed device's facing, damage, reach or registers did anything at
+ * all -- silently, because an unrecognised click just falls through.
+ */
+function deviceRows(def, dev, slot) {
+  const attr = (key, v) => slot
+    ? { name: "devrow", value: slot + ":" + key + ":" + v }
+    : { name: key, value: v };
+  const row = (label, opts, key, isOn) => slot
+    ? '<div class="row"><label>' + esc(label) + "</label>" +
+      opts.map(o => '<button data-devrow="' + esc(slot + ":" + key + ":" + o.v) + '"' +
+        ' aria-pressed="' + (isOn(o.v) ? "true" : "false") + '">' + esc(o.label) + "</button>").join("") +
+      "</div>"
+    : btnRow(label, opts, key, isOn);
+
   let html = "";
-  if (def.faced && dev.face !== undefined) {
-    html += btnRow("Facing", DIR_OPTS, p + "face", v => v === dev.face);
-  }
+  if (def.faced && dev.face !== undefined) html += row("Facing", DIR_OPTS, "face", v => v === dev.face);
   for (const [key, spec] of Object.entries(def.fields)) {
     const cur = dev[key] === undefined ? (spec.default === undefined ? spec.min : spec.default) : dev[key];
-    html += btnRow(key.charAt(0).toUpperCase() + key.slice(1), nOpts(spec.min, spec.max), p + key, v => v === cur);
+    html += row(key.charAt(0).toUpperCase() + key.slice(1), nOpts(spec.min, spec.max), key, v => v === cur);
   }
   if (def.regs !== REGS_NONE) {
     const regs = dev.regs && dev.regs.length ? dev.regs : null;
-    html += btnRow("Registers", REGISTERS.map(v => ({ v, label: String(v) })), p + "reg",
+    html += row("Registers", REGISTERS.map(v => ({ v, label: String(v) })), "reg",
       v => !regs || regs.indexOf(v) >= 0);
     html += '<div class="row"><span class="none">Fires in ' + esc(describeRegs(regs)) +
       (def.regs === "required" ? "." : ". Lighting all five means every register.") + "</span></div>";
@@ -203,7 +221,7 @@ export function renderInspector(el, st, hover, isCourse) {
         const def = DEVICE_KINDS[tool.device];
         const held = { face: undefined, regs: st.hand.regs[tool.device] };
         for (const key of Object.keys(def.fields)) held[key] = st.hand[key];
-        html += deviceRows(def, held, "");
+        html += deviceRows(def, held, null);
       }
     }
   }
@@ -245,13 +263,13 @@ export function renderInspector(el, st, hover, isCourse) {
         const def = DEVICE_KINDS[dev.kind];
         html += "<h3>" + esc(def.name) +
           '<button class="count" data-devoff="' + i + '" title="Take it off">&times;</button></h3>';
-        html += deviceRows(def, dev, "wd" + i + "-");
+        html += deviceRows(def, dev, "wd" + i);
       });
       d.ceiling.forEach((dev, i) => {
         const def = DEVICE_KINDS[dev.kind];
         html += "<h3>" + esc(def.name) +
           '<button class="count" data-ceiloff="' + i + '" title="Take it off">&times;</button></h3>';
-        html += deviceRows(def, dev, "cd" + i + "-");
+        html += deviceRows(def, dev, "cd" + i);
       });
     }
   }
