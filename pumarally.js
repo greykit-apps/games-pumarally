@@ -19939,7 +19939,26 @@
     /* Bound the row and the column, so neither can push the page past
        the window. What overflows inside the column scrolls: the log is
        the thing with no natural end, so the log is what gives. */
-    if (availH) {
+    /* THE CLAMP BELONGS TO THE SIDE-BY-SIDE LAYOUT AND NOWHERE ELSE.
+
+       Stacked, the row's main axis is vertical, and .pr-main carries
+       justify-content:center -- so a column taller than its clamp does
+       not overflow downward where a scrollbar could reach it, it
+       overflows EQUALLY AT BOTH ENDS and overflow:hidden eats both.
+       Measured: a 784px board and a 577px panel in a 786px clamp put
+       the top of the board 240px above the window, unreachable.
+
+       That is the "does not scroll properly", and the stylesheet
+       already says what should happen instead -- "the board goes back
+       on top and the page scrolls". It could not, because the clamp
+       said the row was exactly one window tall and the overflow rule
+       threw away everything that was not. */
+    if (availH && !beside) {
+      UI.els.main.style.maxHeight = "";
+      UI.els.main.style.overflow = "visible";
+      UI.els.side.style.height = "";
+    } else if (availH) {
+      UI.els.main.style.overflow = "";
       UI.els.main.style.maxHeight = availH + "px";
       /* A definite HEIGHT, not a maximum, and only while the side is a
          column. flex:1 1 0 on the log divides whatever is spare, and a
@@ -19947,7 +19966,7 @@
          is never anything spare and the log collapses to its heading
          however much room the window has. Stacked, it takes its
          natural height like any other block. */
-      UI.els.side.style.height = beside ? availH + "px" : "";
+      UI.els.side.style.height = availH + "px";
     }
     var st = UI.els.stage.style;
     st.width = w + "px"; st.height = h + "px";
