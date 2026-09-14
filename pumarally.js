@@ -6130,13 +6130,118 @@
         B.editionBlocker("islandRun", "modern"));
     } },
 
-    { name: "an unbuilt ruleset offers nothing and starts nothing", run: function () {
-      assert(RULESETS.modern.built === false, "the modern rules are not implemented");
-      var offered = 0;
-      for (var cid in B.COURSES) if (cid.charAt(0) !== "_" && courseAllowed(cid, "modern")) offered++;
-      assert(offered === 0, "an unbuilt ruleset must offer no course, it offered " + offered);
-      assert(!courseAllowed("exchangeRun", "modern"),
-        "and must refuse a course even if that course's squares would suit it");
+    { name: "Energize is a 2016 board, and the classic rules refuse it by name", run: function () {
+      /* The first transcribed 2016 board. What matters here is not the
+         squares -- check-boards asserts the picture round-trips byte
+         for byte -- but that the edition machinery reads it correctly
+         in BOTH directions: the 2016 rules can play it, and the
+         classic rules say which square stops them. */
+      var spec = B.BOARD_SPECS.energize;
+      assert(spec, "the board is gone");
+      assert(spec.edition === "modern", "Energize declares itself " + spec.edition);
+      assert(B.SETS[spec.set].edition === "modern",
+        "its set is " + B.SETS[spec.set].edition + ", which disagrees with the board");
+      assert(spec.origin === "transcribed", "a transcribed board is marked " + spec.origin);
+
+      assert(B.editionBlocker("energizeRun", "modern") === null,
+        "the 2016 rules are blocked from the 2016 course by " + B.editionBlocker("energizeRun", "modern"));
+      assert(B.editionBlocker("energizeRun", "classic") === "battery",
+        "the classic rules should refuse it over the batteries, they said " +
+        B.editionBlocker("energizeRun", "classic"));
+      assert(B.playableEditions("energizeRun").join(",") === "modern",
+        "the course is playable by " + B.playableEditions("energizeRun").join(","));
+
+      /* The elements that were measured off the photograph, counted.
+         Not their positions -- the picture is the record of those --
+         but that the board still carries all four kinds, so a careless
+         edit cannot quietly empty one out. */
+      var g = B.buildCourse("energizeRun"), c, r, n = { battery: 0, pit: 0, gearL: 0, gearR: 0 };
+      for (r = 0; r < 12; r++) for (c = 0; c < 12; c++) {
+        var code = B.codeAt(g, c, r), def = B.elemOf(code);
+        if (!def) continue;
+        if (def.energy) n.battery++;
+        else if (def.pit) n.pit++;
+        else if (def.gear === -1) n.gearL++;
+        else if (def.gear === 1) n.gearR++;
+      }
+      assert(n.battery === 8, "the board has " + n.battery + " batteries, and 8 were measured");
+      assert(n.pit === 4, "the board has " + n.pit + " pits, and 4 were measured");
+      assert(n.gearL === 6, "the board has " + n.gearL + " left gears, and 6 red ones were measured");
+      assert(n.gearR === 5, "the board has " + n.gearR + " right gears, and 5 green ones were measured");
+      assert(g.lasers.length === 6, "the board has " + g.lasers.length + " lasers, and 6 were measured");
+      /* Every one of them a SINGLE beam. A double laser is printed as
+         two barrels and none of these has them, so a laser that had
+         quietly grown a second beam would double its damage and look
+         exactly the same in the picture. */
+      for (var li = 0; li < g.lasers.length; li++) {
+        assert(g.lasers[li].n === 1,
+          "the laser at (" + g.lasers[li].c + "," + g.lasers[li].r + ") fires " +
+          g.lasers[li].n + " beams, and every one on this board was measured as single");
+      }
+    } },
+
+    { name: "the docking bay belongs to both games, and a real mix is still refused", run: function () {
+      /* Our docking bay carries nothing but floor and bays, both of
+         which every edition prints, and both games print a docking bay
+         board. Making it pick a side meant either a second identical
+         board or a 2016 course that read as mixing editions. What must
+         NOT follow is that the mixing check has gone soft. */
+      var dock = B.BOARD_SPECS.dockingBay;
+      assert(dock.edition === "both", "the docking bay declares " + dock.edition);
+      /* Nothing on it is exclusive to either game -- which is a
+         STRICTER test than belonging to one, not a way around it. */
+      var g = B.buildCourse({ name: "d", kind: "quick", blurb: "t",
+        boards: [{ id: "dockingBay", rot: 0, at: [0, 0] }], dock: null,
+        flags: [[0, 0]], minPlayers: 2, maxPlayers: 8 });
+      var c, r, eds = Object.keys(B.EDITIONS);
+      for (r = 0; r < g.h; r++) for (c = 0; c < g.w; c++) {
+        var def = B.elemOf(B.codeAt(g, c, r));
+        if (!def || !def.editions) continue;
+        assert(def.editions.length === eds.length,
+          "the docking bay prints " + def.name + ", which is not in every edition");
+      }
+      /* It joins a course of either game without complaint. */
+      assert(B.editionBlocker("energizeRun", "modern") === null, "the dock blocked a 2016 course");
+      assert(B.editionBlocker("exchangeRun", "classic") === null, "the dock blocked a classic course");
+
+      /* AND TWO COMMITTED BOARDS THAT DISAGREE ARE STILL REFUSED. */
+      var threw = null;
+      try {
+        B.validateCourse({ name: "mix", kind: "quick", blurb: "t",
+          boards: [{ id: "exchange", rot: 0, at: [0, 0] }, { id: "energize", rot: 0, at: [12, 0] }],
+          dock: { id: "dockingBay", rot: 0, at: [0, 12] },
+          flags: [[1, 2]], minPlayers: 2, maxPlayers: 8 }, "mix");
+      } catch (e) { threw = e.message; }
+      assert(threw && /one game or the other/.test(threw),
+        "a classic board and a 2016 board were laid out together and nothing objected: " + threw);
+    } },
+
+    { name: "a ruleset that is built offers the courses it can read", run: function () {
+      /* This test used to assert the opposite -- that the 2016 rules
+         were NOT built and offered nothing. They are built now, and
+         there is a board they can read, so the thing worth checking
+         flipped: a built ruleset must offer exactly the courses whose
+         elements it can actually read, and no others. */
+      assert(RULESETS.modern.built === true, "the modern rules are built");
+      var offeredM = 0, offeredC = 0, cid;
+      for (cid in B.COURSES) {
+        if (cid.charAt(0) === "_") continue;
+        if (courseAllowed(cid, "modern")) offeredM++;
+        if (courseAllowed(cid, "classic")) offeredC++;
+      }
+      assert(offeredM > 0, "the 2016 rules are built and offer no course at all");
+      assert(offeredC > 0, "the classic rules stopped offering courses");
+      /* AND NOT THE SAME COURSES. Every classic board carries a repair
+         or upgrade site, which the 2016 edition took off the floor, so
+         no course can be in both lists -- if one were, the edition
+         check has stopped reading the squares. */
+      for (cid in B.COURSES) {
+        if (cid.charAt(0) === "_") continue;
+        assert(!(courseAllowed(cid, "modern") && courseAllowed(cid, "classic")),
+          cid + " is offered under both rulebooks, so the edition check is not reading it");
+      }
+      assert(courseAllowed("energizeRun", "modern"), "the 2016 course is not offered to the 2016 rules");
+      assert(!courseAllowed("exchangeRun", "modern"), "a classic course is offered to the 2016 rules");
     } },
 
     { name: "every shipped course is readable by a ruleset that exists", run: function () {
@@ -9363,15 +9468,30 @@
          to a board that does not exist would mean either deleting the
          elements or inventing a board to satisfy a test, and the
          second is how a plausible wrong board gets into a repo. */
-      var missing = [];
+      /* ELEMENTS DRAWN BUT NOT YET FOUND ON A TRANSCRIBED BOARD.
+
+         The scope-by-edition above worked while NO 2016 board was
+         transcribed; the moment one was, it demanded that a single
+         board print every 2016 square, which no board does. So the
+         gap is a list instead, and it is checked BOTH ways: anything
+         not on it must appear on a board, and anything on it must NOT
+         -- so transcribing a board that carries one of these fails
+         this test until the name is struck off. A list that could only
+         grow would be a comment. */
+      var AWAITING = { "~": 1, "D": 1, "R": 1, "z": 1, "T": 1 };
+      var missing = [], stale = [];
       for (var ek in B.ELEMENT_DEFS) {
         var eds = B.ELEMENT_DEFS[ek].editions || [];
         var reachable = false;
         for (var ei = 0; ei < eds.length; ei++) if (haveBoards[eds[ei]]) reachable = true;
-        if (reachable && !used[ek]) missing.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
+        if (!reachable) continue;
+        if (used[ek] && AWAITING[ek]) stale.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
+        if (!used[ek] && !AWAITING[ek]) missing.push(ek + " (" + B.ELEMENT_DEFS[ek].name + ")");
       }
       assert(!missing.length,
         "no board prints " + missing.join(", ") + ", though its edition has boards");
+      assert(!stale.length,
+        stale.join(", ") + " is printed on a board now, so strike it off the awaiting list");
       /* And the legend sweep really did reach the new squares, or the
          relaxation above would quietly cover an unstyled element. */
       assert(art["pr-batt"] && art["pr-water"] && art["pr-ramp"] && art["pr-teleport"],
@@ -14615,9 +14735,10 @@
     classic: { name: "Classic", years: "1994-2005", built: true,
                blurb: "Priorities printed on the cards, damage tokens, option cards, " +
                       "and repair and upgrade squares on the floor." },
-    modern: { name: "Modern", years: "2016-", built: false,
-              blurb: "Priority antenna, SPAM damage cards, an energy and upgrade shop. " +
-                     "Not built: no board here can be read by it yet either." }
+    modern: { name: "Modern", years: "2016-", built: true,
+              blurb: "The Priority Token, a deck on every robot's own mat, SPAM damage " +
+                     "cards instead of a damage track, reboots instead of lives, and " +
+                     "Energy spent in an upgrade shop." }
   };
 
   function rulesetOf(h) { return RULESETS[h && h.ruleset] ? h.ruleset : "classic"; }

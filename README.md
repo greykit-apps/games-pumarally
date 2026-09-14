@@ -12,8 +12,8 @@ drawings and the layouts are hand-transcribed tile data.
 > **Status: in development, and playable.** Program five registers and race up
 > to seven robots across seven transcribed factory floors, alone or
 > pass-and-play. Cannery Row is a first pass and not yet raceable, the modern
-> edition is part-built (most upgrade cards do nothing yet, and the damage deck
-> is all SPAM),
+> edition is playable on one board, Energize (most upgrade cards do nothing yet,
+> and the damage deck is all SPAM),
 > and the option deck is 16 of its 26 cards — see
 > [What works today](#what-works-today).
 
@@ -31,7 +31,7 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 260 rule tests | done |
+| Headless simulation + 262 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
@@ -47,6 +47,7 @@ at play time.
 | Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | done |
 | The twelve official boards | not yet — see [Board provenance](#board-provenance) |
+| A playable modern course | **Energize** — one 2016 board transcribed, more to come |
 
 ## How it works
 
@@ -263,7 +264,8 @@ is a transcription error, not a variant. Without that, a modern board
 transcribed against the classic engine would validate, play, and quietly be
 the wrong game.
 
-**The classic ruleset is complete. The modern one is partly built**, and the
+**Both rulesets are built, and there is a board for each.** The modern one is
+partly furnished rather than partly built, and the
 pieces are listed in [What works today](#what-works-today) rather than summed
 into a single word. What is built runs: the modern round order, Energy, the
 Priority Token, a personal twenty-card deck each, and SPAM damage, all
@@ -303,7 +305,8 @@ Faithfulness is a claim about data, so the data says where it came from.
 | Exchange, Island, Maelstrom, Pit Maze, Cross | **Transcribed** | The classic base game, read off photographs of the printed boards. |
 | Board G, Board H | **Transcribed** | Crash and Burn. Board E is Island and board F is Maelstrom, both reprints, so neither is transcribed twice. |
 | Cannery Row | **First pass** | Marked `unverified`, which keeps it out of the course assembler and the quick games until it has been checked square by square against the photograph. |
-| Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. To be replaced with a transcription. |
+| Energize | **Transcribed** | The first 2016 board. Which box it came out of is **not established**, so it sits in a `modernUnfiled` set rather than being guessed into the base game. |
+| Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. Declares edition `both`: every element on it is one each edition prints, and both games ship a docking bay. To be replaced with a transcription. |
 
 **Two authored boards used to be in here** — a Proving Ground carrying one of
 every element, and a Shunt Yard for exercising assembly and rotation — and both
