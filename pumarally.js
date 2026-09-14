@@ -9668,7 +9668,7 @@
          -- so transcribing a board that carries one of these fails
          this test until the name is struck off. A list that could only
          grow would be a comment. */
-      var AWAITING = { "~": 1, "D": 1, "R": 1, "z": 1, "T": 1 };
+      var AWAITING = { "~": 1, "C": 1, "D": 1, "R": 1, "z": 1, "T": 1 };
       var missing = [], stale = [];
       for (var ek in B.ELEMENT_DEFS) {
         var eds = B.ELEMENT_DEFS[ek].editions || [];

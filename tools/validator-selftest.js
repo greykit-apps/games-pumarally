@@ -196,6 +196,36 @@ board("duplicate bay",    s => { s.pic[1] = s.pic[1].slice(0, 1) + "s1" + s.pic[
           "a wall stops it at one");
 }
 
+// A crusher and a flamer are SQUARES that carry a register set, so they can be
+// wrong in every way a press can -- off the board, over a pit, doubled, a
+// register out of range, or spelling out all five instead of leaving the list
+// empty. They need their own fixture because both are modern-only and the
+// board fixture above is a classic one.
+{
+  const withTrap = (key, what, mutate, want) => {
+    const spec = clone(B.BOARD_SPECS.steps);
+    spec.crushers = spec.crushers || [];
+    spec.flamers = spec.flamers || [];
+    spec[key] = [{ c: 0, r: 0, regs: [3] }];
+    mutate(spec[key], spec);
+    let msg = null;
+    try { B.validateGrid("test", B.parsePic("test", spec), () => {}); }
+    catch (e) { msg = e.message; }
+    record(what + ": " + want, msg, want);
+  };
+  for (const [key, what] of [["crushers", "crusher"], ["flamers", "flamer"]]) {
+    withTrap(key, what, x => { x[0].c = 99; },              "is off the board");
+    withTrap(key, what, (x, s) => {
+      /* (1,5) on Steps is a pit; drop the trap on it. */
+      x[0] = { c: 1, r: 5, regs: [3] };
+    },                                                       "is over a pit");
+    withTrap(key, what, x => { x[0].regs = [1, 2, 3, 4, 5]; }, "leave the list empty");
+    withTrap(key, what, x => { x[0].regs = [7]; },            "registers run 1-5");
+    withTrap(key, what, x => { x.push({ c: 0, r: 0, regs: [1] }); },
+                                                             "two " + what + "s at");
+  }
+}
+
 // ---- editions ------------------------------------------------------------
 board("unknown edition",  s => { s.edition = "gritty reboot"; },        "which is not a thing");
 board("repair site on a modern board",
