@@ -5,9 +5,9 @@
  * learned. So each refusal is asserted to happen AND to say why.
  */
 
-import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt } from "../lib/board.js";
+import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
-import { N, E, S, W, opposite } from "../lib/dir.js";
+import { N, E, S, W, opposite, DC, DR } from "../lib/dir.js";
 import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge } from "../app/tools.js";
 import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
@@ -163,6 +163,57 @@ const fresh = (w = 8, h = 8) =>
   eq(wallDevicesAt(b, 4, 4).length, 0, "erase: and is gone");
   eq(wallAt(b, 4, 4, N), EDGE_WALL, "erase: its wall stays -- it may be printed too, and guessing loses data");
   ok(/wall is still there/i.test(res.note), "erase: and it says so");
+}
+
+/* --- a flame jet is wall-mounted and reaches one or two squares ---------------
+ * All three halves of that matter and each is asserted separately: it needs a
+ * wall to bolt to, the flame starts at the NOZZLE'S OWN SQUARE, and it runs
+ * FORWARD from there. There is exactly one reach-two jet across all seventeen
+ * shipped boards, so the directional case is thin in the real data and has to
+ * be pinned down here instead. */
+{
+  const b = fresh(8, 8);
+  const st = blankToolState();
+  st.tool = "dev:jet"; st.dir = E; st.reach = 2; st.regs.jet = [2, 4];
+  const res = apply(b, st, 3, 3);
+  ok(res.ok, "jet: a flame jet goes down");
+  eq(wallAt(b, 3, 3, W), EDGE_WALL, "jet: wall-mounted -- it raised the wall behind its nozzle");
+  const dev = b.wallDevices.find(d => d.kind === "jet");
+  eq(dev.reach, 2, "jet: reach two is carried");
+  eq(deviceCell(dev), [3, 3], "jet: the nozzle stands in the square clicked");
+
+  const covers = (c, r) => {
+    const cell = deviceCell(dev);
+    const reach = dev.reach === undefined ? 1 : dev.reach;
+    let [cc, rr] = cell;
+    for (let i = 0; i < reach; i++) { if (cc === c && rr === r) return true; cc += DC[dev.face]; rr += DR[dev.face]; }
+    return false;
+  };
+  ok(covers(3, 3), "jet: the flame covers the nozzle's own square");
+  ok(covers(4, 3), "jet: and the square in FRONT of it");
+  ok(!covers(2, 3), "jet: and not the one behind, which is where the wall is");
+  eq(checkBoard(b).ok, true, "jet: a reach-two jet with room in front validates");
+
+  /* reach one is the default and is not written, so a plain jet formats the way
+   * it did before reach existed */
+  const b1 = fresh(8, 8);
+  const st1 = blankToolState();
+  st1.tool = "dev:jet"; st1.dir = E; st1.reach = 1;
+  apply(b1, st1, 3, 3);
+  eq(b1.wallDevices[0].reach, undefined, "jet: reach one is the default and is left unwritten");
+
+  /* the second square has to be there and has to be reachable */
+  const edge = fresh(8, 8);
+  const st2 = blankToolState();
+  st2.tool = "dev:jet"; st2.dir = E; st2.reach = 2;
+  apply(edge, st2, 7, 3);                       // the east rim: nothing in front
+  ok(!checkBoard(edge).ok, "jet: a reach-two jet at the rim is refused -- its second square is off the board");
+  const walled = fresh(8, 8);
+  const st3 = blankToolState();
+  st3.tool = "dev:jet"; st3.dir = E; st3.reach = 2;
+  apply(walled, st3, 3, 3);
+  setWall(walled, 3, 3, E, EDGE_WALL);
+  ok(!checkBoard(walled).ok, "jet: and one whose flame is stopped by a wall after the first square");
 }
 
 /* --- levels ------------------------------------------------------------------ */

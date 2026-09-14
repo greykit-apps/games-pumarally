@@ -92,6 +92,19 @@ for (const [id, s] of Object.entries(SETS)) {
   ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real printing");
 }
 
+/* Facts about a flame jet, off the Crash and Burn sheet and board G. Each is a
+ * number or a flag somebody could widen without noticing, and the range is the
+ * rule rather than a convenience: a jet reaches one square or two, never three. */
+{
+  const jet = DEVICE_KINDS.jet;
+  eq(jet.layer, "wall", "jet: a flame jet is wall-mounted");
+  eq(jet.needsWall, true, "jet: and needs a wall behind it to bolt to");
+  eq(jet.faced, true, "jet: it faces the way the flame plays");
+  eq([jet.fields.reach.min, jet.fields.reach.max], [1, 2],
+     "jet: it reaches one or two squares, and never three");
+  eq(jet.fields.reach.default, 1, "jet: one is the default, so a plain jet writes no reach at all");
+}
+
 /* --- token and arms -------------------------------------------------------- */
 eq(readToken("b>"), null, "token: a short token is refused rather than read short");
 eq(writeToken("b", ">", "r"), "b>r", "token: write");
