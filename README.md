@@ -31,7 +31,7 @@ at play time.
 | Board format, validator and renderer | done |
 | Rules engine — movement, pushing, conveyors, gears, pushers, lasers, damage, checkpoints, respawn | done |
 | AI opponents | done (distance-field beam search) |
-| Headless simulation + 262 rule tests | done |
+| Headless simulation + 265 rule tests | done |
 | Playable UI — programming, register execution, animation, save/resume | done |
 | Option cards — hook system | done |
 | Option cards — roster | **16 of 26** — see [Option cards](#option-cards) |
@@ -450,7 +450,7 @@ your hand while you program, the board while it runs.
 ```bash
 node tools/check-boards.js        # board + course data
 node tools/validator-selftest.js  # prove each validator check can fail
-node tools/check-rules.js 200     # 58 rule tests + 200 bot-vs-bot games
+node tools/check-rules.js 200     # 265 rule tests + 200 bot-vs-bot games
 node tools/check-assets.js        # every file index.html points at exists
 node tools/make-icon.js           # regenerate icon.svg from the robot drawing
 node tools/stamp-assets.js        # content-hash the assets index.html loads
@@ -467,6 +467,20 @@ games in this portfolio are immune by accident, since their whole game *is*
 the HTML; this is the first one split across files, so the split is ours to
 compensate for. Hashing content rather than counting versions means the URL
 changes exactly when the bytes do.
+
+**Merging wants the full 40-character SHA, through the API.** `glab mr merge`
+does not work on this project; the API form does:
+
+```bash
+glab api --method PUT "projects/86391698/merge_requests/<N>/merge?sha=<full 40-char sha>"
+```
+
+A short SHA is refused with *"SHA does not match HEAD of source branch"* — and
+the message quotes back the very SHA you passed, so it reads like a stale-branch
+error and is not one. This is written down here because it was written down
+nowhere: it lived in one session's working memory, was cited to another session
+as documented policy, and was not. Two sessions lost time to it before anyone
+checked.
 
 **Four green tools are not a green battery.** `check-boards`,
 `validator-selftest`, `check-rules` and `check-assets` all pass with the asset
