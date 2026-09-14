@@ -218,6 +218,15 @@ dark halo under every stroke, so one colour stays legible over printed yellow
 *and* over shadow, and non-scaling strokes so lines stay hairline across the
 whole zoom range instead of thickening back into blocks. One hue per layer.
 
+**A gear's arrow is one path.** Which way a gear turns is a rule the player reads
+off the board, so the arrow is the loudest thing on the tile: a 250° sweep, far
+enough that the eye follows it round, with the head sitting *exactly on the arc's
+end* and pointing along the tangent there. Computing the head's position
+separately lands it near the end rather than on it, and the arrow reads as two
+disconnected marks — which is what was wrong with the first version, two units
+adrift and written as a separate subpath. `render-snapshot.js` parses the emitted
+path and checks the join, the sweep, and that the two directions differ.
+
 **Walls are green.** They were yellow, and a printed board is yellow hazard
 striping wall to wall — the mark vanished into the thing it was marking, and a
 wall is what you most want to be sure you have transcribed. Nothing on these

@@ -15,6 +15,7 @@
 import { ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
 import { ARM_CODES } from "../lib/token.js";
 import { beltPaths } from "./belt.js";
+import { cogPath, turnPath, HUB_R } from "./gear.js";
 import { N } from "../lib/dir.js";
 
 const p = (...parts) => parts.join(" ");
@@ -191,26 +192,26 @@ export const GLYPHS = {
   }
 };
 
+/* A cog, and the arrow that says which way it turns.
+ *
+ * The arrow is ONE path -- arc and head in a single `d` -- so the two cannot
+ * drift apart. The first version of this glyph wrote them as separate subpaths
+ * with the head's vertex two units off the arc's end, and it read as a
+ * disconnected tick. See render/gear.js for why the tangent is what connects
+ * them, and why the sweep is 250 degrees rather than a token arc. */
 function gearArt(turn) {
-  const teeth = [];
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4;
-    const x = 50 + Math.cos(a) * 40, y = 52 + Math.sin(a) * 40;
-    teeth.push('<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="7" fill="' + ART.gearTeeth + '"/>');
-  }
-  const arrow = turn > 0
-    ? "M 30 40 A 26 26 0 1 1 28 62 M 22 50 L 28 64 L 38 56"
-    : "M 70 40 A 26 26 0 1 0 72 62 M 78 50 L 72 64 L 62 56";
-  return plate("#39304a", "#5a4c70") + teeth.join("") +
-    '<circle cx="50" cy="52" r="32" fill="' + ART.gear + '" stroke="' + ART.gearTeeth + '" stroke-width="3"/>' +
-    '<path d="' + arrow + '" fill="none" stroke="' + ART.gearArrow + '" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>';
+  return plate("#39304a", "#5a4c70") +
+    '<path d="' + cogPath() + '" fill="' + ART.gearTeeth + '" opacity="0.55"/>' +
+    '<circle cx="50" cy="50" r="' + HUB_R + '" fill="' + ART.gear + '"/>' +
+    '<path d="' + turnPath(turn) + '" fill="none" stroke="' + ART.gearArrow +
+    '" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>';
 }
 
 function gearMark(turn) {
-  const arrow = turn > 0
-    ? "M 30 36 A 28 28 0 1 1 26 62 M 18 50 L 26 66 L 40 58"
-    : "M 70 36 A 28 28 0 1 0 74 62 M 82 50 L 74 66 L 60 58";
-  return mk("M 22 52 A 28 28 0 1 1 78 52 A 28 28 0 1 1 22 52 " + arrow, MARK.ground, 1.5);
+  /* The rim reads as a gear; the long sweep and its head read as the direction,
+   * which is the part that is a rule. */
+  return mk("M 18 50 A 32 32 0 1 1 82 50 A 32 32 0 1 1 18 50", MARK.ground, 1.2) +
+    mk(turnPath(turn), MARK.ground, 1.8);
 }
 
 function wrenchPath(cx) {

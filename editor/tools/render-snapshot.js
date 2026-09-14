@@ -30,6 +30,7 @@ import { boardSVG } from "../render/svg.js";
 import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { ARM_CHARS, ARM_CODES } from "../lib/token.js";
+import { turnPath } from "../render/gear.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -104,6 +105,58 @@ for (const kind of Object.keys(DEVICE_GLYPHS)) {
         problems.push("a belt curve (" + ch + ") in " + m + " mode has no arc or quadratic in it; " +
           "it is being drawn with straight segments");
       }
+    }
+  }
+}
+
+/* THE GEAR'S ARROW MUST BE JOINED, AND THE TWO DIRECTIONS MUST DIFFER.
+ *
+ * Which way a gear turns is a rule the player reads off the board, so both
+ * halves are rules questions wearing art clothes. The head has to meet the
+ * arc's END -- written as separate subpaths with the vertex two units adrift it
+ * reads as a disconnected tick -- and the sweep has to be long enough that the
+ * eye follows it round, or clockwise and anticlockwise look alike at tile size.
+ *
+ * EVERYTHING HERE IS PARSED OUT OF THE EMITTED PATH. The first version of this
+ * check recomputed the head's position with the same formula the drawing uses
+ * and compared the two, which is the code agreeing with itself: moving the
+ * drawn head two units left it passing. The only honest question is what the
+ * string actually says. */
+{
+  for (const turn of [1, -1]) {
+    const which = turn > 0 ? "clockwise" : "anticlockwise";
+    const d = turnPath(turn);
+    const m = /^M\s*([\d.-]+)\s+([\d.-]+)A\s*([\d.-]+)\s+[\d.-]+\s+0\s+([01])\s+([01])\s+([\d.-]+)\s+([\d.-]+)M\s*[\d.-]+\s+[\d.-]+L\s*([\d.-]+)\s+([\d.-]+)L/.exec(d);
+    if (!m) {
+      problems.push("the " + which + " gear arrow is not an arc followed by a head: " + JSON.stringify(d.slice(0, 80)));
+      continue;
+    }
+    const [, x0, y0, rad, large, sweepFlag, x1, y1, hx, hy] = m.map(Number);
+
+    const gap = Math.hypot(x1 - hx, y1 - hy);
+    if (gap > 0.5) {
+      problems.push("the " + which + " gear arrow's head is " + gap.toFixed(1) +
+        " units off the end of its arc -- it will read as two separate marks");
+    }
+
+    /* how far the arc actually sweeps, from the endpoints and the sweep flag */
+    const a0 = Math.atan2(y0 - 50, x0 - 50), a1 = Math.atan2(y1 - 50, x1 - 50);
+    const fwd = ((a1 - a0) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const swept = sweepFlag ? fwd : 2 * Math.PI - fwd;
+    if (swept < Math.PI) {
+      problems.push("the " + which + " gear arrow sweeps only " + Math.round(swept * 180 / Math.PI) +
+        " degrees; the eye will not follow it round and the two directions will look alike");
+    }
+    if (large !== (swept > Math.PI ? 1 : 0)) {
+      problems.push("the " + which + " gear arrow's large-arc flag disagrees with the arc it describes");
+    }
+  }
+  for (const m of MODES) {
+    const cw = GLYPHS.gearCW[m]({ arg: ".", arms: ARM_CODES["."], dir: 0 });
+    const ccw = GLYPHS.gearCCW[m]({ arg: ".", arms: ARM_CODES["."], dir: 0 });
+    if (cw === ccw) {
+      problems.push("a clockwise gear and an anticlockwise one draw identically in " + m +
+        " mode -- which way it turns is a rule, and the board is the only place it is written");
     }
   }
 }
