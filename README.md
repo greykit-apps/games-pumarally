@@ -47,7 +47,7 @@ at play time.
 | Difficulty tiers, setup, help, tutorial, sound | done |
 | Board editor | done |
 | The twelve official boards | not yet — see [Board provenance](#board-provenance) |
-| A playable modern course | **Energize** — one 2016 board transcribed, more to come |
+| A playable modern course | **Energize** and **Steps** — two 2016 boards transcribed, more to come |
 
 ## How it works
 
@@ -306,6 +306,7 @@ Faithfulness is a claim about data, so the data says where it came from.
 | Board G, Board H | **Transcribed** | Crash and Burn. Board E is Island and board F is Maelstrom, both reprints, so neither is transcribed twice. |
 | Cannery Row | **First pass** | Marked `unverified`, which keeps it out of the course assembler and the quick games until it has been checked square by square against the photograph. |
 | Energize | **Transcribed** | The first 2016 board. Which box it came out of is **not established**, so it sits in a `modernUnfiled` set rather than being guessed into the base game. |
+| Steps | **Transcribed** | The second 2016 board, and the first with conveyors: 40 green and 18 blue, twelve of them corners. Box **not established**, so `modernUnfiled` like Energize. |
 | Docking Bay | **Authored placeholder** | Eight numbered start squares, no printed conveyors. Declares edition `both`: every element on it is one each edition prints, and both games ship a docking bay. To be replaced with a transcription. |
 
 **Two authored boards used to be in here** — a Proving Ground carrying one of
