@@ -52,6 +52,13 @@ export function keep(st, token) {
 
 function same(a, b) {
   if (a.w !== b.w || a.h !== b.h) return false;
+  /* Metadata counts. Switching the edition changes which elements are legal and
+   * which the rail offers, so it is exactly the kind of edit somebody wants
+   * back -- and while this compared only the grid, Ctrl-Z could not reach it. */
+  for (const k of ["name", "id", "edition", "set", "origin", "notes"]) {
+    if ((a[k] || "") !== (b[k] || "")) return false;
+  }
+  if (!!a.unverified !== !!b.unverified) return false;
   for (let i = 0; i < a.cells.length; i++) if (a.cells[i] !== b.cells[i]) return false;
   for (let i = 0; i < a.wallH.length; i++) if (a.wallH[i] !== b.wallH[i]) return false;
   for (let i = 0; i < a.wallV.length; i++) if (a.wallV[i] !== b.wallV[i]) return false;

@@ -5,14 +5,15 @@
  * time this project had one, and read perfectly plausibly while being wrong.
  */
 
-import { TOOLS, GROUPS, toolsFor, toolByKey, describe } from "./tools.js";
+import { TOOLS, GROUPS, toolsFor, toolByKey, describe, EDITION_CHOICES } from "./tools.js";
 import { GLYPHS, DEVICE_GLYPHS } from "../render/glyphs.js";
 import { ELEMENTS, ARG_DIR, ARG_DIGIT, ARG_PAIR } from "../rulesets/elements.js";
 import { DEVICE_KINDS, REGS_NONE } from "../rulesets/devices.js";
 import { ARM_CHARS, ARM_NAMES, ARM_CODES } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
-import { rulesetFor } from "../rulesets/index.js";
+import { rulesetFor, playableEditions, editionBlocker } from "../rulesets/index.js";
+import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
 import { esc } from "../render/theme.js";
 
 const swatch = body =>
@@ -69,7 +70,44 @@ export function renderInspector(el, st, hover, isCourse) {
   html += '<div class="row"><label>Id</label><input type="text" data-meta="id" value="' +
     esc(st.board.id) + '"></div>';
   html += '<div class="row"><label>Size</label><span class="pill">' + st.board.w + " x " + st.board.h +
-    '</span><span class="pill">' + esc(st.board.edition) + '</span></div>';
+    "</span></div>";
+
+  /* WHICH GAME THIS BOARD WAS PRINTED FOR, and it has to be changeable here.
+   * The rail offers only what the declared edition printed, and a new board
+   * starts classic -- so while this was a read-only pill, nine elements
+   * (water, drains, ramps, currents, energy, randomizers, teleporters, the
+   * antenna and the reboot token) could not be reached at all, and elevation
+   * along with them, since a ramp is modern-only. */
+  html += '<div class="row"><label>Edition</label>' +
+    EDITION_CHOICES.map(k =>
+      '<button data-edition="' + k + '" aria-pressed="' + (st.board.edition === k) + '" title="' +
+      (EDITIONS[k] ? esc(EDITIONS[k].years) : "every element legal in both games") + '">' +
+      esc(EDITIONS[k] ? EDITIONS[k].name : "Both") + "</button>").join("") + "</div>";
+
+  /* What switching would cost, counted before it is clicked rather than
+   * discovered as a screen of diagnostics afterwards. */
+  for (const k of EDITION_CHOICES) {
+    if (k === st.board.edition) continue;
+    const n = countIllegal(st.board, k);
+    if (n) {
+      html += '<div class="row"><span class="none">' + esc(EDITIONS[k] ? EDITIONS[k].name : "Both") +
+        ": " + n + " square" + (n === 1 ? "" : "s") + " would be illegal.</span></div>";
+    }
+  }
+
+  const sets = Object.keys(SETS).filter(id => SETS[id].edition === "both" || SETS[id].edition === st.board.edition);
+  if (!sets.includes(st.board.set)) sets.unshift(st.board.set);
+  html += '<div class="row"><label>Box</label><select data-meta="set">' +
+    sets.map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
+      esc(SETS[id] ? SETS[id].name + " \u2014 " + SETS[id].box : id + " (not a known box)") +
+      "</option>").join("") + "</select></div>";
+  html += '<div class="row"><label>Origin</label><select data-meta="origin">' +
+    ORIGINS.map(o => '<option value="' + o + '"' + (o === st.board.origin ? " selected" : "") + ">" + o + "</option>").join("") +
+    "</select>" +
+    '<button data-meta-toggle="unverified" aria-pressed="' + !!st.board.unverified +
+    '" title="Keeps the board out of course assembly until it has been checked square by square">unverified</button></div>';
+  html += '<div class="row"><label>Notes</label><input type="text" data-meta="notes" value="' +
+    esc(st.board.notes || "") + '" placeholder="where this came from"></div>';
 
   html += "<h3>In hand</h3>";
   if (!tool) html += '<p class="none">Nothing.</p>';
@@ -159,6 +197,24 @@ export function renderInspector(el, st, hover, isCourse) {
     }
   }
   el.innerHTML = html;
+}
+
+/** How many squares carry something the given edition never printed. */
+function countIllegal(board, edition) {
+  let n = 0;
+  for (const tok of board.cells) {
+    const def = ELEMENTS[tok.charAt(0)];
+    if (!def) continue;
+    const okHere = edition === "both" ? def.editions.length === 2 : def.editions.indexOf(edition) >= 0;
+    if (!okHere) n++;
+  }
+  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) {
+    const def = DEVICE_KINDS[dev.kind];
+    if (!def) continue;
+    const okHere = edition === "both" ? def.editions.length === 2 : def.editions.indexOf(edition) >= 0;
+    if (!okHere) n++;
+  }
+  return n;
 }
 
 /** The board's turn, filtered to what this square actually carries. */

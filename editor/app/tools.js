@@ -52,6 +52,14 @@ export const TOOLS = [
 
 export const GROUPS = ["Hand", "Floor", "Walls", "Ceiling"];
 
+/* The editions the inspector lets you pick between. The rail offers only what
+ * the declared edition printed, so anything NOT reachable from one of these is
+ * in the format and undrawable -- which is what happened when edition was a
+ * read-only pill and a new board started classic: nine elements and the whole
+ * of elevation had no route to the board at all. check-app.js asserts the
+ * cover, so adding an element with a new edition cannot repeat it. */
+export const EDITION_CHOICES = ["classic", "modern", "both"];
+
 export function toolByKey(key) {
   return TOOLS.find(t => t.key === key);
 }

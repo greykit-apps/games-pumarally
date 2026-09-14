@@ -8,7 +8,7 @@
 import { blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
 import { N, E, S, W, opposite } from "../lib/dir.js";
-import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge } from "../app/tools.js";
+import { apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge, EDITION_CHOICES } from "../app/tools.js";
 import { ZOOM_MIN, ZOOM_MAX } from "../app/view.js";
 import { checkBoard } from "../validate/index.js";
 import { ELEMENTS } from "../rulesets/elements.js";
@@ -58,11 +58,32 @@ const fresh = (w = 8, h = 8, edition = "classic") =>
   for (const k of Object.keys(DEVICE_KINDS)) {
     ok(TOOLS.some(t => t.key === "dev:" + k), "rail: " + k + " has a tool");
   }
+  /* EVERY ELEMENT AND DEVICE MUST BE REACHABLE FROM SOME EDITION THE EDITOR CAN
+   * SELECT. Having a tool in the list is not enough -- the rail filters by the
+   * board's declared edition, and while that was read-only and a new board
+   * started classic, nine elements and the whole of elevation had no route to a
+   * board at all. Water was simply not an option anywhere. */
+  {
+    const reachable = new Set();
+    for (const e of EDITION_CHOICES) for (const t of toolsFor(e, true)) reachable.add(t.key);
+    const stranded = [
+      ...Object.values(ELEMENTS).filter(d => !reachable.has("el:" + d.key)).map(d => "element " + d.key),
+      ...Object.keys(DEVICE_KINDS).filter(k => !reachable.has("dev:" + k)).map(k => "device " + k)
+    ];
+    eq(stranded, [], "rail: every element and device is reachable from an edition the editor offers");
+    for (const e of EDITION_CHOICES) {
+      ok(toolsFor(e, false).some(t => t.kind === "ground"),
+         "rail: the " + e + " rail offers something to draw");
+    }
+  }
+
   const classic = toolsFor("classic", false).map(t => t.key);
   ok(!classic.includes("el:energySpace"), "rail: a classic board is not offered a battery");
   ok(!classic.includes("dev:crusher"), "rail: a classic board is not offered a crusher");
   ok(classic.includes("dev:jet"), "rail: a classic board is offered a flame jet");
   ok(!toolsFor("modern", false).map(t => t.key).includes("el:repairSite"), "rail: a modern board is not offered a repair site");
+  ok(toolsFor("modern", false).map(t => t.key).includes("el:water"), "rail: a modern board IS offered water");
+  ok(toolsFor("modern", false).map(t => t.key).includes("el:ramp"), "rail: and a ramp, so elevation can be drawn");
   ok(!toolsFor("classic", false).some(t => t.courseOnly), "rail: the flag tool is not in a board's rail");
   ok(toolsFor("classic", true).some(t => t.key === "flag"), "rail: the flag tool is in a course's rail");
 }
