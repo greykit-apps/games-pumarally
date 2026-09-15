@@ -280,6 +280,16 @@ const COURSE_CASES = [
     c.flags = [[4, 6], [20, 6]];
   }],
   ["course.flagDuplicate", c => { c.flags = [[4, 6], [4, 6]]; }],
+  /* the 2016 Reboot Tokens, placed like flags */
+  ["course.rebootOffCourse", c => { c.reboots = [[99, 99, 0]]; }],
+  ["course.rebootNotFloor", c => { c.reboots = [[1, 3, 0]]; }],             // the fixture's pit
+  ["course.rebootInDock", c => { c.reboots = [[0, 13, 0]]; }],             // floor, and inside the block
+  ["course.rebootTwice", c => { c.reboots = [[4, 6, 1], [5, 6, 1]]; }],
+  ["course.rebootArrow", c => { c.reboots = [[0, 0, 0]]; }],                // its arrow points north, off the course
+  ["course.rebootMissing", c => {
+    c.stamps.push({ role: "board", board: FIXTURE, rot: 0, at: [12, 0] });
+    c.reboots = [[4, 6, 1]];
+  }],
   /* the rulebook's corner is walls, not cardboard: (4,6) walled on two sides */
   ["course.flagWallCorner", c => { c.stamps[0].board = "cornered"; }],
   ["course.unverifiedBoard", c => { c.stamps[0].board = "unchecked"; }],

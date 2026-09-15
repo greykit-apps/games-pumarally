@@ -35,7 +35,10 @@ import { DC, DR, N, E, S, W } from "../lib/dir.js";
 import { REGISTERS } from "../lib/registers.js";
 
 const COURSE_KEYS = new Set([
-  "format", "version", "id", "name", "kind", "blurb", "stamps", "flags", "minPlayers", "maxPlayers", "notes"
+  "format", "version", "id", "name", "kind", "blurb", "stamps", "flags", "minPlayers", "maxPlayers", "notes",
+  /* the 2016 game's Reboot Tokens, placed per course like the flags ([c, r, facing]),
+   * and a course's own reboot cost (Cry Havoc draws 3 damage instead of 2) */
+  "reboots", "rebootDamage"
 ]);
 const STAMP_KEYS = new Set(["role", "board", "rot", "at", "note"]);
 const at = (c, r) => "(" + c + "," + r + ")";
@@ -71,9 +74,20 @@ export function courseFromDocument(doc, d, expectId) {
   const course = {
     format: COURSE_FORMAT, version: COURSE_VERSION,
     id: doc.id, name: doc.name || "", kind: doc.kind || "track", blurb: doc.blurb || "",
-    stamps: [], flags: [],
+    stamps: [], flags: [], reboots: [], rebootDamage: doc.rebootDamage === undefined ? null : doc.rebootDamage,
     minPlayers: doc.minPlayers, maxPlayers: doc.maxPlayers
   };
+  if (doc.rebootDamage !== undefined && (!Number.isInteger(doc.rebootDamage) || doc.rebootDamage < 0 || doc.rebootDamage > 9)) {
+    d.error("doc.meta", "`rebootDamage` is the damage a reboot draws: a small whole number.", null, "/rebootDamage");
+  }
+  if (doc.reboots !== undefined) {
+    if (!Array.isArray(doc.reboots)) d.error("course.rebootOffCourse", "`reboots` must be an array.", null, "/reboots");
+    else doc.reboots.forEach((t, i) => {
+      if (!Array.isArray(t) || t.length !== 3 || !Number.isInteger(t[0]) || !Number.isInteger(t[1]) || !Number.isInteger(t[2]) || t[2] < 0 || t[2] > 3) {
+        d.error("course.rebootOffCourse", "Reboot token " + (i + 1) + " is not a [c, r, facing] triple.", null, "/reboots/" + i);
+      } else course.reboots.push([t[0], t[1], t[2]]);
+    });
+  }
 
   doc.stamps.forEach((raw, i) => {
     const ptr = "/stamps/" + i;
@@ -172,6 +186,7 @@ export function validateCourse(course, library, d) {
   }
 
   checkFlags(course, library, grid, from, bounds, d);
+  checkReboots(course, library, grid, from, bounds, d);
 
   const spots = flagSpots(grid).length;
   if (spots < FLAG_SPOTS_WANTED) {
@@ -231,6 +246,47 @@ function escapes(grid, box, c0, r0) {
     }
   }
   return false;
+}
+
+/* "Each board, other than the Docking Bay, must have 1 and only 1 Reboot token
+ * on it" (2016 book p.30), on floor; a laser passing over one is live and every
+ * other element under it is not, so the token wants plain floor. A course with
+ * no tokens is one the engine plays under the archive substitute, so a
+ * missing token is a warning only once the course has any. */
+function checkReboots(course, library, grid, from, bounds, d) {
+  const perStamp = new Map();
+  course.reboots.forEach(([c, r, face], i) => {
+    const n = i + 1, ptr = "/reboots/" + i;
+    if (!inBoard(grid, c, r) || isVoid(grid, c, r)) {
+      d.error("course.rebootOffCourse", "Reboot token " + n + " at " + at(c, r) + " is off the course.", at(c, r), ptr);
+      return;
+    }
+    const def = elementAt(grid, c, r);
+    if (!def || def.key !== "floor") {
+      d.error("course.rebootNotFloor", "Reboot token " + n + " at " + at(c, r) + " is on " + (def ? def.name.toLowerCase() : "nothing") +
+        "; a token stands on plain floor, since every element under it would be switched off.", at(c, r), ptr);
+    }
+    if (inBox(dockBox(course, library, bounds), c, r)) {
+      d.error("course.rebootInDock", "Reboot token " + n + " at " + at(c, r) + " is on the docking bay, which has none: a robot that falls off the bay reboots at its own archive.", at(c, r), ptr);
+    }
+    const local = boardLocal(course, library, from, bounds, grid.w, c, r);
+    if (local) {
+      if (perStamp.has(local.index)) {
+        d.error("course.rebootTwice", "Reboot tokens " + perStamp.get(local.index) + " and " + n + " are both on " + JSON.stringify(local.boardId) + "; a board has one.", at(c, r), ptr);
+      } else perStamp.set(local.index, n);
+    }
+    const [nc, nr] = [c + DC[face], r + DR[face]];
+    if (!inBoard(grid, nc, nr) || isVoid(grid, nc, nr) || (elementAt(grid, nc, nr) && elementAt(grid, nc, nr).key === "pit")) {
+      d.warn("course.rebootArrow", "Reboot token " + n + " at " + at(c, r) + " points its arrow " + ["north", "east", "south", "west"][face] +
+        " into " + (inBoard(grid, nc, nr) && !isVoid(grid, nc, nr) ? "a pit" : "the void") + ": a robot moved aside for a reboot goes that way.", at(c, r), ptr);
+    }
+  });
+  if (course.reboots.length) {
+    course.stamps.forEach((s, i) => {
+      if (s.role === "dock" || perStamp.has(i)) return;
+      d.warn("course.rebootMissing", JSON.stringify(s.board) + " has no Reboot token; the 2016 book wants one on every board but the docking bay. A robot that falls from it reboots at its archive.", null, s._ptr);
+    });
+  }
 }
 
 function checkFlags(course, library, grid, from, bounds, d) {

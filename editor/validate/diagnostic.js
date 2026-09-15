@@ -150,6 +150,12 @@ export const CODES = Object.freeze({
   "course.flagWallCorner":"a flag in a corner formed by two or more walls, which the classic rulebook advises against",
   "course.unverifiedBoard":"a board marked unverified is laid in this course",
   "course.flagGap":       "a flag further from the previous one than the ruleset allows",
+  "course.rebootOffCourse": "a reboot token off the course",
+  "course.rebootNotFloor":  "a reboot token on something other than plain floor",
+  "course.rebootInDock":    "a reboot token on the docking bay",
+  "course.rebootTwice":     "two reboot tokens on one board",
+  "course.rebootArrow":     "a reboot token whose arrow points into a pit or off the course",
+  "course.rebootMissing":   "a board with no reboot token, on a course that places them",
   "course.flagDuplicate": "two flags on one square",
   "course.fewFlagSpots":  "a course marking fewer flag locations than a race wants to choose from"
 });

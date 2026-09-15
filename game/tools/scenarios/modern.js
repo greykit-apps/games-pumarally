@@ -5,8 +5,8 @@
  * Same contract as classic.js: every name here is marked "ported" in
  * scenarios.js, and the runner holds the two lists to each other.
  */
-import { board, courseOn, game, give, runRegister, drive, N, E, S, W } from "./harness.js";
-import { stepRobot, beltPass, damage, destroy, heldDamage } from "../../engine/rules.js";
+import { board, courseOn, game, give, runRegister, drive, rebuild, N, E, S, W } from "./harness.js";
+import { stepRobot, beltPass, damage, destroy, heldDamage, checkpointPass } from "../../engine/rules.js";
 import { CLASSIC_ORDER, MODERN_ORDER, tick, step, shutdown } from "../../engine/machine.js";
 import { newGame, MODERN_REBOOT_POINT, MODERN_FIRST_PRIORITY, priorityOrder } from "../../engine/state.js";
 import {
@@ -289,6 +289,80 @@ export const TESTS = [
     assert(p.alive && !p.rebooting, "the robot came back");
     eq([p.c, p.r, p.face], [1, 3, E], "landed at its reboot point facing east, then played its Move 1");
     assert(r.events.some(e => e.type === "rebooted"), "the return is an event");
+  }],
+  /* --- reboot tokens (pp.15, 20, 30) -------------------------------------------- */
+  ["a robot reboots on the Reboot Token of the board it fell from", () => {
+    const co = plain();
+    co.doc.reboots = [[6, 6, N]];
+    rebuild(co);
+    const st = mgame(co, [{ c: 3, r: 0, face: N }, { c: 1, r: 5 }]);
+    const p = st.players[0];
+    p.archive = { c: 0, r: 7, face: E };
+    stepRobot(st, co.C, p, N, "card");
+    assert(!p.alive && p.rebooting, "over the north edge");
+    eq(p.fellFrom, 0, "it remembers the board it fell from");
+    p.registers[0] = own(st, p, "move1");
+    st.priority = 0; st.register = 0; st.phase = "exec"; st.step = "reveal";
+    tick(st, co.library); tick(st, co.library);
+    assert(st.waiting && st.waiting.kind === "rebootFacing", "asked which way to face");
+    step(st, co.library, N);
+    eq([p.c, p.r, p.face], [6, 5, N], "landed on the token at (6,6) facing north, then played its Move 1");
+  }],
+  ["a robot with no token on its board reboots at its archive", () => {
+    const co = plain();
+    co.doc.reboots = [[6, 6, N]];
+    rebuild(co);
+    const st = mgame(co, [{ c: 3, r: 3 }, { c: 1, r: 5 }]);
+    const p = st.players[0];
+    p.archive = { c: 0, r: 7, face: E };
+    p.alive = false; p.rebooting = true; p.fellFrom = 1;        // the docking bay, say: no token there
+    p.registers[0] = own(st, p, "left");
+    st.priority = 0; st.register = 0; st.phase = "exec"; st.step = "reveal";
+    tick(st, co.library); tick(st, co.library);
+    step(st, co.library, E);
+    eq([p.c, p.r], [0, 7], "back at its archive");
+  }],
+  ["a robot standing on the Reboot Token is moved along its arrow", () => {
+    const co = plain();
+    co.doc.reboots = [[4, 4, E]];
+    rebuild(co);
+    const st = mgame(co, [{ c: 3, r: 0 }, { c: 4, r: 4, face: N }]);
+    const p = st.players[0], q = st.players[1];
+    p.alive = false; p.rebooting = true; p.fellFrom = 0;
+    p.registers[0] = own(st, p, "left");
+    st.priority = 0; st.register = 0; st.phase = "exec"; st.step = "reveal";
+    tick(st, co.library); tick(st, co.library);
+    step(st, co.library, S);
+    eq([p.c, p.r], [4, 4], "the returning robot has the token");
+    eq([q.c, q.r, q.face], [5, 4, N], "the occupant was moved one square east, the arrow's way, without turning");
+  }],
+  ["a course with tokens keeps the 2016 archive on the docking bay", () => {
+    const co = courseOn(board(8, 8), [[3, 3]]);
+    co.doc.reboots = [[6, 6, N]];
+    rebuild(co);
+    const st = mgame(co, [{ c: 3, r: 3 }]);
+    const p = st.players[0];
+    p.archive = { c: 0, r: 7, face: N };
+    checkpointPass(st, co.C);
+    eq(p.flags, 1, "the checkpoint was reached");
+    eq([p.archive.c, p.archive.r], [0, 7], "and the archive did not move: a faller reboots on a token, not here");
+    /* without tokens the substitute still follows the checkpoints */
+    const co2 = courseOn(board(8, 8), [[3, 3]]);
+    const st2 = mgame(co2, [{ c: 3, r: 3 }]);
+    st2.players[0].archive = { c: 0, r: 7, face: N };
+    checkpointPass(st2, co2.C);
+    eq([st2.players[0].archive.c, st2.players[0].archive.r], [3, 3], "the substitute archives at the checkpoint");
+  }],
+  ["Cry Havoc: a reboot draws three damage cards instead of two", () => {
+    const co = plain((b, t) => t.setCell(1, 3, "o.."));
+    co.doc.rebootDamage = 3;
+    rebuild(co);
+    const st = mgame(co, [{ c: 0, r: 3, face: E }, { c: 5, r: 5 }]);
+    const p = st.players[0];
+    const before = st.damageDeck.length;
+    stepRobot(st, co.C, p, E, "card");
+    assert(!p.alive && p.rebooting, "into the pit");
+    eq(st.damageDeck.length, before - 3, "three damage cards drawn");
   }],
   ["a rebooting player can still work their own controls", () => {
     /* the lock-up the old game had: a person whose robot was off the board

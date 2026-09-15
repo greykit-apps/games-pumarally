@@ -23,8 +23,7 @@ import { shuffle } from "./rng.js";
 import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
-  checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived
-} from "./rules.js";
+  checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
@@ -272,7 +271,7 @@ export function shutdown(st, p) {
  * MODERN_REBOOT_POINT in state.js for the substitute in use.
  */
 function landReboot(st, C, p, facing) {
-  const at = p.archive || { c: p.c, r: p.r, face: 0 };
+  const at = rebootPoint(C, p);
   const occ = robotAt(st, at.c, at.r);
   if (occ) {
     const [nc, nr] = stepCell(at.c, at.r, at.face);
@@ -292,8 +291,9 @@ function landReboot(st, C, p, facing) {
   p.c = at.c; p.r = at.r; p.face = facing;
   p.alive = true; p.rebooting = false;
   p.trail = [[p.c, p.r]];
+  p.fellFrom = -1;
   st.events.push({ type: "rebooted", player: p.id, at: [p.c, p.r], face: facing });
-  log(st, p.name + " reboots at (" + p.c + "," + p.r + ") facing " + ["north", "east", "south", "west"][facing]);
+  log(st, p.name + " reboots " + (at.token ? "on the Reboot Token" : "at its archive") + " (" + p.c + "," + p.r + ") facing " + ["north", "east", "south", "west"][facing]);
 }
 
 /**

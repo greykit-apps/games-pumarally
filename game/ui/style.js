@@ -41,6 +41,8 @@ h2:first-child{margin-top:0}
 .overlay .beam{stroke:var(--danger);stroke-width:6;stroke-linecap:round;opacity:.9;filter:drop-shadow(0 0 6px var(--danger))}
 .overlay .bay-pick{fill:var(--accent);opacity:.18;cursor:pointer}
 .overlay .bay-pick:hover{opacity:.45}
+.overlay .reboot .pr-tok{fill:var(--good);opacity:.85;stroke:var(--bg);stroke-width:3}
+.overlay .reboot .pr-tok-arrow{fill:none;stroke:var(--bg);stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
 .overlay .flag .pr-pole{fill:var(--steel)}
 .overlay .flag .pr-banner{fill:var(--warn);stroke:var(--bg);stroke-width:3}
 .overlay .flag .pr-num{fill:#120c00;font:700 44px ui-monospace,Menlo,Consolas,monospace;text-anchor:middle;dominant-baseline:middle}

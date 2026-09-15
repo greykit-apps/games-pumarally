@@ -15,7 +15,7 @@ import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.j
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
 import { rampDir, rampCrosses } from "../../editor/lib/levels.js";
-import { DC, DR, opposite } from "../../editor/lib/dir.js";
+import { DC, DR, opposite, dirOfChar } from "../../editor/lib/dir.js";
 
 /* keyed on the LIBRARY as well as the document: two courses with the same
  * placements over different boards are different courses, and a cache that
@@ -69,7 +69,30 @@ export function buildCourse(doc, library) {
     portals.set(ends[0].join(","), ends[1]);
     portals.set(ends[1].join(","), ends[0]);
   }
-  return { id: doc.id, w: grid.w, h: grid.h, grid, from, bounds, flags, docks, lasers, jets, portals, key: JSON.stringify(doc) };
+  /* the 2016 Reboot Tokens: placed on the course like the flags, or printed
+   * on a flattened course's floor as the "@" element; each remembers the
+   * stamp it stands on, since a robot reboots on the token of the board it
+   * fell from */
+  const reboots = (doc.reboots || []).map(([c, r, face]) => ({ c, r, face, stamp: inBoard(grid, c, r) ? from[r * grid.w + c] : -1 }));
+  for (let r = 0; r < grid.h; r++) {
+    for (let c = 0; c < grid.w; c++) {
+      const tok = cellAt(grid, c, r);
+      const def = tokenElement(tok);
+      if (def && def.props.reboot && !reboots.some(t => t.c === c && t.r === r)) reboots.push({ c, r, face: dirOfChar(tok.charAt(1)) | 0, stamp: from[r * grid.w + c] });
+    }
+  }
+  const rebootDamage = Number.isInteger(doc.rebootDamage) ? doc.rebootDamage : 2;
+  return { id: doc.id, w: grid.w, h: grid.h, grid, from, bounds, flags, docks, lasers, jets, portals, reboots, rebootDamage, key: JSON.stringify(doc) };
+}
+
+/** The stamp (board placement) a square belongs to, or -1 off the course. */
+export function stampAt(C, c, r) {
+  return inBoard(C.grid, c, r) ? C.from[r * C.w + c] : -1;
+}
+/** The Reboot Token on a stamp, or null: none there, or the stamp is the docking bay, whose fallers reboot at their archive. */
+export function rebootTokenOn(C, stamp) {
+  if (stamp < 0) return null;
+  return C.reboots.find(t => t.stamp === stamp) || null;
 }
 
 /* --- square questions ------------------------------------------------------- */
