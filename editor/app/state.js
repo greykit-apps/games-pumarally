@@ -144,12 +144,13 @@ export function readAll() {
 
 const COURSE_KEY = "pumarally_courses_v1";
 
-export function saveCourse(id, doc) {
+/** `extra` rides along with the document: a flattened course keeps its one board here as `board` (JSON text). */
+export function saveCourse(id, doc, extra = {}) {
   const s = store();
   if (!s) return false;
   try {
     const all = readCourses();
-    all[id] = { doc, saved: Date.now() };
+    all[id] = { doc, saved: Date.now(), ...extra };
     s.setItem(COURSE_KEY, JSON.stringify(all));
     return true;
   } catch (e) { return false; }

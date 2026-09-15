@@ -24,6 +24,18 @@ import { renderDiagnostics } from "./panels.js";
 import { saveCourse, readCourses, removeCourse } from "./state.js";
 import { esc } from "../render/theme.js";
 import { rotateBoard } from "../lib/rotate.js";
+import { boardJSON } from "../lib/canon.js";
+import { cloneBoard } from "../lib/board.js";
+
+/** A saved course that was flattened carries its one board along; put it in the library so the course reads. */
+function adoptBoard(saved, library) {
+  if (!saved || !saved.board) return;
+  try {
+    const d = sink();
+    const b = boardFromDocument(JSON.parse(saved.board), d);
+    if (b && !d.items.some(x => x.severity === "error")) library.set(b.id, b);
+  } catch (e) { /* the course will report the missing board */ }
+}
 
 const SHELL = `
 <div class="ed">
@@ -142,6 +154,7 @@ export async function mountCourse(root, wanted) {
 
   if (wanted && wanted !== "new") {
     const saved = readCourses()[wanted];
+    adoptBoard(saved, library);
     try {
       const doc = saved ? saved.doc
         : await (await fetch("./data/courses/" + wanted + ".json")).json();
@@ -152,6 +165,7 @@ export async function mountCourse(root, wanted) {
   } else if (!wanted) {
     /* plain #course: whatever was being built last, if it still reads */
     const saved = readCourses()[WORKING];
+    adoptBoard(saved, library);
     if (saved && saved.doc) {
       const d = sink();
       const c = courseFromDocument(saved.doc, d);
@@ -214,7 +228,7 @@ export async function mountCourse(root, wanted) {
       html += '<div class="stampbox' + (i === st.sel ? " sel" : "") + (s.role === "dock" ? " dock" : "") +
         '" style="left:' + x + "px;top:" + y + "px;width:" + w * 100 + "px;height:" + h * 100 + 'px"></div>';
       html += '<div class="stamplabel" style="left:' + (x + 6) + "px;top:" + (y + 6) + 'px;font-size:26px">' +
-        esc(src.name) + (s.rot ? " ↻" + (s.rot * 90) + "°" : "") + (s.role === "dock" ? " • start" : "") + "</div>";
+        esc(src.name) + (s.rot ? " ↻" + (s.rot * 90) + "°" : "") + (s.role === "dock" ? " • start" : s.role === "course" ? " • whole course" : "") + "</div>";
       /* the selected board carries its own buttons: turn either way, take off */
       if (i === st.sel) {
         html += '<div class="stamptools" style="left:' + (x + 8) + "px;top:" + (y + h * 100 - 62) + 'px">' +
@@ -240,7 +254,7 @@ export async function mountCourse(root, wanted) {
     html += "<h3>Boards</h3><div class='palette'>";
     for (const row of index.boards) {
       const b = library.get(row.id);
-      if (!b) continue;
+      if (!b || b.origin === "course") continue;
       /* the docking bay is offered under Start, not here: a course has one and
        * it is not interchangeable with a floor */
       if (isDock(b)) continue;
@@ -339,6 +353,12 @@ export async function mountCourse(root, wanted) {
     const broken = st.diagnostics.some(x => x.severity === "error");
     html += '<div class="row"><button data-act="save"' + (broken ? " disabled" : "") +
       '>Save to library</button><button data-act="export">Export JSON</button></div>';
+    /* the whole course as one board, square by square, in the board workshop */
+    html += '<div class="row"><button data-act="flatten"' + (st.course.stamps.length ? "" : " disabled") +
+      ' title="Lay the whole course out as one board and open it in the board workshop, to edit square by square. It comes back to this library as a single board, and it can be played from there.">Edit as one board &rarr;</button></div>';
+    if (st.course.stamps.some(s => s.role === "course")) {
+      html += '<div class="row"><span class="none">This course is one flattened board. Flags are set here; the floor is edited in the board workshop.</span></div>';
+    }
     if (broken) {
       html += '<div class="row"><span class="none bad">Fix the problems below before saving. ' +
         'A course that will not build is one the wizard would fall over on.</span></div>';
@@ -685,6 +705,7 @@ export async function mountCourse(root, wanted) {
       case "turn-right": snap(); if (turn(st.course, library, st.sel, 1)) refresh(); else { history.pop(); say("Turning it there would run into another board.", "bad"); } break;
       case "drop": snap(); remove(st.course, library, st.sel); st.sel = -1; refresh(); say("Board taken off.", ""); break;
       case "clear": snap(); st.course = newCourse(st.course.id); st.sel = -1; st.hand = null; refresh({ keepView: false }); break;
+      case "flatten": flatten(); break;
       case "export": showText("Course JSON", JSON.stringify(toDocument(st.course), null, 2) + "\n", st.course.id + ".json"); break;
       case "save": {
         /* A COURSE THAT WILL NOT BUILD IS NEVER SAVED. The library is read back
@@ -701,6 +722,33 @@ export async function mountCourse(root, wanted) {
         break;
       }
     }
+  }
+
+  /* THE WHOLE COURSE AS ONE BOARD. The assembled grid becomes a board of
+   * origin "course" (holes allowed) with the course's name and id, and the
+   * course becomes a single stamp of it, keeping its flags and seats. Both
+   * go into the course library under one entry -- the placement list is
+   * given up, which is the point: from here the floor is edited square by
+   * square -- and the board workshop opens on it. A course already flat keeps
+   * its id; one built from placements gets "_edit" so the placements stay. */
+  function flatten() {
+    if (!st.course.stamps.length) return;
+    const flat = st.course.stamps.length === 1 && st.course.stamps[0].role === "course";
+    const id = flat ? st.course.id : st.course.id + "_edit";
+    const board = cloneBoard(asm.grid);
+    board.id = id; board.name = st.course.name || id;
+    board.set = "authored"; board.origin = "course"; board.allowVoid = true; board.unverified = false;
+    board.notes = flat ? board.notes : "Flattened from the course " + st.course.id + ".";
+    const doc = {
+      format: st.course.format, version: st.course.version, id, name: st.course.name, kind: st.course.kind,
+      stamps: [{ role: "course", board: id, rot: 0, at: [0, 0] }],
+      flags: st.course.flags.map(f => [f[0], f[1]]),
+      minPlayers: st.course.minPlayers, maxPlayers: st.course.maxPlayers
+    };
+    if (st.course.blurb) doc.blurb = st.course.blurb;
+    if (!saveCourse(id, doc, { board: boardJSON(board) })) { say("Could not save -- this browser is not keeping local storage.", "bad"); return; }
+    location.hash = "#edit=" + id;
+    location.reload();
   }
 
   function showText(title, text, filename) {

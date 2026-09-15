@@ -34,7 +34,9 @@ export const SETS = {
   modernUnfiled:     { name: "Modern, box unrecorded", edition: "modern", box: "Not established" }
 };
 
-export const ORIGINS = ["transcribed", "authored"];
+/* "course": a whole course flattened into one board so it can be edited square
+ * by square in the board workshop; the only origin that may carry holes */
+export const ORIGINS = ["transcribed", "authored", "course"];
 
 export function setOf(id) { return SETS[id]; }
 export function editionOf(id) { return EDITIONS[id]; }

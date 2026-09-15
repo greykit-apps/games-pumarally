@@ -365,7 +365,7 @@ export function boardFromDocument(doc, d, expectId) {
       else board[k] = doc[k];
     }
   }
-  if (board.allowVoid) {
+  if (board.allowVoid && board.origin !== "course") {
     d.error("doc.allowVoid", "`allowVoid` belongs to an assembled course picture, not to a board.",
       null, "/allowVoid");
   }

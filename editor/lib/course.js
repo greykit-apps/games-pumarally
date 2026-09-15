@@ -20,7 +20,7 @@
 
 import {
   blankBoard, idx, inBoard, isVoid, setCell, levelAt, setLevel, hasLevels, cellAt,
-  elementAt, flagSpots, deviceCell
+  elementAt, flagSpots, deviceCell, docksOf
 } from "./board.js";
 import { rotateBoard, rotatedDims } from "./rotate.js";
 import { EDGE_NONE, EDGE_WALL, EDGE_DOOR, wallAt } from "./edges.js";
@@ -28,7 +28,9 @@ import { DC, DR, N, E, S, W } from "./dir.js";
 
 export const COURSE_FORMAT = "PRCourse";
 export const COURSE_VERSION = 1;
-export const ROLES = ["board", "dock"];
+/* "course": a whole course as one board, holes and docking bays inside it,
+ * the way the board workshop hands a flattened course back */
+export const ROLES = ["board", "dock", "course"];
 
 /** The dimensions a stamp occupies once rotated. */
 export function stampDims(board, rot) {
@@ -211,18 +213,28 @@ export function components(grid) {
   return out;
 }
 
-/** The one dock stamp, or null. */
+/** The one dock stamp, or null: a docking bay board, or a whole course with its bays inside it. */
 export function dockStamp(course) {
-  return course.stamps.find(s => s.role === "dock") || null;
+  return course.stamps.find(s => s.role === "dock" || s.role === "course") || null;
 }
 
-/** The dock's footprint, derived from its OWN rotated dimensions. */
+/**
+ * The starting block, in grid squares: a dock stamp's whole footprint, or,
+ * for a whole course laid as one board, the box its docking bays span.
+ */
 export function dockBox(course, library, bounds) {
   const s = dockStamp(course);
   if (!s) return null;
   const b = library.get(s.board);
   if (!b) return null;
   const f = stampFootprint(s, b);
+  if (s.role === "course") {
+    const bays = docksOf(rotateBoard(b, s.rot || 0));
+    if (!bays.length) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const d of bays) { x0 = Math.min(x0, d.c); y0 = Math.min(y0, d.r); x1 = Math.max(x1, d.c); y1 = Math.max(y1, d.r); }
+    return { x0: f.x0 + x0 - bounds.x0, y0: f.y0 + y0 - bounds.y0, x1: f.x0 + x1 - bounds.x0, y1: f.y0 + y1 - bounds.y0 };
+  }
   return { x0: f.x0 - bounds.x0, y0: f.y0 - bounds.y0, x1: f.x1 - bounds.x0, y1: f.y1 - bounds.y0 };
 }
 

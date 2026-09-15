@@ -46,13 +46,20 @@ let st = null;
 let screen = null;
 let busy = false;
 
+/* the workshop's Play button arrives as #course=<id>: that course, preselected on the setup screen */
+function wantedCourse() {
+  const m = /^#course=([A-Za-z0-9_]+)$/.exec(location.hash || "");
+  return m ? m[1] : null;
+}
+
 function toSetup() {
   screen = null;
   const saved = loadGame();
   mountSetup(host, {
     library, index, courses,
     onStart: opts => start(opts),
-    onResume: saved && !saved.over && saved.v === 1 ? () => { st = saved; openScreen(); advance(); } : null
+    onResume: saved && !saved.over && saved.v === 1 ? () => { st = saved; openScreen(); advance(); } : null,
+    initialCourse: wantedCourse()
   });
 }
 
@@ -111,7 +118,8 @@ async function advance(answer) {
 function submit(answer) { advance(answer); }
 
 const saved = loadGame();
-if (saved && !saved.over && saved.v === 1) {
+if (wantedCourse()) toSetup();
+else if (saved && !saved.over && saved.v === 1) {
   try {
     readCourse(saved.course, library);
     st = saved;

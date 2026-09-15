@@ -6,7 +6,8 @@
  */
 
 import { injectCSS } from "./style.js";
-import { newState, mark, keep, undo, redo, revalidate, saveLocal, readAll } from "./state.js";
+import { newState, mark, keep, undo, redo, revalidate, saveLocal, readAll, readCourses, saveCourse } from "./state.js";
+import { courseFromDocument, validateCourse } from "../validate/course.js";
 import {
   apply, erase, toolByKey, toolsFor, blankToolState, STEER_KEYS,
   setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe, newStroke,
@@ -46,6 +47,12 @@ const SHELL = `
       <div class="row"><label>Across</label><input type="range" data-ph="dx" min="-300" max="300" step="1" value="0"></div>
       <div class="row"><label>Down</label><input type="range" data-ph="dy" min="-300" max="300" step="1" value="0"></div>
       <div class="row"><span class="none">Hold Ctrl to see the photograph alone.</span></div>
+    </div>
+    <div class="insp-course" style="display:none">
+      <h3>This course</h3>
+      <div class="row"><button data-act="course-save">Save to course library</button>
+        <button data-act="course-play" class="primary">Play &rarr;</button></div>
+      <div class="row"><span class="none">The whole course, one board. Flags are set in the <a class="course-link" href="#course" style="color:var(--hot)">course workshop</a>; save there and it comes back here.</span></div>
     </div>
     <h3>This board</h3>
     <div class="row">
@@ -550,7 +557,47 @@ export function mount(root) {
       case "new": newBoard(); break;
       case "recover": recoverPrevious(); break;
       case "deselect": st.sel = null; refresh({ board: false }); break;
+      case "course-save": saveAsCourse(); break;
+      case "course-play": if (saveAsCourse()) location.href = new URL("../index.html#course=" + st.courseId, location.href).href; break;
     }
+  }
+
+  /* --- a whole course, edited as one board --------------------------------------
+   * Opened by #edit=<id> from the course workshop's "Edit as one board". The
+   * board is the course; saving writes the board back into the course library
+   * entry beside a one-stamp course document that keeps the flags and seats,
+   * after the course validator has passed it, so the game can read it. */
+  function openCourse(id) {
+    const saved = readCourses()[id];
+    if (!saved || !saved.board) { say("No flattened course called " + id + " in the library.", "bad"); return; }
+    const d = sink();
+    const b = boardFromDocument(JSON.parse(saved.board), d);
+    const errors = d.items.filter(x => x.severity === "error");
+    if (!b || errors.length) { say("The course " + id + " did not read cleanly: " + (errors[0] || {}).message, "bad"); return; }
+    st.courseId = id;
+    st.courseDoc = saved.doc;
+    replaceBoard(b);
+    fit(view, st);
+    const box = root.querySelector(".insp-course");
+    box.style.display = "";
+    box.querySelector(".course-link").href = "#course=" + id;
+    say("The whole course " + (saved.doc.name || id) + " as one board. Save to course library when it is right, or Play.", "");
+  }
+  function saveAsCourse() {
+    if (!st.courseId) return false;
+    if (st.diagnostics.some(x => x.severity === "error")) { say("The board still has problems. Fix them and it will save.", "bad"); return false; }
+    const doc = JSON.parse(JSON.stringify(st.courseDoc));
+    doc.id = st.courseId; doc.name = st.board.name || doc.name;
+    doc.stamps = [{ role: "course", board: st.board.id, rot: 0, at: [0, 0] }];
+    const lib = new Map([[st.board.id, st.board]]);
+    const d = sink();
+    const c = courseFromDocument(JSON.parse(JSON.stringify(doc)), d, st.courseId);
+    if (c) validateCourse(c, lib, d);
+    const bad = d.items.find(x => x.severity === "error");
+    if (bad) { say("As a course this does not build: " + bad.message, "bad"); return false; }
+    if (!saveCourse(st.courseId, doc, { board: boardJSON(st.board) })) { say("Could not save -- this browser is not keeping local storage.", "bad"); return false; }
+    say("Saved " + st.courseId + " to the course library.", "ok");
+    return true;
   }
 
   function dropPhoto() {
@@ -710,7 +757,7 @@ export function mount(root) {
   say("Pick a tool, click the board. W A S D face it, Q E turn it, ` swaps the drawing.", "");
 
   /* a small handle for the browser console and for tests */
-  window.__ED = { st, view, refresh, act, edit, say, replaceBoard, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev) };
+  window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev) };
   return window.__ED;
 }
 
@@ -736,11 +783,13 @@ if (host) {
   const hash = location.hash.replace(/^#/, "");
   const course = /^course(?:=([A-Za-z0-9_]+))?$/.exec(hash);
   const board = /^board=([A-Za-z0-9_]+)$/.exec(hash);
+  const flat = /^edit=([A-Za-z0-9_]+)$/.exec(hash);
   if (course) {
     import("./coursemode.js").then(m => m.mountCourse(host, course[1]));
   } else {
     const ed = mount(host);
     if (board) loadShipped(ed, board[1]);
+    else if (flat) ed.openCourse(flat[1]);
   }
   window.addEventListener("hashchange", () => location.reload());
 }
