@@ -21,9 +21,9 @@ at play time beyond fetching the boards.
 > foundation, after the first version stopped being fixable; `PLAN.md` says
 > why and how, `EDITOR-REVIEW.md` records what the workshop needed first, and
 > the tag `classic-monolith` holds the old game. What plays today is the
-> classic game: any mix of one to eight human and bot seats, seventeen
-> transcribed boards on nineteen courses, hot seat, autosave. The 2016 rules,
-> the option cards and the expansions are the plan's next milestones.
+> classic game and the 2016 game, chosen at set-up: any mix of one to eight
+> human and bot seats, seventeen transcribed boards on nineteen courses, hot
+> seat, autosave. The expansions are the plan's next milestone.
 
 ## What works today
 
@@ -36,7 +36,7 @@ at play time beyond fetching the boards.
 | The game on screen: set-up, draft, programming by click, keys and drag, animated floor, hot seat, autosave and resume | done |
 | Option cards: the sixteen transcribed, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 29 scenarios by name; the ten untranscribed cards are not guessed at |
 | Oil, portals, swing doors, unnumbered presses, burners on the way through, lives by game size (Crash and Burn, from the AMIGO book) | done, 29 scenarios by name |
-| The 2016 rules | not yet: M4 in `PLAN.md` |
+| The 2016 rules: own decks, Priority Token, SPAM, Energy, the upgrade shop with eleven built effects, shutdown, reboot, the reference card's floor order | done, 42 scenarios by name; three declared substitutes (reboot point, first priority, an all-SPAM damage deck) |
 | Flag locations marked on the boards, for the engine to choose among | not yet: board design |
 
 ## How it is put together

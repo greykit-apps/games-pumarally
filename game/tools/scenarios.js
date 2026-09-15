@@ -353,17 +353,18 @@ export const SCENARIOS = [
   {
     "name": "a course's rulebooks come from its squares, not from its box",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Energize is a 2016 board, and the classic rules refuse it by name",
     "layer": "rules",
-    "status": "pending"
+    "status": "dropped",
+    "reason": "a board is not for a game (editor/rulesets/sets.js): Energize prints nothing only one edition prints, and with the swap rule's wrenches it plays under either; readability comes from the squares ('a course's rulebooks come from its squares')"
   },
   {
     "name": "the docking bay belongs to both games, and a real mix is still refused",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "d",
@@ -803,27 +804,27 @@ export const SCENARIOS = [
   {
     "name": "a robot's deck is the twenty cards printed for it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Power Up takes a cube, and Again repeats the register before it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the Priority Token decides who acts, and moves one seat a round",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "shutting down scraps the damage you are holding, and not the damage in your deck",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a bot shuts down for the damage it is holding, not the damage in its deck",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the button says which round it is declaring",
@@ -833,27 +834,27 @@ export const SCENARIOS = [
   {
     "name": "a 2016 shutdown is declared for the round you are in, and lasts one round",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a 2016 robot does not die, it reboots",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a rebooting robot is dealt a hand and programs from off the board",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a rebooting robot walks back on at register 1 and then plays it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a rebooting player can still work their own controls",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a robot waiting to come back is drawn on the square it comes back to",
@@ -868,52 +869,52 @@ export const SCENARIOS = [
   {
     "name": "the person whose robot is rebooting is the one who picks its facing",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a bot comes back facing the way the flag is",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a robot standing on the reboot square is shoved aside, and that is not a push",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "making room for a returning robot never puts the occupant in a hole",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the 2016 reboot point is a declared substitute, not a silent one",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the upgrade deck is forty cards, all of them written down",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "three upgrades are dealt at setup, and the forty are conserved",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "fitting an upgrade costs its printed Energy and takes a slot",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the mat holds three of each kind and no more",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "an installed upgrade fires through the same hooks an option card does",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a stacked side panel costs the board height, not width",
@@ -933,52 +934,52 @@ export const SCENARIOS = [
   {
     "name": "a person shops for themselves, and the phase waits while they do",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a bot fits what it owns before it buys more, and keeps a cube back",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the upgrade deck reshuffles, and runs out honestly",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the damage deck is forty cards, and what is on them is a declared gap",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a 2016 hit hands you cards instead of ticking a track",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the damage deck reshuffles, and when it cannot you take no damage",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "SPAM in a register throws itself away and plays your next card",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "SPAM that turns up more SPAM keeps going until it finds a card",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "SPAM is the one card you do not discard at the end of programming",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "next round's deal lands on top of the SPAM you are still holding",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the help describes the game you are playing, not both at once",
@@ -988,22 +989,22 @@ export const SCENARIOS = [
   {
     "name": "a SPAM card in the hand names itself and says what it does",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a broken conservation law stops the game out loud, not silently",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a 2016 game played from a human seat, with the invariants armed",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a hand that does not add up to the deal is refused, in both editions",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a recompile throws away the hand, not the damage in it",
@@ -1013,17 +1014,18 @@ export const SCENARIOS = [
   {
     "name": "shutting down is the other way to be rid of SPAM",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the table's forty are counted apart from each robot's twenty",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a wrecked robot's damage goes back to the table, not into its deck",
     "layer": "rules",
-    "status": "pending"
+    "status": "dropped",
+    "reason": "contradicts the 2016 rulebook p.19 (manual1/IMG_1263): 'SPAM cards in your registers are discarded to your discard pile' -- the robot's own; replaced by 'a rebooting robot's SPAM stays with it, in its own discard'"
   },
   {
     "name": "each robot draws from its own deck and discards to its own pile",
@@ -1033,7 +1035,7 @@ export const SCENARIOS = [
   {
     "name": "a modern robot starts on three Energy and a classic one on none",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a course keeps the belt arms its boards were printed with",
@@ -1043,12 +1045,12 @@ export const SCENARIOS = [
   {
     "name": "the 2016 floor acts in its own order, which is not the classic one",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a blue belt conveys twice and a green belt only once",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a robot ending a register on a battery draws an Energy, to a maximum of ten",
@@ -1311,6 +1313,21 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "the Priority Token starts with seat 1, a declared substitute for the youngest player",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a rebooting robot's SPAM stays with it, in its own discard",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "an upgrade a robot has not built does nothing, and says so",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
     "name": "a trap with no register printed on it fires in every one",
     "layer": "rules",
     "status": "pending"
@@ -1448,7 +1465,7 @@ export const SCENARIOS = [
   {
     "name": "destroying a robot returns all of its cards to the discard",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a new game starts in the draft, at the colours",

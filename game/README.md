@@ -54,9 +54,9 @@ not by none of them.
 | `stayDown` | a powered-down racer, at cleanup (classic) | `true` to stay down |
 | `siteChoice` | a racer ending the turn on a two-wrench site (classic) | `"repair"` or `"card"` |
 | `cardChoice` | the holder of an option or upgrade card whose text says *may* | an index into `options` |
-| `rebootFacing` | a rebooting racer re-entering (modern) | a direction |
-| `upgrade` | each racer, at the upgrade phase (modern) | `{ buy: bool, install: id or null }` |
-| `shutdown` | each racer, at programming (modern) | `true` to shut down for the round |
+| `rebootFacing` | a rebooting racer re-entering in register 1 (modern) | a direction, 0 to 3 |
+| `upgrade` | each racer, at the upgrade phase (modern) | `{ buy: bool, install: id or null, uninstall: [ids] }`; `options` lists each part; a draw or an uninstall alone is asked again so the new card can be fitted, an install or an empty answer is Done |
+| `shutdown` | each racer on the floor, after programming and before the first reveal (modern) | `true` to shut down for the round |
 
 A request always carries `options`: the legal answers, enumerated. An answer
 not in `options` is refused with the same request returned again. A bot that
@@ -81,9 +81,12 @@ events are the record and the screen draws from them.
   house: { ... },               house rules, in the save so a replay holds
   turn, register, phase, step,  where the machine is
   players: [ { id, seat: "human" | "bot", skill, livery, c, r, face, damage,
-               lives, flags, archive, hand, registers, ... } ],
+               lives, flags, archive, hand, registers,
+               energy, deck, pile, shelf, installed, rebooting, ... } ],
   deck, discard,                classic: one shared pile of 84
   options, ...                  the option-card piles
+  priority, damageDeck, damageDiscard, upgradeDeck, upgradeDiscard
+                                the 2016 table: the Priority Token's seat and the two shared decks
   log: [ ... ],                 the last few hundred lines, for the panel
   winner, over
 }
@@ -131,6 +134,33 @@ conservation law breaks, a request goes unanswerable, or no game is ever won.
 CI runs both after the editor's checks.
 
 ## Status
+
+The 2016 rules are built (M4), read off the 2023-printing rulebook and its
+reference card (`manual1/IMG_1252` to `IMG_1269`), and chosen at set-up:
+every robot its own deck of twenty (counted off `IMG_1308`), a hand of nine
+drawn from it, leftovers to its own discard; the Priority Token deciding the
+order within a register and passing left each round; Power Up and Again; the
+upgrade phase with the forty transcribed cards, eleven of them with effects
+fired through the same hooks as option cards and the other twenty-nine
+installable and inert, saying so; damage as forty SPAM cards drawn one at a
+time into the robot's own discard, and a SPAM revealed in a register thrown
+away for the top of the deck; shutdown for the round, scrapping the damage a
+robot holds and not what is in its deck; reboot instead of death, off the
+board until register 1 of the next round, two SPAM and the programme
+cancelled; Energy from batteries at the end of a register, capped at ten;
+the floor in the reference card's order, blue belts twice then green once.
+Forty-two 2016 scenarios pass by name. Every course is simulated under every
+ruleset its squares are readable by (`rulesetsFor`), with the table's
+conservation laws armed: each robot's twenty, the forty damage cards and the
+forty upgrades counted apart.
+
+Three substitutes, declared in `engine/state.js` and each with a scenario:
+a rebooting robot re-enters at its archive (the book's Reboot Tokens are
+placed per course and none is transcribed); the Priority Token starts with
+seat 1 (the book says the youngest player); the damage deck is all SPAM (the
+Haywire faces are not photographed). Not built: the temporary upgrades'
+effects, Haywire, currents (no shipped board prints one, and the scenario
+says so), the Cry Havoc course's three-card reboot.
 
 Crash and Burn's floor is built, read off the AMIGO Spielanleitung
 photographed into `manual1/` (pp.6-9 and the two reference cards): swing

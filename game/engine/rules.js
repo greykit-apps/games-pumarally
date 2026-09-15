@@ -9,19 +9,20 @@ import { step as stepCell, rot, opposite, DC, DR, N, E, S, W } from "../../edito
 import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
-  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin
+  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
-import { card, planOf, MAX_DAMAGE, REGISTERS } from "./cards.js";
+import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption } from "./options.js";
+import { gainEnergy } from "./upgrades.js";
 
 const DIR_NAMES = ["north", "east", "south", "west"];
 
-/* The classic engine, until M4 hands the ruleset in with the state. What the
- * two editions do differently with the same printed tile is read from here
- * and nowhere else, so the modern game is a change of table, not of code. */
-const RULES = rulesetFor("classic");
+/* What the two editions do differently with the same printed tile is read
+ * from the ruleset in play and nowhere else, so the 2016 game is a change of
+ * table, not of code. */
+export function rulesOf(st) { return rulesetFor(st.ruleset); }
 
 export function robotAt(st, c, r) {
   for (const p of st.players) if (p.alive && p.c === c && p.r === r) return p;
@@ -75,7 +76,7 @@ export function stepRobot(st, C, p, dir, cause) {
     st.events.push({ type: i > 0 ? "pushed" : "moved", player: m.id, from, to: [tc, tr], dir, cause, by: i > 0 ? chain[i - 1].id : undefined });
     if (i > 0) {
       log(st, chain[i - 1].name + " shoves " + m.name + " " + DIR_NAMES[dir]);
-      const pctx = fire(st, chain[i - 1], "onPush", { pushed: m, dir, pushDamage: 0 });
+      const pctx = fire(st, chain[i - 1], "onPush", { pushed: m, dir, cause, pushDamage: 0 });
       if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage, source: "ram", why: "ramming gear" });
     }
     if (isHole(C, m.c, m.r)) { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
@@ -87,7 +88,7 @@ export function stepRobot(st, C, p, dir, cause) {
    * destroy a robot the robots behind it are still being pushed into */
   for (const h of hurt) if (h.who.alive) { log(st, h.who.name + " takes " + h.n + " from " + h.why); damage(st, C, h.who, h.n, h.source); }
   /* a shoved robot that came to rest on oil skids on, where the edition says so */
-  if (RULES.oilSlideAfter.indexOf("push") >= 0) {
+  if (rulesOf(st).oilSlideAfter.indexOf("push") >= 0) {
     for (let i = 1; i < chain.length; i++) if (chain[i].alive && oilAt(C, chain[i].c, chain[i].r)) oilSlide(st, C, chain[i], dir);
   }
   return true;
@@ -158,16 +159,18 @@ export function oilSlide(st, C, p, dir) {
  * hook has something to rewrite -- and can ask a question before anything has
  * moved. Returns the ctx; `pending` means the step must ask and come back.
  */
-export function planCard(st, p, cd) {
+export function planCard(st, p, cd, again) {
   const plan = planOf(cd);
   plan.lateral = 0;
+  plan.again = !!again;                                // Brakes does not apply to a repeated Move 1
   return fire(st, p, "modifyMove", plan);
 }
 
 function describePlan(cd, plan) {
   const base = planOf(cd);
-  const label = cd.kind.replace(/^(move1|move2|move3|back|left|right|uturn)$/, m => ({
-    move1: "move 1", move2: "move 2", move3: "move 3", back: "backs up", left: "rotates left", right: "rotates right", uturn: "u-turns" })[m] || m);
+  const label = (plan.again ? "again: " : "") + cd.kind.replace(/^(move1|move2|move3|back|left|right|uturn|powerUp|again)$/, m => ({
+    move1: "move 1", move2: "move 2", move3: "move 3", back: "backs up", left: "rotates left", right: "rotates right", uturn: "u-turns",
+    powerUp: "powers up", again: "again" })[m] || m);
   if (plan.kind !== "move") return label;
   if (plan.lateral) return label + ", sidestepping " + (plan.lateral < 0 ? "left" : "right");
   if (plan.dist === 0 && base.dist !== 0) return label + ", but brakes and holds still";
@@ -186,6 +189,8 @@ export function playCard(st, C, p, cd, plan) {
     stayedInFlame(st, C, p, start);
     return;
   }
+  /* "Power Up: advance your Energy Tracking Cube 1 space on your Energy Track." */
+  if (plan.kind === "energy") { gainEnergy(st, p, plan.gain || 1, "powerUp"); stayedInFlame(st, C, p, start); return; }
   if (plan.kind !== "move") { stayedInFlame(st, C, p, start); return; }
   const dir = plan.lateral ? rot(p.face, plan.lateral) : plan.dist > 0 ? p.face : opposite(p.face);
   let n = Math.abs(plan.dist);
@@ -268,7 +273,7 @@ export function beltPass(st, C, lo, hi) {
         }
       }
     }
-    if (RULES.oilSlideAfter.indexOf("belt") >= 0 && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
+    if (rulesOf(st).oilSlideAfter.indexOf("belt") >= 0 && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
   }
 }
 
@@ -338,17 +343,37 @@ export function computeLaserHits(st, C) {
     if (target) hits.push({ target, damage: L.damage, from: "a board laser", shooter: null, dir: L.dir, at: [L.c, L.r] });
   }
   for (const p of alive(st)) {
-    if (p.poweredDown) continue;                       // a powered-down robot does not shoot
+    if (p.poweredDown) continue;                       // a powered-down or shut-down robot does not shoot
     /* the main laser is marked as such: a main-laser mod applies to it and
-     * not to an additional weapon like the rear laser */
-    const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: 1, pierce: 0 }] });
+     * not to an additional weapon like the rear laser; the register's card
+     * is named so a card that fires on a manoeuvre (Laser Kata) can see it */
+    const ri = p.registers[st.register];
+    const cardKind = ri === null || ri === undefined ? null : card(st, ri).kind;
+    const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: 1, pierce: 0 }], cardKind });
     for (const sh of ctx.shots) {
       if (sh.damage <= 0) continue;
-      const v = firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0);
-      if (v) hits.push({ target: v, damage: sh.damage, from: p.name + "'s laser", shooter: p, dir: sh.dir, at: [p.c, p.r], main: sh.main });
+      /* a rail gun's beam goes on through every robot and wall to the edge */
+      const victims = sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0)].filter(Boolean);
+      for (const v of victims) {
+        hits.push({ target: v, damage: sh.damage, from: p.name + "'s laser", shooter: p, dir: sh.dir, at: [p.c, p.r], main: sh.main,
+          distance: Math.abs(v.c - p.c) + Math.abs(v.r - p.r) });
+      }
     }
   }
   return hits;
+}
+
+/** Every robot on the line from (c,r) heading `dir`, walls or not, nearest first. */
+export function everyRobotAlong(st, C, c, r, dir) {
+  const out = [];
+  for (let guard = 0; guard < C.w + C.h + 2; guard++) {
+    const [nc, nr] = stepCell(c, r, dir);
+    if (!inGrid(C, nc, nr)) break;
+    c = nc; r = nr;
+    const h = robotAt(st, c, r);
+    if (h) out.push(h);
+  }
+  return out;
 }
 
 /**
@@ -369,7 +394,8 @@ export function laserPass(st, C) {
     const hits = computeLaserHits(st, C);
     for (const h of hits) {
       if (!h.shooter || !h.main) continue;
-      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null });
+      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null,
+        distance: h.distance, lastRegister: st.register >= REGISTERS - 1 });
       if (hctx.pending) return hctx.ask;
       h.damage = hctx.damage; h.replaceWith = hctx.replaceWith;
     }
@@ -379,7 +405,7 @@ export function laserPass(st, C) {
       if (ctx.absorbed > 0) log(st, h.target.name + " absorbs " + ctx.absorbed + " damage");
       h.damage = ctx.amount;
     }
-    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith }));
+    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith, distance: h.distance }));
   }
   const hits = st.laser.map(h => ({ ...h, target: st.players[h.target], shooter: h.shooter === null ? null : st.players[h.shooter] }));
 
@@ -444,17 +470,89 @@ export function laserPass(st, C) {
   return null;
 }
 
-/** Scrambler: the target's next register is replaced with the top card of the deck. */
+/** Scrambler: the target's next register is replaced with the top card of the deck (classic: the shared one; 2016: the target's own). */
 export function scrambleRegister(st, p) {
   const next = st.register + 1;
   if (next >= REGISTERS) return;
-  if (!st.deck.length) st.deck = st.discard.splice(0);          // never leave a register empty
-  if (!st.deck.length) return;
-  const drawn = st.deck.pop();
-  if (p.registers[next] !== null) st.discard.push(p.registers[next]);
-  p.registers[next] = drawn;
+  if (isModern(st)) {
+    const drawn = drawOwn(st, p);
+    if (drawn === null) return;
+    if (p.registers[next] !== null) putAway(st, p, p.registers[next]);
+    p.registers[next] = drawn;
+  } else {
+    if (!st.deck.length) st.deck = st.discard.splice(0);          // never leave a register empty
+    if (!st.deck.length) return;
+    const drawn = st.deck.pop();
+    if (p.registers[next] !== null) st.discard.push(p.registers[next]);
+    p.registers[next] = drawn;
+  }
   st.events.push({ type: "scrambled", player: p.id, register: next });
   log(st, p.name + "'s register " + (next + 1) + " is scrambled");
+}
+
+/* --- the 2016 piles ---------------------------------------------------------- */
+
+/** The top card of a robot's own deck, reshuffling its discard when the deck runs out; null when it owns nothing else. */
+export function drawOwn(st, p) {
+  if (!p.deck.length && p.pile.length) {
+    p.deck = p.pile.splice(0);
+    /* shuffled with the game's generator, so a replay holds */
+    for (let i = p.deck.length - 1; i > 0; i--) {
+      st.rng = (Math.imul(st.rng | 0, 1664525) + 1013904223) | 0;
+      const j = ((st.rng >>> 8) & 0xffffff) % (i + 1);
+      [p.deck[i], p.deck[j]] = [p.deck[j], p.deck[i]];
+    }
+    log(st, p.name + " shuffles its discard into a new deck");
+  }
+  if (!p.deck.length) return null;
+  return p.deck.pop();
+}
+
+/** A card a robot is done with: its own discard, or -- for a damage card leaving it -- the table's. */
+export function putAway(st, p, i, toTable) {
+  if (isDamage(st, i) && toTable) st.damageDiscard.push(i);
+  else p.pile.push(i);
+}
+
+/** The top of the damage deck, reshuffling its discard; null when the table has none left to give. */
+export function drawDamage(st) {
+  if (!st.damageDeck.length && st.damageDiscard.length) {
+    st.damageDeck = st.damageDiscard.splice(0);
+    for (let i = st.damageDeck.length - 1; i > 0; i--) {
+      st.rng = (Math.imul(st.rng | 0, 1664525) + 1013904223) | 0;
+      const j = ((st.rng >>> 8) & 0xffffff) % (i + 1);
+      [st.damageDeck[i], st.damageDeck[j]] = [st.damageDeck[j], st.damageDeck[i]];
+    }
+    log(st, "the damage deck is reshuffled");
+  }
+  if (!st.damageDeck.length) return null;
+  return st.damageDeck.pop();
+}
+
+/**
+ * "When you take damage, draw that many cards from the top of the damage
+ * deck, 1 at a time ... place it into your discard pile." A deck that runs
+ * out between two cards of one hit deals as far as it goes, and a table with
+ * nothing left deals nothing: "you take no damage during this register".
+ */
+export function drawDamageCards(st, p, n, source) {
+  let got = 0;
+  for (let k = 0; k < n; k++) {
+    const i = drawDamage(st);
+    if (i === null) { log(st, "the table has no damage cards left, and " + p.name + " takes no more"); break; }
+    p.pile.push(i);
+    got++;
+  }
+  if (got) st.events.push({ type: "damaged", player: p.id, amount: got, damage: 0, source, cards: true });
+  return got;
+}
+
+/** Damage cards a robot is holding where a shutdown can reach them: hand and discard, not the deck. */
+export function heldDamage(st, p) {
+  let n = 0;
+  for (const i of p.hand) if (isDamage(st, i)) n++;
+  for (const i of p.pile) if (isDamage(st, i)) n++;
+  return n;
 }
 
 /* --- damage and destruction --------------------------------------------- */
@@ -467,9 +565,10 @@ export function damage(st, C, p, n, source) {
   landDamage(st, C, p, ctx.amount, source);
 }
 
-/** Damage that has already been through the absorbers. */
+/** Damage that has already been through the absorbers. Classic ticks the track; 2016 hands out cards. */
 export function landDamage(st, C, p, n, source) {
   if (n <= 0 || !p.alive) return;
+  if (isModern(st)) { drawDamageCards(st, p, n, source); return; }
   p.damage += n;
   st.events.push({ type: "damaged", player: p.id, amount: n, damage: p.damage, source });
   if (p.damage >= MAX_DAMAGE) destroy(st, C, p, "shot to pieces");
@@ -477,6 +576,7 @@ export function landDamage(st, C, p, n, source) {
 
 export function destroy(st, C, p, how) {
   if (!p.alive) return;
+  if (isModern(st)) { reboot(st, C, p, how); return; }
   p.alive = false;
   p.lives--;
   for (const i of p.hand) st.discard.push(i);
@@ -493,6 +593,37 @@ export function destroy(st, C, p, how) {
   st.events.push({ type: "destroyed", player: p.id, at: [p.c, p.r], how, lives: p.lives });
   if (p.lives <= 0) { p.out = true; log(st, p.name + " is destroyed " + how + " and is out of the race"); }
   else log(st, p.name + " is destroyed " + how + " (" + p.lives + " left)");
+}
+
+/**
+ * "Robots don't die from taking too much damage ... when your robot falls off
+ * the board or into a pit, you must Reboot your robot" (p.19). Off the board
+ * onto its mat until register 1 of the next round; the programme is cancelled
+ * and every card in its remaining registers and its hand goes to its own
+ * discard, SPAM included ("SPAM cards in your registers are discarded to your
+ * discard pile"); then two damage cards, one at a time. Upgrades stay.
+ */
+export function reboot(st, C, p, how) {
+  p.alive = false;
+  p.rebooting = true;
+  for (let i = 0; i < REGISTERS; i++) if (p.registers[i] !== null) { p.pile.push(p.registers[i]); p.registers[i] = null; }
+  for (const i of p.hand) p.pile.push(i);
+  p.hand = [];
+  p.poweredDown = false;
+  p.announceDown = false;
+  st.events.push({ type: "destroyed", player: p.id, at: [p.c, p.r], how, rebooting: true });
+  log(st, p.name + " goes " + how + " and must reboot");
+  drawDamageCards(st, p, 2, "reboot");
+}
+
+/** "If your robot ends a register on a battery space, you gain 1 Energy." Not while shut down. */
+export function batteryPass(st, C) {
+  for (const p of alive(st)) {
+    if (p.poweredDown) continue;
+    const n = energyAt(C, p.c, p.r);
+    if (!n) continue;
+    if (gainEnergy(st, p, n, "battery")) log(st, p.name + " charges " + n + " Energy");
+  }
 }
 
 /** The nearest free, non-hole square to (c,r), searched outward so the answer does not depend on player order. */
@@ -528,7 +659,7 @@ export function checkpointPass(st, C) {
     const reach = fire(st, p, "onTouchCheckpoint", { reach: 0 }).reach;
     if (reach > 0) for (let d = 0; d < 4; d++) { const [nc, nr] = stepCell(p.c, p.r, d); if (inGrid(C, nc, nr)) spots.push([nc, nr]); }
     for (const [c, r] of spots) {
-      if (repairAt(C, c, r)) p.archive = { c, r, face: p.face };
+      if (!isModern(st) && repairAt(C, c, r)) p.archive = { c, r, face: p.face };
       const F = flagAt(C, c, r);
       if (!F) continue;
       p.archive = { c: F.c, r: F.r, face: p.face };

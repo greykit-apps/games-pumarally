@@ -12,16 +12,21 @@ import { botAnswer, randomAnswer } from "./bots.js";
 import { courseOf, isHole, inGrid } from "./course.js";
 import { CLASSIC_DECK, REGISTERS, MAX_DAMAGE } from "./cards.js";
 import { OPTION_IDS, OPTION_DEFS } from "./options.js";
+import { UPGRADE_IDS } from "./upgrades.js";
+import { MODERN_DECK_SIZE, MODERN_DAMAGE_SIZE, MODERN_DAMAGE_FIRST, isModern, MAX_ENERGY } from "./cards.js";
 
 /** The conservation laws. Throws with the law that broke. */
 export function assertInvariants(st, library) {
   const C = courseOf(st, library);
-  let n = st.deck.length + st.discard.length;
-  for (const p of st.players) {
-    n += p.hand.length;
-    for (const r of p.registers) if (r !== null) n++;
+  if (isModern(st)) modernInvariants(st);
+  else {
+    let n = st.deck.length + st.discard.length;
+    for (const p of st.players) {
+      n += p.hand.length;
+      for (const r of p.registers) if (r !== null) n++;
+    }
+    if (n !== CLASSIC_DECK.length) throw new Error("program card conservation broken: " + n + "/" + CLASSIC_DECK.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
   }
-  if (n !== CLASSIC_DECK.length) throw new Error("program card conservation broken: " + n + "/" + CLASSIC_DECK.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
   /* option cards are conserved too: every id once, across the deck, the
    * discard and every hand */
   const opt = st.optionDeck.concat(st.optionDiscard);
@@ -55,6 +60,45 @@ export function assertInvariants(st, library) {
     if (p.hand.some(i => !Number.isInteger(i))) throw new Error(p.name + " holds a non-card");
   }
   if (st.waiting && !st.players[st.waiting.player]) throw new Error("waiting on a player that does not exist");
+}
+
+/**
+ * The 2016 table's laws, counted apart: each robot's twenty are its own and
+ * are conserved as twenty; the forty damage cards are the table's and are
+ * conserved as forty across the deck, the discard and every robot's piles;
+ * so are the forty upgrades. Two laws, because summed together they cannot
+ * see a SPAM quietly becoming a Move 1.
+ */
+function modernInvariants(st) {
+  const where = " at " + st.phase + "." + st.step + " turn " + st.turn;
+  const dmg = st.damageDeck.concat(st.damageDiscard);
+  const ups = st.upgradeDeck.concat(st.upgradeDiscard);
+  for (const p of st.players) {
+    const own = [];
+    const all = p.deck.concat(p.pile, p.hand, p.registers.filter(i => i !== null));
+    for (const i of all) {
+      if (!Number.isInteger(i)) throw new Error(p.name + " holds a non-card" + where);
+      if (i >= MODERN_DAMAGE_FIRST) dmg.push(i); else own.push(i);
+    }
+    if (own.length !== MODERN_DECK_SIZE || new Set(own).size !== MODERN_DECK_SIZE) {
+      throw new Error(p.name + "'s own deck is " + own.length + " cards, " + new Set(own).size + " distinct, of " + MODERN_DECK_SIZE + where);
+    }
+    for (const i of p.deck) if (i >= MODERN_DAMAGE_FIRST && st.damageDiscard.includes(i)) throw new Error("a damage card is in two places" + where);
+    if (!Number.isInteger(p.energy) || p.energy < 0 || p.energy > MAX_ENERGY) throw new Error(p.name + " has " + p.energy + " Energy" + where);
+    for (const id of p.shelf) ups.push(id);
+    for (const u of p.installed) ups.push(u.id);
+    if (p.hand.length > 12) throw new Error(p.name + " holds " + p.hand.length + " cards" + where);
+    if (p.alive && p.rebooting) throw new Error(p.name + " is on the board and rebooting" + where);
+    if (p.lives !== st.players[0].lives) throw new Error(p.name + " spent a life, and the 2016 game has none" + where);
+  }
+  if (dmg.length !== MODERN_DAMAGE_SIZE || new Set(dmg).size !== MODERN_DAMAGE_SIZE) {
+    throw new Error("damage card conservation broken: " + dmg.length + " cards, " + new Set(dmg).size + " distinct, of " + MODERN_DAMAGE_SIZE + where);
+  }
+  for (const i of dmg) if (i < MODERN_DAMAGE_FIRST) throw new Error("a programming card is in a damage pile" + where);
+  if (ups.length !== UPGRADE_IDS.length || new Set(ups).size !== UPGRADE_IDS.length) {
+    throw new Error("upgrade conservation broken: " + ups.length + " cards, " + new Set(ups).size + " distinct, of " + UPGRADE_IDS.length + where);
+  }
+  if (!Number.isInteger(st.priority) || st.priority < 0 || st.priority >= st.players.length) throw new Error("the Priority Token is with nobody" + where);
 }
 
 /**

@@ -37,7 +37,7 @@ export function courseOn(b, flags = [[0, 0]]) {
  * places: [{ c, r, face, seat?, damage?, lives? }]
  */
 export function game(course, places, opts = {}) {
-  const st = newGame({ seed: opts.seed || 1, course: course.doc, seats: places.map(p => ({ seat: p.seat || "bot", skill: 1 })), house: opts.house });
+  const st = newGame({ seed: opts.seed || 1, course: course.doc, seats: places.map(p => ({ seat: p.seat || "bot", skill: p.skill === undefined ? 1 : p.skill })), house: opts.house, ruleset: opts.ruleset });
   places.forEach((pl, i) => {
     const p = st.players[i];
     p.placed = true; p.liveryPicked = true;

@@ -10,12 +10,14 @@
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { courseOf } from "../engine/course.js";
-import { card, KINDS, openRegisters, REGISTERS } from "../engine/cards.js";
+import { card, KINDS, openRegisters, REGISTERS, isDamage, isModern, MAX_ENERGY } from "../engine/cards.js";
 import { LIVERIES, isHuman } from "../engine/state.js";
 import { OPTION_DEFS } from "../engine/options.js";
+import { UPGRADE_DEFS } from "../engine/upgrades.js";
 
 const CELL = 100;
-const GLYPH = { move1: "1", move2: "2", move3: "3", back: "↩", left: "↰", right: "↱", uturn: "↺" };
+const GLYPH = { move1: "1", move2: "2", move3: "3", back: "↩", left: "↰", right: "↱", uturn: "↺", powerUp: "⚡", again: "⟲", spam: "✉" };
+const DIRS = ["North", "East", "South", "West"];
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
 const ROBOT = '<g class="spin"><path class="pr-hull" d="M24 30h52a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8V38a8 8 0 0 1 8-8z"/>' +
@@ -157,8 +159,8 @@ export function mountScreen(root, ctx) {
           pieces.get(p.id).classList.add("gone");
           await wait(300);
           break;
-        case "respawned": case "placed":
-          placePiece(p, e.at[0], e.at[1], p.face, false);
+        case "respawned": case "placed": case "rebooted":
+          placePiece(p, e.at[0], e.at[1], e.face === undefined ? p.face : e.face, false);
           pieces.get(p.id).classList.remove("gone");
           await wait(200);
           break;
@@ -197,8 +199,9 @@ export function mountScreen(root, ctx) {
   function cardHtml(ci, extra) {
     const cd = card(st, ci);
     const k = KINDS[cd.kind];
-    return '<button class="card ' + (k.turn !== undefined ? "turn" : "move") + '" ' + (extra || "") + '>' +
-      '<span class="g">' + GLYPH[cd.kind] + '</span><span class="l">' + esc(k.label) + '</span><span class="p">' + cd.pri + "</span></button>";
+    const cls = isDamage(st, ci) ? "spam" : k.turn !== undefined ? "turn" : "move";
+    return '<button class="card ' + cls + '" ' + (extra || "") + (k.note ? ' title="' + esc(k.note) + '"' : "") + '>' +
+      '<span class="g">' + GLYPH[cd.kind] + '</span><span class="l">' + esc(k.label) + '</span>' + (cd.pri ? '<span class="p">' + cd.pri + "</span>" : "") + "</button>";
   }
 
   function renderPanel() {
@@ -217,18 +220,24 @@ export function mountScreen(root, ctx) {
     }
 
     html += "<h2>Robots</h2><div class='robots'>";
+    const modern = isModern(st);
     for (const p of st.players) {
       const liv = LIVERIES[p.livery];
+      const spamHeld = modern ? p.hand.filter(i => isDamage(st, i)).length + p.pile.filter(i => isDamage(st, i)).length + p.deck.filter(i => isDamage(st, i)).length : 0;
       html += '<div class="robot' + (p.alive ? "" : " dead") + '"><span class="sw" style="background:' + liv.a + '"></span>' +
-        "<span>" + esc(p.name) + (isHuman(p) ? " <span class='tag'>human</span>" : "") + (p.poweredDown ? " <span class='tag'>powered down</span>" : "") +
-        (p.out ? " <span class='tag'>out</span>" : !p.alive ? " <span class='tag'>returning</span>" : "") + "</span>" +
-        '<span class="tag">' + p.flags + "/" + C.flags.length + " flags &middot; " + p.lives + " lives</span>" +
-        '<span class="pips" title="' + p.damage + ' damage">' + Array.from({ length: 10 }, (_, i) => '<span class="pip' + (i < p.damage ? " on" : "") + '"></span>').join("") + "</span></div>";
-      /* held option cards, as chips with the printed text on hover */
-      if (p.options.length) {
-        html += '<div class="chips">' + p.options.map(o => '<span class="chip" title="' + esc(OPTION_DEFS[o.id].text) + '">' + esc(OPTION_DEFS[o.id].name) +
-          (o.st && o.st.charges !== undefined ? " \u00b7 " + o.st.charges : "") + "</span>").join("") + "</div>";
-      }
+        "<span>" + esc(p.name) + (isHuman(p) ? " <span class='tag'>human</span>" : "") + (p.poweredDown ? " <span class='tag'>" + (modern ? "shut down" : "powered down") + "</span>" : "") +
+        (p.out ? " <span class='tag'>out</span>" : !p.alive ? " <span class='tag'>" + (modern ? "rebooting" : "returning") + "</span>" : "") +
+        (st.priority === p.id && modern ? " <span class='tag' title='holds the Priority Token'>&#9733; priority</span>" : "") + "</span>" +
+        (modern
+          ? '<span class="tag">' + p.flags + "/" + C.flags.length + " checkpoints &middot; " + p.energy + "/" + MAX_ENERGY + " &#9889;</span>" +
+            '<span class="tag" title="damage cards this robot carries: in hand, discard and deck">' + spamHeld + " SPAM</span>"
+          : '<span class="tag">' + p.flags + "/" + C.flags.length + " flags &middot; " + p.lives + " lives</span>" +
+            '<span class="pips" title="' + p.damage + ' damage">' + Array.from({ length: 10 }, (_, i) => '<span class="pip' + (i < p.damage ? " on" : "") + '"></span>').join("") + "</span>") + "</div>";
+      /* held option cards and fitted upgrades, as chips with the printed text on hover */
+      const chips = p.options.map(o => '<span class="chip" title="' + esc(OPTION_DEFS[o.id].text) + '">' + esc(OPTION_DEFS[o.id].name) +
+          (o.st && o.st.charges !== undefined ? " \u00b7 " + o.st.charges : "") + "</span>")
+        .concat((p.installed || []).map(u => '<span class="chip up' + (UPGRADE_DEFS[u.id].built ? "" : " inert") + '" title="' + esc(UPGRADE_DEFS[u.id].text + (UPGRADE_DEFS[u.id].built ? "" : " (its effect is not built)")) + '">' + esc(UPGRADE_DEFS[u.id].name) + "</span>"));
+      if (chips.length) html += '<div class="chips">' + chips.join("") + "</div>";
     }
     html += "</div><div class='log'></div>";
     els.side.innerHTML = html;
@@ -284,6 +293,32 @@ export function mountScreen(root, ctx) {
       case "dropOption":
         return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
           w.options.map(o => '<button data-pick="' + o + '" title="' + esc(OPTION_DEFS[me.options[o].id].text) + '">' + esc(w.labels[o]) + "</button>").join("") + "</div></div>";
+      /* the 2016 shop: the shelf, the mat, a draw, and Done */
+      case "upgrade": {
+        const o = w.options;
+        let html = '<div class="ask"><p>' + esc(me.name) + ", the upgrade phase. You have <b>" + me.energy + " Energy</b>.</p>";
+        if (me.shelf.length) {
+          html += "<h2>Your shelf</h2><div class='row'>" + me.shelf.map(id => {
+            const d = UPGRADE_DEFS[id];
+            const can = o.install.includes(id);
+            return '<button data-install="' + esc(id) + '"' + (can ? "" : " disabled") + ' title="' + esc(d.text + (d.built ? "" : " (its effect is not built)")) + '">Install ' + esc(d.name) +
+              " <span class='keys'>" + d.cost + "&#9889; " + d.type + "</span></button>";
+          }).join("") + "</div>";
+        }
+        if (me.installed.length) {
+          html += "<h2>On your mat</h2><div class='row'>" + me.installed.map(u => '<button data-uninstall="' + esc(u.id) + '" title="' + esc(UPGRADE_DEFS[u.id].text) + '">Uninstall ' + esc(UPGRADE_DEFS[u.id].name) + "</button>").join("") + "</div>";
+        }
+        html += "<div class='row'>" + (o.buy.includes(true) ? '<button data-buy="1">Draw an upgrade card (1 &#9889;)</button>' : "") +
+          '<button class="primary" data-act="done">Done</button></div></div>';
+        return html;
+      }
+      case "shutdown":
+        return '<div class="ask"><p>' + esc(me.name) + ", shut down for this round? Your robot resolves no cards and stays on the floor, and every damage card you are holding (" + w.held +
+          " in hand and discard) goes back to the table.</p><div class='row'>" +
+          '<button data-answer="false">Keep running</button><button class="primary" data-answer="true">Shut down this round</button></div></div>';
+      case "rebootFacing":
+        return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
+          w.options.map(d => '<button data-pick="' + d + '">' + DIRS[d] + "</button>").join("") + "</div></div>";
       default:
         return '<div class="ask"><p>' + esc(w.kind) + "?</p></div>";
     }
@@ -336,6 +371,11 @@ export function mountScreen(root, ctx) {
     if (d.unpick !== undefined) return unpick(+d.unpick);
     if (d.act === "run" && pick.length === st.waiting.count) return answer(pick.slice());
     if (d.act === "clear") { pick = []; renderPanel(); }
+    /* the shop: one action per press, the engine asks again while there is more to do */
+    if (d.install !== undefined) return answer({ buy: false, install: d.install, uninstall: [] });
+    if (d.uninstall !== undefined) return answer({ buy: false, install: null, uninstall: [d.uninstall] });
+    if (d.buy !== undefined) return answer({ buy: true, install: null, uninstall: [] });
+    if (d.act === "done") return answer({ buy: false, install: null, uninstall: [] });
   });
 
   /* drag a card onto a register: the same move as a click, a different gesture */
@@ -380,9 +420,9 @@ export function mountScreen(root, ctx) {
         ev.preventDefault();
       } else if (ev.key === "Backspace" || ev.key === "Delete") { if (pick.length) { pick.pop(); renderPanel(); } ev.preventDefault(); }
       else if (ev.key === "Enter" && pick.length === w.count) { answer(pick.slice()); ev.preventDefault(); }
-    } else if (w.kind === "powerDown" || w.kind === "stayDown") {
+    } else if (w.kind === "powerDown" || w.kind === "stayDown" || w.kind === "shutdown") {
       if (ev.key === "y") answer(true); else if (ev.key === "n") answer(false);
-    }
+    } else if (w.kind === "upgrade" && ev.key === "Enter") { answer({ buy: false, install: null, uninstall: [] }); ev.preventDefault(); }
   }
   current = { onKey, fitBoard };
   if (!keysBound) { document.addEventListener("keydown", ev => { if (current) current.onKey(ev); }); keysBound = true; }
@@ -427,7 +467,7 @@ export function mountScreen(root, ctx) {
   /* --- render ---------------------------------------------------------------------- */
 
   function render() {
-    els.turn.textContent = st.over ? "Race over" : "Turn " + st.turn + (st.phase === "exec" ? " · register " + (st.register + 1) : "");
+    els.turn.textContent = (isModern(st) ? "2016 rules · " : "Classic rules · ") + (st.over ? "Race over" : (isModern(st) ? "Round " : "Turn ") + st.turn + (st.phase === "exec" ? " · register " + (st.register + 1) : ""));
     els.speed.textContent = "Speed: " + ctx.speedName();
     if (needsCurtain(st.waiting)) { showCurtain(st.waiting.player); return; }
     if (st.waiting && isHuman(st.players[st.waiting.player])) lastHuman = st.waiting.player;

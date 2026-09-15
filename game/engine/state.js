@@ -5,16 +5,32 @@
  * and is assembled on demand, the RNG is one integer, and a player is a
  * record. `seats` is any mix of humans and bots, one to eight.
  */
-import { CLASSIC_DECK, REGISTERS } from "./cards.js";
+import { CLASSIC_DECK, MODERN_DECK, MODERN_DAMAGE, MODERN_DAMAGE_FIRST, REGISTERS, START_ENERGY, UPGRADE_START } from "./cards.js";
 import { shuffle } from "./rng.js";
 import LIVERY_DATA from "../data/liveries.js";
 import OPTIONS_DATA from "../data/options.js";
+import UPGRADES_DATA from "../data/upgrades.js";
 import { newHeld } from "./options.js";
 
 export const LIVERIES = LIVERY_DATA.liveries;
 export const SAVE_VERSION = 1;
 export const MAX_TURNS = 200;
 const START_LIVES = 3;
+
+/* THE 2016 SUBSTITUTES, declared rather than silent. Each is a place the
+ * engine departs from the book because the book's thing is not in the
+ * photographs, and each has a scenario on it so that closing the gap means
+ * changing the line and being told about everything that assumed it.
+ *
+ * - The reboot point. The book puts a Reboot Token on every board at setup
+ *   (pp.15, 20, 30) and re-enters the robot there, shoving an occupant along
+ *   the token's arrow. The tokens are placed per course and none is
+ *   transcribed, so a robot re-enters at its ARCHIVE -- its last checkpoint,
+ *   or its bay -- and an occupant is shoved along the facing it archived with.
+ * - The Priority Token starts with "the youngest player" (p.3). Seat 1 here.
+ * - The damage deck is forty SPAM: the Haywire faces are not photographed. */
+export const MODERN_REBOOT_POINT = "archive";
+export const MODERN_FIRST_PRIORITY = "seat 1";
 
 /** Lives scale with the size of the race: one more at five seats, one more at five boards. */
 export function livesFor(seats, boards) {
@@ -26,17 +42,19 @@ export function livesFor(seats, boards) {
  *   seed      integer
  *   course    a PRCourse document (validated by the caller)
  *   seats     [{ seat: "human"|"bot", skill?: 0|1|2, livery?: index }] -- 1 to 8
- *   house     { bumpers, flagTouch, humanPrivilege }
+ *   house     { bumpers, flagTouch, humanPrivilege, startOptions }
+ *   ruleset   "classic" (default) or "modern"
  */
 export function newGame(opts) {
   const seats = opts.seats && opts.seats.length ? opts.seats : [{ seat: "human" }, { seat: "bot" }];
   if (seats.length < 1 || seats.length > LIVERIES.length) throw new Error("a race seats one to " + LIVERIES.length);
   const boards = (opts.course.stamps || []).filter(s => s.role === "board").length;
+  const modern = opts.ruleset === "modern";
   const st = {
     v: SAVE_VERSION,
     seed: opts.seed | 0,
     rng: opts.seed | 0,
-    ruleset: "classic",
+    ruleset: modern ? "modern" : "classic",
     course: JSON.parse(JSON.stringify(opts.course)),
     house: {
       bumpers: !!(opts.house && opts.house.bumpers),
@@ -44,8 +62,9 @@ export function newGame(opts) {
       humanPrivilege: !!(opts.house && opts.house.humanPrivilege),
       /* option cards dealt to everyone at the start: a house rule, because the
        * printed route -- a two-wrench site, instead of two points of repair --
-       * hands one out in about one game in fifty */
-      startOptions: Math.max(0, Math.min(3, (opts.house && opts.house.startOptions) | 0))
+       * hands one out in about one game in fifty. Classic only: the 2016
+       * game has upgrades instead. */
+      startOptions: modern ? 0 : Math.max(0, Math.min(3, (opts.house && opts.house.startOptions) | 0))
     },
     turn: 1, register: 0,
     phase: "draft", step: "livery",
@@ -53,6 +72,11 @@ export function newGame(opts) {
     players: [],
     deck: [], discard: [],
     optionDeck: [], optionDiscard: [],
+    /* the 2016 table: the Priority Token's seat, the damage deck and the
+     * upgrade deck, each with its discard */
+    priority: 0,
+    damageDeck: [], damageDiscard: [],
+    upgradeDeck: [], upgradeDiscard: [],
     /* answers to card and board questions, keyed by turn, register, hook,
      * card and player; cleared at the end of every turn */
     answers: {},
@@ -95,12 +119,34 @@ export function newGame(opts) {
       mustDrop: false,
       alive: true,
       out: false,
-      trail: []
+      trail: [],
+      /* the 2016 robot: its own deck and discard, the Energy track, the
+       * upgrades it owns (`shelf`, uninstalled) and has fitted (`installed`),
+       * and whether it is off the board waiting to reboot */
+      energy: modern ? START_ENERGY : 0,
+      deck: [], pile: [],
+      shelf: [], installed: [],
+      rebooting: false,
+      upgradeDone: false, bought: false, fitted: false
     });
   });
 
-  for (let i = 0; i < CLASSIC_DECK.length; i++) st.deck.push(i);
-  shuffle(st, st.deck);
+  if (modern) {
+    /* every robot its own shuffled twenty; the table's forty damage cards
+     * and forty upgrades, three of the latter dealt face down to each */
+    for (const p of st.players) {
+      for (let i = 0; i < MODERN_DECK.length; i++) p.deck.push(i);
+      shuffle(st, p.deck);
+    }
+    for (let i = 0; i < MODERN_DAMAGE.length; i++) st.damageDeck.push(MODERN_DAMAGE_FIRST + i);
+    shuffle(st, st.damageDeck);
+    st.upgradeDeck = UPGRADES_DATA.cards.map(c => c.id);
+    shuffle(st, st.upgradeDeck);
+    for (let q = 0; q < UPGRADE_START; q++) for (const p of st.players) { const id = st.upgradeDeck.pop(); if (id !== undefined) p.shelf.push(id); }
+  } else {
+    for (let i = 0; i < CLASSIC_DECK.length; i++) st.deck.push(i);
+    shuffle(st, st.deck);
+  }
   st.optionDeck = OPTIONS_DATA.cards.map(c => c.id);
   shuffle(st, st.optionDeck);
   for (let q = 0; q < st.house.startOptions; q++) {
@@ -114,8 +160,14 @@ export function newGame(opts) {
 
 export function isHuman(p) { return p.seat === "human"; }
 export function alive(st) { return st.players.filter(p => p.alive); }
-/** Still in the race: on the board, or off it with lives left. */
+/** Still in the race: on the board, or off it with lives left (or, in 2016, waiting to reboot). */
 export function racing(st) { return st.players.filter(p => !p.out); }
+/** The 2016 seat order from the Priority Token round the table. */
+export function priorityOrder(st) {
+  const n = st.players.length, out = [];
+  for (let k = 0; k < n; k++) out.push(st.players[(st.priority + k) % n]);
+  return out;
+}
 
 export function log(st, msg) {
   st.log.push({ turn: st.turn, reg: st.register, msg });
