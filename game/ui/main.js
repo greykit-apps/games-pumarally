@@ -58,7 +58,7 @@ function toSetup() {
 
 function start(opts) {
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
-  st = newGame({ seed, course: opts.course, seats: opts.seats, house: opts.house });
+  st = newGame({ seed, course: opts.course, seats: opts.seats, house: opts.house, ruleset: opts.ruleset });
   saveGame(st);
   openScreen();
   advance();

@@ -60,6 +60,11 @@ h2:first-child{margin-top:0}
 .card .l{font-size:10px;color:var(--text);text-align:center;line-height:1.1}
 .card .p{font-size:10px;color:var(--dim)}
 .card.turn .g{color:var(--violet)}
+.card.spam{border-color:var(--danger);background:#1a0b0b}
+.card.spam .g{color:var(--danger)}
+.chip.up{border-color:var(--warn);color:var(--warn)}
+.chip.inert{opacity:.6;border-style:dashed}
+button[data-ruleset]{padding:8px 14px}
 .card.k{position:absolute;top:2px;right:4px}
 .card .hot{position:absolute;top:2px;right:5px;font-size:9px;color:var(--dim)}
 .slot .card{cursor:pointer;width:100%;height:100%;border:0}

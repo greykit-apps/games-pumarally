@@ -11,16 +11,23 @@
  *
  * Whether a player may act is exactly whether `waiting.player` is them. No
  * other predicate exists.
+ *
+ * Two tables of steps, one per ruleset, sharing what the two games share
+ * (the draft, programming, the register loop). The 2016 round is the
+ * reference card's (manual1/IMG_1253): upgrade phase, programming phase,
+ * activation register by register in Priority Token order, end of round.
  */
 import { courseOf, isHole, inGrid, repairAt, optionSiteAt } from "./course.js";
-import { card, openRegisters, cardsDealt, REGISTERS } from "./cards.js";
+import { card, openRegisters, cardsDealt, isDamage, isModern, REGISTERS, HAND, UPGRADE_DRAW_COST } from "./cards.js";
 import { shuffle } from "./rng.js";
-import { isHuman, alive, racing, log, LIVERIES } from "./state.js";
+import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
-  checkpointPass, freeSpotNear, robotAt
+  checkpointPass, batteryPass, freeSpotNear, robotAt, drawOwn, putAway
 } from "./rules.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
+import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall } from "./upgrades.js";
+import { step as stepCell } from "../../editor/lib/dir.js";
 
 /* The board's turn, in the classic printed order. Each name is a pass in
  * rules.js; the table is the order, so the sequence can be read rather than
@@ -35,6 +42,25 @@ export const CLASSIC_ORDER = [
   ["burners", jetPass],
   ["touch", checkpointPass]
 ];
+
+/* The 2016 reference card's order (IMG_1252): blue belts, which convey twice,
+ * then green belts once, push panels, gears, board lasers and robot weapons
+ * (one pass, resolved against one frozen board), then the end of register:
+ * batteries, then checkpoints. Crushers sit where the expansion sheets put
+ * them, after the gears. No presses, no burners, no doors. */
+export const MODERN_ORDER = [
+  ["blue1", (st, C) => beltPass(st, C, 2, 2)],
+  ["blue2", (st, C) => beltPass(st, C, 2, 2)],
+  ["green", (st, C) => beltPass(st, C, 1, 1)],
+  ["pushers", pusherPass],
+  ["gears", gearPass],
+  ["crushers", crusherPass],
+  ["lasers", laserPass],
+  ["batteries", batteryPass],
+  ["touch", checkpointPass]
+];
+
+export function orderFor(st) { return isModern(st) ? MODERN_ORDER : CLASSIC_ORDER; }
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }
 
@@ -76,7 +102,8 @@ const REQUESTS = {
       const p = st.players[req.player];
       const chosen = a.map(i => p.hand[i]);
       p.hand = p.hand.filter((_, i) => !a.includes(i));
-      for (let k = 0; k < chosen.length; k++) p.registers[k] = chosen[k];
+      let k = 0;
+      for (let reg = 0; reg < REGISTERS && k < chosen.length; reg++) if (p.registers[reg] === null) p.registers[reg] = chosen[k++];
       p.ready = true;
       st.events.push({ type: "programmed", player: p.id });
     }
@@ -106,6 +133,41 @@ const REQUESTS = {
       dropOptionAt(st, p, a, req.why === "wrecked" ? "loses" : "gives up");
       if (req.why === "wrecked") p.mustDrop = false;
     }
+  },
+
+  /* --- the 2016 requests ------------------------------------------------------ */
+
+  /* One answer for the phase: { buy, install, uninstall }. A draw or an
+   * uninstall on its own asks again, so the card just drawn can be fitted
+   * in the same phase, as the book allows; an install, or an empty answer,
+   * is the player's Done. */
+  upgrade: {
+    legal: (st, req, a) => {
+      if (!a || typeof a !== "object" || Array.isArray(a)) return false;
+      const o = req.options;
+      if (a.buy !== undefined && (typeof a.buy !== "boolean" || !o.buy.includes(a.buy))) return false;
+      if (a.install !== undefined && a.install !== null && !o.install.includes(a.install)) return false;
+      if (a.uninstall !== undefined && !(Array.isArray(a.uninstall) && a.uninstall.every(id => o.uninstall.includes(id)) && new Set(a.uninstall).size === a.uninstall.length)) return false;
+      return true;
+    },
+    apply: (st, req, a) => {
+      const p = st.players[req.player];
+      for (const id of a.uninstall || []) uninstallUpgrade(st, p, id);
+      if (a.buy) { if (buyUpgrade(st, p)) p.bought = true; }
+      if (a.install) { if (installUpgrade(st, p, a.install)) p.fitted = true; }
+      /* an install, or an empty answer, is Done; a draw or an uninstall on
+       * its own is asked again so the phase can go on */
+      const acted = a.buy || (a.uninstall && a.uninstall.length);
+      if (a.install || !acted) p.upgradeDone = true;
+    }
+  },
+  shutdown: {
+    legal: (st, req, a) => typeof a === "boolean",
+    apply: (st, req, a) => { const p = st.players[req.player]; p.shutAsked = true; if (a) shutdown(st, p); }
+  },
+  rebootFacing: {
+    legal: (st, req, a) => Number.isInteger(a) && req.options.includes(a),
+    apply: (st, req, a) => { st.answers[req.key] = a; }
   }
 };
 
@@ -128,6 +190,99 @@ function takeBay(st, p, dock) {
   log(st, p.name + " takes bay " + dock.n);
 }
 
+/**
+ * "I am shutting down!" (p.19): declared after programming and before the
+ * first reveal, for this round. Every damage card in the registers, the hand
+ * and the discard pile goes back to the table; every regular card in the
+ * registers and hand goes to the robot's own discard. The deck is untouched.
+ * The robot stays on the floor and takes what the floor gives it.
+ */
+export function shutdown(st, p) {
+  p.poweredDown = true;
+  let scrapped = 0;
+  for (let i = 0; i < REGISTERS; i++) {
+    const ci = p.registers[i];
+    if (ci === null) continue;
+    if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else p.pile.push(ci);
+    p.registers[i] = null;
+  }
+  for (const ci of p.hand) { if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else p.pile.push(ci); }
+  p.hand = [];
+  const keep = [];
+  for (const ci of p.pile) { if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else keep.push(ci); }
+  p.pile = keep;
+  st.events.push({ type: "poweredDown", player: p.id, shutdown: true, scrapped });
+  log(st, p.name + " shuts down for the round and scraps " + scrapped + " damage card" + (scrapped === 1 ? "" : "s"));
+}
+
+/**
+ * Register 1 of the round after a reboot: the robot lands at its reboot
+ * point facing the way its player chose, and an occupant is moved one square
+ * along the point's arrow first -- "moving an obstructing robot does not
+ * count as your robot pushing that robot", so no push hooks fire. See
+ * MODERN_REBOOT_POINT in state.js for the substitute in use.
+ */
+function landReboot(st, C, p, facing) {
+  const at = p.archive || { c: p.c, r: p.r, face: 0 };
+  const occ = robotAt(st, at.c, at.r);
+  if (occ) {
+    const [nc, nr] = stepCell(at.c, at.r, at.face);
+    let spot = inGrid(C, nc, nr) && !isHole(C, nc, nr) && !robotAt(st, nc, nr) ? [nc, nr] : null;
+    /* never into a hole and never off the edge: the book does not exempt the
+     * occupant from the square it lands on, but a re-entry that fed a pit
+     * every round once emptied a whole race, so the fallback is the nearest
+     * free floor */
+    if (!spot) spot = freeSpotNear(st, C, at.c, at.r);
+    if (spot) {
+      const from = [occ.c, occ.r];
+      occ.c = spot[0]; occ.r = spot[1];
+      st.events.push({ type: "shoved", player: occ.id, from, to: spot, cause: "reboot" });
+      log(st, occ.name + " is moved aside for " + p.name);
+    }
+  }
+  p.c = at.c; p.r = at.r; p.face = facing;
+  p.alive = true; p.rebooting = false;
+  p.trail = [[p.c, p.r]];
+  st.events.push({ type: "rebooted", player: p.id, at: [p.c, p.r], face: facing });
+  log(st, p.name + " reboots at (" + p.c + "," + p.r + ") facing " + ["north", "east", "south", "west"][facing]);
+}
+
+/**
+ * A SPAM card revealed in a register (p.17): straight to the damage discard,
+ * and the top card of the robot's own deck is played in its place -- and
+ * again if that is SPAM too. An Again in register 1 does the same, into the
+ * robot's own discard (p.11). Returns the index now in the register, or null
+ * when the robot owns nothing else to play.
+ */
+function replaceInRegister(st, p, reg, why) {
+  for (let guard = 0; guard < 80; guard++) {
+    const ci = p.registers[reg];
+    if (ci === null) return null;
+    const cd = card(st, ci);
+    const spam = isDamage(st, ci);
+    const dud = !spam && cd.kind === "again" && reg === 0;
+    if (!spam && !dud) return ci;
+    putAway(st, p, ci, true);
+    st.events.push({ type: "spam", player: p.id, register: reg, card: ci, again: dud });
+    log(st, p.name + (spam ? " reveals SPAM and throws it away" : "'s Again has nothing to repeat"));
+    const next = drawOwn(st, p);
+    p.registers[reg] = next === null ? null : next;
+    if (next === null) { log(st, p.name + " has no card left to play"); return null; }
+    log(st, p.name + " plays the top of its deck instead");
+  }
+  return null;
+}
+
+/** The card an Again repeats: the last register before this one that does not itself hold an Again. */
+function againTarget(st, p, reg) {
+  for (let k = reg - 1; k >= 0; k--) {
+    const ci = p.registers[k];
+    if (ci === null) return null;
+    if (card(st, ci).kind !== "again") return ci;
+  }
+  return null;
+}
+
 const STEPS = {
   draft: {
     /* every human seat picks a colour, in seat order; bots keep what is left */
@@ -142,18 +297,25 @@ const STEPS = {
       }
       go(st, "draft", "draw");
     },
-    /* everyone draws one card and the fastest priority picks its bay first */
+    /* classic: everyone draws one card and the fastest priority picks its bay
+     * first. 2016: the Priority Token's seat places first, then round the
+     * table (p.3). The human-privilege house rule puts the people first. */
     draw(st) {
-      const order = [];
-      for (const p of st.players) {
-        const i = st.deck.pop();
-        const pri = card(st, i).pri;
-        st.discard.push(i);
-        st.draft.cards[p.id] = pri;
-        order.push(p);
-        log(st, p.name + " draws priority " + pri);
+      let order;
+      if (isModern(st)) {
+        order = priorityOrder(st);
+      } else {
+        order = [];
+        for (const p of st.players) {
+          const i = st.deck.pop();
+          const pri = card(st, i).pri;
+          st.discard.push(i);
+          st.draft.cards[p.id] = pri;
+          order.push(p);
+          log(st, p.name + " draws priority " + pri);
+        }
+        order.sort((a, b) => st.draft.cards[b.id] - st.draft.cards[a.id]);
       }
-      order.sort((a, b) => st.draft.cards[b.id] - st.draft.cards[a.id]);
       if (st.house.humanPrivilege) order.sort((a, b) => (isHuman(b) ? 1 : 0) - (isHuman(a) ? 1 : 0));
       st.draft.order = order.map(p => p.id);
       st.draft.at = 0;
@@ -169,7 +331,7 @@ const STEPS = {
         st.waiting._course = C;
         return;
       }
-      go(st, "turn", "respawn");
+      go(st, "turn", isModern(st) ? "upgrade" : "respawn");
     }
   },
 
@@ -219,11 +381,11 @@ const STEPS = {
     /* cards that act on the hand you were dealt get their own step, because a
      * step that can ask has to be safe to re-run and the deal itself is not */
     postDeal(st) {
-      for (const p of alive(st)) {
+      for (const p of (isModern(st) ? racing(st) : alive(st))) {
         if (p.poweredDown || p.dealtAsked) continue;
         const ctx = fire(st, p, "onDealt", { redraw: false });
         if (ctx.pending) { st.waiting = ctx.ask; return; }
-        if (ctx.redraw) {
+        if (ctx.redraw && !isModern(st)) {
           for (const i of p.hand) st.discard.push(i);
           if (st.deck.length < p.dealtCount) { st.deck = shuffle(st, st.deck.concat(st.discard)); st.discard = []; }
           p.hand = st.deck.splice(st.deck.length - p.dealtCount, p.dealtCount);
@@ -236,16 +398,16 @@ const STEPS = {
     },
     /* a person is asked even with nothing to arrange, because the announce follows */
     program(st, C, policy) {
-      for (const p of alive(st)) {
+      for (const p of (isModern(st) ? racing(st) : alive(st))) {
         if (p.poweredDown || p.ready) continue;
-        const open = openRegisters(p.damage);
+        const open = isModern(st) ? REGISTERS : openRegisters(p.damage);
         let count = 0;
         for (let i = 0; i < open; i++) if (p.registers[i] === null) count++;
         count = Math.min(count, p.hand.length);
         ask(st, p, "program", p.hand.map((_, i) => i), { count, open });
         return;
       }
-      go(st, "turn", "announce");
+      go(st, "turn", isModern(st) ? "leftovers" : "announce");
     },
     /* "Only damaged robots may choose to power down." Decided after programming, for next turn. */
     announce(st) {
@@ -258,21 +420,91 @@ const STEPS = {
       st.register = 0;
       for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
       go(st, "exec", "reveal");
+    },
+
+    /* --- the 2016 turn ---------------------------------------------------------- */
+
+    /* "Once during each Upgrade Phase, you may pay 1 Energy to draw 1 new
+     * upgrade card. Once during each Upgrade Phase, you may install 1 new
+     * upgrade from your collection of uninstalled upgrades." And uninstall
+     * any number. A rebooting robot shops too. */
+    upgrade(st) {
+      for (const p of racing(st)) {
+        if (p.upgradeDone) continue;
+        const buy = !p.bought && p.energy >= UPGRADE_DRAW_COST && (st.upgradeDeck.length + st.upgradeDiscard.length) > 0 ? [false, true] : [false];
+        const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id)));
+        const uninstall = p.installed.map(u => u.id);
+        if (buy.length === 1 && install.length === 1 && !uninstall.length) { p.upgradeDone = true; continue; }
+        ask(st, p, "upgrade", { buy, install, uninstall }, { energy: p.energy });
+        return;
+      }
+      go(st, "turn", "dealModern");
+    },
+    /* "Draw cards from your own programming deck until you have 9 cards in
+     * your hand" -- on top of the SPAM still held from last round. */
+    dealModern(st) {
+      st.events.push({ type: "turnStart", turn: st.turn });
+      for (const p of racing(st)) {
+        p.ready = false; p.dealtAsked = false; p.shutAsked = false;
+        const target = Math.max(0, fire(st, p, "modifyDealt", { count: HAND }).count);
+        let drew = 0;
+        while (p.hand.length < target) {
+          const i = drawOwn(st, p);
+          if (i === null) break;
+          p.hand.push(i);
+          drew++;
+        }
+        p.dealtCount = drew;
+        st.events.push({ type: "dealt", player: p.id, count: drew });
+      }
+      go(st, "turn", "postDeal");
+    },
+    /* "Place any non-damage programming cards still in your hand in the
+     * discard pile on your player mat." The damage cards stay. */
+    leftovers(st) {
+      for (const p of racing(st)) {
+        const keep = [];
+        for (const i of p.hand) { if (isDamage(st, i)) keep.push(i); else p.pile.push(i); }
+        p.hand = keep;
+      }
+      go(st, "turn", "shutdownAsk");
+    },
+    /* "After all players have completed the Programming Phase, but before
+     * players have revealed their Register 1 cards, you may declare: I am
+     * shutting down!" -- a robot on the floor, for this round. */
+    shutdownAsk(st) {
+      for (const p of alive(st)) {
+        if (p.shutAsked) continue;
+        ask(st, p, "shutdown", [false, true], { held: heldDamageOf(st, p) });
+        return;
+      }
+      st.register = 0;
+      for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
+      go(st, "exec", "reveal");
     }
   },
 
   exec: {
-    /* the order robots act in this register: highest printed priority first, unique across the deck */
+    /* the order robots act in this register: classic, highest printed
+     * priority first, unique across the deck; 2016, the Priority Token's seat
+     * and then round the table, the same for all five registers, with a
+     * rebooting robot in its place in register 1 so it has a moment to land */
     reveal(st) {
-      const q = [];
-      for (const p of alive(st)) {
-        if (p.poweredDown) continue;
-        const i = p.registers[st.register];
-        if (i === null || i === undefined) continue;
-        q.push({ id: p.id, pri: card(st, i).pri });
+      let q;
+      if (isModern(st)) {
+        q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && p.registers[st.register] !== null) || (p.rebooting && st.register === 0)).map(p => p.id);
+      } else {
+        const qq = [];
+        for (const p of alive(st)) {
+          if (p.poweredDown) continue;
+          const i = p.registers[st.register];
+          if (i === null || i === undefined) continue;
+          qq.push({ id: p.id, pri: card(st, i).pri });
+        }
+        qq.sort((a, b) => b.pri - a.pri);
+        q = qq.map(x => x.id);
       }
-      q.sort((a, b) => b.pri - a.pri);
-      st.queue = q.map(x => x.id);
+      st.queue = q;
       for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
       st.elem = 0;
       st.events.push({ type: "register", register: st.register });
@@ -284,11 +516,33 @@ const STEPS = {
     move(st, C) {
       while (st.queue.length) {
         const p = st.players[st.queue[0]];
+        if (p.rebooting && isModern(st)) {
+          /* "Choose your facing (ignore the arrow on the token), then resolve
+           * your Register 1 programming card as usual." */
+          const key = st.turn + ":reboot:" + p.id;
+          const facing = st.answers[key];
+          if (facing === undefined) { ask(st, p, "rebootFacing", [0, 1, 2, 3], { key, prompt: p.name + " reboots. Which way should it face?" }); return; }
+          landReboot(st, C, p, facing);
+        }
         if (!p.alive) { st.queue.shift(); continue; }
-        const i = p.registers[st.register];
+        let i = p.registers[st.register];
         if (i === null) { st.queue.shift(); continue; }
-        const cd = card(st, i);
-        const plan = planCard(st, p, cd);
+        let cd = card(st, i);
+        let again = false;
+        if (isModern(st)) {
+          i = replaceInRegister(st, p, st.register);
+          if (i === null) { st.queue.shift(); continue; }
+          cd = card(st, i);
+          if (cd.kind === "again") {
+            /* "Repeat the programming in your previous register, as if that
+             * card were in this register." Two in a row repeat the last real card. */
+            const ti = againTarget(st, p, st.register);
+            if (ti === null) { log(st, p.name + "'s Again repeats nothing"); st.queue.shift(); continue; }
+            cd = card(st, ti);
+            again = true;
+          }
+        }
+        const plan = planCard(st, p, cd, again);
         if (plan.pending) { st.waiting = plan.ask; return; }
         st.queue.shift();
         playCard(st, C, p, cd, plan);
@@ -298,8 +552,9 @@ const STEPS = {
     /* one element at a time, so a question in the laser pass parks with the
      * elements before it already done and the ones after still to come */
     board(st, C) {
-      while (st.elem < CLASSIC_ORDER.length && !st.over) {
-        const [name, pass] = CLASSIC_ORDER[st.elem];
+      const order = orderFor(st);
+      while (st.elem < order.length && !st.over) {
+        const [name, pass] = order[st.elem];
         st.events.push({ type: "element", name });
         const ask = pass(st, C);
         if (ask) { st.waiting = ask; return; }
@@ -325,15 +580,14 @@ const STEPS = {
       if (st.over) return;
       st.register++;
       if (st.register < REGISTERS) { go(st, "exec", "reveal"); return; }
-      go(st, "cleanup", "repair");
+      go(st, "cleanup", isModern(st) ? "endRound" : "repair");
     }
   },
 
   cleanup: {
     /* "Robots on a repair site or checkpoint may now repair 1 point of damage,
      * and robots on a two-wrench repair site may either repair 2 points of
-     * damage or receive an option card." Option cards are not built yet, so a
-     * two-wrench site repairs two. */
+     * damage or receive an option card." */
     /* asking is its own pass over the players, before any repair happens, so
      * the step can re-run for a second question without repairing twice */
     repair(st, C) {
@@ -408,9 +662,45 @@ const STEPS = {
         return;
       }
       go(st, "turn", "respawn");
+    },
+
+    /* "When the 5th Register has been fully resolved: the player holding the
+     * Priority Token passes it to the player on their left. Place all face-up
+     * damage cards in your registers into the damage discard pile. Discard
+     * all face-up programming cards in your registers into your own discard
+     * pile." A shutdown lasts the round; nobody is asked to stay down. */
+    endRound(st) {
+      for (const p of st.players) {
+        for (let reg = 0; reg < REGISTERS; reg++) {
+          const ci = p.registers[reg];
+          if (ci === null) continue;
+          putAway(st, p, ci, true);
+          p.registers[reg] = null;
+        }
+        p.poweredDown = false; p.announceDown = false;
+        p.upgradeDone = false; p.bought = false; p.fitted = false; p.shutAsked = false;
+      }
+      st.priority = (st.priority + 1) % st.players.length;
+      log(st, "the Priority Token passes to " + st.players[st.priority].name);
+      st.answers = {};
+      st.events.push({ type: "turnEnd", turn: st.turn });
+      st.turn++;
+      if (st.turn > st.maxTurns) {
+        st.over = true; st.unfinished = true;
+        log(st, "The race is called after " + st.maxTurns + " rounds with no winner.");
+        return;
+      }
+      go(st, "turn", "upgrade");
     }
   }
 };
+
+function heldDamageOf(st, p) {
+  let n = 0;
+  for (const i of p.hand) if (isDamage(st, i)) n++;
+  for (const i of p.pile) if (isDamage(st, i)) n++;
+  return n;
+}
 
 /** Run exactly one step function. For tests that want to stop between steps. */
 export function tick(st, library) {

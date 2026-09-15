@@ -8,9 +8,11 @@
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
 import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin } from "./course.js";
-import { card, planOf } from "./cards.js";
+import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
+import { UPGRADE_DEFS, canInstall } from "./upgrades.js";
+import { heldDamage } from "./rules.js";
 
 /* --- distance fields ----------------------------------------------------------
  * For each flag, a breadth-first distance over the course under a movement
@@ -77,6 +79,10 @@ function ghostSlide(st, C, g, dir) {
 function ghostCard(st, C, g, cd) {
   const plan = planOf(cd);
   if (plan.kind === "turn") { g.face = rot(g.face, plan.turn); return; }
+  if (plan.kind === "energy") { g.energy = (g.energy || 0) + 1; return; }
+  /* Again repeats the card before it; SPAM is a blind draw, which the ghost
+   * plays as standing still (its average over the deck is close to that) */
+  if (plan.kind === "again") { if (g.last) ghostCard(st, C, g, g.last); return; }
   if (plan.kind !== "move") return;
   const dir = plan.dist > 0 ? g.face : opposite(g.face);
   let n = Math.abs(plan.dist);
@@ -102,8 +108,8 @@ function ghostBelt(st, C, g, lo, hi) {
 }
 
 function ghostBoard(st, C, g) {
-  ghostBelt(st, C, g, 2, 2);
-  ghostBelt(st, C, g, 1, 2);
+  if (isModern(st)) { ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 1, 1); }
+  else { ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 1, 2); }
   if (g.dead) return;
   const pu = pusherAt(C, g.c, g.r, g.reg);
   if (pu) ghostMove(st, C, g, pu.dir);
@@ -118,12 +124,12 @@ function ghostTouch(C, g) {
   for (const F of C.flags) if (F.c === g.c && F.r === g.r && F.n === g.flags + 1) g.flags++;
 }
 
-const W_FLAG = 400, W_DIST = 12, W_DEATH = 260, W_FACE = 6, W_PIT = 9;
+const W_FLAG = 400, W_DIST = 12, W_DEATH = 260, W_FACE = 6, W_PIT = 9, W_ENERGY = 5, W_SPAM = 4;
 
 function scoreGhost(C, g, startFlags) {
   if (g.dead) return -W_DEATH * 4;
   const idx = g.flags >= C.flags.length ? -1 : g.flags;
-  let s = W_FLAG * (g.flags - startFlags);
+  let s = W_FLAG * (g.flags - startFlags) + W_ENERGY * (g.energy || 0) + W_SPAM * (g.spam || 0);
   if (idx >= 0) {
     const d = distField(C, idx)[g.r * C.w + g.c];
     s -= W_DIST * Math.min(d, 200);
@@ -141,14 +147,19 @@ function scoreGhost(C, g, startFlags) {
 export function botProgram(st, C, p, count) {
   const skill = p.skill === undefined ? 1 : p.skill;
   const width = skill <= 0 ? 3 : skill === 1 ? 10 : 24;
-  let beam = [{ picks: [], used: 0, g: { c: p.c, r: p.r, face: p.face, dead: false, flags: p.flags, reg: 0 } }];
+  /* a rebooting robot programs from off the board: it will land at its archive first */
+  const at = p.alive || !p.archive ? { c: p.c, r: p.r, face: p.face } : { c: p.archive.c, r: p.archive.r, face: bestFacing(st, C, p) };
+  let beam = [{ picks: [], used: 0, g: { c: at.c, r: at.r, face: at.face, dead: false, flags: p.flags, reg: 0, energy: 0, spam: 0, last: null } }];
   for (let reg = 0; reg < count && p.hand.length; reg++) {
     const next = [];
     for (const node of beam) {
       for (let h = 0; h < p.hand.length; h++) {
         if (node.used & (1 << h)) continue;
         const g = { ...node.g, reg };
-        ghostCard(st, C, g, card(st, p.hand[h]));
+        const cd = card(st, p.hand[h]);
+        /* programming a SPAM is how you get rid of one: a small credit, and
+         * the ghost stands still for the blind draw */
+        if (isDamage(st, p.hand[h])) g.spam++; else { ghostCard(st, C, g, cd); if (cd.kind !== "again") g.last = cd; }
         ghostBoard(st, C, g);
         if (!g.dead) ghostTouch(C, g);
         next.push({ picks: node.picks.concat([h]), used: node.used | (1 << h), g, score: scoreGhost(C, g, p.flags) });
@@ -182,6 +193,42 @@ export function botWantsPowerDown(p) {
   return p.damage >= (p.skill >= 2 ? 6 : 8);
 }
 
+/** 2016: shut down for the damage a shutdown can reach (hand and discard), never the deck; the lowest tier never does. */
+export function botWantsShutdown(st, p) {
+  if (p.skill <= 0) return false;
+  return heldDamage(st, p) >= 6;
+}
+
+/** The facing whose neighbour is nearest the flag the robot is going for. */
+export function bestFacing(st, C, p) {
+  const idx = p.flags >= C.flags.length ? C.flags.length - 1 : p.flags;
+  if (idx < 0) return 0;
+  const d = distField(C, idx);
+  const at = p.alive ? [p.c, p.r] : [p.archive.c, p.archive.r];
+  let best = 0, bestV = Infinity;
+  for (let dir = 0; dir < 4; dir++) {
+    const [nc, nr] = stepCell(at[0], at[1], dir);
+    if (!inGrid(C, nc, nr) || isHole(C, nc, nr) || wallBlocks(C, at[0], at[1], dir, 0)) continue;
+    const v = d[nr * C.w + nc];
+    if (v < bestV) { bestV = v; best = dir; }
+  }
+  return best;
+}
+
+/**
+ * The shop: fit what it owns before buying more, cheapest built card first,
+ * keeping a cube back for the deflector shield; buy a card only with Energy
+ * to spare. The lowest tier fits what it has and never buys.
+ */
+export function botUpgrade(st, p, req) {
+  const o = req.options;
+  const fit = o.install.filter(id => id !== null && canInstall(p, id) && p.energy - UPGRADE_DEFS[id].cost >= 1)
+    .sort((a, b) => (UPGRADE_DEFS[b].built ? 1 : 0) - (UPGRADE_DEFS[a].built ? 1 : 0) || UPGRADE_DEFS[a].cost - UPGRADE_DEFS[b].cost);
+  if (fit.length) return { buy: false, install: fit[0], uninstall: [] };
+  if (p.skill >= 1 && o.buy.includes(true) && p.energy >= UPGRADE_DRAW_COST + 2) return { buy: true, install: null, uninstall: [] };
+  return { buy: false, install: null, uninstall: [] };
+}
+
 /** The bot policy: a request in, an answer out. */
 export function botAnswer(st, library, req) {
   const p = st.players[req.player];
@@ -202,6 +249,9 @@ export function botAnswer(st, library, req) {
     }
     case "siteChoice": return p.damage >= 2 ? "repair" : "card";
     case "dropOption": return botTrimPick(p);
+    case "upgrade": return botUpgrade(st, p, req);
+    case "shutdown": return botWantsShutdown(st, p);
+    case "rebootFacing": return bestFacing(st, C, p);
     default: throw new Error("no bot answer for request kind " + req.kind);
   }
 }
@@ -216,7 +266,14 @@ export function randomAnswer(st, library, req, salt = 0) {
       for (let i = idx.length - 1; i > 0; i--) { const j = hash32(n + i) % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
       return idx.slice(0, req.count);
     }
-    case "powerDown": case "stayDown": return (n % 7) === 0;
+    case "powerDown": case "stayDown": case "shutdown": return (n % 7) === 0;
+    case "upgrade": {
+      const o = req.options;
+      const buy = o.buy[n % o.buy.length];
+      const install = o.install[hash32(n + 1) % o.install.length];
+      const uninstall = o.uninstall.filter((_, i) => hash32(n + 2 + i) % 5 === 0);
+      return { buy, install, uninstall };
+    }
     default: return req.options[n % req.options.length];
   }
 }

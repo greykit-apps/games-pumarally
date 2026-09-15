@@ -8,8 +8,9 @@
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { assemble } from "../../editor/lib/course.js";
-import { readCourse } from "../engine/library.js";
+import { readCourse, rulesetsFor } from "../engine/library.js";
 import { LIVERIES } from "../engine/state.js";
+import { rulesetFor } from "../../editor/rulesets/index.js";
 
 const SETUP_KEY = "pumarally_setup_v2";
 const WORKSHOP_KEY = "pumarally_courses_v1";
@@ -32,15 +33,17 @@ function workshopCourses(library) {
 const workshopHref = new URL("../../editor/index.html#course", import.meta.url).href;
 
 export function mountSetup(root, { library, index, courses, onStart, onResume }) {
-  const prefs = read(SETUP_KEY, { course: null, seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
+  const prefs = read(SETUP_KEY, { course: null, ruleset: "classic", seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
+  if (prefs.ruleset !== "modern") prefs.ruleset = "classic";
   const shelf = [];
   for (const row of index.courses) {
     const doc = courses.get(row.id);
     if (!doc) continue;
-    try { shelf.push({ id: row.id, doc: readCourse(doc, library, row.id), kind: row.kind, blurb: row.blurb }); } catch (e) { /* skip a course that will not build */ }
+    try { const d = readCourse(doc, library, row.id); shelf.push({ id: row.id, doc: d, kind: row.kind, blurb: row.blurb, reads: rulesetsFor(d, library) }); } catch (e) { /* skip a course that will not build */ }
   }
-  for (const c of workshopCourses(library)) shelf.push({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop." });
-  if (!shelf.some(c => c.id === prefs.course)) prefs.course = shelf.length ? shelf[0].id : null;
+  for (const c of workshopCourses(library)) shelf.push({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop.", reads: rulesetsFor(c.doc, library) });
+  const playable = () => shelf.filter(c => c.reads.includes(prefs.ruleset));
+  if (!playable().some(c => c.id === prefs.course)) prefs.course = playable().length ? playable()[0].id : null;
 
   function thumb(doc) {
     const { grid } = assemble(doc, library);
@@ -51,12 +54,23 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
     let html = '<div class="setup"><div class="row"><h1>PumaRally</h1><span class="grow"></span>' +
       (onResume ? '<button data-act="resume">Back to the race</button>' : "") +
       '<a href="' + esc(workshopHref) + '" style="color:var(--accent)">Course workshop &rarr;</a></div>';
+    html += "<h2>Rules</h2><div class='row'>";
+    for (const id of ["classic", "modern"]) {
+      const r = rulesetFor(id);
+      html += '<button data-ruleset="' + id + '" aria-pressed="' + (prefs.ruleset === id) + '" title="' +
+        esc(id === "classic" ? "The 1994 book: 84 priority cards, damage on a track, option cards, lives." : "The 2016 book: your own deck of twenty, SPAM, Energy and upgrades, reboots.") +
+        '">' + esc(r.name) + " <span class='keys'>" + esc(r.years) + "</span></button>";
+    }
+    html += "</div>";
     html += "<h2>Course</h2><div class='courses'>";
     for (const c of shelf) {
-      html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '">' +
+      const ok = c.reads.includes(prefs.ruleset);
+      html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
+        (ok ? "" : ' disabled title="' + esc("Its boards print things only the " + (c.reads[0] ? rulesetFor(c.reads[0]).name : "other") + " book reads.") + '"') + ">" +
         thumb(c.doc) + '<span class="name">' + esc(c.doc.name) + "</span>" +
         '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + c.doc.stamps.filter(s => s.role === "board").length +
-        " board" + (c.doc.stamps.filter(s => s.role === "board").length === 1 ? "" : "s") + " &middot; " + (c.doc.flags || []).length + " flags</span></button>";
+        " board" + (c.doc.stamps.filter(s => s.role === "board").length === 1 ? "" : "s") + " &middot; " + (c.doc.flags || []).length +
+        (prefs.ruleset === "modern" ? " checkpoints" : " flags") + (ok ? "" : " &middot; " + esc(c.reads.length ? rulesetFor(c.reads[0]).name + " only" : "no book reads it")) + "</span></button>";
     }
     html += "</div>";
 
@@ -79,8 +93,12 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
       ["humanPrivilege", "Human privilege", "the people at the keyboard pick their bays before the bots"]]) {
       html += '<label title="' + esc(note) + '"><input type="checkbox" data-house="' + k + '"' + (prefs.house[k] ? " checked" : "") + "> " + label + "</label>";
     }
-    html += '<label title="Option cards dealt to everyone at the start. The printed route, a two-wrench site instead of two points of repair, hands one out in about one game in fifty.">Starting options ' +
-      '<select data-house-n="startOptions">' + [0, 1, 2, 3].map(n => '<option value="' + n + '"' + ((prefs.house.startOptions | 0) === n ? " selected" : "") + ">" + n + "</option>").join("") + "</select></label>";
+    if (prefs.ruleset === "classic") {
+      html += '<label title="Option cards dealt to everyone at the start. The printed route, a two-wrench site instead of two points of repair, hands one out in about one game in fifty.">Starting options ' +
+        '<select data-house-n="startOptions">' + [0, 1, 2, 3].map(n => '<option value="' + n + '"' + ((prefs.house.startOptions | 0) === n ? " selected" : "") + ">" + n + "</option>").join("") + "</select></label>";
+    } else {
+      html += '<span class="keys">2016: every robot starts on 3 Energy with 3 upgrade cards; a robot that falls reboots at its last checkpoint; the Priority Token starts with seat 1.</span>';
+    }
     html += "</div><div class='row'><button class='primary' data-act='start'" + (prefs.course ? "" : " disabled") + ">Start the race</button></div></div>";
     root.innerHTML = html;
   }
@@ -89,6 +107,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
     const b = ev.target.closest("button");
     if (!b) return;
     const d = b.dataset;
+    if (d.ruleset) { prefs.ruleset = d.ruleset; if (!playable().some(c => c.id === prefs.course)) prefs.course = playable().length ? playable()[0].id : null; store(SETUP_KEY, prefs); render(); return; }
     if (d.course) { prefs.course = d.course; store(SETUP_KEY, prefs); render(); return; }
     if (d.drop !== undefined) { prefs.seats.splice(+d.drop, 1); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
@@ -97,7 +116,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
       const c = shelf.find(x => x.id === prefs.course);
       if (!c) return;
       store(SETUP_KEY, prefs);
-      onStart({ course: c.doc, seats: prefs.seats.map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house } });
+      onStart({ course: c.doc, seats: prefs.seats.map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset });
     }
   };
   root.onchange = ev => {

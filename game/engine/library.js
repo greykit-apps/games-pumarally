@@ -8,6 +8,7 @@
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { courseFromDocument } from "../../editor/validate/course.js";
 import { sink } from "../../editor/validate/diagnostic.js";
+import { printingsOn, rulesetIds } from "../../editor/rulesets/index.js";
 
 /** Node only: the library from disk, with the course index. Throws on a bad board. */
 export async function loadLibraryFromDisk() {
@@ -58,3 +59,24 @@ export function readCourse(doc, library, expectId) {
   for (const s of c.stamps) if (!library.has(s.board)) throw new Error("course " + doc.id + " lays " + s.board + ", which is not in the library");
   return JSON.parse(JSON.stringify(doc));
 }
+
+/**
+ * The rulesets that can read a course, from its squares and nothing else: a
+ * board printing something only one edition prints (a flame jet, a swing
+ * door, water, a ramp) is readable by that edition alone, and a course
+ * laying boards from both is readable by neither. Sites do not count -- a
+ * wrench and a battery on the same square is exactly what the swap rule
+ * makes, and each game reads its own.
+ */
+export function rulesetsFor(doc, library) {
+  let out = rulesetIds();
+  for (const s of doc.stamps || []) {
+    const b = library.get(s.board);
+    if (!b) continue;
+    const only = printingsOn(b);
+    if (only.length > 1) return [];                     // both on one board: nobody's book
+    if (only.length) out = out.filter(id => only.includes(id));
+  }
+  return out;
+}
+

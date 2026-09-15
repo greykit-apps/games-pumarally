@@ -12,7 +12,10 @@ transcribed, with their questions through the request door. Crash and Burn's
 floor followed: doors, portals, oil, unnumbered presses, burners on the way
 through, lives by game size, all read off the AMIGO book. A hundred and six
 of the old suite's scenarios are ported by name; the runner prints the rest
-as pending. Next: M4.
+as pending. M4, the 2016 rules, followed: own decks, the Priority Token,
+SPAM, Energy, the shop, shutdown and reboot, with three declared
+substitutes (`game/engine/state.js`). A hundred and fifty-two scenarios are
+ported. Next: M5, each item as its source is photographed.
 
 ## The verdict
 

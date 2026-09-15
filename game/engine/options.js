@@ -21,6 +21,7 @@
 import { opposite } from "../../editor/lib/dir.js";
 import OPTIONS_DATA from "../data/options.js";
 import { log } from "./state.js";
+import { UPGRADE_DEFS, uninstallUpgrade } from "./upgrades.js";
 
 export const HOOKS = [
   "modifyDealt",        // how many program cards you are dealt
@@ -167,13 +168,15 @@ export function choiceKey(st, player, hook, optionId, tag) {
 }
 
 /**
- * Fire one hook for every option card the player holds. Returns the ctx;
- * `ctx.pending` is true when a card asked something nobody has answered yet,
- * and `ctx.ask` then holds the request for the step to raise.
+ * Fire one hook for every option card the player holds and every upgrade on
+ * its mat, each against its own table. Returns the ctx; `ctx.pending` is
+ * true when a card asked something nobody has answered yet, and `ctx.ask`
+ * then holds the request for the step to raise.
  */
 export function fire(st, player, hook, ctx) {
   ctx = ctx || {};
   ctx.player = player;
+  ctx.st = st;
   ctx.pending = false;
   ctx.ask = null;
   let current = null;
@@ -192,17 +195,24 @@ export function fire(st, player, hook, ctx) {
     st.answers[key] = "used";
     return have;
   };
-  ctx.discard = () => { if (current) discardOption(st, player, current.id, "burns out"); };
+  ctx.discard = () => {
+    if (!current) return;
+    if (current.table === OPTION_DEFS) discardOption(st, player, current.held.id, "burns out");
+    else uninstallUpgrade(st, player, current.held.id, "burns out");
+  };
 
-  /* a snapshot: a hook may discard its own card mid-loop */
-  for (const h of player.options.slice()) {
-    if (player.options.indexOf(h) < 0) continue;
-    const def = OPTION_DEFS[h.id];
-    if (!def || !def.hooks[hook]) continue;
-    if (!h.st) h.st = def.init ? def.init() : {};
-    current = h;
-    def.hooks[hook](ctx, h.st, h);
-    current = null;
+  /* a snapshot of each list: a hook may discard its own card mid-loop */
+  const lists = [[player.options, OPTION_DEFS], [player.installed || [], UPGRADE_DEFS]];
+  for (const [list, table] of lists) {
+    for (const h of list.slice()) {
+      if (list.indexOf(h) < 0) continue;
+      const def = table[h.id];
+      if (!def || !def.hooks[hook]) continue;
+      if (!h.st) h.st = def.init ? def.init() : {};
+      current = { held: h, table };
+      def.hooks[hook](ctx, h.st, h);
+      current = null;
+    }
   }
   return ctx;
 }
@@ -260,7 +270,7 @@ export function botTrimPick(p) {
 
 /** A bot's answer to a card's question: the card's own preference, else the first option. */
 export function botCardPick(req) {
-  const def = OPTION_DEFS[req.card];
+  const def = OPTION_DEFS[req.card] || UPGRADE_DEFS[req.card];
   let prefer = def && def.botPrefers !== undefined ? def.botPrefers : 0;
   if (prefer >= req.options.length) prefer = req.options.length - 1;
   return prefer;
