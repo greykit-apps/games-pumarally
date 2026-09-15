@@ -132,6 +132,15 @@ CI runs both after the editor's checks.
 
 ## Status
 
+M2, the classic game on screen, is built at `game/index.html`: set-up with
+the workshop's course shelf (shipped courses and any saved from the course
+workshop in this browser), any mix of one to eight human and bot seats, the
+three house rules; the draft with colours and lit bays; programming by click,
+keys and drag; the floor animated from the engine's events; the panel drawn
+from the pending request and nothing else; a hot-seat curtain between human
+seats; autosave and resume. Verified in the browser through the draft, two
+full turns, a two-human hand-over and a reload mid-game.
+
 M1, the classic engine headless, is built: draft, deal, programming, the five
 registers in the printed order, damage and locking, destruction and return,
 power down as three moments, repair at cleanup, checkpoints and the win, the

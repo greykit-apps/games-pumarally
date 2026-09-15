@@ -44,12 +44,17 @@ export async function loadLibraryFromUrl(base = "./editor/data/") {
   return { library, index };
 }
 
-/** A course document, read and validated; throws with the first error. */
+/**
+ * A course document, validated; throws with the first error. Returns a clean
+ * copy of the DOCUMENT, not the parser's course object -- that object carries
+ * pointer keys the closed schema refuses, and a save that stored it could not
+ * be read back.
+ */
 export function readCourse(doc, library, expectId) {
   const d = sink();
   const c = courseFromDocument(JSON.parse(JSON.stringify(doc)), d, expectId);
   const errors = d.items.filter(x => x.severity === "error");
   if (!c || errors.length) throw new Error("course " + (doc && doc.id) + ": " + (errors[0] || {}).message);
   for (const s of c.stamps) if (!library.has(s.board)) throw new Error("course " + doc.id + " lays " + s.board + ", which is not in the library");
-  return c;
+  return JSON.parse(JSON.stringify(doc));
 }
