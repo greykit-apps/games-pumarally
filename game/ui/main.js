@@ -14,6 +14,9 @@ import { botAnswer } from "../engine/bots.js";
 import { mountSetup } from "./setup.js";
 import { mountScreen } from "./screen.js";
 
+/* the data lives beside the editor whichever page mounted the game: the
+ * repo root's index.html and game/index.html both load this module */
+const DATA_BASE = new URL("../../editor/data/", import.meta.url).href;
 const SAVE_KEY = "pumarally_game_v2";
 const SPEED_KEY = "pumarally_speed_v2";
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
@@ -27,11 +30,11 @@ injectCSS(document);
 
 let library, index, courses;
 try {
-  const loaded = await loadLibraryFromUrl("../editor/data/");
+  const loaded = await loadLibraryFromUrl(DATA_BASE);
   library = loaded.library; index = loaded.index;
   courses = new Map();
   await Promise.all(index.courses.map(async row => {
-    try { courses.set(row.id, await (await fetch("../editor/data/courses/" + row.id + ".json")).json()); } catch (e) { /* skipped */ }
+    try { courses.set(row.id, await (await fetch(DATA_BASE + "courses/" + row.id + ".json")).json()); } catch (e) { /* skipped */ }
   }));
 } catch (e) {
   host.innerHTML = '<p class="boot">Could not load the boards: ' + e.message + "</p>";
@@ -45,7 +48,12 @@ let busy = false;
 
 function toSetup() {
   screen = null;
-  mountSetup(host, { library, index, courses, onStart: opts => start(opts) });
+  const saved = loadGame();
+  mountSetup(host, {
+    library, index, courses,
+    onStart: opts => start(opts),
+    onResume: saved && !saved.over && saved.v === 1 ? () => { st = saved; openScreen(); advance(); } : null
+  });
 }
 
 function start(opts) {

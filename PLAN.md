@@ -3,6 +3,14 @@
 Written 2026-09-15 after reading the rulebook photographs, both codebases, the
 CI suite, the last three days of commits, and playing a turn in the browser.
 
+**Status, 2026-09-15 (same day):** M0 to M3 are done and merged. The editor
+branch is on `main`, the tag `classic-monolith` marks the last commit before
+the rebuild, `game/` holds the classic engine, bots, simulation and screen,
+the repository root's `index.html` is the new game, and the old game and its
+tools are deleted. Forty-eight of the old suite's scenarios are ported by
+name; the runner prints the rest as pending. Next: option cards under the
+classic rules (the sixteen transcribed), oil and portals, then M4.
+
 ## The verdict
 
 **Rebuild the game on the editor's foundation. Do not patch `pumarally.js`,

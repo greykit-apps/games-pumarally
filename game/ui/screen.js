@@ -374,6 +374,7 @@ export function mountScreen(root, ctx) {
   }
   function showCurtain(id) {
     curtainFor = id;
+    if (root.querySelector(".curtain")) return;       // already up; a second render must not stack another
     const p = st.players[id];
     const el = document.createElement("div");
     el.className = "curtain";
@@ -383,8 +384,7 @@ export function mountScreen(root, ctx) {
     root.appendChild(el);
   }
   function liftCurtain() {
-    const el = root.querySelector(".curtain");
-    if (el) el.remove();
+    for (const el of root.querySelectorAll(".curtain")) el.remove();
     lastHuman = curtainFor;
     curtainFor = null;
     renderPanel();

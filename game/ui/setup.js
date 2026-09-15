@@ -28,7 +28,10 @@ function workshopCourses(library) {
   return out;
 }
 
-export function mountSetup(root, { library, index, courses, onStart }) {
+/* the workshop sits beside the game whichever page mounted it */
+const workshopHref = new URL("../../editor/index.html#course", import.meta.url).href;
+
+export function mountSetup(root, { library, index, courses, onStart, onResume }) {
   const prefs = read(SETUP_KEY, { course: null, seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
   const shelf = [];
   for (const row of index.courses) {
@@ -46,7 +49,8 @@ export function mountSetup(root, { library, index, courses, onStart }) {
 
   function render() {
     let html = '<div class="setup"><div class="row"><h1>PumaRally</h1><span class="grow"></span>' +
-      '<a href="../editor/index.html#course" style="color:var(--accent)">Course workshop &rarr;</a></div>';
+      (onResume ? '<button data-act="resume">Back to the race</button>' : "") +
+      '<a href="' + esc(workshopHref) + '" style="color:var(--accent)">Course workshop &rarr;</a></div>';
     html += "<h2>Course</h2><div class='courses'>";
     for (const c of shelf) {
       html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '">' +
@@ -86,6 +90,7 @@ export function mountSetup(root, { library, index, courses, onStart }) {
     if (d.course) { prefs.course = d.course; store(SETUP_KEY, prefs); render(); return; }
     if (d.drop !== undefined) { prefs.seats.splice(+d.drop, 1); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
+    if (d.act === "resume" && onResume) { onResume(); return; }
     if (d.act === "start") {
       const c = shelf.find(x => x.id === prefs.course);
       if (!c) return;

@@ -2,8 +2,8 @@
 
 This directory is the rebuild described in `PLAN.md`. It is ES modules, no
 bundler, no dependencies, and it reads the boards and courses the workshop
-writes under `editor/data/`. Nothing in here touches `pumarally.js`, which is
-the old game and goes when this one is playable.
+writes under `editor/data/`. The old single-file game it replaces is gone;
+the tag `classic-monolith` holds it.
 
 **This file is the contract, written before the code.** Every handler in
 `engine/` is held to it, and the shape below is what the UI, the bots and the
@@ -132,6 +132,11 @@ CI runs both after the editor's checks.
 
 ## Status
 
+M3, the cutover, is done: the repository root's `index.html` is this game,
+and `pumarally.js`, `pumarally-boards.js` and the tools that read them are
+deleted. The tree has one engine, one format, one renderer and one editor.
+The tag `classic-monolith` marks the last commit before the rebuild.
+
 M2, the classic game on screen, is built at `game/index.html`: set-up with
 the workshop's course shelf (shipped courses and any saved from the course
 workshop in this browser), any mix of one to eight human and bot seats, the
@@ -151,9 +156,11 @@ anything modern.
 ## Open, and recorded here rather than solved in passing
 
 - **Deploy caching.** The host serves `.js` for thirty days without
-  revalidation, and this is thirty modules. The editor has the same exposure
-  today. A hashed directory per release, or an import map stamped into
-  `index.html`, before the first public deploy of this game.
+  revalidation, and this is thirty modules. The repo root's `.htaccess` sets
+  every script and data file to revalidate like the page. Not yet verified
+  against the live host: after the first deploy, `curl -I` a module under
+  `game/` and check the `Cache-Control` header. If the host ignores it, the
+  fallback is a hashed directory per release.
 - **Reboot tokens and the priority antenna** are placed at setup, so they are
   course-level data like flags, and the modern engine will want them on the
   `PRCourse` document. Not before M4.

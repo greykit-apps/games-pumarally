@@ -1,0 +1,11 @@
+# The game and the workshop are ES modules loaded by relative path, and the
+# host's default for .js is thirty days with no revalidation. A returning
+# visitor would pick up a fresh index.html and keep running last month's
+# engine against this month's boards. So every script and data file here
+# revalidates like the page does. If the host ever stops honouring this, the
+# fallback is a hashed directory per release; see game/README.md.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|json|svg)$">
+    Header set Cache-Control "max-age=60, must-revalidate"
+  </FilesMatch>
+</IfModule>
