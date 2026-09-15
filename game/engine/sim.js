@@ -11,7 +11,7 @@ import { step } from "./machine.js";
 import { botAnswer, randomAnswer } from "./bots.js";
 import { courseOf, isHole, inGrid } from "./course.js";
 import { CLASSIC_DECK, REGISTERS, MAX_DAMAGE } from "./cards.js";
-import { OPTION_IDS } from "./options.js";
+import { OPTION_IDS, OPTION_DEFS } from "./options.js";
 
 /** The conservation laws. Throws with the law that broke. */
 export function assertInvariants(st, library) {
@@ -29,6 +29,15 @@ export function assertInvariants(st, library) {
   if (opt.length !== OPTION_IDS.length || new Set(opt).size !== OPTION_IDS.length) {
     throw new Error("option card conservation broken: " + opt.length + " cards, " + new Set(opt).size + " distinct, of " + OPTION_IDS.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
   }
+  /* a held card carries the state its definition starts it with, however it
+   * was handed out; a coat with no charges absorbs forever */
+  for (const p of st.players) for (const o of p.options) {
+    const def = OPTION_DEFS[o.id];
+    if (!def || !def.init) continue;
+    for (const k of Object.keys(def.init())) {
+      if (!o.st || !Number.isInteger(o.st[k])) throw new Error(p.name + " holds " + def.name + " with " + k + " = " + (o.st && o.st[k]));
+    }
+  }
   const seen = new Set();
   for (const p of st.players) {
     if (!p.alive) continue;
@@ -39,7 +48,8 @@ export function assertInvariants(st, library) {
     seen.add(key);
     if (!inGrid(C, p.c, p.r)) throw new Error(p.name + " is off the course at " + key);
     if (isHole(C, p.c, p.r)) throw new Error(p.name + " is standing in a hole at " + key);
-    if (p.damage < 0 || p.damage >= MAX_DAMAGE) throw new Error(p.name + " has " + p.damage + " damage and is alive");
+    /* an integer, not merely in range: NaN passes every comparison */
+    if (!Number.isInteger(p.damage) || p.damage < 0 || p.damage >= MAX_DAMAGE) throw new Error(p.name + " has " + p.damage + " damage and is alive");
     if (p.lives < 1) throw new Error(p.name + " is alive with no lives");
     if (p.registers.length !== REGISTERS) throw new Error(p.name + " has " + p.registers.length + " registers");
     if (p.hand.some(i => !Number.isInteger(i))) throw new Error(p.name + " holds a non-card");

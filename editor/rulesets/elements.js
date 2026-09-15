@@ -30,7 +30,7 @@
  * nothing to tell them apart.
  *
  * WHERE THE DIFFERENCE WENT. Into the rulesets, which is where a difference of
- * resolution belongs: `oilSlidePushes` and `portalBlockedBy` in classic.js and
+ * resolution belongs: `oilSlideAfter` and `portalBlockedBy` in classic.js and
  * modern.js, each carrying the rulebook's own wording. check-lib.js asserts
  * both rulesets define them AND that they disagree, so merging the tiles
  * cannot quietly become forgetting the rule.
@@ -96,7 +96,7 @@ export const ELEMENTS = {
   /* Both games print an oil slick and both print a portal, and each prints ONE
    * of them -- there is no classic oil and modern oil to tell apart on a board.
    * What differs is the resolution, and that lives in the rulesets: see
-   * `oilSlidePushes` and `portalBlockedBy`. */
+   * `oilSlideAfter` and `portalBlockedBy`. */
 
   "L": { key: "oil", name: "Oil slick", arg: ARG_NONE, printedIn: BOTH,
          props: { oil: true },

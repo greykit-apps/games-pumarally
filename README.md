@@ -35,7 +35,7 @@ at play time beyond fetching the boards.
 | Headless simulation with conservation laws, on every course, mixed seats | done, in CI |
 | The game on screen: set-up, draft, programming by click, keys and drag, animated floor, hot seat, autosave and resume | done |
 | Option cards: the sixteen transcribed, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 29 scenarios by name; the ten untranscribed cards are not guessed at |
-| Oil, portals, swing doors, the Crash and Burn extras | not yet |
+| Oil, portals, swing doors, unnumbered presses, burners on the way through, lives by game size (Crash and Burn, from the AMIGO book) | done, 29 scenarios by name |
 | The 2016 rules | not yet: M4 in `PLAN.md` |
 | Flag locations marked on the boards, for the engine to choose among | not yet: board design |
 

@@ -34,13 +34,17 @@ export default {
    * them: see the note in classic.js. Oil and portals are one printed tile each
    * and the editions differ only here.
    *
-   * A slide meeting a robot: Thrills and Spills -- "meet one that IS in oil and
-   * you push it, and both slide". A robot not in oil still stops the slide. */
-  oilSlidePushes: true,
+   * What makes a robot slide. Thrills and Spills (manual1/IMG_1247-1251): a
+   * slide is triggered by register movement, by dropping off a belt, and by
+   * being pushed -- three triggers where the classic book states one. The
+   * slide itself is the same in both books: on until off the oil, a wall, or a
+   * robot with grip; a robot that is in oil is shoved and both slide. */
+  oilSlideAfter: ["card", "belt", "push"],
 
-  /* When a portal will not fire: only when the DESTINATION is occupied, in
-   * which case the space is ordinary floor. Standing on one end does not switch
-   * the pair off the way the classic rule does. */
+  /* When a portal will not fire: "occupied destination means it does not fire
+   * and the space is ordinary floor" (Thrills and Spills). The classic book
+   * words it as a robot on either end switching the pair off; see classic.js
+   * for why the two wordings agree on every reachable position. */
   portalBlockedBy: "destination",
 
   /* Wet and Wild's fold-out prints a numbered order, and it is the one that

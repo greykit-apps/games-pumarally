@@ -9,13 +9,19 @@ import { step as stepCell, rot, opposite, DC, DR, N, E, S, W } from "../../edito
 import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
-  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt
+  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin
 } from "./course.js";
+import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, MAX_DAMAGE, REGISTERS } from "./cards.js";
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption } from "./options.js";
 
 const DIR_NAMES = ["north", "east", "south", "west"];
+
+/* The classic engine, until M4 hands the ruleset in with the state. What the
+ * two editions do differently with the same printed tile is read from here
+ * and nowhere else, so the modern game is a change of table, not of code. */
+const RULES = rulesetFor("classic");
 
 export function robotAt(st, c, r) {
   for (const p of st.players) if (p.alive && p.c === c && p.r === r) return p;
@@ -72,14 +78,79 @@ export function stepRobot(st, C, p, dir, cause) {
       const pctx = fire(st, chain[i - 1], "onPush", { pushed: m, dir, pushDamage: 0 });
       if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage, source: "ram", why: "ramming gear" });
     }
-    if (isHole(C, m.c, m.r)) destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge");
+    if (isHole(C, m.c, m.r)) { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
+    throughPortal(st, C, m);
     /* a jet burns what passes through it, not only what stops in it */
-    else if (jetFires(C, m.c, m.r, st.register)) hurt.push({ who: m, n: 1, source: "burner", why: "the flame" });
+    if (jetFires(C, m.c, m.r, st.register)) hurt.push({ who: m, n: 1, source: "burner", why: "the flame" });
   }
   /* damage lands after the whole chain has moved: applying it mid-loop can
    * destroy a robot the robots behind it are still being pushed into */
   for (const h of hurt) if (h.who.alive) { log(st, h.who.name + " takes " + h.n + " from " + h.why); damage(st, C, h.who, h.n, h.source); }
+  /* a shoved robot that came to rest on oil skids on, where the edition says so */
+  if (RULES.oilSlideAfter.indexOf("push") >= 0) {
+    for (let i = 1; i < chain.length; i++) if (chain[i].alive && oilAt(C, chain[i].c, chain[i].r)) oilSlide(st, C, chain[i], dir);
+  }
   return true;
+}
+
+/* --- Crash and Burn: portals and oil ------------------------------------------
+ *
+ * Read off the AMIGO Spielanleitung, pp.7-8 (manual1/IMG_1227, IMG_1228), and
+ * the reference card (IMG_1232). Both rulesets carry the edition's reading in
+ * `oilSlideAfter` and `portalBlockedBy`; see editor/rulesets/classic.js. */
+
+/**
+ * "Sobald ein Roboter ein Portalfeld betritt, wechselt er sofort auf das
+ * andere Portalfeld gleicher Farbe." Called wherever a robot's square changes,
+ * so it comes out of the twin whether it drove, was shoved, was carried by a
+ * belt or skidded there. "Beide Portalfelder gelten als ein Feld": the hop
+ * spends no movement and nothing on the way is triggered twice.
+ *
+ * A robot standing on either end switches the pair off, and a switched-off
+ * portal is ordinary floor. The robot that has just arrived is standing on the
+ * far end, so the pair is dead behind it and it cannot bounce back; a robot
+ * already on the far end means the entering robot simply stands where it is.
+ */
+export function throughPortal(st, C, p) {
+  const twin = portalTwin(C, p.c, p.r);
+  if (!twin) return false;
+  if (robotAt(st, twin[0], twin[1])) return false;
+  const from = [p.c, p.r];
+  p.c = twin[0]; p.r = twin[1];
+  tread(p);
+  st.events.push({ type: "portal", player: p.id, from, to: [p.c, p.r] });
+  log(st, p.name + " drops through a portal");
+  return true;
+}
+
+/**
+ * The skid. "Er rutscht solange, bis er ein Feld ohne Öl erreicht oder vor
+ * einer Wand beziehungsweise vor einem anderen Roboter, der sich nicht auf
+ * einer Öllache befindet, stehen bleibt." A robot on the same slick is shoved
+ * along and both slide until the front one finds grip, a wall, or a further
+ * robot -- the book has the pair stop before a third robot, wherever it stands.
+ * Not a move: no card, no oil discount, and it is never re-entered.
+ */
+export function oilSlide(st, C, p, dir) {
+  let skidded = false;
+  for (let guard = 0; guard < 64; guard++) {
+    if (!p.alive || !oilAt(C, p.c, p.r)) break;
+    /* walk the chain the way stepRobot will, but stop before a robot with grip */
+    let c = p.c, r = p.r, stopped = false, shoving = 0;
+    for (let g = 0; g < 10; g++) {
+      if (blockedMove(st, C, c, r, dir)) { stopped = true; break; }
+      const [nc, nr] = stepCell(c, r, dir);
+      if (!inGrid(C, nc, nr)) break;                  // the head goes over the edge: that is a slide too
+      const occ = robotAt(st, nc, nr);
+      if (!occ) break;
+      if (!oilAt(C, nc, nr) || shoving) { stopped = true; break; }
+      shoving++; c = nc; r = nr;
+    }
+    if (stopped) break;
+    if (!skidded) { log(st, p.name + " skids on the oil"); skidded = true; }
+    if (!stepRobot(st, C, p, dir, "oil")) break;
+  }
+  return skidded;
 }
 
 /**
@@ -108,19 +179,42 @@ export function playCard(st, C, p, cd, plan) {
   plan = plan || planOf(cd);
   log(st, p.name + " " + describePlan(cd, plan));
   st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
+  const start = [p.c, p.r];
   if (plan.kind === "turn") {
     p.face = rot(p.face, plan.turn);
     st.events.push({ type: "turned", player: p.id, turn: plan.turn, face: p.face, cause: "card" });
+    stayedInFlame(st, C, p, start);
     return;
   }
-  if (plan.kind !== "move") return;
+  if (plan.kind !== "move") { stayedInFlame(st, C, p, start); return; }
   const dir = plan.lateral ? rot(p.face, plan.lateral) : plan.dist > 0 ? p.face : opposite(p.face);
   let n = Math.abs(plan.dist);
   if (n > 0 && oilAt(C, p.c, p.r)) n--;               // wheels spin on oil: one square less
+  let moved = 0;
   for (let i = 0; i < n; i++) {
     if (!p.alive) return;
     if (!stepRobot(st, C, p, dir, "card")) break;      // a wall: the rest of the move is lost
+    moved++;
   }
+  /* "Erst wenn er seine Bewegung beendet (bremst), gerät er auf einer Öllache
+   * ins Rutschen": once, after the card, and only if it actually travelled --
+   * momentum it never had cannot carry it */
+  if (moved > 0 && p.alive && oilAt(C, p.c, p.r)) oilSlide(st, C, p, dir);
+  stayedInFlame(st, C, p, start);
+}
+
+/**
+ * "Ein Roboter erhält auch einen Schaden, wenn er ein Feld eines aktiven
+ * Brenners nicht verlässt" (p.8, with a rotate as the example). Leaving one at
+ * the start of a move costs nothing; ending the card where it began, in an
+ * active flame, costs one. The burner's own turn later in the register is a
+ * second point, which is the two-in-one-register the book warns about.
+ */
+function stayedInFlame(st, C, p, start) {
+  if (!p.alive || p.c !== start[0] || p.r !== start[1]) return;
+  if (!jetFires(C, p.c, p.r, st.register)) return;
+  log(st, p.name + " sits in the flame and takes 1");
+  damage(st, C, p, 1, "burner");
 }
 
 /* --- the floor --------------------------------------------------------------- */
@@ -160,6 +254,7 @@ export function beltPass(st, C, lo, hi) {
     tread(b);
     st.events.push({ type: "conveyed", player: b.id, from, to: m.to, dir: m.dir });
     if (isHole(C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
+    throughPortal(st, C, b);
     /* rotate ONLY because a belt carried the robot onto a curve, and only
      * where the board prints an arm on the side it came in by */
     if (beltAt(C, b.c, b.r)) {
@@ -173,6 +268,7 @@ export function beltPass(st, C, lo, hi) {
         }
       }
     }
+    if (RULES.oilSlideAfter.indexOf("belt") >= 0 && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
   }
 }
 

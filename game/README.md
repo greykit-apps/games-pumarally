@@ -132,6 +132,22 @@ CI runs both after the editor's checks.
 
 ## Status
 
+Crash and Burn's floor is built, read off the AMIGO Spielanleitung
+photographed into `manual1/` (pp.6-9 and the two reference cards): swing
+doors that are walls except in their printed registers, for beams as well as
+robots; portals that drop a robot out of the same-coloured twin on the same
+board and carry on with the move, off while anyone stands on either end;
+oil that costs a square at the start of a card and skids a robot on at its
+end until it finds dry floor, a wall or a robot with grip, shoving one on the
+same slick; unnumbered presses that come down every register; burners that
+scorch a robot on the way in and again when they act, and a robot that does
+not leave one; and lives that scale with seats and boards. What the two
+editions do differently with the same printed tile is read from the ruleset
+tables (`oilSlideAfter`, `portalBlockedBy` in `editor/rulesets/`), so the
+2016 game is a change of table. Twenty-nine scenarios by name; simulated
+games on board G, O-Ring, Cannery Row and board H hop, skid, sit in flames
+and get crushed with the invariants armed.
+
 Option cards are built under the classic rules: the sixteen transcribed
 cards, each a data row bound to one of ten hooks in `engine/options.js`,
 fired through one dispatcher. A card's *you may* asks through the same
@@ -145,6 +161,9 @@ burner or ramming damage: those land mid-move where nothing can ask, and the
 book's "at the time the damage is received" is not met there yet. Twenty-nine
 option scenarios pass by name; half the simulated games deal three cards to
 everyone at the start so every hook and every question runs on every course.
+The starting hand is dealt through the same door as a drawn card, so a coat
+dealt at the start has its three charges; the invariants now refuse a held
+card without its state and a damage total that is not an integer.
 
 M3, the cutover, is done: the repository root's `index.html` is this game,
 and `pumarally.js`, `pumarally-boards.js` and the tools that read them are
@@ -163,7 +182,7 @@ full turns, a two-human hand-over and a reload mid-game.
 M1, the classic engine headless, is built: draft, deal, programming, the five
 registers in the printed order, damage and locking, destruction and return,
 power down as three moments, repair at cleanup, checkpoints and the win, the
-bots ported, and the bumpers and flag-touch house rules. Not yet: oil and portals, and anything modern.
+bots ported, and the bumpers and flag-touch house rules. Not yet: anything modern.
 
 ## Open, and recorded here rather than solved in passing
 

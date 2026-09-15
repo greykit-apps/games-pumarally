@@ -9,6 +9,7 @@ import { CLASSIC_DECK, REGISTERS } from "./cards.js";
 import { shuffle } from "./rng.js";
 import LIVERY_DATA from "../data/liveries.js";
 import OPTIONS_DATA from "../data/options.js";
+import { newHeld } from "./options.js";
 
 export const LIVERIES = LIVERY_DATA.liveries;
 export const SAVE_VERSION = 1;
@@ -105,7 +106,7 @@ export function newGame(opts) {
   for (let q = 0; q < st.house.startOptions; q++) {
     for (const p of st.players) {
       const id = st.optionDeck.pop();
-      if (id !== undefined) p.options.push({ id, st: {} });
+      if (id !== undefined) p.options.push(newHeld(id));
     }
   }
   return st;
