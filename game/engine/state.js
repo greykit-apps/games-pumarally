@@ -22,11 +22,14 @@ const START_LIVES = 3;
  * photographs, and each has a scenario on it so that closing the gap means
  * changing the line and being told about everything that assumed it.
  *
- * - The reboot point. The book puts a Reboot Token on every board at setup
- *   (pp.15, 20, 30) and re-enters the robot there, shoving an occupant along
- *   the token's arrow. The tokens are placed per course and none is
- *   transcribed, so a robot re-enters at its ARCHIVE -- its last checkpoint,
- *   or its bay -- and an occupant is shoved along the facing it archived with.
+ * - The reboot point, ON A COURSE THAT PLACES NO REBOOT TOKENS. The book puts
+ *   a Reboot Token on every board at setup (pp.15, 20, 30) and re-enters the
+ *   robot on the token of the board it fell from, shoving an occupant along
+ *   the token's arrow; a robot that fell off the docking bay re-enters at its
+ *   archive there. A course with tokens (`reboots` on the document, or the
+ *   token element on a flattened floor) plays exactly that. A course with
+ *   none re-enters the robot at its ARCHIVE -- its last checkpoint, or its
+ *   bay -- and an occupant is shoved along the facing it archived with.
  * - The Priority Token starts with "the youngest player" (p.3). Seat 1 here.
  *   (The damage deck was a third substitute, forty SPAM, until the Haywire
  *   faces were photographed; it is the printed forty now.) */
@@ -133,7 +136,7 @@ export function newGame(opts) {
       energy: modern ? START_ENERGY : 0,
       deck: [], pile: [],
       shelf: [], installed: [],
-      rebooting: false,
+      rebooting: false, fellFrom: -1,                 // the stamp it fell from: its Reboot Token is that board's
       upgradeDone: false, bought: false, fitted: false,
       /* Crab Legs' second card per register, Memory Cards' parked cards,
        * Self-Diagnostics' cards taken out of the game, and what this card
@@ -211,6 +214,7 @@ export function normaliseSave(st) {
     if (p.controlledBy === undefined) p.controlledBy = null;
     if (!p.locks) p.locks = new Array(REGISTERS).fill(null);
     if (p.reserveAsked === undefined) p.reserveAsked = false;
+    if (p.fellFrom === undefined) p.fellFrom = -1;
     if (p.revealed === undefined) p.revealed = -1;
   }
   const S = { priority: 0, priorityHeld: false, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };

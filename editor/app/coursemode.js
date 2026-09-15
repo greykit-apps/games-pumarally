@@ -14,7 +14,8 @@ import {
 } from "../lib/course.js";
 import {
   newCourse, place, turn, remove, moveStamp, stampAt, normalise, overlapsAny,
-  addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit
+  addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit,
+  addReboot, removeReboot, rebootAt, turnReboot
 } from "./compose.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
 import { boardFromDocument } from "../lib/board.js";
@@ -86,6 +87,9 @@ const EXTRA_CSS = `
 .flag{position:absolute;display:grid;place-items:center;border-radius:50%;
   background:#ff5f56;color:#0b0d14;font-weight:700;border:2px solid #0b0d14;
   box-shadow:0 0 0 2px rgba(255,95,86,.35)}
+.reboot{position:absolute;display:grid;place-items:center;border-radius:12px;
+  background:rgba(57,255,136,.85);color:#0b0d14;border:2px solid #0b0d14;box-shadow:0 0 0 2px rgba(57,255,136,.35)}
+.reboot svg{width:70%;height:70%}
 .palette{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .pb{border:1px solid var(--line);border-radius:3px;padding:3px;cursor:pointer;background:none;
   color:var(--ink);font:inherit;text-align:center}
@@ -146,6 +150,8 @@ export async function mountCourse(root, wanted) {
     handRot: 0,
     sel: -1,             // a placed stamp
     flagMode: false,
+    rebootMode: false,   // placing the 2016 Reboot Tokens
+    tokenFace: 0,        // the arrow on the next token placed
     zoom: 1, offX: 0, offY: 0,
     board: null,         // the assembled grid, for the shared view helpers
     photo: null,
@@ -241,6 +247,11 @@ export async function mountCourse(root, wanted) {
       html += '<div class="flag" style="left:' + (c * 100 + 18) + "px;top:" + (r * 100 + 18) +
         'px;width:64px;height:64px;font-size:38px">' + (i + 1) + "</div>";
     });
+    /* the reboot tokens: a green tile with the arrow a moved-aside robot goes along */
+    (st.course.reboots || []).forEach(([c, r, face]) => {
+      html += '<div class="reboot" style="left:' + (c * 100 + 14) + "px;top:" + (r * 100 + 14) + 'px;width:72px;height:72px">' +
+        '<svg viewBox="0 0 100 100" style="transform:rotate(' + (face * 90) + 'deg)"><path d="M50 82V22M30 40L50 22L70 40" fill="none" stroke="#0b0d14" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+    });
     overlay.style.width = (st.board.w * 100) + "px";
     overlay.style.height = (st.board.h * 100) + "px";
     overlay.innerHTML = html;
@@ -251,6 +262,10 @@ export async function mountCourse(root, wanted) {
     html += '<button class="tool" data-flagmode aria-pressed="' + st.flagMode + '">' +
       '<span class="sw"><svg viewBox="0 0 100 100"><path d="M 32 88 L 32 14 L 74 28 L 32 44" fill="#ff5f56" stroke="#ff5f56" stroke-width="6" stroke-linejoin="round"/></svg></span>' +
       "<span>Place flags</span><span class='hot'>F</span></button>";
+    html += "<h3>Reboot tokens</h3>";
+    html += '<button class="tool" data-rebootmode aria-pressed="' + st.rebootMode + '" title="The 2016 game\'s Reboot Tokens, one per board: where a robot that fell returns. Click to place one facing the arrow chosen below; click a token to turn it; right-click to take it off.">' +
+      '<span class="sw"><svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" rx="14" fill="#39ff88"/><path d="M50 78V26M32 42L50 26L68 42" fill="none" stroke="#0b0d14" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+      "<span>Place tokens</span><span class='hot'>R</span></button>";
     html += "<h3>Boards</h3><div class='palette'>";
     for (const row of index.boards) {
       const b = library.get(row.id);
@@ -296,6 +311,17 @@ export async function mountCourse(root, wanted) {
     html += '<div class="row"><label>Seats</label>' +
       [2, 4, 6, 8].map(n => '<button data-seats="' + n + '" aria-pressed="' + (st.course.maxPlayers === n) + '">' + n + "</button>").join("") +
       "</div>";
+
+    if (st.rebootMode) {
+      html += "<h3>Reboot tokens</h3>";
+      html += '<div class="row"><label>Arrow</label>' +
+        [0, 1, 2, 3].map(q => '<button data-tokenface="' + q + '" aria-pressed="' + (st.tokenFace === q) + '">' + ["N", "E", "S", "W"][q] + "</button>").join("") +
+        '<span class="hot">Q E</span></div>';
+      html += '<div class="row"><span class="none">One per board, none on the docking bay, on plain floor. The arrow is where a robot standing on the token is moved when somebody reboots onto it.</span></div>';
+      html += '<div class="row"><label>Reboot draws</label>' +
+        [2, 3].map(n => '<button data-rebootdamage="' + n + '" aria-pressed="' + ((st.course.rebootDamage || 2) === n) + '">' + n + "</button>").join("") +
+        '<span class="none">damage cards (Cry Havoc: 3)</span></div>';
+    }
 
     if (st.hand) {
       const b = library.get(st.hand);
@@ -528,6 +554,20 @@ export async function mountCourse(root, wanted) {
     if (!h) return;
     const abs = { c: h.c + asm.bounds.x0, r: h.r + asm.bounds.y0 };
 
+    if (st.rebootMode) {
+      const i = rebootAt(st.course, h.c, h.r);
+      if (ev.button === 2) {
+        if (i >= 0) { snap(); removeReboot(st.course, i); refresh(); say("Reboot token taken off.", ""); }
+        return;
+      }
+      if (i >= 0) { snap(); turnReboot(st.course, i, 1); refresh(); say("Token turned to face " + ["north", "east", "south", "west"][st.course.reboots[i][2]] + ".", ""); return; }
+      if (!flagWouldFit(st.board, h.c, h.r)) { say("A reboot token stands on plain floor: everything under it would be switched off.", "bad"); return; }
+      snap();
+      if (addReboot(st.course, h.c, h.r, st.tokenFace)) { refresh(); say("Reboot token at (" + h.c + "," + h.r + ") facing " + ["north", "east", "south", "west"][st.tokenFace] + ".", ""); }
+      else { history.pop(); say("There is already a token there.", "bad"); }
+      return;
+    }
+
     if (st.flagMode) {
       if (ev.button === 2) {
         const i = flagAt(st.course, h.c, h.r);
@@ -609,12 +649,15 @@ export async function mountCourse(root, wanted) {
       cancelDrag();
       st.hand = st.hand === d.place ? null : d.place;
       st.handRole = d.role;
-      st.flagMode = false;
+      st.flagMode = false; st.rebootMode = false;
       st.sel = -1;
       refresh();
       return;
     }
-    if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
+    if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.rebootMode = false; st.hand = null; refresh(); return; }
+    if (d.rebootmode !== undefined) { st.rebootMode = !st.rebootMode; st.flagMode = false; st.hand = null; refresh(); return; }
+    if (d.tokenface !== undefined) { st.tokenFace = +d.tokenface; refresh(); return; }
+    if (d.rebootdamage !== undefined) { snap(); st.course.rebootDamage = +d.rebootdamage === 2 ? null : +d.rebootdamage; refresh(); return; }
     if (d.handrot !== undefined) { st.handRot = +d.handrot; refresh(); return; }
     if (d.view !== undefined) { st.mode = d.view; refresh(); return; }
     if (d.suggest !== undefined) {
@@ -672,10 +715,13 @@ export async function mountCourse(root, wanted) {
     const k = ev.key.toLowerCase();
     if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); undo(); return; }
     if (ev.ctrlKey || ev.metaKey) return;
-    if (k === "escape") { cancelDrag(); st.hand = null; st.sel = -1; st.flagMode = false; refresh(); return; }
+    if (k === "escape") { cancelDrag(); st.hand = null; st.sel = -1; st.flagMode = false; st.rebootMode = false; refresh(); return; }
     if (drag && k === "q") { turnDrag(-1); return; }
     if (drag && k === "e") { turnDrag(1); return; }
-    if (k === "f") { cancelDrag(); st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
+    if (k === "f") { cancelDrag(); st.flagMode = !st.flagMode; st.rebootMode = false; st.hand = null; refresh(); return; }
+    if (k === "r") { cancelDrag(); st.rebootMode = !st.rebootMode; st.flagMode = false; st.hand = null; refresh(); return; }
+    if (st.rebootMode && k === "q") { st.tokenFace = (st.tokenFace + 3) % 4; refresh(); return; }
+    if (st.rebootMode && k === "e") { st.tokenFace = (st.tokenFace + 1) % 4; refresh(); return; }
     if (k === "q" && st.sel >= 0) { act("turn-left"); return; }
     if (k === "e" && st.sel >= 0) { act("turn-right"); return; }
     if (k === "q" && st.hand) { st.handRot = (st.handRot + 3) % 4; refresh(); return; }

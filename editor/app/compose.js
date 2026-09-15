@@ -20,7 +20,7 @@ export function newCourse(id = "untitled") {
   return {
     format: COURSE_FORMAT, version: COURSE_VERSION,
     id, name: "Untitled course", kind: "track", blurb: "",
-    stamps: [], flags: [], minPlayers: 2, maxPlayers: 8
+    stamps: [], flags: [], reboots: [], rebootDamage: null, minPlayers: 2, maxPlayers: 8
   };
 }
 
@@ -66,7 +66,10 @@ export function normalise(course, library) {
  */
 function keepFlags(course, library, fn, rotate) {
   const b0 = courseBounds(course, library);
-  const owners = course.flags.map(f => {
+  if (!course.reboots) course.reboots = [];
+  /* the reboot tokens are squares of boards too, and turn with them */
+  const marks = course.flags.concat(course.reboots);
+  const owners = marks.map(f => {
     const abs = [f[0] + b0.x0, f[1] + b0.y0];
     for (let i = course.stamps.length - 1; i >= 0; i--) {   // same precedence as stampAt
       const stamp = course.stamps[i];
@@ -83,20 +86,23 @@ function keepFlags(course, library, fn, rotate) {
   const result = fn();
 
   const b1 = courseBounds(course, library);
-  course.flags.forEach((f, i) => {
+  marks.forEach((f, i) => {
     const o = owners[i];
     let abs = o.abs;
+    let turned = 0;
     if (o.stamp && course.stamps.indexOf(o.stamp) >= 0) {
       let { lc, lr, w, h } = o;
       if (rotate && rotate.stamp === o.stamp) {
         /* a quarter-turn clockwise sends (c,r) on a w x h board to (h-1-r, c) */
         const n = (((rotate.quarters | 0) % 4) + 4) % 4;
+        turned = n;
         for (let q = 0; q < n; q++) { [lc, lr] = [h - 1 - lr, lc]; [w, h] = [h, w]; }
       }
       abs = [o.stamp.at[0] + lc, o.stamp.at[1] + lr];
     }
     f[0] = abs[0] - b1.x0;
     f[1] = abs[1] - b1.y0;
+    if (f.length === 3 && turned) f[2] = (f[2] + turned) % 4;      // a token's arrow turns with its board
   });
   normalise(course, library);
   return result;
@@ -214,6 +220,29 @@ export function moveStamp(course, library, index, at) {
  * the order is an array rather than a number on each flag.
  */
 
+/* --- reboot tokens: one per board, facing somewhere, placed like flags --------- */
+
+export function rebootAt(course, c, r) {
+  return (course.reboots || []).findIndex(t => t[0] === c && t[1] === r);
+}
+export function addReboot(course, c, r, face) {
+  if (!course.reboots) course.reboots = [];
+  if (rebootAt(course, c, r) >= 0) return false;
+  course.reboots.push([c, r, face | 0]);
+  return true;
+}
+export function removeReboot(course, index) {
+  if (!course.reboots || index < 0 || index >= course.reboots.length) return false;
+  course.reboots.splice(index, 1);
+  return true;
+}
+export function turnReboot(course, index, quarters) {
+  const t = course.reboots && course.reboots[index];
+  if (!t) return false;
+  t[2] = (((t[2] + quarters) % 4) + 4) % 4;
+  return true;
+}
+
 export function flagAt(course, c, r) {
   return course.flags.findIndex(f => f[0] === c && f[1] === r);
 }
@@ -255,6 +284,8 @@ export function toDocument(course) {
   if (course.blurb) doc.blurb = course.blurb;
   doc.stamps = course.stamps.map(s => ({ role: s.role, board: s.board, rot: s.rot, at: [s.at[0], s.at[1]] }));
   doc.flags = course.flags.map(f => [f[0], f[1]]);
+  if (course.reboots && course.reboots.length) doc.reboots = course.reboots.map(t => [t[0], t[1], t[2]]);
+  if (Number.isInteger(course.rebootDamage)) doc.rebootDamage = course.rebootDamage;
   if (course.minPlayers !== undefined) doc.minPlayers = course.minPlayers;
   if (course.maxPlayers !== undefined) doc.maxPlayers = course.maxPlayers;
   return doc;

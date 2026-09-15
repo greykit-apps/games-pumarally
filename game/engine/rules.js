@@ -18,6 +18,19 @@ import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption } from "./options.js";
 import { gainEnergy, bindRuleHooks } from "./upgrades.js";
 import { receiveHaywire } from "./haywire.js";
+import { stampAt as stampOf, rebootTokenOn } from "./course.js";
+
+/** Where a robot re-enters, 2016: the token of the board it fell from, or its archive (a token-less course, or a fall off the docking bay). */
+export function rebootPoint(C, p) {
+  const tok = C.reboots && C.reboots.length ? rebootTokenOn(C, p.fellFrom) : null;
+  return tok ? { c: tok.c, r: tok.r, face: tok.face, token: true } : { ...(p.archive || { c: p.c, r: p.r, face: 0 }), token: false };
+}
+/** The square a robot last stood on the course: where it is, or the last square of its trail that is on the floor. */
+function lastOnCourse(C, p) {
+  if (inGrid(C, p.c, p.r)) return [p.c, p.r];
+  for (let i = p.trail.length - 1; i >= 0; i--) if (inGrid(C, p.trail[i][0], p.trail[i][1])) return p.trail[i];
+  return null;
+}
 
 const DIR_NAMES = ["north", "east", "south", "west"];
 
@@ -590,9 +603,10 @@ export function laserPass(st, C) {
   return null;
 }
 
-/** The 2016 reboot point of the board a robot stands on, under the archive substitute: its archive. Facing is kept; an occupant moves to the nearest free floor. */
+/** Displacing Blast: "the Reboot token on the board they occupy" -- or the archive on a course without tokens. Facing is kept; an occupant moves to the nearest free floor. */
 export function displaceTo(st, C, p, by) {
-  const at = p.archive || { c: p.c, r: p.r };
+  const tok = C.reboots && C.reboots.length ? rebootTokenOn(C, stampOf(C, p.c, p.r)) : null;
+  const at = tok || p.archive || { c: p.c, r: p.r };
   const occ = robotAt(st, at.c, at.r);
   if (occ && occ.id !== p.id) {
     const spot = freeSpotNear(st, C, at.c, at.r);
@@ -749,6 +763,9 @@ export function destroy(st, C, p, how) {
 export function reboot(st, C, p, how) {
   p.alive = false;
   p.rebooting = true;
+  /* "the Reboot Token that is on the same board where your robot fell into a pit or fell off the board" */
+  const last = lastOnCourse(C, p);
+  p.fellFrom = last ? stampOf(C, last[0], last[1]) : -1;
   for (let i = 0; i < REGISTERS; i++) {
     if (p.registers[i] !== null) { putAway(st, p, p.registers[i], false); p.registers[i] = null; }
     if (p.crab && p.crab[i] !== null) { p.pile.push(p.crab[i]); p.crab[i] = null; }
@@ -761,7 +778,8 @@ export function reboot(st, C, p, how) {
   p.announceDown = false;
   st.events.push({ type: "destroyed", player: p.id, at: [p.c, p.r], how, rebooting: true });
   log(st, p.name + " goes " + how + " and must reboot");
-  const rctx = fire(st, p, "onReboot", { how, cards: 2 });
+  /* two damage cards, or what the course says (Cry Havoc: "you must draw 3 damage cards instead of the normal 2") */
+  const rctx = fire(st, p, "onReboot", { how, cards: C.rebootDamage === undefined ? 2 : C.rebootDamage });
   if (rctx.cards > 0) drawDamageCards(st, p, rctx.cards, "reboot");
   else log(st, p.name + " draws no damage for it");
 }
@@ -821,7 +839,9 @@ export function checkpointPass(st, C) {
       if (!isModern(st) && repairAt(C, c, r)) p.archive = { c, r, face: p.face };
       const F = flagAt(C, c, r);
       if (!F) continue;
-      p.archive = { c: F.c, r: F.r, face: p.face };
+      /* the classic archive follows the flags; the 2016 Archive Token stays on the docking bay
+       * when the course places Reboot Tokens, and follows the checkpoints only under the substitute */
+      if (!isModern(st) || !(C.reboots && C.reboots.length)) p.archive = { c: F.c, r: F.r, face: p.face };
       if (F.n === p.flags + 1) {
         p.flags++;
         st.events.push({ type: "flag", player: p.id, flag: F.n, at: [F.c, F.r] });

@@ -229,6 +229,14 @@ yet.
 
 ## A course is a list of placements
 
+A course may also carry `reboots: [[c, r, facing], ...]`, the 2016 game's
+Reboot Tokens, placed like the flags (one per board, none on the docking bay,
+on plain floor; the facing is the arrow a robot standing on the token is
+moved along when somebody reboots onto it), and `rebootDamage`, the damage a
+reboot draws when the course says something other than two. The workshop's
+**Place tokens** tool (R) lays them; clicking a token turns it, right-click
+takes it off; Q and E set the arrow for the next one.
+
 ```json
 {
   "format": "PRCourse", "version": 1,

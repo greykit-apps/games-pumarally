@@ -31,6 +31,9 @@ export function courseOn(b, flags = [[0, 0]]) {
   return { doc, library, C: buildCourse(doc, library) };
 }
 
+/** After editing `co.doc` (reboot tokens, the reboot cost), the built course must follow. */
+export function rebuild(co) { co.C = buildCourse(co.doc, co.library); return co; }
+
 /**
  * A game on the course, past the draft: every seat placed where `places`
  * says, facing as given, with the machine parked at the top of register 1.

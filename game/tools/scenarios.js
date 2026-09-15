@@ -852,6 +852,36 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "a robot reboots on the Reboot Token of the board it fell from",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot with no token on its board reboots at its archive",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot standing on the Reboot Token is moved along its arrow",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a course with tokens keeps the 2016 archive on the docking bay",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Cry Havoc: a reboot draws three damage cards instead of two",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "a rebooting player can still work their own controls",
     "layer": "rules",
     "status": "ported"

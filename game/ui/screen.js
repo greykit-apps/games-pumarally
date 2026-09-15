@@ -39,6 +39,11 @@ const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 const ROBOT = '<g class="spin"><path class="pr-hull" d="M24 30h52a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8V38a8 8 0 0 1 8-8z"/>' +
   '<path class="pr-nose" d="M50 8L66 30H34Z"/><rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/></g>';
 
+function rebootSvg(t) {
+  return '<g class="reboot" transform="translate(' + (t.c * CELL) + " " + (t.r * CELL) + ')"><rect class="pr-tok" x="14" y="14" width="72" height="72" rx="12"/>' +
+    '<path class="pr-tok-arrow" transform="rotate(' + (t.face * 90) + ' 50 50)" d="M50 80V26M32 42L50 26L68 42"/></g>';
+}
+
 function flagSvg(n, c, r) {
   return '<g class="flag" transform="translate(' + (c * CELL) + " " + (r * CELL) + ')"><rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
     '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/><text x="56" y="41" class="pr-num">' + n + "</text></g>";
@@ -196,6 +201,7 @@ export function mountScreen(root, ctx) {
     els.art.innerHTML = boardSVG(C.grid, { mode: "art", background: true });
     els.overlay.setAttribute("viewBox", "0 0 " + (C.w * CELL) + " " + (C.h * CELL));
     let html = "";
+    for (const T of C.reboots || []) html += rebootSvg(T);
     for (const F of C.flags) html += flagSvg(F.n, F.c, F.r);
     html += '<g class="bays"></g><g class="pieces"></g><g class="beams"></g>';
     els.overlay.innerHTML = html;

@@ -211,13 +211,17 @@ ruleset its squares are readable by (`rulesetsFor`), with the table's
 conservation laws armed: each robot's twenty, the forty damage cards and the
 forty upgrades counted apart.
 
-Two substitutes remain, declared in `engine/state.js` and each with a
-scenario: a rebooting robot re-enters at its archive (the book's Reboot
-Tokens are placed per course; the thirteen course photographs that would
-settle them are indexed and not yet transcribed); the Priority Token starts
-with seat 1 (the book says the youngest player). The damage deck was a third
-substitute until the Haywire faces were photographed. Not built: the Cry
-Havoc course's three-card reboot.
+Reboot Tokens are built (pp.15, 20, 30; IMG_1261, IMG_1264, IMG_1269): a
+course places them like flags (`reboots: [[c, r, facing]]` on the document,
+one per board, none on the docking bay; or the token element on a flattened
+floor), and a rebooting robot re-enters on the token of the board it fell
+from, a robot standing there moved one square along the token's arrow; a
+robot that fell off the docking bay re-enters at its archive, which under
+these rules stays on the bay. A course's `rebootDamage` is what a reboot
+draws: Cry Havoc's "3 damage cards instead of the normal 2". One substitute
+remains, declared in `engine/state.js`: a course that places no tokens
+re-enters the robot at its archive, which then follows the checkpoints; and
+the Priority Token starts with seat 1 (the book says the youngest player).
 
 Crash and Burn's floor is built, read off the AMIGO Spielanleitung
 photographed into `manual1/` (pp.6-9 and the two reference cards): swing
