@@ -279,12 +279,27 @@ export function botAnswer(st, library, req) {
   switch (req.kind) {
     case "livery": return req.options.includes(p.livery) ? p.livery : req.options[0];
     case "bay": return botBay(C, req.options);
-    case "program": return botProgram(st, C, p, req.count);
+    case "program": {
+      const picks = botProgram(st, C, p, req.count);
+      /* a Rewired Haywire must be programmed: it takes the place of the last card chosen that is not itself one */
+      for (const m of req.must || []) {
+        if (picks.includes(m)) continue;
+        for (let k = picks.length - 1; k >= 0; k--) { if (!(req.must || []).includes(picks[k])) { picks[k] = m; break; } }
+        if (!picks.includes(m)) picks.push(m);
+      }
+      return picks.slice(0, req.count);
+    }
     case "powerDown": return botWantsPowerDown(p);
     case "stayDown": return botWantsPowerDown(p);
     case "cardChoice": {
       /* Self-Diagnostics: tear out a SPAM if one is on offer, else keep them all */
       if (req.card === "selfDiagnostics") { const i = req.labels.findIndex(l => /^SPAM/.test(l)); return i > 0 ? req.options[i] : 0; }
+      /* a Haywire's own questions */
+      if (req.card === "haywire") {
+        if (req.tag === "facing") return bestFacing(st, C, p);
+        if (req.tag === "remove") { const i = req.labels.findIndex(l => /^(SPAM|Haywire)$/.test(l)); return i >= 0 ? i : 0; }
+        return 0;
+      }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */
       if (p.damage + (req.incoming || 1) < 10) return 0;
@@ -311,7 +326,9 @@ export function randomAnswer(st, library, req, salt = 0) {
     case "program": {
       const idx = req.options.slice();
       for (let i = idx.length - 1; i > 0; i--) { const j = hash32(n + i) % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-      return idx.slice(0, req.count);
+      /* the cards that must be programmed (a Rewired Haywire) go first */
+      const must = req.must || [];
+      return must.concat(idx.filter(i => !must.includes(i))).slice(0, req.count);
     }
     case "powerDown": case "stayDown": case "shutdown": return (n % 7) === 0;
     case "useTemp": return req.options[n % req.options.length];

@@ -74,7 +74,7 @@ export function newGame(opts) {
     optionDeck: [], optionDiscard: [],
     /* the 2016 table: the Priority Token's seat, the damage deck and the
      * upgrade deck, each with its discard */
-    priority: 0,
+    priority: 0, priorityHeld: false,
     damageDeck: [], damageDiscard: [],
     upgradeDeck: [], upgradeDiscard: [],
     /* answers to card and board questions, keyed by turn, register, hook,
@@ -132,7 +132,10 @@ export function newGame(opts) {
        * Self-Diagnostics' cards taken out of the game, and what this card
        * pushed and moved for the hooks that ask afterwards */
       crab: new Array(REGISTERS).fill(null), parked: [], removed: [],
-      pushed: [], lastMove: null, hoverSteps: 0, drilled: null, newCheckpoint: false, stackBack: 0
+      pushed: [], lastMove: null, hoverSteps: 0, drilled: null, newCheckpoint: false, stackBack: 0,
+      /* Haywire: one face-down card per register, the register whose card
+       * charged the main laser, and an upgrade installed free for the round */
+      haywire: new Array(REGISTERS).fill(null), laserBonus: -1, hwInstalled: null
     });
   });
 
@@ -192,8 +195,11 @@ export function normaliseSave(st) {
   for (const p of st.players || []) {
     for (const k of Object.keys(P)) if (p[k] === undefined) p[k] = Array.isArray(P[k]) ? [] : P[k];
     if (!p.crab) p.crab = new Array(REGISTERS).fill(null);
+    if (!p.haywire) p.haywire = new Array(REGISTERS).fill(null);
+    if (p.laserBonus === undefined) p.laserBonus = -1;
+    if (p.hwInstalled === undefined) p.hwInstalled = null;
   }
-  const S = { priority: 0, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };
+  const S = { priority: 0, priorityHeld: false, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };
   for (const k of Object.keys(S)) if (st[k] === undefined) st[k] = Array.isArray(S[k]) ? [] : S[k];
   if (!st.ruleset) st.ruleset = "classic";
   return st;

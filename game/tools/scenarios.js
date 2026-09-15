@@ -1325,7 +1325,8 @@ export const SCENARIOS = [
   {
     "name": "an upgrade a robot has not built does nothing, and says so",
     "layer": "rules",
-    "status": "ported"
+    "status": "dropped",
+    "reason": "every one of the forty is built since the Haywire faces were photographed (manual1/IMG_1345-1348); there is no inert upgrade left to test"
   },
   {
     "name": "every transcribed upgrade is bound: built, or inert and saying why",
@@ -1335,7 +1336,8 @@ export const SCENARIOS = [
   {
     "name": "Lucky Booster and Rewire are declared inert until Haywire is photographed",
     "layer": "rules",
-    "status": "ported"
+    "status": "dropped",
+    "reason": "the Haywire faces were photographed and both cards act; see the Haywire scenarios"
   },
   {
     "name": "Chaos Theory turns a revealed SPAM into Energy in the first three registers, once",
@@ -1514,6 +1516,51 @@ export const SCENARIOS = [
   },
   {
     "name": "a board printing the expansion floor is a 2016 board",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "the damage deck is twenty-three SPAM and seventeen Haywire, every face once and each with its steps",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a Haywire slides face down under the register it was taken in, one per register, the rest to the discard",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "next round the Haywire's register is not programmed, and the card resolves there face up",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a Haywire's moves and turns resolve as printed",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a Haywire's tricks resolve as printed: the token, Energy, the laser, the free upgrade, the discard, the two cards",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Again after a Haywire resolves it again",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Rewire puts the face-down Haywires in the hand, and they must be programmed",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Lucky Booster digs a Haywire out of the deck and plays it, or bins it",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "shutdown scraps face-down Haywires; a reboot sends them to the table and keeps the first new one under the register",
     "layer": "rules",
     "status": "ported"
   },

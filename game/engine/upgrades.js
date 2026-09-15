@@ -225,8 +225,30 @@ const BEHAVIOUR = {
       }
     }
   },
-  /* "Reveal and discard cards from the damage deck until you reveal Haywire..." No Haywire is transcribed: inert, and it says so. */
-  luckyBooster: { temp: true, inert: "the damage deck has no Haywire to dig for" },
+  /* "Reveal and discard cards from the damage deck until you reveal Haywire.
+   * You may replace a register card you just revealed with that card or
+   * discard it to the damage discard pile." Offered before the card, in both
+   * readings: the choice is made before the dig, which the book lets you make
+   * after -- declared. */
+  luckyBooster: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "before" && p.registers[st.register] !== null && (st.damageDeck.length + st.damageDiscard.length) > 0 ? [{ take: true }, { take: false }] : [],
+    use(st, C, p, arg) {
+      let found = null;
+      for (let guard = 0; guard < 80 && found === null; guard++) {
+        const i = RULE_HOOKS.drawDamage(st);
+        if (i === null) break;
+        if (card(st, i).kind === "haywire") found = i; else st.damageDiscard.push(i);
+      }
+      if (found === null) { log(st, p.name + " digs through the damage deck and finds no Haywire"); return; }
+      if (arg.take) {
+        const old = p.registers[st.register];
+        if (old !== null) putAwayCard(st, p, old);
+        p.registers[st.register] = found;
+        log(st, p.name + " digs up a Haywire and plays it: " + card(st, found).text);
+      } else { st.damageDiscard.push(found); log(st, p.name + " digs up a Haywire and bins it"); }
+    }
+  },
   /* "When an adjacent robot moves via a register card, you may move with them." Asked after the neighbour's card. */
   magnetic: {
     temp: true,
@@ -300,8 +322,19 @@ const BEHAVIOUR = {
     offers: (st, C, p, moment) => (moment === "dealt" || moment === "before" || moment === "after") && p.energy < MAX_ENERGY ? [{}] : [],
     use(st, C, p) { gainEnergy(st, p, 3, "recharge"); log(st, p.name + " recharges"); }
   },
-  /* "Add all face-down Haywire cards in your registers to your hand..." No Haywire is transcribed: inert, and it says so. */
-  rewire: { temp: true, inert: "there are no Haywire cards to rewire" },
+  /* "Play only during the Upgrade Phase. Add all face-down Haywire cards in
+   * your registers to your hand. You must program all these Haywires this
+   * round, but you may place them where you wish." Offered before programming,
+   * which is where the effect lands. */
+  rewire: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "dealt" && p.haywire.some(h => h !== null) ? [{}] : [],
+    use(st, C, p) {
+      let n = 0;
+      for (let reg = 0; reg < p.haywire.length; reg++) if (p.haywire[reg] !== null) { p.hand.push(p.haywire[reg]); p.haywire[reg] = null; n++; }
+      log(st, p.name + " rewires: " + n + " Haywire" + (n === 1 ? "" : "s") + " into the hand, to be programmed anywhere");
+    }
+  },
   /* "Movement Upgrade. Swap places with an adjacent robot, without changing facing." */
   switchPlaces: {
     temp: true, movement: true,

@@ -37,7 +37,7 @@ at play time beyond fetching the boards.
 | Option cards: the sixteen transcribed, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 29 scenarios by name; the ten untranscribed cards are not guessed at |
 | Oil, portals, swing doors, unnumbered presses, burners on the way through, lives by game size (Crash and Burn, from the AMIGO book) | done, 29 scenarios by name |
 | The 2016 expansions' floor: water, drains, ledges and ramps, currents, randomizers, teleporters, flamers (from the three Factory Floor Guides) | done, 11 scenarios by name; no shipped board prints them yet |
-| The 2016 rules: own decks, Priority Token, SPAM, Energy, the upgrade shop with all forty cards' effects (two inert for want of Haywire), shutdown, reboot, the reference card's floor order | done, 69 scenarios by name; three declared substitutes (reboot point, first priority, an all-SPAM damage deck) |
+| The 2016 rules: own decks, Priority Token, SPAM and Haywire, Energy, the upgrade shop with all forty cards' effects, shutdown, reboot, the reference card's floor order | done, 76 scenarios by name; two declared substitutes (reboot point, first priority) |
 | Flag locations marked on the boards, for the engine to choose among | not yet: board design |
 
 ## How it is put together

@@ -75,7 +75,7 @@ function modernInvariants(st) {
   const ups = st.upgradeDeck.concat(st.upgradeDiscard);
   for (const p of st.players) {
     const own = [];
-    const all = p.deck.concat(p.pile, p.hand, p.registers.filter(i => i !== null), (p.crab || []).filter(i => i !== null), p.parked || [], p.removed || []);
+    const all = p.deck.concat(p.pile, p.hand, p.registers.filter(i => i !== null), (p.crab || []).filter(i => i !== null), p.parked || [], p.removed || [], (p.haywire || []).filter(i => i !== null));
     for (const i of all) {
       if (!Number.isInteger(i)) throw new Error(p.name + " holds a non-card" + where);
       if (i >= MODERN_DAMAGE_FIRST) dmg.push(i); else own.push(i);

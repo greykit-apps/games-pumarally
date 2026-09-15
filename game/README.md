@@ -137,6 +137,26 @@ CI runs both after the editor's checks.
 
 ## Status
 
+Haywire is built (M5, third part), from the rule on p.18 of the rulebook
+(`manual1/IMG_1263`) and the deck laid out and photographed face by face
+(`IMG_1343` to `IMG_1348`): twenty-three SPAM and seventeen Haywire, every
+face once. A Haywire taken during a register slides face down under that
+register, one per register and the rest to the damage discard; at the end
+of the round it stays; next round that register is not programmed, and when
+it comes up the card is revealed and its text resolved, one step at a time
+through the same request door as everything else (`cardChoice`, card
+`haywire`, with a `tag` naming the question: facing, rotate, pay, install,
+remove, order, side). Its text takes precedence: a Move 5 that hits a wall
+costs a card, the token it takes stays at the end of the round, the upgrade
+it installs is free and goes back at the end of the round, the laser it
+charges deals two, the two cards it reveals resolve in the order chosen. A
+shutdown scraps face-down Haywires; a reboot sends them to the table and
+slides the first new one under the register the robot fell in. Rewire and
+Lucky Booster act now, so all forty upgrades do. The random policy and the
+bots programme a Rewired Haywire, as the card requires. Nine scenarios.
+Found on the way: a hovering robot whose move a wall cut short over a pit
+was left standing in it; it falls now, as the card says.
+
 The three 2016 expansions' floor is built (M5, second part), read off the
 Factory Floor Guides in `manual1/` (Wet and Wild `IMG_1236` to `IMG_1239`,
 Chaos and Carnage `IMG_1243`, Thrills and Spills `IMG_1248` to `IMG_1251`):
@@ -189,13 +209,13 @@ ruleset its squares are readable by (`rulesetsFor`), with the table's
 conservation laws armed: each robot's twenty, the forty damage cards and the
 forty upgrades counted apart.
 
-Three substitutes, declared in `engine/state.js` and each with a scenario:
-a rebooting robot re-enters at its archive (the book's Reboot Tokens are
-placed per course and none is transcribed); the Priority Token starts with
-seat 1 (the book says the youngest player); the damage deck is all SPAM (the
-Haywire faces are not photographed). Not built: the temporary upgrades'
-effects, Haywire, currents (no shipped board prints one, and the scenario
-says so), the Cry Havoc course's three-card reboot.
+Two substitutes remain, declared in `engine/state.js` and each with a
+scenario: a rebooting robot re-enters at its archive (the book's Reboot
+Tokens are placed per course; the thirteen course photographs that would
+settle them are indexed and not yet transcribed); the Priority Token starts
+with seat 1 (the book says the youngest player). The damage deck was a third
+substitute until the Haywire faces were photographed. Not built: the Cry
+Havoc course's three-card reboot.
 
 Crash and Burn's floor is built, read off the AMIGO Spielanleitung
 photographed into `manual1/` (pp.6-9 and the two reference cards): swing

@@ -3,11 +3,11 @@ export default {
   "format": "PRCards",
   "version": 1,
   "kind": "modern-upgrade",
-  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed. `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); the two that are not need Haywire cards, which are not photographed.",
+  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed. `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); all forty, the Haywire faces having been photographed (manual1/IMG_1345-1348).",
   "roster": {
     "printed": 40,
     "transcribed": 40,
-    "built": 38
+    "built": 40
   },
   "cards": [
     {
@@ -248,7 +248,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Dig through the damage deck for a Haywire, and take it or bin it.",
-      "built": false
+      "built": true
     },
     {
       "id": "magnetic",
@@ -312,7 +312,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Take every face-down Haywire out of your registers and programme them where you like.",
-      "built": false
+      "built": true
     },
     {
       "id": "switchPlaces",
