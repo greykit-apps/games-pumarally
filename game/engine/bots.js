@@ -11,7 +11,7 @@ import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusher
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
-import { UPGRADE_DEFS, canInstall } from "./upgrades.js";
+import { UPGRADE_DEFS, canInstall, costOf } from "./upgrades.js";
 import { heldDamage } from "./rules.js";
 
 /* --- distance fields ----------------------------------------------------------
@@ -265,7 +265,7 @@ export function botStack(st, p, req) {
  */
 export function botUpgrade(st, p, req) {
   const o = req.options;
-  const fit = o.install.filter(id => id !== null && canInstall(p, id) && p.energy - UPGRADE_DEFS[id].cost >= 1)
+  const fit = o.install.filter(id => id !== null && canInstall(p, id, st.players.length) && p.energy - costOf(UPGRADE_DEFS[id], st.players.length) >= 1)
     .sort((a, b) => (UPGRADE_DEFS[b].built ? 1 : 0) - (UPGRADE_DEFS[a].built ? 1 : 0) || UPGRADE_DEFS[a].cost - UPGRADE_DEFS[b].cost);
   if (fit.length) return { buy: false, install: fit[0], uninstall: [] };
   if (p.skill >= 1 && o.buy.includes(true) && p.energy >= UPGRADE_DRAW_COST + 2) return { buy: true, install: null, uninstall: [] };

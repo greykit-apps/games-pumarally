@@ -257,6 +257,19 @@ The starting hand is dealt through the same door as a drawn card, so a coat
 dealt at the start has its three charges; the invariants now refuse a held
 card without its state and a damage total that is not an integer.
 
+The expansion upgrades are built from IMG_1350-1353 and Master Builder's
+five from IMG_1446-1447: eighteen more cards on the same table, in the deck
+with the forty (`set` on each row says which box). Four of them decide
+something where this engine cannot ask, deep inside a move, and each says
+so on its row: Repulsion Field pays 1 Energy (the smallest X) and throws the
+pusher back one, Anchor pays whenever it can, Bunny Hop hops whenever it
+can, Calculated Odds keeps the SPAM when its two cards differ. Controlled
+Chaos moves the Haywire when the robot next programs, the first moment a
+question can be asked; Memory Transfer asks at the round's end; Top Heavy is
+asked before the belts move anything; Splash Damage costs X, the number of
+foes, at most four. Leaching, Chaos and Carnage's fifth card, is legible in
+no photograph and is not built. Twenty scenarios by name.
+
 The AMIGO eleven (manual1/IMG_1334-1342, German text kept on each data row)
 brought three new moments and a few readings, each stated on the card's row
 in `engine/options.js`. Reverse Gear and Fourth Gear are Brakes' shape. Turbo

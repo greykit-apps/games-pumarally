@@ -492,6 +492,26 @@ const STEPS = {
             ask(st, p, "stack", p.hand.map((_, i) => i), { count: Math.min(p.stackBack, p.hand.length), why: "memorySwap", prompt: p.name + ", put three cards back on top of your deck. The first goes on top." });
             return;
           }
+          /* Controlled Chaos: "you may place it face down under any card in your registers where
+           * there is not already a face-down Haywire card" -- the Haywire lands where it was drawn
+           * and is moved now, the first moment a question can be asked, before the registers are set */
+          if (!p.chaosAsked && p.installed.some(u => u.id === "controlledChaos")) {
+            for (let reg = 0; reg < REGISTERS; reg++) {
+              if (p.haywire[reg] === null) continue;
+              const free = p.haywire.map((h, i) => h === null ? i : -1).filter(i => i >= 0);
+              if (!free.length) continue;
+              const key = st.turn + ":chaos:" + p.id + ":" + reg;
+              const a = st.answers[key];
+              if (a === undefined) {
+                ask(st, p, "cardChoice", free.map((_, k) => k).concat([free.length]).map((_, k) => k), { key, card: "controlledChaos", tag: String(reg),
+                  prompt: p.name + ", the Haywire under register " + (reg + 1) + " may go under another register.",
+                  labels: ["Leave it under register " + (reg + 1)].concat(free.map(i => "Under register " + (i + 1))) });
+                return;
+              }
+              if (a > 0 && free[a - 1] !== undefined) { p.haywire[free[a - 1]] = p.haywire[reg]; p.haywire[reg] = null; log(st, p.name + " moves a Haywire to register " + (free[a - 1] + 1)); }
+            }
+            p.chaosAsked = true;
+          }
           const t = askTemps(st, C, p, "dealt");
           if (t) { st.waiting = t; st.waiting._course = C; return; }
         }
@@ -551,7 +571,7 @@ const STEPS = {
         /* Memory Cards: "At the start of the Upgrade Phase, add all cards on this card to your hand." */
         if (p.parked.length) { p.hand = p.hand.concat(p.parked); log(st, p.name + " takes " + p.parked.length + " cards back from its Memory Cards"); p.parked = []; }
         const buy = !p.bought && p.energy >= UPGRADE_DRAW_COST && (st.upgradeDeck.length + st.upgradeDiscard.length) > 0 ? [false, true] : [false];
-        const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id)));
+        const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id, st.players.length)));
         const uninstall = p.installed.map(u => u.id);
         if (buy.length === 1 && install.length === 1 && !uninstall.length) { p.upgradeDone = true; continue; }
         ask(st, p, "upgrade", { buy, install, uninstall }, { energy: p.energy });
@@ -564,7 +584,7 @@ const STEPS = {
     dealModern(st) {
       st.events.push({ type: "turnStart", turn: st.turn });
       for (const p of racing(st)) {
-        p.ready = false; p.dealtAsked = false; p.shutAsked = false; p.parkAsked = false; p.stackBack = 0;
+        p.ready = false; p.dealtAsked = false; p.shutAsked = false; p.parkAsked = false; p.stackBack = 0; p.chaosAsked = false;
         for (let reg = 0; reg < REGISTERS; reg++) p.crab[reg] = null;
         const target = Math.max(0, fire(st, p, "modifyDealt", { count: HAND }).count);
         let drew = 0;
@@ -720,7 +740,9 @@ const STEPS = {
             st.events.push({ type: "randomized", player: p.id, register: st.register });
             log(st, p.name + "'s card is randomized");
           }
-          let i = st.act.hw !== undefined ? p.registers[st.register] : replaceInRegister(st, p, st.register);
+          /* Master Builder's Overclocked: this register's card is ignored, an earlier register's runs instead */
+          let i = p.substitute && p.substitute.register === st.register && st.act.hw === undefined ? p.substitute.card
+            : st.act.hw !== undefined ? p.registers[st.register] : replaceInRegister(st, p, st.register);
           if (i !== null && card(st, i).kind === "haywire") {
             const hask = resolveHaywire(st, C, p, i);
             if (hask) { st.waiting = hask; return; }
@@ -837,6 +859,8 @@ const STEPS = {
     },
     endReg(st) {
       if (st.over) return;
+      /* what a card granted for this register alone */
+      for (const p of st.players) { p.phasing = 0; p.opposite = null; p.substitute = null; }
       st.register++;
       if (st.register < REGISTERS) { go(st, "exec", "reveal"); return; }
       go(st, "cleanup", isModern(st) ? "endRound" : "repair");
@@ -939,7 +963,30 @@ const STEPS = {
      * all face-up programming cards in your registers into your own discard
      * pile." A shutdown lasts the round; nobody is asked to stay down. */
     endRound(st) {
+      /* Memory Transfer: "At the end of each round, you may transfer 1 damage card in your hand to
+       * an adjacent robot's discard pile" -- asked first, so the step is safe to re-run */
+      for (const p of racing(st)) {
+        if (p.transferAsked || !p.alive || !p.installed.some(u => u.id === "memoryTransfer")) continue;
+        const dmg = p.hand.filter(i => isDamage(st, i));
+        const near = alive(st).filter(q => q.id !== p.id && Math.abs(q.c - p.c) + Math.abs(q.r - p.r) === 1);
+        if (!dmg.length || !near.length) { p.transferAsked = true; continue; }
+        const key = st.turn + ":memoryTransfer:" + p.id;
+        const a = st.answers[key];
+        if (a === undefined) {
+          ask(st, p, "cardChoice", [0].concat(near.map((_, k) => k + 1)), { key, card: "memoryTransfer",
+            prompt: p.name + ", hand a damage card to a neighbour?", labels: ["Keep it"].concat(near.map(q => "Give one to " + q.name)) });
+          return;
+        }
+        if (a > 0 && near[a - 1]) {
+          const i = dmg[0];
+          p.hand.splice(p.hand.indexOf(i), 1);
+          near[a - 1].pile.push(i);
+          log(st, p.name + " transfers a damage card to " + near[a - 1].name);
+        }
+        p.transferAsked = true;
+      }
       for (const p of st.players) {
+        p.transferAsked = false;
         for (let reg = 0; reg < REGISTERS; reg++) {
           const ci = p.registers[reg];
           if (ci !== null) { putAway(st, p, ci, true); p.registers[reg] = null; }

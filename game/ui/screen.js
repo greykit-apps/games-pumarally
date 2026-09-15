@@ -361,7 +361,7 @@ export function mountScreen(root, ctx) {
   function kitCardHtml(it, p, live) {
     const d = it.def, cat = categoryOf(d);
     const human = live && isHuman(p);
-    let meta = it.kind === "upgrade" ? d.cost + "&#9889; " + (d.temp ? "temporary" : "permanent") : "option";
+    let meta = it.kind === "upgrade" ? (d.costX ? "X" : d.cost) + "&#9889; " + (d.temp ? "temporary" : "permanent") : "option";
     if (it.held && it.held.st && it.held.st.charges !== undefined) meta = it.held.st.charges + " left";
     if (it.id === "commandInReserve" && Number.isInteger(p.reserve)) meta = "holds " + esc(KINDS[card(st, p.reserve).kind].label);
     if (it.id === "flywheel" && Number.isInteger(p.flywheel)) meta = "holds " + esc(KINDS[card(st, p.flywheel).kind].label);
@@ -453,7 +453,7 @@ export function mountScreen(root, ctx) {
     const p = st.players[+pid];
     const held = p && (kind === "option" ? p.options.find(o => o.id === id) : (p.installed || []).find(u => u.id === id));
     let h = "<b>" + esc(def.name) + "</b><span class='tt'>" + (kind === "option" ? "option card" + (def.cat ? " \u00b7 " + esc(def.cat) : "") :
-      (def.temp ? "temporary" : "permanent") + " upgrade \u00b7 " + def.cost + " Energy") + "</span><p>" + esc(def.text) + "</p>";
+      (def.temp ? "temporary" : "permanent") + " upgrade \u00b7 " + (def.costX ? "X" : def.cost) + " Energy" + (def.set && def.set !== "base" ? " \u00b7 " + esc(def.set) : "")) + "</span><p>" + esc(def.text) + "</p>";
     if (def.de) h += "<p class='de'>" + esc(def.de) + "</p>";
     if (held && held.st && held.st.charges !== undefined) h += "<p class='st'>" + held.st.charges + (held.st.charges === 1 ? " charge" : " charges") + " left.</p>";
     if (def.built === false) h += "<p class='st'>Its effect is not built: it can be bought and fitted, and does nothing.</p>";

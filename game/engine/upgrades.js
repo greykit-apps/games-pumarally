@@ -363,6 +363,192 @@ const BEHAVIOUR = {
     }
   },
   /* "Movement Upgrade. Rotate to face any direction." */
+  /* --- the expansions' cards (manual1/IMG_1350-1353) and Master Builder's (IMG_1446-1447) ---
+   *
+   * Three of them decide something the book leaves to the player at a moment
+   * this engine cannot ask -- deep inside a move, where a question cannot
+   * park. Each is declared on its row: Repulsion Field pays 1 (the smallest
+   * X), Anchor pays whenever it can, Bunny Hop hops whenever it can, and
+   * Calculated Odds keeps the SPAM when the two cards differ. */
+
+  /* "Instead of firing your robot's main laser, you may pay 1 Energy to fire
+   * Indirect Fire. If you do, hit any robot within 3 spaces of your robot in
+   * any direction (orthogonally, ignoring board elements)." */
+  indirectFire: {
+    botPrefers: 0,
+    hooks: {
+      laserShots(ctx) {
+        const p = ctx.player, st = ctx.st;
+        if (p.energy < 1 || !ctx.sees) return;
+        const main = ctx.shots.find(s => s.main);
+        if (!main) return;
+        const targets = [];
+        for (const q of alive(st)) {
+          if (q.id === p.id) continue;
+          const dc = q.c - p.c, dr = q.r - p.r;
+          if ((dc === 0) === (dr === 0)) continue;                 // the same square, or not in line
+          if (Math.abs(dc) + Math.abs(dr) > 3) continue;
+          targets.push({ q, dir: dc > 0 ? 1 : dc < 0 ? 3 : dr > 0 ? 2 : 0 });
+        }
+        if (!targets.length) return;
+        const pick = ctx.pick("indirectFire", "Pay 1 Energy to fire Indirect Fire instead of the laser?", ["Main laser"].concat(targets.map(t => "Indirect Fire at " + t.q.name)));
+        if (!pick) return;
+        const t = targets[pick - 1];
+        p.energy -= 1;
+        st.events.push({ type: "energy", player: p.id, amount: -1, energy: p.energy, why: "indirectFire" });
+        main.dir = t.dir; main.target = t.q.id; main.damage = 1;
+      }
+    }
+  },
+  /* "The first time your robot takes damage from another robot each round,
+   * that robot also takes the same amount of damage." */
+  mirror: {
+    init: () => ({ round: -1 }),
+    hooks: {
+      onDamage(ctx, cst) {
+        if (ctx.amount <= 0 || !ctx.by || cst.round === ctx.st.turn) return;
+        cst.round = ctx.st.turn;
+        ctx.reflect = ctx.amount;
+      }
+    }
+  },
+  /* "When you draw Haywire damage, you may place it face down under any card
+   * in your registers where there is not already a face-down Haywire card."
+   * The card is placed as usual and moved when the robot next programs, which
+   * is the first moment a question can be asked and before the register
+   * would be programmed anyway; the machine asks. */
+  controlledChaos: { ruled: true, hooks: {} },
+  /* "Instead of firing your robot's main laser, the target discards all
+   * face-down cards in their next register. Cannot be used during Register 5." */
+  stun: {
+    temp: true,
+    botPrefers: 0,
+    hooks: {
+      onLaserHit(ctx) {
+        if (ctx.damage <= 0 || ctx.replaceWith || ctx.lastRegister) return;
+        const pick = ctx.pick("stun", "Stun " + ctx.targetName + " instead of shooting it? Its next register is emptied.", ["Main laser", "Stun"]);
+        if (pick !== 1) return;
+        ctx.damage = 0; ctx.replaceWith = { kind: "stun" };
+        ctx.discard();
+      }
+    }
+  },
+  /* "At the end of each round, you may transfer 1 damage card in your hand to
+   * an adjacent robot's discard pile." The machine asks at the round's end. */
+  memoryTransfer: { ruled: true, hooks: {} },
+  /* "Play after revealing a programming card. During your movement this
+   * register, you may pass through exactly 1 wall." */
+  phasing: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "before" && p.registers[st.register] !== null ? [{}] : [],
+    use(st, C, p) { p.phasing = 1; log(st, p.name + " phases: one wall will not stop it this register"); }
+  },
+  /* "(X = number of foes in the game; max 4.) When your robot's main laser
+   * damages the target robot, you also deal 1 damage to each robot adjacent
+   * to the target." */
+  splashDamage: {
+    hooks: { onLaserHit(ctx) { if (ctx.damage > 0 && !ctx.replaceWith) ctx.splash = true; } }
+  },
+  /* "Movement Upgrade. Put any number of SPAM cards from your discard pile
+   * into the damage discard pile. For each you discarded, move forward 1 space." */
+  spamRocket: {
+    temp: true, movement: true,
+    offers: (st, C, p, moment) => {
+      if (moment !== "before" && moment !== "after") return [];
+      const n = p.pile.filter(i => isDamage(st, i) && card(st, i).kind === "spam").length;
+      return Array.from({ length: n }, (_, k) => ({ n: k + 1 }));
+    },
+    use(st, C, p, a) {
+      let burnt = 0;
+      p.pile = p.pile.filter(i => { if (burnt < a.n && isDamage(st, i) && card(st, i).kind === "spam") { st.damageDiscard.push(i); burnt++; return false; } return true; });
+      log(st, p.name + " burns " + burnt + " SPAM in the rocket");
+      for (let k = 0; k < burnt; k++) if (p.alive && !RULE_HOOKS.stepRobot(st, C, p, p.face, "upgrade")) break;
+    }
+  },
+  /* "After you have drawn damage during a register, for each additional damage
+   * you would draw for the rest of that register, you gain 1 Energy instead."
+   * Read by the damage draw itself. */
+  diffuser: { ruled: true, hooks: {} },
+  /* "Each time you draw damage, draw 2 damage cards at the same time. Keep 1
+   * and discard the other to the damage discard pile." Read by the damage
+   * draw; when the two differ the robot keeps the SPAM -- declared. */
+  calculatedOdds: { ruled: true, hooks: {} },
+  /* "Pay X Energy when a robot would push your robot: Push them X spaces away
+   * from your robot instead. (Your robot is not pushed. X cannot be 0.)"
+   * X is 1 -- declared: the push happens where no question can be asked. */
+  repulsionField: { ruled: true, hooks: {} },
+  /* "When your robot would push another robot during your Programming Card
+   * Activation, you may hop over it to the next adjacent empty space if
+   * possible instead." Hops whenever it can -- declared. */
+  bunnyHop: { ruled: true, hooks: {} },
+  /* "When you resolve a Move Card, you may pay 1 Energy to move 1 additional
+   * space in the same direction." */
+  turbo: {
+    botPrefers: 0,
+    hooks: {
+      modifyMove(ctx) {
+        if (ctx.kind !== "move" || !ctx.dist || ctx.player.energy < 1) return;
+        const pick = ctx.pick("turbo", "Pay 1 Energy for one more square?", ["No", "Turbo: 1 Energy, one more"]);
+        if (pick !== 1) return;
+        const p = ctx.player, st = ctx.st;
+        p.energy -= 1;
+        st.events.push({ type: "energy", player: p.id, amount: -1, energy: p.energy, why: "turbo" });
+        ctx.dist += ctx.dist > 0 ? 1 : -1;
+      }
+    }
+  },
+  /* Master Builder. "Play after revealing a non-Haywire programming card. Do
+   * the opposite of what your programming card says. (U-Turn = no Turn, Move
+   * Back = Move 1, etc.)" A Move n backs up n, Back Up moves 1, a rotate turns
+   * the other way, a U-Turn does nothing; Again and Power Up have no opposite. */
+  oppositron: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "before" && p.registers[st.register] !== null && !isDamage(st, p.registers[st.register]) ? [{}] : [],
+    use(st, C, p) { p.opposite = st.register; log(st, p.name + " runs its card through the Oppositron"); }
+  },
+  /* Master Builder. "Gain 1 SPAM and put it into your discard pile. Ignore your
+   * programming cards this register. Instead, resolve one of your previous
+   * registers' programming cards." */
+  overclockedMB: {
+    temp: true,
+    offers: (st, C, p, moment) => {
+      if (moment !== "before") return [];
+      const out = [];
+      for (let k = 0; k < st.register; k++) if (p.registers[k] !== null && !isDamage(st, p.registers[k])) out.push({ reg: k });
+      return out;
+    },
+    use(st, C, p, a) {
+      const i = RULE_HOOKS.drawSpam(st);
+      if (i !== null) p.pile.push(i);
+      p.substitute = { register: st.register, card: p.registers[a.reg] };
+      log(st, p.name + " overclocks: a SPAM taken, and register " + (a.reg + 1) + "'s card runs again");
+    }
+  },
+  /* Master Builder. "Conveyor belts and currents move your robot in the
+   * opposite direction this round. Use only if this would not stop/push
+   * another robot." */
+  moonWalk: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "dealt" || moment === "before" ? [{}] : [],
+    use(st, C, p) { p.moonwalk = st.turn; log(st, p.name + " moonwalks: the belts run backwards for it this round"); }
+  },
+  /* Master Builder. "If your robot is about to be moved by a conveyor belt, it
+   * may ignore all conveyor belts this register and move 1 space to the left
+   * or right without changing facing." */
+  topHeavy: {
+    botPrefers: 0,
+    hooks: {
+      onBoardElement(ctx) {
+        if (ctx.kind !== "belt") return;
+        const pick = ctx.pick("topHeavy", "The belt is about to carry you. Ride it, or step off it sideways?", ["Ride the belt", "Step left", "Step right"]);
+        if (!pick) return;
+        ctx.veto = true; ctx.side = pick === 1 ? -1 : 1;
+      }
+    }
+  },
+  /* Master Builder. "Spend 1 Energy when your robot would be pushed: Your robot
+   * is not pushed." Spent whenever it can be -- declared. */
+  anchor: { ruled: true, hooks: {} },
   zoop: {
     temp: true, movement: true,
     offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [0, 1, 2, 3].filter(d => d !== p.face).map(d => ({ face: d })) : [],
@@ -496,7 +682,7 @@ for (const c of UPGRADES_DATA.cards) {
   if ((c.type === "temporary") !== !!b.temp) throw new Error("upgrade " + c.id + " is " + c.type + " in the data and " + (b.temp ? "temporary" : "permanent") + " here");
   /* `asks`: the card puts a question to its holder (a hook that picks, or a
    * temporary's offer), which is what the screen gives a toggle to */
-  const asks = !!b.temp || c.id === "memoryCards" || Object.values(b.hooks || {}).some(fn => /\.pick\(/.test(String(fn)));
+  const asks = !!b.temp || c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer" || Object.values(b.hooks || {}).some(fn => /\.pick\(/.test(String(fn)));
   /* and where: a temporary offered before or after the robot's card is
    * planned under the register; one offered after the deal is a switch */
   const asksIn = asksWhere(b.hooks);
@@ -505,8 +691,8 @@ for (const c of UPGRADES_DATA.cards) {
     if (/"before"|"after"/.test(src) || !/"dealt"/.test(src)) asksIn.plan = true;
     if (/"dealt"/.test(src)) asksIn.switch = true;
   }
-  if (c.id === "memoryCards") asksIn.switch = true;
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null,
+  if (c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer") asksIn.switch = true;
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, costX: !!c.costX, set: c.set || "base", type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null, ruled: !!b.ruled,
     temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);
@@ -579,22 +765,28 @@ export function installedOfType(p, type) {
   return p.installed.filter(u => UPGRADE_DEFS[u.id].type === type).length;
 }
 
-/** Could `p` install this shelf card now: on the shelf, affordable, and a slot free for its type? */
-export function canInstall(p, id) {
+/** What a card costs at this table: its printed cost, or X, the number of foes, at most 4 (Splash Damage). */
+export function costOf(def, players) {
+  return def.costX ? Math.min(4, Math.max(1, (players || 2) - 1)) : def.cost;
+}
+
+/** Could `p` install this shelf card now: on the shelf, affordable, and a slot free for its type? `players` prices a card that costs X. */
+export function canInstall(p, id, players) {
   const def = UPGRADE_DEFS[id];
   if (!def || p.shelf.indexOf(id) < 0) return false;
-  if (p.energy < def.cost) return false;
+  if (p.energy < costOf(def, players)) return false;
   return installedOfType(p, def.type) < INSTALL_LIMIT[def.type];
 }
 
 /** Pay the printed cost and put the card on the mat. */
 export function installUpgrade(st, p, id) {
-  if (!canInstall(p, id)) return false;
+  if (!canInstall(p, id, st.players.length)) return false;
   const def = UPGRADE_DEFS[id];
+  const cost = costOf(def, st.players.length);
   p.shelf.splice(p.shelf.indexOf(id), 1);
-  p.energy -= def.cost;
+  p.energy -= cost;
   p.installed.push(newInstalled(id));
-  st.events.push({ type: "energy", player: p.id, amount: -def.cost, energy: p.energy, why: "install" });
+  st.events.push({ type: "energy", player: p.id, amount: -cost, energy: p.energy, why: "install" });
   st.events.push({ type: "upgrade", player: p.id, card: id, how: "installed" });
   log(st, p.name + " installs " + def.name + (def.built ? "" : " (its effect is not built)"));
   return true;

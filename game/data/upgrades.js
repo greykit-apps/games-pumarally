@@ -3,11 +3,12 @@ export default {
   "format": "PRCards",
   "version": 1,
   "kind": "modern-upgrade",
-  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed. `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); all forty, the Haywire faces having been photographed (manual1/IMG_1345-1348).",
+  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed, and eighteen more from the expansions and Master Builder (see roster.note). `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); all forty, the Haywire faces having been photographed (manual1/IMG_1345-1348).",
   "roster": {
-    "printed": 40,
-    "transcribed": 40,
-    "built": 40
+    "printed": 58,
+    "transcribed": 58,
+    "built": 58,
+    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name."
   },
   "cards": [
     {
@@ -328,6 +329,169 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Spin on the spot to face any direction.",
+      "built": true
+    },
+    {
+      "id": "indirectFire",
+      "name": "Indirect Fire",
+      "cost": 3,
+      "type": "permanent",
+      "set": "chaosAndCarnage",
+      "text": "Instead of firing your robot's main laser, you may pay 1 Energy to fire Indirect Fire. If you do, hit any robot within 3 spaces of your robot in any direction (orthogonally, ignoring board elements).",
+      "built": true
+    },
+    {
+      "id": "mirror",
+      "name": "Mirror",
+      "cost": 3,
+      "type": "permanent",
+      "set": "chaosAndCarnage",
+      "text": "The first time your robot takes damage from another robot each round, that robot also takes the same amount of damage.",
+      "built": true
+    },
+    {
+      "id": "controlledChaos",
+      "name": "Controlled Chaos",
+      "cost": 3,
+      "type": "permanent",
+      "set": "chaosAndCarnage",
+      "text": "When you draw Haywire damage, you may place it face down under any card in your registers where there is not already a face-down Haywire card.",
+      "built": true
+    },
+    {
+      "id": "stun",
+      "name": "Stun",
+      "cost": 1,
+      "type": "temporary",
+      "set": "chaosAndCarnage",
+      "text": "Instead of firing your robot's main laser, the target discards all face-down cards in their next register. Cannot be used during Register 5.",
+      "built": true
+    },
+    {
+      "id": "memoryTransfer",
+      "name": "Memory Transfer",
+      "cost": 3,
+      "type": "permanent",
+      "set": "thrillsAndSpills",
+      "text": "At the end of each round, you may transfer 1 damage card in your hand to an adjacent robot's discard pile.",
+      "built": true
+    },
+    {
+      "id": "phasing",
+      "name": "Phasing",
+      "cost": 2,
+      "type": "temporary",
+      "set": "thrillsAndSpills",
+      "text": "Play after revealing a programming card. During your movement this register, you may pass through exactly 1 wall.",
+      "built": true
+    },
+    {
+      "id": "splashDamage",
+      "name": "Splash Damage",
+      "cost": 0,
+      "costX": true,
+      "type": "permanent",
+      "set": "thrillsAndSpills",
+      "text": "(X = number of foes in the game; max 4.) When your robot's main laser damages the target robot, you also deal 1 damage to each robot adjacent to the target.",
+      "built": true
+    },
+    {
+      "id": "spamRocket",
+      "name": "SPAM-Powered Rocket",
+      "cost": 2,
+      "type": "temporary",
+      "set": "thrillsAndSpills",
+      "text": "Movement Upgrade. Put any number of SPAM cards from your discard pile into the damage discard pile. For each you discarded, move forward 1 space.",
+      "built": true
+    },
+    {
+      "id": "diffuser",
+      "name": "Diffuser",
+      "cost": 3,
+      "type": "permanent",
+      "set": "wetAndWild",
+      "text": "After you have drawn damage during a register, for each additional damage you would draw for the rest of that register, you gain 1 Energy instead.",
+      "built": true
+    },
+    {
+      "id": "calculatedOdds",
+      "name": "Calculated Odds",
+      "cost": 5,
+      "type": "permanent",
+      "set": "wetAndWild",
+      "text": "Each time you draw damage, draw 2 damage cards at the same time. Keep 1 and discard the other to the damage discard pile.",
+      "built": true
+    },
+    {
+      "id": "repulsionField",
+      "name": "Repulsion Field",
+      "cost": 4,
+      "type": "permanent",
+      "set": "wetAndWild",
+      "text": "Pay X Energy when a robot would push your robot: Push them X spaces away from your robot instead. (Your robot is not pushed. X cannot be 0.)",
+      "built": true
+    },
+    {
+      "id": "bunnyHop",
+      "name": "Bunny Hop",
+      "cost": 2,
+      "type": "permanent",
+      "set": "wetAndWild",
+      "text": "When your robot would push another robot during your Programming Card Activation, you may hop over it to the next adjacent empty space if possible instead.",
+      "built": true
+    },
+    {
+      "id": "turbo",
+      "name": "Turbo",
+      "cost": 4,
+      "type": "permanent",
+      "set": "wetAndWild",
+      "text": "When you resolve a Move Card, you may pay 1 Energy to move 1 additional space in the same direction.",
+      "built": true
+    },
+    {
+      "id": "oppositron",
+      "name": "The Oppositron",
+      "cost": 2,
+      "type": "temporary",
+      "set": "masterBuilder",
+      "text": "Play after revealing a non-Haywire programming card. Do the opposite of what your programming card says. (U-Turn = no Turn, Move Back = Move 1, etc.)",
+      "built": true
+    },
+    {
+      "id": "overclockedMB",
+      "name": "Overclocked (Master Builder)",
+      "cost": 1,
+      "type": "temporary",
+      "set": "masterBuilder",
+      "text": "Gain 1 SPAM and put it into your discard pile. Ignore your programming cards this register. Instead, resolve one of your previous registers' programming cards.",
+      "built": true
+    },
+    {
+      "id": "moonWalk",
+      "name": "Moon Walk",
+      "cost": 1,
+      "type": "temporary",
+      "set": "masterBuilder",
+      "text": "Conveyor belts and currents move your robot in the opposite direction this round. Use only if this would not stop/push another robot.",
+      "built": true
+    },
+    {
+      "id": "topHeavy",
+      "name": "Top Heavy",
+      "cost": 4,
+      "type": "permanent",
+      "set": "masterBuilder",
+      "text": "If your robot is about to be moved by a conveyor belt, it may ignore all conveyor belts this register and move 1 space to the left or right without changing facing.",
+      "built": true
+    },
+    {
+      "id": "anchor",
+      "name": "Anchor",
+      "cost": 2,
+      "type": "permanent",
+      "set": "masterBuilder",
+      "text": "Spend 1 Energy when your robot would be pushed: Your robot is not pushed.",
       "built": true
     }
   ]
