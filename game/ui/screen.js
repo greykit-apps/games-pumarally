@@ -14,9 +14,9 @@ import { card, KINDS, openRegisters, REGISTERS, isDamage, isModern, MAX_ENERGY }
 import { LIVERIES, isHuman } from "../engine/state.js";
 import { OPTION_DEFS } from "../engine/options.js";
 import { UPGRADE_DEFS } from "../engine/upgrades.js";
+import { cardArt } from "./cardart.js";
 
 const CELL = 100;
-const GLYPH = { move1: "1", move2: "2", move3: "3", back: "↩", left: "↰", right: "↱", uturn: "↺", powerUp: "⚡", again: "⟲", spam: "✉" };
 const DIRS = ["North", "East", "South", "West"];
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
@@ -196,12 +196,12 @@ export function mountScreen(root, ctx) {
 
   /* --- the panel --------------------------------------------------------------- */
 
+  /* a card: its art, its name, and its priority in the corner where the classic deck prints one */
   function cardHtml(ci, extra) {
     const cd = card(st, ci);
     const k = KINDS[cd.kind];
-    const cls = isDamage(st, ci) ? "spam" : k.turn !== undefined ? "turn" : "move";
-    return '<button class="card ' + cls + '" ' + (extra || "") + (k.note ? ' title="' + esc(k.note) + '"' : "") + '>' +
-      '<span class="g">' + GLYPH[cd.kind] + '</span><span class="l">' + esc(k.label) + '</span>' + (cd.pri ? '<span class="p">' + cd.pri + "</span>" : "") + "</button>";
+    return '<button class="card k-' + esc(cd.kind) + '" ' + (extra || "") + (k.note ? ' title="' + esc(k.note) + '"' : "") + '>' +
+      cardArt(cd.kind) + '<span class="l">' + esc(k.label) + '</span>' + (cd.pri ? '<span class="p">' + cd.pri + "</span>" : "") + "</button>";
   }
 
   function renderPanel() {

@@ -12,7 +12,7 @@
 
 import { CELL, ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
 import { ART_DEFS, PALETTE_CSS, ART_CSS, STAMP_CSS, SPOT_CSS, TOKENS } from "./palette.js";
-import { GLYPHS, DEVICE_GLYPHS, siteOverlay } from "./glyphs.js";
+import { GLYPHS, DEVICE_GLYPHS, siteOverlay, floorArt, stampArt } from "./glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { ARM_CODES } from "../lib/token.js";
@@ -49,6 +49,8 @@ function groundLayer(board, mode) {
       const ctx = { arg: tok.charAt(1), arms: ARM_CODES[tok.charAt(2)] || ARM_CODES["."], dir: d, c, r };
       const body = glyph[mode](ctx);
       if (!body) continue;
+      /* the floor first, unrotated, then the element standing on it */
+      if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt());
       out += g(at(c, r) + spin(d), body);
     }
   }
@@ -166,8 +168,18 @@ function beamLayer(board, mode) {
     const d = "M " + (a[0] * CELL + 50) + " " + (a[1] * CELL + 50) +
               " L " + (b[0] * CELL + 50) + " " + (b[1] * CELL + 50);
     if (mode === "art") {
-      out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (2 + dev.damage * 2) +
-        '" stroke-linecap="round" opacity="0.45"/>';
+      /* a soft glow under a thin bright core, one core per point of damage */
+      out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (8 + dev.damage * 3) +
+        '" stroke-linecap="round" opacity="0.14"/>';
+      const n = Math.max(1, Math.min(3, dev.damage | 0));
+      const dir = dev.face, across = (dir === N || dir === S) ? [1, 0] : [0, 1];
+      for (let i = 0; i < n; i++) {
+        const off = (i - (n - 1) / 2) * 5;
+        const ox = across[0] * off, oy = across[1] * off;
+        out += '<path d="M ' + (a[0] * CELL + 50 + ox) + " " + (a[1] * CELL + 50 + oy) +
+          " L " + (b[0] * CELL + 50 + ox) + " " + (b[1] * CELL + 50 + oy) + '" stroke="' + ART.laser +
+          '" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>';
+      }
     } else {
       out += '<path d="' + d + '" ' + markStroke(MARK.device, 1.0) + ' stroke-dasharray="5 6" opacity="0.9"/>';
     }
@@ -188,9 +200,9 @@ function deviceLayer(board, mode) {
     if (def.faced) {
       const cell = deviceCell(dev);
       if (!cell || !inBoard(board, cell[0], cell[1])) continue;
-      /* The stamp is inside the glyph, so it turns with the device -- see the
-       * note on stampArt in glyphs.js. */
       out += g(at(cell[0], cell[1]) + spin(dev.face), glyph[mode](ctx));
+      /* the register stamp stays upright in the square's corner, whichever way the device points */
+      if (mode === "art") out += g(at(cell[0], cell[1]), stampArt(dev.regs));
     } else {
       /* A door has no face, so it is drawn along the edge it stands on: the
        * glyph draws along its own southern edge, so a horizontal edge is the
@@ -199,15 +211,19 @@ function deviceLayer(board, mode) {
       /* A door on the top or left rim has no square above or left of it, so it
        * is drawn in the square below or right, turned to sit on the far side;
        * otherwise the glyph landed at row -1 and fell off the canvas. */
+      let sc, sr;
       if (e.kind === "h") {
         const c = e.c, r = e.r - 1;
         out += r < 0 ? g(at(c, 0) + " rotate(180 50 50)", glyph[mode](ctx))
                      : g(at(c, r), glyph[mode](ctx));
+        sc = c; sr = r < 0 ? 0 : r;
       } else {
         const c = e.c - 1, r = e.r;
         out += c < 0 ? g(at(0, r) + " rotate(90 50 50)", glyph[mode](ctx))
                      : g(at(c, r) + " rotate(-90 50 50)", glyph[mode](ctx));
+        sc = c < 0 ? 0 : c; sr = r;
       }
+      if (mode === "art") out += g(at(sc, sr), stampArt(dev.regs));
     }
   }
   for (const dev of board.ceilingDevices) {
@@ -217,6 +233,7 @@ function deviceLayer(board, mode) {
       throw new Error("no " + mode + " glyph for ceiling device " + dev.kind);
     }
     out += g(at(dev.c, dev.r), glyph[mode]({ regs: dev.regs }));
+    if (mode === "art") out += g(at(dev.c, dev.r), stampArt(dev.regs));
   }
   return out;
 }
