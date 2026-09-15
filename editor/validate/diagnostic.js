@@ -52,7 +52,6 @@ export const CODES = Object.freeze({
   /* --- ground geometry -------------------------------------------------- */
   "belt.intoWall":        "a conveyor runs out into a wall",
   "belt.headOn":          "two conveyors run into each other",
-  "belt.expressFeedsNormal": "an express conveyor feeds a normal one",
   "belt.acrossLedge":     "a conveyor runs across a level change",
 
   /* --- wall lattice ----------------------------------------------------- */

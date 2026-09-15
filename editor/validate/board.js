@@ -206,10 +206,6 @@ export function checkBelts(board, d) {
           d.error("belt.headOn", "The conveyors at " + at(c, r) + " and " + at(nc, nr) +
             " run into each other.", at(c, r), ptr);
         }
-        if (speed === 2 && nextSpeed === 1) {
-          d.warn("belt.expressFeedsNormal", "The express conveyor at " + at(c, r) +
-            " feeds the normal conveyor at " + at(nc, nr) + ".", at(c, r), ptr);
-        }
       }
     }
   }

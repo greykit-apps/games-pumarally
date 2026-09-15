@@ -273,9 +273,8 @@ function checkFlags(course, library, grid, from, bounds, d) {
     if (prev && FLAG_GAP_GUIDE !== null) {
       const gap = Math.max(Math.abs(c - prev[0]), Math.abs(r - prev[1]));
       if (gap > FLAG_GAP_GUIDE) {
-        d.warn("course.flagGap", "Flag " + n + " at " + at(c, r) + " is " + gap +
-          " squares from flag " + (n - 1) + " in one direction. The classic rulebook keeps them " +
-          "within " + FLAG_GAP_GUIDE + "; the modern books say nothing either way.", at(c, r), ptr);
+        /* informational: the classic book keeps flags within twelve, the modern books say nothing */
+        d.warn("course.flagGap", "Flag " + (n - 1) + " to flag " + n + " is " + gap + " steps.", at(c, r), ptr);
       }
     }
     prev = [c, r];
