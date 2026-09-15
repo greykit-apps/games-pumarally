@@ -53,6 +53,11 @@ validate:
     - node editor/tools/build-index.js --check
     - node editor/tools/check-editor-assets.js
 
+    # The rebuilt game under game/. Its data is lifted from the old game's
+    # tables and its scenarios are the old suite's names; the run prints how
+    # many are still pending, so the number is never only in a README.
+    - node game/tools/check-all.js
+
 deploy:
   stage: deploy
   image: debian:bookworm-slim

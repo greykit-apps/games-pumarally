@@ -1,0 +1,137 @@
+{
+  "format": "PRCards",
+  "version": 1,
+  "kind": "decks",
+  "kinds": {
+    "uturn": {
+      "label": "U-Turn",
+      "turn": 2
+    },
+    "left": {
+      "label": "Rotate L",
+      "turn": -1
+    },
+    "right": {
+      "label": "Rotate R",
+      "turn": 1
+    },
+    "back": {
+      "label": "Back Up",
+      "move": -1
+    },
+    "move1": {
+      "label": "Move 1",
+      "move": 1
+    },
+    "move2": {
+      "label": "Move 2",
+      "move": 2
+    },
+    "move3": {
+      "label": "Move 3",
+      "move": 3
+    },
+    "powerUp": {
+      "label": "Power Up"
+    },
+    "again": {
+      "label": "Again"
+    },
+    "spam": {
+      "label": "SPAM",
+      "damage": true,
+      "note": "Damage. Programme it and it is thrown away, and the top card of your deck is played instead."
+    }
+  },
+  "classic": {
+    "source": "The 84 program cards, generated from the printed priority ranges. Priorities are unique across the deck.",
+    "ranges": [
+      [
+        "uturn",
+        10,
+        60,
+        10
+      ],
+      [
+        "left",
+        70,
+        410,
+        20
+      ],
+      [
+        "right",
+        80,
+        420,
+        20
+      ],
+      [
+        "back",
+        430,
+        480,
+        10
+      ],
+      [
+        "move1",
+        490,
+        660,
+        10
+      ],
+      [
+        "move2",
+        670,
+        780,
+        10
+      ],
+      [
+        "move3",
+        790,
+        840,
+        10
+      ]
+    ],
+    "counts": {
+      "uturn": 6,
+      "left": 18,
+      "right": 18,
+      "back": 6,
+      "move1": 18,
+      "move2": 12,
+      "move3": 6
+    },
+    "size": 84,
+    "handSize": 9,
+    "registers": 5,
+    "maxDamage": 10,
+    "startLives": 3
+  },
+  "modern": {
+    "source": "A robot's own deck of twenty, counted off a photograph of one laid out (manual1/IMG_1308); the damage deck is forty, all SPAM because the Haywire faces are not photographed.",
+    "deckCounts": {
+      "move1": 4,
+      "move2": 3,
+      "move3": 1,
+      "back": 1,
+      "left": 4,
+      "right": 4,
+      "uturn": 1,
+      "powerUp": 1,
+      "again": 1
+    },
+    "deckSize": 20,
+    "damageCounts": {
+      "spam": 40
+    },
+    "damageSize": 40,
+    "handSize": 9,
+    "registers": 5,
+    "startEnergy": 3,
+    "maxEnergy": 10,
+    "upgradeStart": 3,
+    "upgradeDrawCost": 1,
+    "installLimit": {
+      "permanent": 3,
+      "temporary": 3
+    },
+    "rebootPoint": "archive"
+  }
+}
