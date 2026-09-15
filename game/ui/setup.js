@@ -11,6 +11,8 @@ import { assemble } from "../../editor/lib/course.js";
 import { readCourse, rulesetsFor } from "../engine/library.js";
 import { LIVERIES } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
+import { boardFromDocument } from "../../editor/lib/board.js";
+import { sink } from "../../editor/validate/diagnostic.js";
 
 const SETUP_KEY = "pumarally_setup_v2";
 const WORKSHOP_KEY = "pumarally_courses_v1";
@@ -24,6 +26,14 @@ function workshopCourses(library) {
   const all = read(WORKSHOP_KEY, {});
   for (const id of Object.keys(all).sort()) {
     if (id.charAt(0) === "_" || !all[id].doc) continue;
+    /* a course flattened in the workshop carries its one board along: it joins the library so the course reads */
+    if (all[id].board) {
+      try {
+        const d = sink();
+        const b = boardFromDocument(JSON.parse(all[id].board), d);
+        if (b && !d.items.some(x => x.severity === "error")) library.set(b.id, b);
+      } catch (e) { /* the course will not read, and is skipped below */ }
+    }
     try { out.push({ id, doc: readCourse(all[id].doc, library, id), mine: true }); } catch (e) { /* not raceable */ }
   }
   return out;
@@ -32,9 +42,10 @@ function workshopCourses(library) {
 /* the workshop sits beside the game whichever page mounted it */
 const workshopHref = new URL("../../editor/index.html#course", import.meta.url).href;
 
-export function mountSetup(root, { library, index, courses, onStart, onResume }) {
+export function mountSetup(root, { library, index, courses, onStart, onResume, initialCourse }) {
   const prefs = read(SETUP_KEY, { course: null, ruleset: "classic", seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
   if (prefs.ruleset !== "modern") prefs.ruleset = "classic";
+  if (initialCourse) prefs.course = initialCourse;                // the workshop's Play button names a course
   const shelf = [];
   for (const row of index.courses) {
     const doc = courses.get(row.id);
@@ -68,8 +79,8 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
       html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
         (ok ? "" : ' disabled title="' + esc("Its boards print things only the " + (c.reads[0] ? rulesetFor(c.reads[0]).name : "other") + " book reads.") + '"') + ">" +
         thumb(c.doc) + '<span class="name">' + esc(c.doc.name) + "</span>" +
-        '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + c.doc.stamps.filter(s => s.role === "board").length +
-        " board" + (c.doc.stamps.filter(s => s.role === "board").length === 1 ? "" : "s") + " &middot; " + (c.doc.flags || []).length +
+        '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + c.doc.stamps.filter(s => s.role !== "dock").length +
+        " board" + (c.doc.stamps.filter(s => s.role !== "dock").length === 1 ? "" : "s") + " &middot; " + (c.doc.flags || []).length +
         (prefs.ruleset === "modern" ? " checkpoints" : " flags") + (ok ? "" : " &middot; " + esc(c.reads.length ? rulesetFor(c.reads[0]).name + " only" : "no book reads it")) + "</span></button>";
     }
     html += "</div>";

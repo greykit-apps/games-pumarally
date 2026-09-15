@@ -162,7 +162,7 @@ export function validateCourse(course, library, d) {
   checkBelts(grid, d);
 
   /* the dock */
-  const docks = course.stamps.filter(s => s.role === "dock");
+  const docks = course.stamps.filter(s => s.role === "dock" || s.role === "course");
   if (docks.length > 1) {
     d.error("course.twoDocks", "A course has one docking bay; this one has " + docks.length + ".", null, "/stamps");
   } else if (!docks.length) {

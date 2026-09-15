@@ -479,6 +479,19 @@ these are the rules that came out of it:
 - **The course workshop autosaves and undoes.** Plain `#course` reopens what
   was being built; Ctrl-Z steps back; the view refits when the first board is
   laid instead of showing one corner at 530%.
+- **A course can be edited as one board.** *Edit as one board* in the course
+  workshop lays the assembled grid out as a single board of origin `course`
+  (the one origin allowed holes) and opens it in the board workshop under
+  `#edit=<id>`, where every square, wall and device is editable. *Save to
+  course library* writes the board back beside a one-stamp course document
+  (role `course`: a whole course with its docking bays inside it; the
+  starting block is the box the bays span) after the course validator has
+  passed it, and *Play* does that and opens the game on it. The placement
+  list is given up in the copy, which is saved as `<id>_edit` so the
+  original keeps its placements; a course already flat keeps its id. Flags
+  stay with the course: the course workshop opens a flat course as one
+  stamp with the flag tool, and the game's shelf reads the board out of the
+  library entry.
 - **Boards are dragged.** Off the rail onto the floor, or from where they lie
   to where they should be, as a ghost snapped to the squares and drawn red
   where it would overlap. Edges need not line up with another board's,
