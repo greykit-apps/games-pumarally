@@ -25,7 +25,7 @@ h2:first-child{margin-top:0}
 .top{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line)}
 .top .grow{flex:1}
 .top .turn{color:var(--dim)}
-.main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:0;flex:1;min-height:0}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:0;flex:1;min-height:0}
 .stage{position:relative;overflow:auto;padding:12px;display:flex;align-items:flex-start;justify-content:center}
 .stage .board{position:relative;max-width:100%}
 .stage .board svg{display:block;width:100%;height:auto}
@@ -52,16 +52,23 @@ h2:first-child{margin-top:0}
 .slot.locked{border-style:solid;border-color:var(--danger);cursor:default}
 .slot.locked::after{content:"locked";position:absolute;bottom:2px;font-size:9px;color:var(--danger)}
 .slot.over{border-color:var(--accent);background:#0d2028}
-.hand{display:flex;flex-wrap:wrap;gap:6px;min-height:64px}
-.card{width:62px;height:84px;border:1px solid var(--lit);border-radius:4px;background:var(--panel2);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:2px;cursor:grab;padding:0;position:relative}
+.hand{display:flex;flex-wrap:wrap;gap:8px;min-height:64px}
+.card{--kind:var(--accent);width:78px;height:106px;border:1px solid var(--lit);border-top:4px solid var(--kind);border-radius:6px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;cursor:grab;padding:4px 0 6px;position:relative;box-shadow:0 2px 6px rgba(0,0,0,.5)}
 .card:hover:not(:disabled){border-color:var(--accent)}
-.card .g{font-size:22px;color:var(--accent);line-height:1}
-.card .l{font-size:10px;color:var(--text);text-align:center;line-height:1.1}
-.card .p{font-size:10px;color:var(--dim)}
-.card.turn .g{color:var(--violet)}
-.card.spam{border-color:var(--danger);background:#1a0b0b}
-.card.spam .g{color:var(--danger)}
+.card .cart{width:58px;height:58px;display:block;color:var(--kind)}
+.card .cart .cshaft{stroke:currentColor;stroke-width:8;stroke-linecap:round;fill:none}
+.card .cart .cmark{stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.card .l{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text);text-align:center;line-height:1.1}
+.card .p{position:absolute;top:4px;right:6px;font-size:10px;color:var(--dim)}
+.card.k-move1,.card.k-move2,.card.k-move3{--kind:var(--accent)}
+.card.k-back{--kind:var(--warn)}
+.card.k-left,.card.k-right{--kind:var(--violet)}
+.card.k-uturn{--kind:var(--violet)}
+.card.k-powerUp{--kind:var(--good)}
+.card.k-again{--kind:var(--steel)}
+.card.k-spam{--kind:var(--danger);border-color:var(--danger);background:linear-gradient(180deg,#1a0b0b,#120808)}
 .chip.up{border-color:var(--warn);color:var(--warn)}
 .hand .pair{font-size:10px;padding:2px 6px;min-height:0;align-self:center;border-color:var(--warn);color:var(--warn)}
 .slot .crab{position:absolute;bottom:2px;font-size:9px;color:var(--warn)}
@@ -70,7 +77,8 @@ h2:first-child{margin-top:0}
 button[data-ruleset]{padding:8px 14px}
 .card.k{position:absolute;top:2px;right:4px}
 .card .hot{position:absolute;top:2px;right:5px;font-size:9px;color:var(--dim)}
-.slot .card{cursor:pointer;width:100%;height:100%;border:0}
+.slot .card{cursor:pointer;width:100%;height:100%;border:0;border-top:4px solid var(--kind);box-shadow:none}
+.slot .card .cart{width:70%;height:auto}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ask{border:1px solid var(--accent);border-radius:4px;padding:10px;background:#0a1620}
 .ask p{margin:0 0 8px}

@@ -46,6 +46,10 @@ const plate = (fill = ART.floor, edge = ART.floorEdge) =>
 const rivets = () => [[12, 12], [88, 12], [12, 88], [88, 88]]
   .map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + ART.rivet + '"/>').join("");
 
+/** The floor itself: a riveted plate. Drawn under EVERY square in play art, because a
+ *  belt, a gear or a pit is a thing standing on the floor, not a replacement for it. */
+export function floorArt() { return plate() + rivets(); }
+
 /* --- conveyors -------------------------------------------------------------
  * Drawn exiting NORTH; the caller rotates. The arms character says which edges
  * show an incoming path relative to that exit, and EACH ARM IS ITS OWN RUN,
@@ -236,21 +240,35 @@ export const DEVICE_GLYPHS = {
    * NORTH and the caller rotates, which is the convention the rest of this file
    * uses -- the game's own functions take a direction, so they are called with
    * the one that matches and turned from there. */
+  /* A laser is a steel housing bolted to the wall with a lens for every beam
+   * it fires -- one, two or three across, the way the printed board shows
+   * them -- and the beam itself is another layer, since it crosses squares. */
   laser: {
-    art: ctx => A.emitterSvg(N) +
-      (ctx.damage > 1 ? artText(ctx.damage, 50, 30, ART.laser, 20) : ""),
+    art: ctx => {
+      const n = Math.max(1, Math.min(3, ctx.damage | 0));
+      const w = 18 + n * 14;
+      let out = '<rect x="' + (50 - w / 2) + '" y="82" width="' + w + '" height="17" rx="3" fill="' + ART.crusher +
+        '" stroke="#11141d" stroke-width="2"/>';
+      for (let i = 0; i < n; i++) {
+        const cx = 50 + (i - (n - 1) / 2) * 14;
+        out += '<rect x="' + (cx - 4) + '" y="76" width="8" height="8" rx="1.5" fill="#3c424e"/>' +
+          '<circle cx="' + cx + '" cy="76" r="4.2" fill="' + ART.laser + '"/>' +
+          '<circle cx="' + cx + '" cy="76" r="2" fill="#ffd0cc"/>';
+      }
+      return out;
+    },
     markup: ctx => mk("M 34 96 L 34 78 M 50 96 L 50 74 M 66 96 L 66 78 M 28 96 L 72 96",
       MARK.device, 1.5) + (ctx.damage > 1 ? mkText(ctx.damage, 50, 66, MARK.device, 22) : "")
   },
 
   pusher: {
-    art: ctx => A.pusherSvg(N, true) + stampArt(ctx.regs),
+    art: ctx => A.pusherSvg(N, true),
     markup: ctx => mk("M 26 92 L 50 70 L 74 92 M 24 99 L 76 99", MARK.device, 1.6) +
       regsMark(ctx.regs, MARK.device)
   },
 
   jet: {
-    art: ctx => A.burnerSvg(N, true) + stampArt(ctx.regs) +
+    art: ctx => A.burnerSvg(N, true) +
       (ctx.reach > 1 ? artText("2", 82, 78, ART.jet, 20) : ""),
     markup: ctx => mk("M 40 98 L 40 88 L 60 88 L 60 98 M 44 84 q 6 -14 -2 -22 q 14 8 14 22",
       MARK.device, 1.5) + (ctx.reach > 1 ? mkText("2", 70, 84, MARK.device, 20) : "") +
@@ -260,7 +278,7 @@ export const DEVICE_GLYPHS = {
   door: {
     /* Symmetric: no facing. Drawn along the edge it stands on. */
     art: ctx => '<path d="M 14 98 L 86 98" stroke="' + ART.door +
-      '" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 8"/>' + stampArt(ctx.regs),
+      '" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 8"/>',
     markup: ctx => mk("M 12 98 L 88 98", MARK.door, 2.2) + regsMark(ctx.regs, MARK.door)
   },
 
@@ -268,14 +286,14 @@ export const DEVICE_GLYPHS = {
     /* The game's own press drawing -- a ram on a shaft with a bolt through it,
      * which is what the printed disc is in either box. One device, so one
      * drawing; the name it goes by is the ruleset's business. */
-    art: ctx => A.pressSvg() + stampArt(ctx.regs),
+    art: ctx => A.pressSvg(),
     markup: ctx => ceilingMark(ctx)
   },
   flamer: {
     art: ctx => '<circle cx="50" cy="52" r="26" fill="none" stroke="' + ART.flamer +
       '" stroke-width="5" stroke-dasharray="7 6"/>' +
       '<path d="M 44 62 q 8 -18 -2 -28 q 18 10 18 28" fill="none" stroke="' + ART.flamer +
-      '" stroke-width="5" stroke-linecap="round"/>' + stampArt(ctx.regs),
+      '" stroke-width="5" stroke-linecap="round"/>',
     markup: ctx => mk("M 24 52 A 26 26 0 1 1 76 52 A 26 26 0 1 1 24 52 " +
       "M 44 62 q 8 -18 -2 -28 q 18 10 18 28", MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22)
   }
@@ -287,12 +305,10 @@ export const DEVICE_GLYPHS = {
  * on the tile rather than into a legend. The game overlays an HTML span; this
  * is SVG text, since the editor emits one self-contained SVG.
  *
- * IT TURNS WITH THE DEVICE, and that is a deliberate departure. The game keeps
- * the digits upright in a fixed corner whichever way the ram points, on the
- * reasoning that a rotated number is a number nobody reads. Here the stamp sits
- * inside the rotation, so it lies along the wall the thing is bolted to and
- * reads as part of the machine rather than as a label on the square. Preferred
- * on sight, which is the only way this kind of question gets settled.
+ * IT STAYS UPRIGHT, in the square's top-left corner whichever way the device
+ * points, which is how the printed boards stamp theirs and how the old game
+ * drew them: a rotated number is a number nobody reads. The renderer draws it
+ * as its own unrotated group over the device (svg.js, deviceLayer).
  *
  * No list means every register, and the board prints nothing there -- so this
  * draws nothing either, rather than inventing a mark for the commonest case. */

@@ -1,8 +1,8 @@
 {
   "boardG": {
     "art": {
-      "sha": "5046e04386db678f",
-      "bytes": 63871
+      "sha": "7ca5c0fe7d922243",
+      "bytes": 81743
     },
     "markup": {
       "sha": "8984039b4b8ec38c",
@@ -11,8 +11,8 @@
   },
   "boardH": {
     "art": {
-      "sha": "a9aee80cdf473868",
-      "bytes": 82981
+      "sha": "e13c3e35c48b6d51",
+      "bytes": 105532
     },
     "markup": {
       "sha": "9cdcbe41e1c9eff6",
@@ -21,8 +21,8 @@
   },
   "cactus": {
     "art": {
-      "sha": "3a5cb839f810abf3",
-      "bytes": 66127
+      "sha": "e7f8236b166442aa",
+      "bytes": 91506
     },
     "markup": {
       "sha": "a24ad6112c8ca7d6",
@@ -31,8 +31,8 @@
   },
   "canneryRow": {
     "art": {
-      "sha": "e6198714cc16d2c3",
-      "bytes": 79896
+      "sha": "f7d506adcceb31e7",
+      "bytes": 105113
     },
     "markup": {
       "sha": "c3158bb6e6187950",
@@ -41,8 +41,8 @@
   },
   "cross": {
     "art": {
-      "sha": "7fdccc24ce0d9b68",
-      "bytes": 63889
+      "sha": "b14ee0e97b828e02",
+      "bytes": 87984
     },
     "markup": {
       "sha": "5b438fe31c926c42",
@@ -51,8 +51,8 @@
   },
   "dockingBay": {
     "art": {
-      "sha": "25cb497ae10502ab",
-      "bytes": 23360
+      "sha": "1ec57222e6a226b3",
+      "bytes": 25920
     },
     "markup": {
       "sha": "ca6d8108003a73d8",
@@ -61,8 +61,8 @@
   },
   "energize": {
     "art": {
-      "sha": "fd752ac62a8fa7a8",
-      "bytes": 69066
+      "sha": "d1092202fe12a9a1",
+      "bytes": 75754
     },
     "markup": {
       "sha": "f3d3603054b9a4c1",
@@ -71,8 +71,8 @@
   },
   "exchange": {
     "art": {
-      "sha": "391ae9fbc2b30d1c",
-      "bytes": 61271
+      "sha": "f67d40aeea28a153",
+      "bytes": 85580
     },
     "markup": {
       "sha": "85e2e6aa4aa0ec32",
@@ -81,8 +81,8 @@
   },
   "inAndOut": {
     "art": {
-      "sha": "43730c24c66eaa50",
-      "bytes": 62012
+      "sha": "009eeb75d4c53ca5",
+      "bytes": 88264
     },
     "markup": {
       "sha": "9bf2f211129a3d42",
@@ -91,8 +91,8 @@
   },
   "island": {
     "art": {
-      "sha": "8879d0bd702ee138",
-      "bytes": 59894
+      "sha": "aa8d0e7823cda189",
+      "bytes": 82302
     },
     "markup": {
       "sha": "b51daf0569d531cc",
@@ -101,8 +101,8 @@
   },
   "maelstrom": {
     "art": {
-      "sha": "b03baba057352d18",
-      "bytes": 76950
+      "sha": "eb19d6d1e6eb646c",
+      "bytes": 114020
     },
     "markup": {
       "sha": "50ed00425eb8b2dd",
@@ -111,8 +111,8 @@
   },
   "misdirection": {
     "art": {
-      "sha": "1c625db7066ffdff",
-      "bytes": 69339
+      "sha": "6e31d19df523bc43",
+      "bytes": 98631
     },
     "markup": {
       "sha": "98ab11f48c22e654",
@@ -121,8 +121,8 @@
   },
   "oRing": {
     "art": {
-      "sha": "7b18595f1ae097c9",
-      "bytes": 71025
+      "sha": "5f8a2cd6df8cb123",
+      "bytes": 91086
     },
     "markup": {
       "sha": "653210c8bd19ef38",
@@ -131,8 +131,8 @@
   },
   "pitMaze": {
     "art": {
-      "sha": "845b2c509285d3a2",
-      "bytes": 64854
+      "sha": "71a89d6f2ef1d9d1",
+      "bytes": 89491
     },
     "markup": {
       "sha": "a2fcb83cf56762fd",
@@ -141,8 +141,8 @@
   },
   "steps": {
     "art": {
-      "sha": "3ae927811114da3b",
-      "bytes": 63899
+      "sha": "c08462de34b65f16",
+      "bytes": 87887
     },
     "markup": {
       "sha": "5ebde556e5abfc3b",
@@ -151,8 +151,8 @@
   },
   "tempest": {
     "art": {
-      "sha": "1ead88846b918a88",
-      "bytes": 70260
+      "sha": "9029d5ee98187467",
+      "bytes": 99284
     },
     "markup": {
       "sha": "699c41a945790568",
@@ -161,8 +161,8 @@
   },
   "theKeep": {
     "art": {
-      "sha": "2639262ba1d6219a",
-      "bytes": 61027
+      "sha": "cfb945e08315ee75",
+      "bytes": 83432
     },
     "markup": {
       "sha": "725afbc729c28478",
@@ -171,8 +171,8 @@
   },
   "provingGround": {
     "art": {
-      "sha": "40e2500c1c8204fa",
-      "bytes": 65372
+      "sha": "2b9410dd0ef35e0e",
+      "bytes": 74066
     },
     "markup": {
       "sha": "37589ff3fa3ec255",
