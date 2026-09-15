@@ -47,6 +47,8 @@ function groundLayer(board, mode) {
       }
       const d = def.arg === ARG_DIR ? (dirOfChar(tok.charAt(1)) || 0) : 0;
       const ctx = { arg: tok.charAt(1), arms: ARM_CODES[tok.charAt(2)] || ARM_CODES["."], dir: d, c, r };
+      /* pits are drawn as one layer, so neighbouring pits become one hole */
+      if (mode === "art" && def.key === "pit") continue;
       const body = glyph[mode](ctx);
       if (!body) continue;
       /* the floor first, unrotated, then the element standing on it */
@@ -55,6 +57,35 @@ function groundLayer(board, mode) {
     }
   }
   return out;
+}
+
+/* PITS ARE HOLES IN THE FLOOR, and a run of them is one hole. Each pit square
+ * is painted black edge to edge, and the barricade rim -- the printed board's
+ * dimmed hazard stripe -- runs only along the sides that meet floor, so two
+ * pits side by side share one open hole with a rim round the outside. A
+ * lighter band under the northern rim gives the hole its far wall. */
+const RIM = 9;
+function pitLayer(board) {
+  const isPit = (c, r) => inBoard(board, c, r) && !isVoid(board, c, r) &&
+    (elementAt(board, c, r) || {}).key === "pit";
+  let holes = "", rims = "", walls = "";
+  for (let r = 0; r < board.h; r++) {
+    for (let c = 0; c < board.w; c++) {
+      if (!isPit(c, r)) continue;
+      const x = c * CELL, y = r * CELL;
+      holes += '<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + CELL + '"/>';
+      const open = { n: isPit(c, r - 1), e: isPit(c + 1, r), s: isPit(c, r + 1), w: isPit(c - 1, r) };
+      if (!open.n) { rims += '<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + RIM + '"/>';
+                     walls += '<rect x="' + (x + (open.w ? 0 : RIM)) + '" y="' + (y + RIM) + '" width="' + (CELL - (open.w ? 0 : RIM) - (open.e ? 0 : RIM)) + '" height="14"/>'; }
+      if (!open.s) rims += '<rect x="' + x + '" y="' + (y + CELL - RIM) + '" width="' + CELL + '" height="' + RIM + '"/>';
+      if (!open.w) rims += '<rect x="' + x + '" y="' + y + '" width="' + RIM + '" height="' + CELL + '"/>';
+      if (!open.e) rims += '<rect x="' + (x + CELL - RIM) + '" y="' + y + '" width="' + RIM + '" height="' + CELL + '"/>';
+    }
+  }
+  if (!holes) return "";
+  return '<g class="pr-art pr-pits"><g fill="' + ART.pit + '">' + holes + "</g>" +
+    '<g fill="#1a2030" opacity="0.55">' + walls + "</g>" +
+    '<g fill="url(#pr-hz)" opacity="0.42">' + rims + "</g></g>";
 }
 
 /* Site markings, drawn over the squares they mark. Their own layer rather than
@@ -264,6 +295,7 @@ export function boardSVG(board, opts = {}) {
     (o.background && o.mode === "art"
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
+    (o.mode === "art" ? pitLayer(board) : "") +
     siteLayer(board, o.mode) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +

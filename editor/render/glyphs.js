@@ -94,9 +94,11 @@ export const GLYPHS = {
   },
 
   pit: {
-    art: () => plate(ART.pit, ART.pitEdge) +
-      '<path d="M 10 10 L 30 10 L 10 30 Z M 90 90 L 70 90 L 90 70 Z" fill="' + ART.pitEdge + '" opacity="0.7"/>' +
-      '<ellipse cx="50" cy="52" rx="30" ry="28" fill="#000"/>',
+    /* one square of hole with the rim all round it; on a board, svg.js draws
+     * pits as a layer so a run of them shares one rim -- this is the swatch */
+    art: () => '<rect x="0" y="0" width="100" height="100" fill="' + ART.pit + '"/>' +
+      '<rect x="9" y="9" width="82" height="14" fill="#1a2030" opacity="0.55"/>' +
+      '<path d="M 0 0 H 100 V 100 H 0 Z M 9 9 V 91 H 91 V 9 Z" fill="url(#pr-hz)" fill-rule="evenodd" opacity="0.42"/>',
     markup: () => mk("M 16 16 L 84 84 M 84 16 L 16 84 M 8 8 L 92 8 L 92 92 L 8 92 Z", MARK.hazard, 1.6)
   },
 
