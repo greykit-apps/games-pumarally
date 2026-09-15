@@ -13,7 +13,7 @@ import { opposite, step as stepCell, rot } from "../../editor/lib/dir.js";
 import UPGRADES_DATA from "../data/upgrades.js";
 import { log, alive } from "./state.js";
 import { INSTALL_LIMIT, UPGRADE_DRAW_COST, MAX_ENERGY, card, isDamage } from "./cards.js";
-import { inGrid, isHole, wallBlocks } from "./course.js";
+import { inGrid, isHole, wallBlocks, teleporterAt } from "./course.js";
 
 const DIRS = ["North", "East", "South", "West"];
 
@@ -471,9 +471,12 @@ export const UPGRADE_ROSTER = UPGRADES_DATA.roster;
  */
 export function temporaryOffers(st, C, p, moment) {
   const out = [];
+  const onTeleporter = p.alive && teleporterAt(C, p.c, p.r);
   for (const u of p.installed) {
     const def = UPGRADE_DEFS[u.id];
     if (!def.temp || !def.offers) continue;
+    if (def.movement && onTeleporter && moment === "before") continue;   // "Movement upgrades will not function on a teleporter"
+
     for (const arg of def.offers(st, C, p, moment)) out.push({ id: u.id, ...arg });
   }
   return out;

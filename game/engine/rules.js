@@ -9,7 +9,8 @@ import { step as stepCell, rot, opposite, DC, DR, N, E, S, W } from "../../edito
 import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
-  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt
+  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
+  currentAt, levelStepAt, rampBetween, rampAt, flamerFires
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
@@ -40,7 +41,12 @@ function railed(st, C, c, r, d) {
 }
 
 export function blockedMove(st, C, c, r, d) {
-  return wallBlocks(C, c, r, d, st.register) || railed(st, C, c, r, d);
+  return wallBlocks(C, c, r, d, st.register) || railed(st, C, c, r, d) || ledgeUp(C, c, r, d);
+}
+
+/** Wet and Wild: "Robots cannot move across a ledge space from the lower level to the upper level. Use a ramp instead." */
+export function ledgeUp(C, c, r, d) {
+  return levelStepAt(C, c, r, d) > 0 && !rampBetween(C, c, r, d);
 }
 
 function tread(p) {
@@ -77,11 +83,24 @@ export function stepRobot(st, C, p, dir, cause) {
   /* far end first, so nobody is ever asked to land on an occupied square */
   for (let i = chain.length - 1; i >= 0; i--) {
     const m = chain[i];
-    const [tc, tr] = stepCell(m.c, m.r, dir);
+    let [tc, tr] = stepCell(m.c, m.r, dir);
     const from = [m.c, m.r];
+    /* "When a robot crosses over a ledge from an upper level to a lower level,
+     * draw 2 damage. Draw only 1 damage if falling into a water space." */
+    const drop = levelStepAt(C, m.c, m.r, dir) < 0 && !rampBetween(C, m.c, m.r, dir);
+    /* "When a robot is moving down a ramp, the ramp is ignored. The ramp does
+     * not act as an extra space." A lone robot heading downhill onto a ramp
+     * lands on the square below it, when that square is free floor. */
+    if (chain.length === 1 && rampAt(C, tc, tr) === opposite(dir)) {
+      const [bc, br] = stepCell(tc, tr, dir);
+      if (inGrid(C, bc, br) && !isHole(C, bc, br) && !robotAt(st, bc, br) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
+    }
     m.c = tc; m.r = tr;
     tread(m);
     st.events.push({ type: i > 0 ? "pushed" : "moved", player: m.id, from, to: [tc, tr], dir, cause, by: i > 0 ? chain[i - 1].id : undefined });
+    if (drop) { const n = waterAt(C, tc, tr) ? 1 : 2; hurt.push({ who: m, n, source: "ledge", why: "the drop off the ledge" }); }
+    /* Thrills and Spills: "A robot takes 1 damage each time it enters, passes through, or is pushed into or through an active flamer space." */
+    if (isModern(st) && inGrid(C, tc, tr) && flamerFires(C, tc, tr, st.register)) hurt.push({ who: m, n: 1, source: "flamer", why: "the flamer" });
     if (i > 0) {
       log(st, chain[i - 1].name + " shoves " + m.name + " " + DIR_NAMES[dir]);
       pushHooks(st, chain[i - 1], m, dir, cause, false, hurt);
@@ -227,6 +246,12 @@ export function playCard(st, C, p, cd, plan) {
   }
   p.hoverSteps = 0;
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
+  /* "If a robot stops on this virtual ramp space, the robot slides back to the
+   * lower level, which will push a robot occupying that space." */
+  if (moved > 0 && p.alive && rampAt(C, p.c, p.r) === dir) {
+    log(st, p.name + " stops on the ramp and slides back down");
+    stepRobot(st, C, p, opposite(dir), "ramp");
+  }
   /* "Erst wenn er seine Bewegung beendet (bremst), gerät er auf einer Öllache
    * ins Rutschen": once, after the card, and only if it actually travelled --
    * momentum it never had cannot carry it */
@@ -256,12 +281,13 @@ function stayedInFlame(st, C, p, start) {
  * it. `lo..hi` is the speed range that moves this pass: express alone (2,2),
  * then everything (1,2).
  */
-export function beltPass(st, C, lo, hi, only) {
+export function beltPass(st, C, lo, hi, only, squares) {
   const movers = new Map();
   for (const p of alive(st)) {
     if (only && p.id !== only.id) continue;
     const sp = beltAt(C, p.c, p.r);
     if (!sp || sp < lo || sp > hi) continue;
+    if (squares && !squares(C, p.c, p.r)) continue;
     const d = beltExit(C, p.c, p.r);
     if (blockedMove(st, C, p.c, p.r, d)) continue;
     const [tc, tr] = stepCell(p.c, p.r, d);
@@ -346,6 +372,7 @@ export function firstRobotAlong(st, C, c, r, dir, skipOrigin, pierce = 0) {
   if (!skipOrigin) { const h = robotAt(st, c, r); if (h) return h; }
   for (let guard = 0; guard < C.w + C.h + 2; guard++) {
     if (wallBlocks(C, c, r, dir, st.register)) { if (pierce <= 0) return null; pierce--; }
+    if (levelStepAt(C, c, r, dir) !== 0) return null;   // "cannot hit targets that are not on their same level"
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) return null;
     c = nc; r = nr;
@@ -394,6 +421,7 @@ export function computeLaserHits(st, C) {
 export function everyRobotAlong(st, C, c, r, dir) {
   const out = [];
   for (let guard = 0; guard < C.w + C.h + 2; guard++) {
+    if (levelStepAt(C, c, r, dir) !== 0) break;
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;
     c = nc; r = nr;
@@ -683,6 +711,15 @@ export function reboot(st, C, p, how) {
   const rctx = fire(st, p, "onReboot", { how, cards: 2 });
   if (rctx.cards > 0) drawDamageCards(st, p, rctx.cards, "reboot");
   else log(st, p.name + " draws no damage for it");
+}
+
+/** Thrills and Spills: "End of Register -- A robot in an active flamer space takes 1 damage." */
+export function flamerPass(st, C) {
+  for (const p of alive(st)) {
+    if (!flamerFires(C, p.c, p.r, st.register)) continue;
+    log(st, p.name + " ends the register in the flames");
+    damage(st, C, p, 1, "flamer");
+  }
 }
 
 /** "If your robot ends a register on a battery space, you gain 1 Energy." Not while shut down. */

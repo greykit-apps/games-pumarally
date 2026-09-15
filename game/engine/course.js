@@ -13,6 +13,8 @@ import {
 } from "../../editor/lib/board.js";
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
+import { levelAt } from "../../editor/lib/board.js";
+import { rampDir, rampCrosses } from "../../editor/lib/levels.js";
 import { DC, DR, opposite } from "../../editor/lib/dir.js";
 
 /* keyed on the LIBRARY as well as the document: two courses with the same
@@ -101,6 +103,28 @@ export function optionSiteAt(C, c, r) { return !!propAt(C.grid, c, r, "option");
 export function energyAt(C, c, r) { return propAt(C.grid, c, r, "energy") || 0; }
 export function oilAt(C, c, r) { return !!propAt(C.grid, c, r, "oil"); }
 export function waterAt(C, c, r) { return !!propAt(C.grid, c, r, "water"); }
+export function currentAt(C, c, r) { return !!propAt(C.grid, c, r, "current"); }
+export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize"); }
+export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
+
+/* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two
+ * squares differ in level, and a ramp is the one square that spans one ------ */
+export function levelOf(C, c, r) { return inBoard(C.grid, c, r) ? levelAt(C.grid, c, r) : 0; }
+/** Levels climbed (positive) or dropped (negative) stepping from (c,r) in `dir`; 0 off the grid. */
+export function levelStepAt(C, c, r, dir) {
+  const [nc, nr] = [c + DC[dir], r + DR[dir]];
+  if (!inBoard(C.grid, nc, nr)) return 0;
+  return levelOf(C, nc, nr) - levelOf(C, c, r);
+}
+/** Is this level change crossed by a ramp, so it is a slope and not a cliff? */
+export function rampBetween(C, c, r, dir) { return rampCrosses(C.grid, c, r, dir); }
+/** The uphill direction of the ramp at (c,r), or undefined. */
+export function rampAt(C, c, r) { return rampDir(C.grid, c, r); }
+
+/** A Thrills and Spills flamer over (c,r), active this 0-based register. */
+export function flamerFires(C, c, r, register) {
+  return ceilingAt(C.grid, c, r, "flamer").some(d => firesIn(d.regs || null, (register | 0) + 1));
+}
 
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }

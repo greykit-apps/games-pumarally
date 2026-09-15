@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween } from "./course.js";
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -38,6 +38,8 @@ export function distField(C, flagIdx) {
         if (wallBlocks(C, c, r, dir, 0)) continue;
         const [nc, nr] = stepCell(c, r, dir);
         if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) continue;
+        /* the real step is neighbour -> here: up a ledge without a ramp is no step */
+        if (levelStepAt(C, nc, nr, (dir + 2) % 4) > 0 && !rampBetween(C, nc, nr, (dir + 2) % 4)) continue;
         const ni = nr * C.w + nc;
         if (d[ni] <= d[at] + 1) continue;
         d[ni] = d[at] + 1;
@@ -60,6 +62,7 @@ function railed(st, C, c, r, d) {
 function ghostMove(st, C, g, dir) {
   if (g.dead) return;
   if (wallBlocks(C, g.c, g.r, dir, g.reg) || railed(st, C, g.c, g.r, dir)) return;
+  if (levelStepAt(C, g.c, g.r, dir) > 0 && !rampBetween(C, g.c, g.r, dir)) return;
   const [nc, nr] = stepCell(g.c, g.r, dir);
   g.c = nc; g.r = nr;
   if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
@@ -87,6 +90,13 @@ function ghostCard(st, C, g, cd) {
   const dir = plan.dist > 0 ? g.face : opposite(g.face);
   let n = Math.abs(plan.dist);
   if (n > 0 && oilAt(C, g.c, g.r)) n--;
+  if (n > 0 && isModern(st) && waterAt(C, g.c, g.r)) n--;
+  /* a teleporter throws the ghost forward the way it throws the robot */
+  if (isModern(st) && teleporterAt(C, g.c, g.r) && plan.dist !== 0) {
+    const jump = plan.dist > 0 ? plan.dist + 2 : 2;
+    const [tc, tr] = [g.c + [0, 1, 0, -1][g.face] * jump, g.r + [-1, 0, 1, 0][g.face] * jump];
+    if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr)) g.dead = true; return; }
+  }
   let moved = 0;
   for (let i = 0; i < n && !g.dead; i++) { ghostMove(st, C, g, dir); moved++; }
   if (moved > 0 && !g.dead && oilAt(C, g.c, g.r)) ghostSlide(st, C, g, dir);
@@ -108,6 +118,7 @@ function ghostBelt(st, C, g, lo, hi) {
 }
 
 function ghostBoard(st, C, g) {
+  /* the ghost does not tell green from currents: both are one square in one of the two single-speed steps */
   if (isModern(st)) { ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 1, 1); }
   else { ghostBelt(st, C, g, 2, 2); ghostBelt(st, C, g, 1, 2); }
   if (g.dead) return;

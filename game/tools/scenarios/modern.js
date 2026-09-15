@@ -694,20 +694,24 @@ export const TESTS = [
     eq(START_ENERGY, 3, "three");
   }],
   ["the 2016 floor acts in its own order, which is not the classic one", () => {
-    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "pushers", "gears", "crushers", "lasers", "batteries", "touch"], "the reference card's order");
+    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "currents", "pushers", "gears", "crushers", "lasers", "flamers", "batteries", "touch"],
+      "the reference card's order, with Wet and Wild's currents at step 3 and Thrills and Spills' flamers at the end of the register");
     assert(MODERN_ORDER.map(x => x[0]).join() !== CLASSIC_ORDER.map(x => x[0]).join(), "not the classic order");
     for (const n of ["presses", "burners"]) assert(!MODERN_ORDER.some(x => x[0] === n), "no " + n + " on the 2016 floor");
     /* every settled step of the ruleset's table has a pass, except the one
      * no shipped board prints: a current, which is declared here */
-    const passOf = { expressConveyor: ["blue1", "blue2"], conveyor: ["green"], pusher: ["pushers"], gear: ["gears"], crusher: ["crushers"],
-      boardLaser: ["lasers"], robotLaser: ["lasers"], checkpoint: ["batteries", "touch"] };
+    const passOf = { expressConveyor: ["blue1", "blue2"], conveyor: ["green"], current: ["currents"], pusher: ["pushers"], gear: ["gears"], crusher: ["crushers"],
+      boardLaser: ["lasers"], robotLaser: ["lasers"], flamer: ["flamers"], checkpoint: ["batteries", "touch"] };
     const missing = [];
+    const ordered = [];
     for (const s of rulesetFor("modern").order) {
       if (!s.settled) continue;
       if (!passOf[s.step]) { missing.push(s.step); continue; }
-      for (const n of passOf[s.step]) assert(MODERN_ORDER.some(x => x[0] === n), s.step + " runs as " + n);
+      for (const n of passOf[s.step]) { assert(MODERN_ORDER.some(x => x[0] === n), s.step + " runs as " + n); ordered.push(n); }
     }
-    eq(missing, ["current"], "the one settled step without a pass is the current, which no shipped board prints");
+    eq(missing, [], "every settled step of the ruleset's table has a pass");
+    const engine = MODERN_ORDER.map(x => x[0]).filter(n => ordered.includes(n));
+    eq(engine, ordered.filter((n, i) => ordered.indexOf(n) === i), "and the engine walks them in the table's order");
   }],
   ["a blue belt conveys twice and a green belt only once", () => {
     let co = plain((b, t) => { for (let c = 0; c < 4; c++) t.setCell(c, 3, "B>."); });

@@ -59,10 +59,11 @@ export default {
     { step: "crusher", name: "Crushers come down", settled: true },
     { step: "boardLaser", name: "Board lasers fire", settled: true },
     { step: "robotLaser", name: "Robots fire", settled: true },
-    { step: "flamer", name: "Flamers burn", settled: false,
-      note: "Thrills and Spills describes a flamer as active for the WHOLE of its registers " +
-            "rather than firing at an instant, so it may not be a step in this list at all. " +
-            "Not placed from a source that states it." },
+    { step: "flamer", name: "Flamers burn what stands in them", settled: true,
+      note: "Thrills and Spills (manual1/IMG_1250): active for the WHOLE register, so a robot takes one " +
+            "each time it enters or is pushed through an active space during the register, and " +
+            "'End of Register -- a robot in an active flamer space takes 1 damage'. That end-of-register " +
+            "point is this step; the movement points land as the robot moves." },
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 
