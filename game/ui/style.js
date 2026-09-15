@@ -119,7 +119,9 @@ button[data-ruleset]{padding:8px 14px}
 .ctl{display:flex;flex-wrap:wrap;gap:6px;margin-left:20px}
 .ask .ctl{margin:8px 0 0}
 .plan{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:4px 0 0}
-.robot .plan{margin-left:20px}
+.live{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+.live .who{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.live .ctl{margin:6px 0 0}
 .plan .col{display:flex;flex-direction:column;gap:3px;min-width:0}
 .plan .arm{font-size:9px;min-height:0;padding:1px 3px;line-height:15px;border-color:var(--line);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plan .arm[aria-pressed=true]{color:var(--good);border-color:var(--good)}

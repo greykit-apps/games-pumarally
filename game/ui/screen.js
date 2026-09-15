@@ -451,12 +451,14 @@ export function mountScreen(root, ctx) {
 
     if (st.over) {
       html += '<div class="banner"><b>' + (st.winner !== null ? esc(st.players[st.winner].name) + " wins the race." : st.unfinished ? "The race was called with no winner." : "Every robot is scrap. Nobody wins.") + "</b></div>";
-    } else if (animating) {
-      html += '<div class="ask"><p>The floor is moving&hellip;</p></div>';
+    } else if (animating || (w && !isHuman(me))) {
+      /* the floor is moving, or a bot is thinking: the humans' register
+       * plans and buttons stay up here, live, so a card can be armed or the
+       * damage button flipped while the registers run */
+      html += '<div class="ask"><p>' + (animating ? "The floor is moving&hellip;" : esc(me.name) + " is thinking.") + "</p>" +
+        st.players.filter(p => isHuman(p) && !p.out).map(p => { const ctl = ctlHtml(p), plan = planHtml(p); return ctl || plan ? '<div class="live"><span class="who" style="color:' + LIVERIES[p.livery].a + '">' + esc(p.name) + "</span>" + plan + '<div class="ctl">' + ctl + "</div></div>" : ""; }).join("") + "</div>";
     } else if (w && isHuman(me)) {
       html += requestHtml(w, me);
-    } else if (w) {
-      html += '<div class="ask"><p>' + esc(me.name) + " is thinking.</p></div>";
     }
 
     html += "<h2>Robots</h2><div class='robots'>";
@@ -478,8 +480,7 @@ export function mountScreen(root, ctx) {
       /* the mat: option cards and fitted upgrades as card faces, in the player's order, with their switches */
       const kit = kitOf(p);
       if (kit.length) html += '<div class="kit" data-kitof="' + p.id + '">' + kit.map(it => kitCardHtml(it, p, true)).join("") + "</div>";
-      const ctl = ctlHtml(p);
-      html += planHtml(p) + (ctl ? '<div class="ctl">' + ctl + "</div>" : "") + "</div>";
+      html += "</div>";
     }
     html += "</div><div class='log'></div>";
     els.side.innerHTML = html;
