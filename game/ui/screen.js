@@ -152,32 +152,30 @@ export function mountScreen(root, ctx) {
           const i = firstOnMat(me, w.options.slice(1).map(o => o - 1));
           return i === null ? 0 : i + 1;
         }
-        /* a card's own question: from a hook about the programmed card, the
-         * plan under the slots says; from anything else, the card's switch.
-         * Off answers the first option, on answers yes; more than two answers
-         * is still asked. The key names the hook that asked. */
+        /* a card's own question. A register armed under the slots is a
+         * standing yes (the key names the hook that asked, so the screen
+         * knows the question is about the programmed card). Otherwise the
+         * card's switch: on, the player is asked each time it comes up; off,
+         * its first option is taken without asking. */
         const def = w.card && w.card !== "haywire" ? OPTION_DEFS[w.card] || UPGRADE_DEFS[w.card] : null;
         if (def) {
           const hook = (w.key || "").split(":")[2];
-          const on = PLAN_HOOKS.includes(hook) ? armed(me.id, w.card, st.register) : !!pf.on[w.card];
-          if (!on) return w.options[0];
-          return w.options.length === 2 ? w.options[1] : undefined;
+          if (PLAN_HOOKS.includes(hook) && armed(me.id, w.card, st.register)) return w.options.length === 2 ? w.options[1] : undefined;
+          return pf.on[w.card] ? undefined : w.options[0];
         }
         return undefined;
       }
-      /* a temporary upgrade at this moment: before or after the card, the
-       * register plan; after the deal, the card's switch. Used the first
-       * time it can be, unless it needs an argument, which is asked */
+      /* a temporary upgrade at this moment: one armed for this register is
+       * used (asked only when it needs an argument); else one switched on is
+       * asked about; else none is used */
       case "useTemp": {
         const offers = w.options.slice(1);
-        for (const o of offers) {
-          const on = w.moment === "dealt" ? !!pf.on[o.id] : armed(me.id, o.id, st.register);
-          if (!on) continue;
-          return offers.filter(x => x.id === o.id).length === 1 ? o : undefined;
+        if (w.moment !== "dealt") {
+          for (const o of offers) if (armed(me.id, o.id, st.register)) return offers.filter(x => x.id === o.id).length === 1 ? o : undefined;
         }
-        return null;
+        return offers.some(o => pf.on[o.id]) ? undefined : null;
       }
-      /* Memory Cards: nothing is parked unless the card is switched on */
+      /* Memory Cards: nothing is parked unless the card is switched on, and then it is asked */
       case "stack": return w.why === "memoryCards" && !pf.on.memoryCards ? [] : undefined;
       default: return undefined;
     }
@@ -365,7 +363,7 @@ export function mountScreen(root, ctx) {
     return '<div class="ucard' + (it.kind === "upgrade" ? " up" : "") + (d.temp ? " temp" : "") + (d.built === false ? " inert" : "") +
       '" draggable="' + (human ? "true" : "false") + '" data-kit="' + esc(it.id) + '" data-player="' + p.id + '" data-tip="' + it.kind + ":" + esc(it.id) + ":" + p.id + '">' +
       kitArt(cat) + '<span class="n">' + esc(d.name) + '</span><span class="m">' + meta + "</span>" +
-      (d.asks && d.asksIn.switch && human ? '<button class="tog" data-tog="' + esc(it.id) + '" data-player="' + p.id + '" aria-pressed="' + on + '">' + (on ? "on" : "off") + "</button>" : "") +
+      (d.asks && human ? '<button class="tog" data-tog="' + esc(it.id) + '" data-player="' + p.id + '" aria-pressed="' + on + '">' + (on ? "on" : "off") + "</button>" : "") +
       "</div>";
   }
   /* the mat's buttons: shut down, and (classic) pay a card rather than take damage */
@@ -416,7 +414,7 @@ export function mountScreen(root, ctx) {
       const def = OPTION_DEFS[id] || UPGRADE_DEFS[id];
       const on = armed(+pid, id, +reg);
       return "<b>" + esc(def.name) + "</b><span class='tt'>register " + (+reg + 1) + "</span><p>" + esc(def.text) + "</p><p class='st'>" +
-        (on ? "Armed for this register: used here if it can be. A question with more than two answers is still put to you." : "Not armed for this register: not used here, and you are not asked.") +
+        (on ? "Armed for this register: used here if it can be, without asking. A question with more than two answers is still put to you." : "Not armed for this register: the card's switch decides, asking you if it is on.") +
         (def.single ? " One use: arming another register moves it." : "") + "</p>";
     }
     if (kind === "pref") {
@@ -437,10 +435,10 @@ export function mountScreen(root, ctx) {
     if (held && held.st && held.st.charges !== undefined) h += "<p class='st'>" + held.st.charges + (held.st.charges === 1 ? " charge" : " charges") + " left.</p>";
     if (def.built === false) h += "<p class='st'>Its effect is not built: it can be bought and fitted, and does nothing.</p>";
     if (def.asks && p && isHuman(p)) {
-      if (def.asksIn.switch) h += "<p class='st'>" + (prefsFor(p.id).on[id]
-        ? "Switched on: used whenever it can be. A question with more than two answers is still put to you."
+      h += "<p class='st'>" + (prefsFor(p.id).on[id]
+        ? "Switched on: you are asked each time it could be used."
         : "Switched off: not used, and you are not asked.") + "</p>";
-      if (def.asksIn.plan) h += "<p class='st'>Armed register by register under the slots: " +
+      if (def.asksIn.plan) h += "<p class='st'>Or arm it under a register slot to use it there without being asked: " +
         ((prefsFor(p.id).plan[id] || []).map((v, i) => v ? i + 1 : 0).filter(Boolean).join(", ") || "none") + ".</p>";
     }
     return h;
