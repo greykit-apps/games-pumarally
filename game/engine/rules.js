@@ -44,6 +44,22 @@ export function robotAt(st, c, r) {
   return null;
 }
 
+/* VIRTUAL ROBOTS (classic p.8, p.15): a robot re-entering the race on a
+ * square another robot is on comes back "virtual". "A virtual robot doesn't
+ * interact with other robots. It doesn't shoot other robots, and other
+ * robots don't shoot it; virtual robots aren't pushed by other robots, and
+ * other robots don't push virtual robots. However, virtual robots are
+ * affected by all board elements; they are blocked by walls, can fall into
+ * pits, can be shot by board-mounted lasers, and are affected by conveyor
+ * belts, gears, etc." It becomes real at the end of a turn alone on its
+ * square. So every robot-to-robot question goes through solidAt: the robot
+ * `mover` would meet at (c,r), which is nobody when either is virtual. */
+export function solidAt(st, c, r, mover) {
+  if (mover && mover.virtual) return null;
+  for (const p of st.players) if (p.alive && !p.virtual && p.c === c && p.r === r) return p;
+  return null;
+}
+
 /* THE BUMPERS HOUSE RULE: a rail round the play area, so nothing can be
  * driven, shoved or carried off it. Kept apart from wallBlocks() because a
  * laser beam asks that one, and a beam leaving the course hits nothing
@@ -90,7 +106,7 @@ export function stepRobot(st, C, p, dir, cause) {
     }
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;                    // the head walks off the edge
-    const occ = robotAt(st, nc, nr);
+    const occ = solidAt(st, nc, nr, p);
     if (!occ) break;
     chain.push(occ); c = nc; r = nr;
   }
@@ -101,7 +117,7 @@ export function stepRobot(st, C, p, dir, cause) {
     /* Bunny Hop: "you may hop over it to the next adjacent empty space if possible instead" -- its own card, one robot, the square beyond free */
     if (cause === "card" && chain.length === 2 && has(p, "bunnyHop")) {
       const [hc, hr] = stepCell(first.c, first.r, dir);
-      if (inGrid(C, hc, hr) && !isHole(C, hc, hr) && !robotAt(st, hc, hr) && !blockedMove(st, C, first.c, first.r, dir)) {
+      if (inGrid(C, hc, hr) && !isHole(C, hc, hr) && !solidAt(st, hc, hr, p) && !blockedMove(st, C, first.c, first.r, dir)) {
         const from = [p.c, p.r];
         p.c = hc; p.r = hr;
         tread(p);
@@ -153,7 +169,7 @@ export function stepRobot(st, C, p, dir, cause) {
      * lands on the square below it, when that square is free floor. */
     if (chain.length === 1 && rampAt(C, tc, tr) === opposite(dir)) {
       const [bc, br] = stepCell(tc, tr, dir);
-      if (inGrid(C, bc, br) && !isHole(C, bc, br) && !robotAt(st, bc, br) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
+      if (inGrid(C, bc, br) && !isHole(C, bc, br) && !solidAt(st, bc, br, m) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
     }
     m.c = tc; m.r = tr;
     tread(m);
@@ -241,7 +257,7 @@ export function oilSlide(st, C, p, dir) {
       if (blockedMove(st, C, c, r, dir)) { stopped = true; break; }
       const [nc, nr] = stepCell(c, r, dir);
       if (!inGrid(C, nc, nr)) break;                  // the head goes over the edge: that is a slide too
-      const occ = robotAt(st, nc, nr);
+      const occ = solidAt(st, nc, nr, p);
       if (!occ) break;
       if (!oilAt(C, nc, nr) || shoving) { stopped = true; break; }
       shoving++; c = nc; r = nr;
@@ -367,7 +383,7 @@ export function beltPass(st, C, lo, hi, only, squares) {
     if (p.moonwalk === st.turn) {
       const rd = opposite(d);
       const [rc, rr] = stepCell(p.c, p.r, rd);
-      if (!blockedMove(st, C, p.c, p.r, rd) && !(inGrid(C, rc, rr) && robotAt(st, rc, rr))) d = rd;
+      if (!blockedMove(st, C, p.c, p.r, rd) && !(inGrid(C, rc, rr) && solidAt(st, rc, rr, p))) d = rd;
     }
     if (blockedMove(st, C, p.c, p.r, d)) continue;
     /* Top Heavy: "If your robot is about to be moved by a conveyor belt, it may ignore all conveyor
@@ -385,10 +401,11 @@ export function beltPass(st, C, lo, hi, only, squares) {
   for (let changed = true; changed;) {
     changed = false;
     for (const [id, m] of movers) {
-      const occ = robotAt(st, m.to[0], m.to[1]);
+      const mover = st.players[id];
+      const occ = solidAt(st, m.to[0], m.to[1], mover);
       if (occ && occ.id !== id && !movers.has(occ.id)) { movers.delete(id); changed = true; break; }
       for (const [id2, m2] of movers) {
-        if (id2 === id) continue;
+        if (id2 === id || mover.virtual || st.players[id2].virtual) continue;     // a virtual robot meets nobody
         if (m2.to[0] === m.to[0] && m2.to[1] === m.to[1]) { movers.delete(id); movers.delete(id2); changed = true; break; }
       }
       if (changed) break;
@@ -458,15 +475,16 @@ export function jetPass(st, C) {
 }
 
 /** The first robot a beam meets from (c,r) heading `dir`, or null. Robot lasers skip their own square; `pierce` walls may be shot through. */
-export function firstRobotAlong(st, C, c, r, dir, skipOrigin, pierce = 0) {
-  if (!skipOrigin) { const h = robotAt(st, c, r); if (h) return h; }
+export function firstRobotAlong(st, C, c, r, dir, skipOrigin, pierce = 0, shooter) {
+  const at = (cc, rr) => shooter ? solidAt(st, cc, rr, shooter) : robotAt(st, cc, rr);
+  if (!skipOrigin) { const h = at(c, r); if (h) return h; }
   for (let guard = 0; guard < C.w + C.h + 2; guard++) {
     if (wallBlocks(C, c, r, dir, st.register)) { if (pierce <= 0) return null; pierce--; }
     if (levelStepAt(C, c, r, dir) !== 0) return null;   // "cannot hit targets that are not on their same level"
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) return null;
     c = nc; r = nr;
-    const h = robotAt(st, c, r);
+    const h = at(c, r);
     if (h) return h;
   }
   return null;
@@ -488,6 +506,7 @@ export function computeLaserHits(st, C, cache) {
   }
   for (const p of alive(st)) {
     if (p.poweredDown) continue;                       // a powered-down or shut-down robot does not shoot
+    if (p.virtual) continue;                           // a virtual robot shoots nobody
     /* the main laser is marked as such: a main-laser mod applies to it and
      * not to an additional weapon like the rear laser; the register's card
      * is named so a card that fires on a manoeuvre (Laser Kata) can see it */
@@ -499,7 +518,7 @@ export function computeLaserHits(st, C, cache) {
     let shots = cache && cache[p.id];
     if (!shots) {
       const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: p.laserBonus === st.register ? 2 : 1, pierce: 0 }], cardKind,
-        sees: d => firstRobotAlong(st, C, p.c, p.r, d, true, 0) });
+        sees: d => firstRobotAlong(st, C, p.c, p.r, d, true, 0, p) });
       if (ctx.pending) return { ask: ctx.ask };
       shots = ctx.shots;
       if (cache) cache[p.id] = shots;
@@ -508,8 +527,8 @@ export function computeLaserHits(st, C, cache) {
       if (sh.damage <= 0) continue;
       /* a rail gun's beam goes on through every robot and wall to the edge */
       /* a shot with a named target (Indirect Fire) hits it whatever lies between */
-      const victims = sh.target !== undefined ? [st.players[sh.target]].filter(v => v && v.alive)
-        : sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0)].filter(Boolean);
+      const victims = sh.target !== undefined ? [st.players[sh.target]].filter(v => v && v.alive && !v.virtual)
+        : sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir, p) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0, p)].filter(Boolean);
       for (const v of victims) {
         hits.push({ target: v, damage: sh.damage, from: p.name + "'s laser", shooter: p, dir: sh.dir, at: [p.c, p.r], main: sh.main,
           distance: Math.abs(v.c - p.c) + Math.abs(v.r - p.r) });
@@ -520,14 +539,14 @@ export function computeLaserHits(st, C, cache) {
 }
 
 /** Every robot on the line from (c,r) heading `dir`, walls or not, nearest first. */
-export function everyRobotAlong(st, C, c, r, dir) {
+export function everyRobotAlong(st, C, c, r, dir, shooter) {
   const out = [];
   for (let guard = 0; guard < C.w + C.h + 2; guard++) {
     if (levelStepAt(C, c, r, dir) !== 0) break;
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;
     c = nc; r = nr;
-    const h = robotAt(st, c, r);
+    const h = shooter ? solidAt(st, c, r, shooter) : robotAt(st, c, r);
     if (h) out.push(h);
   }
   return out;
@@ -860,6 +879,7 @@ export function destroy(st, C, p, how) {
   if (!p.alive) return;
   if (isModern(st)) { reboot(st, C, p, how); return; }
   p.alive = false;
+  p.virtual = false;
   p.lives--;
   for (const i of p.hand) st.discard.push(i);
   p.hand = [];

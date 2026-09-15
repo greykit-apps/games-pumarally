@@ -347,7 +347,16 @@ does. A robot already down is still asked whether to stay down.
 M1, the classic engine headless, is built: draft, deal, programming, the five
 registers in the printed order, damage and locking, destruction and return,
 power down as three moments, repair at cleanup, checkpoints and the win, the
-bots ported, and the bumpers and flag-touch house rules. Not yet: anything modern.
+bots ported, and the bumpers and flag-touch house rules.
+
+Virtual robots (classic pp.8 and 15, IMG_1199 and IMG_1202) are built: a
+robot returning to its archive square while another robot stands there
+comes back on the square, virtual. It meets no robot: it pushes none and is
+pushed by none, shoots none and is shot by none, while walls, pits, belts,
+gears and board lasers act on it as on anything. Alone on its square at the
+end of a turn, it becomes real. Every robot-to-robot question in the rules
+goes through one function, `solidAt`, which is where the exception lives.
+The start of the race stays on the docking bays, one robot to a bay.
 
 ## Open, and recorded here rather than solved in passing
 

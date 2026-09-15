@@ -422,15 +422,16 @@ const STEPS = {
     respawn(st, C) {
       for (const p of st.players) {
         if (p.alive || p.out) continue;
-        const spot = freeSpotNear(st, C, p.archive.c, p.archive.r);
-        if (!spot) { p.out = true; log(st, p.name + " has nowhere to return to and is out"); continue; }
+        /* back onto the archive square itself; sharing it with anybody makes the robot virtual (p.8, p.15) */
+        const spot = [p.archive.c, p.archive.r];
         const rctx = fire(st, p, "onRespawn", { damage: 2, facing: p.archive.face });
+        p.virtual = !!robotAt(st, spot[0], spot[1]);
         p.c = spot[0]; p.r = spot[1];
         p.face = rctx.facing;
         p.damage = rctx.damage;
         p.alive = true;
-        st.events.push({ type: "respawned", player: p.id, at: spot, damage: p.damage });
-        log(st, p.name + " returns at (" + p.c + "," + p.r + ") with " + p.damage + " damage");
+        st.events.push({ type: "respawned", player: p.id, at: spot, damage: p.damage, virtual: p.virtual });
+        log(st, p.name + " returns at (" + p.c + "," + p.r + ") with " + p.damage + " damage" + (p.virtual ? ", virtual" : ""));
       }
       if (!racing(st).length) { st.over = true; log(st, "Every robot is scrap. Nobody wins."); return; }
       go(st, "turn", "powerStart");
@@ -935,6 +936,14 @@ const STEPS = {
       go(st, "cleanup", "endTurn");
     },
     endTurn(st) {
+      /* "At the end of a turn, if a virtual robot is on a square all by itself, it then becomes a real robot." */
+      for (const p of st.players) {
+        if (!p.alive || !p.virtual) continue;
+        if (st.players.some(q => q.alive && q.id !== p.id && q.c === p.c && q.r === p.r)) continue;
+        p.virtual = false;
+        st.events.push({ type: "real", player: p.id });
+        log(st, p.name + " is alone on its square and becomes real");
+      }
       for (const p of st.players) {
         /* Circuit Breaker: three or more damage at the end of the turn is a forced power down */
         if (p.alive && !p.announceDown && fire(st, p, "onTurnEnd", { powerDown: false }).powerDown) {

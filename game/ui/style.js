@@ -36,6 +36,8 @@ h2:first-child{margin-top:0}
 .overlay .pr-nose{fill:var(--a)}
 .overlay .pr-eye{fill:var(--bg);stroke:var(--a);stroke-width:3}
 .overlay .piece.down{opacity:.55}
+.overlay .piece.virtual{opacity:.5}
+.overlay .piece.virtual .pr-hull{stroke-dasharray:8 6}
 .overlay .piece.gone{opacity:0}
 .overlay .piece.hit .pr-hull{fill:var(--danger)}
 .overlay .beam{stroke:var(--danger);stroke-width:6;stroke-linecap:round;opacity:.9;filter:drop-shadow(0 0 6px var(--danger))}
