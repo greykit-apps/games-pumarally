@@ -414,8 +414,25 @@ node editor/tools/check-format.js           # validate, round-trip, and the ASCI
 node editor/tools/render-snapshot.js --check
 node editor/tools/check-wiring.js           # no control the inspector draws is dead
 node editor/tools/build-index.js --check    # data/index.json lists exactly what is in data/
+node editor/tools/swap-sites.js --check     # every wrench square has a battery, and the reverse
 node editor/tools/check-editor-assets.js    # and the deploy will actually publish it all
 ```
+
+### The swap rule: authored markings, and how they are told apart
+
+Decided 2026-09-15, for every board with no better information: **a battery
+on every wrench square and a one-wrench repair site on every battery square**,
+so that most boards play under either ruleset. `swap-sites.js` applies it and
+`--check` reports any board that breaks it. Neither printing has the other's
+marking, so each one the tool adds is **authored, not transcribed**, and the
+square's site note says so in a fixed form — `authored battery -- the swap
+rule …` — that `authoredOf()` in `rulesets/sites.js` reads back.
+`convert-boards.js --check` strips exactly those markings before comparing the
+JSON with the old data, so the proof that the printed content still means what
+it meant survives, and an authored marking that forgot to say so fails it.
+Board design is expected to revisit these square by square; the notes are how
+they will be found. Flag locations are **not** authored by any rule and no
+board marks one yet.
 
 ### Shipping a board or a course
 

@@ -25,6 +25,8 @@ import { fileURLToPath } from "node:url";
 import { blankBoard, setCell, idx, deviceCell, laserPath, propAt, blockedAt as newBlocked } from "../lib/board.js";
 import { setWall, EDGE_WALL, EDGE_DOOR, edgeOf, wallAt as newWallAt } from "../lib/edges.js";
 import { boardJSON } from "../lib/canon.js";
+import { siteList, setSites } from "../lib/board.js";
+import { authoredOf } from "../rulesets/sites.js";
 import { rotateBoard } from "../lib/rotate.js";
 import { armsFromAbsolute, absoluteArms, tokenBeltSpeed } from "../lib/token.js";
 import { opposite, dirLetter, N, E, S, W } from "../lib/dir.js";
@@ -353,13 +355,32 @@ for (const id of ids) {
 
   const path = join(OUT, id + ".json");
   if (check) {
+    /* THE OLD DATA IS THE PRINTED BOARD, and the checked-in JSON may carry
+     * more than that: markings swap-sites.js authored, each declared in its
+     * square's note. Those are stripped before the comparison, so the check
+     * still proves the printed content means what the old data meant, and an
+     * authored marking that forgot to say so still fails it. */
     const have = existsSync(path) ? readFileSync(path, "utf8") : null;
     if (have === null) { note(id, 0, "no checked-in JSON at " + path); drift++; }
-    else if (have !== text) { note(id, 0, "checked-in JSON differs from a fresh conversion"); drift++; }
+    else if (printedOnly(have) !== text) { note(id, 0, "checked-in JSON differs from a fresh conversion (after stripping authored markings)"); drift++; }
   } else {
     writeFileSync(path, text);
     wrote++;
   }
+}
+
+/** The checked-in JSON with every authored site marking removed, as canon text. */
+function printedOnly(text) {
+  const { board } = checkBoardDocument(JSON.parse(text));
+  if (!board) return text;
+  for (const s of siteList(board)) {
+    const key = s.c + "," + s.r;
+    const authored = authoredOf(board.siteNotes.get(key));
+    if (!authored.length) continue;
+    setSites(board, s.c, s.r, s.has.filter(k => !authored.includes(k)));
+    board.siteNotes.delete(key);
+  }
+  return boardJSON(board);
 }
 
 /* --- courses ---------------------------------------------------------------

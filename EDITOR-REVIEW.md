@@ -208,7 +208,13 @@ the `turnHere` copy and the empty door register list. Bug 15 is now a warning
 under the rulebook's wording. Gap A is closed by `editor/tools/build-index.js`
 and a Download button on both export dialogs. Not done: bug 9's *forget*
 confirm, the picture round-trip's metadata (documented behaviour), right-click
-precedence near an edge, gaps B, C and D.
+precedence near an edge, gaps B and D.
+
+Gap C is closed under the **swap rule**, decided the same day for boards with
+no better information: `swap-sites.js` added 31 batteries to the classic
+boards' wrench squares and 39 one-wrench repair sites to the 2016 boards'
+battery squares, each noted on its square as authored, so board design can
+revisit them. Gap B, the flag locations, waits for that board-design pass.
 
 ## Order of work
 

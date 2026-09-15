@@ -91,3 +91,22 @@ export function siteProps(has) {
   for (const k of canonSites(has)) Object.assign(out, SITES[k].props);
   return out;
 }
+
+/* --- authored markings ---------------------------------------------------
+ * A board's markings are transcribed from the print, with one exception: the
+ * swap rule (editor/tools/swap-sites.js) adds a battery to every wrench square
+ * and a wrench to every battery square so most boards play under either
+ * ruleset. Such a marking is NOT printed, and the square's site note says so
+ * in a form these two functions write and read, so a tool comparing the data
+ * with the print can strip exactly the authored part. */
+export const SWAP_RULE = "the swap rule: a battery on every wrench, a wrench on every battery; not printed";
+
+/** The note fragment declaring one marking authored. */
+export function authoredNote(key) { return "authored " + key + " -- " + SWAP_RULE; }
+
+/** The markings a site note declares as authored, e.g. ["battery"]. */
+export function authoredOf(note) {
+  const out = [];
+  for (const m of String(note || "").matchAll(/\bauthored (repair|upgrade|battery|flagspot)\b/g)) out.push(m[1]);
+  return out;
+}

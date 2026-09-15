@@ -24,9 +24,9 @@
       "... bv. ... b^. ... bv. ... ... bv. ... o.. ..."
     ],
     "sites": [
-      { "at": [11, 0], "has": ["repair"] },
-      { "at": [7, 4], "has": ["upgrade"] },
-      { "at": [0, 11], "has": ["repair"] }
+      { "at": [11, 0], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [7, 4], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [0, 11], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
     ]
   },
   "wall": {

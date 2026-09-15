@@ -63,7 +63,10 @@ export function toPicture(board) {
   const sites = siteList(board);
   if (sites.length) {
     tail.push("sites:");
-    for (const s of sites) tail.push("  " + s.c + "," + s.r + " " + s.has.join(" "));
+    for (const s of sites) {
+      const note = board.siteNotes && board.siteNotes.get(s.c + "," + s.r);
+      tail.push("  " + s.c + "," + s.r + " " + s.has.join(" ") + (note ? " -- " + note : ""));
+    }
   }
   const wd = board.wallDevices.filter(d => needsTail(d));
   if (wd.length) {
@@ -144,9 +147,10 @@ export function fromPicture(text, meta = {}) {
       if (body.length !== w) throw new Error("level row " + r + " is " + body.length + " characters, expected " + w);
       for (let c = 0; c < w; c++) setLevel(board, c, r, +body.charAt(c));
     } else if (section === "sites") {
-      const m = /^(\d+),(\d+)\s+(.+)$/.exec(body);
+      const m = /^(\d+),(\d+)\s+(.+?)(?:\s+--\s+(.*))?$/.exec(body);
       if (!m) throw new Error("not a site line: " + JSON.stringify(body));
       setSites(board, +m[1], +m[2], m[3].split(/\s+/));
+      if (m[4]) board.siteNotes.set(m[1] + "," + m[2], m[4]);
     } else if (section === "wall") {
       board.wallDevices.push(readWallLine(body));
     } else if (section === "ceiling") {
