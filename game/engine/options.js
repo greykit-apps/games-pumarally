@@ -344,7 +344,7 @@ export const OPTION_DEFS = {};
 for (const c of OPTIONS_DATA.cards) {
   const b = BEHAVIOUR[c.id];
   if (!b) throw new Error("option card " + c.id + " is transcribed but has no behaviour");
-  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, hooks: b.hooks, init: b.init, botPrefers: b.botPrefers };
+  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, de: c.de || null, cat: c.cat || null, asks: !!c.asks, hooks: b.hooks, init: b.init, botPrefers: b.botPrefers };
 }
 for (const id of Object.keys(BEHAVIOUR)) if (!OPTION_DEFS[id]) throw new Error("option behaviour " + id + " has no card");
 export const OPTION_IDS = Object.keys(OPTION_DEFS);
