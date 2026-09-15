@@ -127,7 +127,12 @@ export function newGame(opts) {
       deck: [], pile: [],
       shelf: [], installed: [],
       rebooting: false,
-      upgradeDone: false, bought: false, fitted: false
+      upgradeDone: false, bought: false, fitted: false,
+      /* Crab Legs' second card per register, Memory Cards' parked cards,
+       * Self-Diagnostics' cards taken out of the game, and what this card
+       * pushed and moved for the hooks that ask afterwards */
+      crab: new Array(REGISTERS).fill(null), parked: [], removed: [],
+      pushed: [], lastMove: null, hoverSteps: 0, drilled: null, newCheckpoint: false, stackBack: 0
     });
   });
 
@@ -173,4 +178,23 @@ export function log(st, msg) {
   st.log.push({ turn: st.turn, reg: st.register, msg });
   if (st.log.length > 400) st.log.shift();
   st.events.push({ type: "log", msg });
+}
+
+/**
+ * A save written by an earlier build may lack fields a later one reads.
+ * Fill them with their defaults, once, on load. Every field added to a
+ * player after the first release is listed here with the value a new game
+ * gives it, so a resumed race is the same shape as a fresh one.
+ */
+export function normaliseSave(st) {
+  const P = { energy: 0, deck: [], pile: [], shelf: [], installed: [], rebooting: false, upgradeDone: false, bought: false, fitted: false,
+    parked: [], removed: [], pushed: [], lastMove: null, hoverSteps: 0, drilled: null, newCheckpoint: false, stackBack: 0 };
+  for (const p of st.players || []) {
+    for (const k of Object.keys(P)) if (p[k] === undefined) p[k] = Array.isArray(P[k]) ? [] : P[k];
+    if (!p.crab) p.crab = new Array(REGISTERS).fill(null);
+  }
+  const S = { priority: 0, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };
+  for (const k of Object.keys(S)) if (st[k] === undefined) st[k] = Array.isArray(S[k]) ? [] : S[k];
+  if (!st.ruleset) st.ruleset = "classic";
+  return st;
 }

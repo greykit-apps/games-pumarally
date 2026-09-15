@@ -63,6 +63,9 @@ h2:first-child{margin-top:0}
 .card.spam{border-color:var(--danger);background:#1a0b0b}
 .card.spam .g{color:var(--danger)}
 .chip.up{border-color:var(--warn);color:var(--warn)}
+.hand .pair{font-size:10px;padding:2px 6px;min-height:0;align-self:center;border-color:var(--warn);color:var(--warn)}
+.slot .crab{position:absolute;bottom:2px;font-size:9px;color:var(--warn)}
+.card[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .chip.inert{opacity:.6;border-style:dashed}
 button[data-ruleset]{padding:8px 14px}
 .card.k{position:absolute;top:2px;right:4px}

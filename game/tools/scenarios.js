@@ -1328,6 +1328,141 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "every transcribed upgrade is bound: built, or inert and saying why",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Lucky Booster and Rewire are declared inert until Haywire is photographed",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Chaos Theory turns a revealed SPAM into Energy in the first three registers, once",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Crab Legs pairs a Move 1 with a rotate and sidesteps instead of either",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Drifting and Power Slide roll one forward after a rotate, if you say so",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Energy Conversion moves you after a board laser hit, not a robot's",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Firewall spares the pit's two SPAM, not the edge's",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Hover Unit crosses a pit and falls in only where the move ends",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Memory Cards park cards for next round and give them back at the upgrade phase",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Mini Howitzer costs an Energy, hits for two and shoves",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Modular Chassis trades itself for one of the shoved robot's upgrades",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Self-Diagnostics tears a card out of the game at a new checkpoint",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Spam Filter shows the top of the deck, and nothing else",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Spiky costs the robot that shoves you a card, even when the shove fails",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Ramming Gear bites even when the push fails, during your own card only",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a temporary upgrade is offered at its moment, used once, and gone",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Abort Switch swaps a revealed card for the top of the deck",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "All Aboard rides the belts alone, blue twice then green",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Boink hops to a free neighbour without turning, never through a wall",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Calibration Protocol scraps the SPAM in hand and draws that many",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Displacing Blast sends the target to its reboot point facing the same way",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Magnetic pulls a neighbour along with a card move",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Memory Swap draws three and puts three back on top in order",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Overclocked and Pressure Release are movement, before or after the card",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Piercing Drill hurts and spins the robot you shove",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Re-initialize hands the Priority Token to anyone, Recharge takes three",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "Switch trades places with a neighbour, Zoop faces any way",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
     "name": "a trap with no register printed on it fires in every one",
     "layer": "rules",
     "status": "pending"

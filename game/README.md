@@ -49,7 +49,7 @@ not by none of them.
 |---|---|---|
 | `livery` | each human seat, in seat order, before the draft | a livery index not already taken |
 | `bay` | each racer in draft order | a free docking-bay number |
-| `program` | each racer with an open register, at programming | the card indices for the open registers, in order |
+| `program` | each racer with an open register, at programming | the card indices for the open registers, in order; with Crab Legs fitted (`crab` on the request) an entry may be a pair `[rotate, move1]` |
 | `powerDown` | each racer, after programming (classic) | `true` to announce a power down |
 | `stayDown` | a powered-down racer, at cleanup (classic) | `true` to stay down |
 | `siteChoice` | a racer ending the turn on a two-wrench site (classic) | `"repair"` or `"card"` |
@@ -57,6 +57,8 @@ not by none of them.
 | `rebootFacing` | a rebooting racer re-entering in register 1 (modern) | a direction, 0 to 3 |
 | `upgrade` | each racer, at the upgrade phase (modern) | `{ buy: bool, install: id or null, uninstall: [ids] }`; `options` lists each part; a draw or an uninstall alone is asked again so the new card can be fitted, an install or an empty answer is Done |
 | `shutdown` | each racer on the floor, after programming and before the first reveal (modern) | `true` to shut down for the round |
+| `useTemp` | a racer holding a usable temporary upgrade, at a moment (`dealt`: before programming; `before` and `after` its own card) | `null` for none, or one of the listed uses `{ id, ... }`; the use happens as the answer lands, and the moment asks again until none |
+| `stack` | a racer with cards to choose from the hand: Memory Swap's three back on the deck, Memory Cards' parking | hand indices in order, exactly `count` or any number when `count` is null |
 
 A request always carries `options`: the legal answers, enumerated. An answer
 not in `options` is refused with the same request returned again. A bot that
@@ -134,6 +136,19 @@ conservation law breaks, a request goes unanswerable, or no game is ever won.
 CI runs both after the editor's checks.
 
 ## Status
+
+All forty upgrade cards have their effect (M5, first part), read off the
+rulebook pp.21-23 (`manual1/IMG_1264`, `IMG_1265`): the twenty-nine that
+were installable and inert now act, through the same hooks as option cards
+where they are passive and through two new moments where they are not. A
+2016 robot's activation is three moments -- before its card, the card, after
+it -- and a temporary upgrade is offered at the moment the book gives it
+(movement upgrades "immediately before or after", the rest "at any time",
+read as before programming and at either side of the card), used once, and
+discarded as the answer lands. Two stay inert and say so: Lucky Booster and
+Rewire need Haywire cards, which are not photographed. Thirty-nine scenarios
+cover them. Also on this pass: a push a wall stops is still a push for
+Ramming Gear and Spiky, and older saves are normalised on load.
 
 The 2016 rules are built (M4), read off the 2023-printing rulebook and its
 reference card (`manual1/IMG_1252` to `IMG_1269`), and chosen at set-up:

@@ -8,7 +8,7 @@
  */
 import { injectCSS } from "./style.js";
 import { loadLibraryFromUrl, readCourse } from "../engine/library.js";
-import { newGame, isHuman } from "../engine/state.js";
+import { newGame, isHuman, normaliseSave } from "../engine/state.js";
 import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
 import { mountSetup } from "./setup.js";
@@ -22,7 +22,7 @@ const SPEED_KEY = "pumarally_speed_v2";
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
 function saveGame(st) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* no storage */ } }
-function loadGame() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+function loadGame() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s ? normaliseSave(s) : null; } catch (e) { return null; } }
 function clearGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* no storage */ } }
 
 const host = document.querySelector("[data-pumarally-game]");
@@ -82,19 +82,23 @@ async function advance(answer) {
   if (busy) return;
   busy = true;
   let a = answer;
-  for (;;) {
-    const r = step(st, library, a);
-    a = undefined;
-    saveGame(st);
-    if (st.over) { clearGame(); await screen.update(st, r.events); break; }
-    if (r.refused) { await screen.update(st, []); break; }
-    await screen.update(st, r.events);
-    const w = st.waiting;
-    if (!w) break;
-    if (isHuman(st.players[w.player])) break;
-    a = botAnswer(st, library, w);
+  try {
+    for (;;) {
+      const r = step(st, library, a);
+      a = undefined;
+      saveGame(st);
+      if (st.over) { clearGame(); await screen.update(st, r.events); break; }
+      if (r.refused) { await screen.update(st, []); break; }
+      await screen.update(st, r.events);
+      const w = st.waiting;
+      if (!w) break;
+      if (isHuman(st.players[w.player])) break;
+      a = botAnswer(st, library, w);
+    }
+  } finally {
+    /* an exception must not wedge the loop: the next click still steps */
+    busy = false;
   }
-  busy = false;
 }
 
 function submit(answer) { advance(answer); }

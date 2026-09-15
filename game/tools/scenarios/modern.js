@@ -383,15 +383,15 @@ export const TESTS = [
   /* --- upgrades ---------------------------------------------------------------- */
   ["the upgrade deck is forty cards, all of them written down", () => {
     eq(UPGRADE_IDS.length, 40, "forty upgrades");
-    eq(UPGRADE_ROSTER, { printed: 40, transcribed: 40, built: 11 }, "the roster");
+    eq(UPGRADE_ROSTER, { printed: 40, transcribed: 40, built: 38 }, "the roster");
     let built = 0;
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
       assert(d.name && d.text && Number.isInteger(d.cost) && /^(permanent|temporary)$/.test(d.type), id + " has name, text, cost and type");
-      if (d.built) { built++; assert(Object.keys(d.hooks).length, id + " is built and binds a hook"); }
-      else eq(Object.keys(d.hooks), [], id + " is not built and binds nothing");
+      if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use, id + " is built and binds a hook or a use"); }
+      else { eq(Object.keys(d.hooks), [], id + " is inert and binds nothing"); assert(d.inert, id + " says why"); }
     }
-    eq(built, 11, "eleven built");
+    eq(built, 38, "thirty-eight built");
   }],
   ["three upgrades are dealt at setup, and the forty are conserved", () => {
     const co = plain();
@@ -459,9 +459,9 @@ export const TESTS = [
     const p = st.players[0];
     for (const q of st.players) q.shelf = [];
     st.upgradeDeck = UPGRADE_IDS.slice();
-    shelve(st, p, "hoverUnit"); p.energy = 5;
+    shelve(st, p, "luckyBooster"); p.energy = 5;
     const lines = st.log.length;
-    assert(installUpgrade(st, p, "hoverUnit"), "it can be bought and fitted like any other");
+    assert(installUpgrade(st, p, "luckyBooster"), "it can be bought and fitted like any other");
     assert(/not built/.test(st.log[st.log.length - 1].msg), "and the log says its effect is not built");
     assert(lines < st.log.length, "said out loud");
     for (const h of ["modifyMove", "onDamage", "laserShots", "onPush"]) { const ctx = fire(st, p, h, { amount: 1, shots: [], dist: 1, kind: "move", pushDamage: 0 }); assert(!ctx.pending, "it asks nothing"); }

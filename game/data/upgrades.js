@@ -3,11 +3,11 @@ export default {
   "format": "PRCards",
   "version": 1,
   "kind": "modern-upgrade",
-  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed. `built` says whether the old engine ran its effect.",
+  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed. `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); the two that are not need Haywire cards, which are not photographed.",
   "roster": {
     "printed": 40,
     "transcribed": 40,
-    "built": 11
+    "built": 38
   },
   "cards": [
     {
@@ -24,7 +24,7 @@ export default {
       "cost": 2,
       "type": "permanent",
       "text": "Revealing SPAM in one of the first three registers earns you an Energy.",
-      "built": false
+      "built": true
     },
     {
       "id": "crabLegs",
@@ -32,7 +32,7 @@ export default {
       "cost": 5,
       "type": "permanent",
       "text": "A Move 1 alongside a rotate slides you sideways instead of turning.",
-      "built": false
+      "built": true
     },
     {
       "id": "deflectorShield",
@@ -56,7 +56,7 @@ export default {
       "cost": 4,
       "type": "permanent",
       "text": "After a left rotate you may roll one square forward.",
-      "built": false
+      "built": true
     },
     {
       "id": "energyConversion",
@@ -64,7 +64,7 @@ export default {
       "cost": 3,
       "type": "permanent",
       "text": "A board laser hit lets you shift one square either way.",
-      "built": false
+      "built": true
     },
     {
       "id": "firewall",
@@ -72,7 +72,7 @@ export default {
       "cost": 1,
       "type": "permanent",
       "text": "Falling into a pit costs you no damage cards.",
-      "built": false
+      "built": true
     },
     {
       "id": "flashDrive",
@@ -88,7 +88,7 @@ export default {
       "cost": 1,
       "type": "permanent",
       "text": "You cross pits, and fall in only if you stop on one.",
-      "built": false
+      "built": true
     },
     {
       "id": "laserKata",
@@ -104,7 +104,7 @@ export default {
       "cost": 3,
       "type": "permanent",
       "text": "Park cards here at the end of programming and take them back next round.",
-      "built": false
+      "built": true
     },
     {
       "id": "miniHowitzer",
@@ -112,7 +112,7 @@ export default {
       "cost": 3,
       "type": "permanent",
       "text": "Spend an Energy to fire for two and shove the target back.",
-      "built": false
+      "built": true
     },
     {
       "id": "modularChassis",
@@ -120,7 +120,7 @@ export default {
       "cost": 1,
       "type": "permanent",
       "text": "Shove somebody and you may trade this card for one of theirs.",
-      "built": false
+      "built": true
     },
     {
       "id": "powerSlide",
@@ -128,7 +128,7 @@ export default {
       "cost": 4,
       "type": "permanent",
       "text": "After a right rotate you may roll one square forward.",
-      "built": false
+      "built": true
     },
     {
       "id": "pressorBeam",
@@ -176,7 +176,7 @@ export default {
       "cost": 2,
       "type": "permanent",
       "text": "Reaching a checkpoint lets you tear one card out of your deck for good.",
-      "built": false
+      "built": true
     },
     {
       "id": "spamFilter",
@@ -184,7 +184,7 @@ export default {
       "cost": 3,
       "type": "permanent",
       "text": "You see the top card of your deck before you programme.",
-      "built": false
+      "built": true
     },
     {
       "id": "spiky",
@@ -192,7 +192,7 @@ export default {
       "cost": 2,
       "type": "permanent",
       "text": "Anything that moves or is shoved into you takes a point of damage.",
-      "built": false
+      "built": true
     },
     {
       "id": "tractorBeam",
@@ -208,7 +208,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Swap a register you have just turned over for a blind draw.",
-      "built": false
+      "built": true
     },
     {
       "id": "allAboard",
@@ -216,7 +216,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Run every conveyor once more, for you alone.",
-      "built": false
+      "built": true
     },
     {
       "id": "boink",
@@ -224,7 +224,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Hop to a free neighbouring square without turning.",
-      "built": false
+      "built": true
     },
     {
       "id": "calibrationProtocol",
@@ -232,7 +232,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "Scrap every damage card in your hand and draw that many fresh ones.",
-      "built": false
+      "built": true
     },
     {
       "id": "displacingBlast",
@@ -240,7 +240,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "Fire this instead of your laser to send the target back to its reboot square.",
-      "built": false
+      "built": true
     },
     {
       "id": "luckyBooster",
@@ -256,7 +256,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "When a neighbour moves on its own card, you may ride along.",
-      "built": false
+      "built": true
     },
     {
       "id": "memorySwap",
@@ -264,7 +264,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "Draw three, then stack three from your hand back on top in any order.",
-      "built": false
+      "built": true
     },
     {
       "id": "overclocked",
@@ -272,7 +272,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "A free Move 2, either side of your card.",
-      "built": false
+      "built": true
     },
     {
       "id": "piercingDrill",
@@ -280,7 +280,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "The next robot you shove takes damage and is spun to face wherever you like.",
-      "built": false
+      "built": true
     },
     {
       "id": "pressureRelease",
@@ -288,7 +288,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "Reverse up to five squares, stopping short of anybody in the way.",
-      "built": false
+      "built": true
     },
     {
       "id": "reInitialize",
@@ -296,7 +296,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Hand the Priority Token to anyone you choose.",
-      "built": false
+      "built": true
     },
     {
       "id": "recharge",
@@ -304,7 +304,7 @@ export default {
       "cost": 0,
       "type": "temporary",
       "text": "Three Energy, at once.",
-      "built": false
+      "built": true
     },
     {
       "id": "rewire",
@@ -320,7 +320,7 @@ export default {
       "cost": 2,
       "type": "temporary",
       "text": "Trade places with a neighbour, both of you keeping your facing.",
-      "built": false
+      "built": true
     },
     {
       "id": "zoop",
@@ -328,7 +328,7 @@ export default {
       "cost": 1,
       "type": "temporary",
       "text": "Spin on the spot to face any direction.",
-      "built": false
+      "built": true
     }
   ]
 };
