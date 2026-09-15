@@ -381,16 +381,33 @@ export function mountScreen(root, ctx) {
   }
   /* under each register, a button per card that asks about a register:
    * pressed, the card is used there if it can be; a single-use card in one */
-  function planHtml(p) {
+  function planHtml(p, programming) {
     if (!isHuman(p) || p.out) return "";
     const cards = kitOf(p).filter(it => it.def.asks && it.def.asksIn.plan);
     if (!cards.length) return "";
+    const open = isModern(st) ? REGISTERS : openRegisters(p.damage);
     let html = '<div class="plan">';
     for (let reg = 0; reg < REGISTERS; reg++) {
-      html += '<div class="col">' + cards.map(it => '<button class="arm" data-arm="' + esc(it.id) + '" data-reg="' + reg + '" data-player="' + p.id +
+      /* the card in this register, or the one being placed there: a button
+       * appears only under a card it can act on, and the Emergency Switch or
+       * a reserve swap only under a card that is not locked in */
+      const kind = slotKind(p, reg, programming);
+      const locked = reg >= open || p.locks[reg] === st.turn;
+      html += '<div class="col">' + cards.filter(it => kind && (it.def.on ? it.def.on.includes(kind) : !(locked && it.def.hooks.onReveal)))
+        .map(it => '<button class="arm" data-arm="' + esc(it.id) + '" data-reg="' + reg + '" data-player="' + p.id +
         '" aria-pressed="' + armed(p.id, it.id, reg) + '" data-tip="arm:' + esc(it.id) + ":" + p.id + ":" + reg + '">' + esc(it.def.name) + "</button>").join("") + "</div>";
     }
     return html + "</div>";
+  }
+  /* what is, or is about to be, in a register: its card's kind, or null for nothing (or a face-down Haywire) */
+  function slotKind(p, reg, programming) {
+    const held = p.registers[reg];
+    if (held !== null && held !== undefined) return card(st, held).kind;
+    if (isModern(st) && p.haywire[reg] !== null) return null;
+    if (!programming) return null;
+    const e = pick[reg - countHeld(p, reg)];
+    if (e === undefined) return null;
+    return card(st, p.hand[Array.isArray(e) ? e[0] : e]).kind;
   }
   function pips(n, total, cls, title) {
     let s = '<span class="bar ' + cls + '" data-tip="text:' + esc(title) + '">';
@@ -517,7 +534,7 @@ export function mountScreen(root, ctx) {
         const lastPick = pick.length ? pick[pick.length - 1] : null;
         const lastKind = lastPick === null ? null : Array.isArray(lastPick) ? null : card(st, me.hand[lastPick]).kind;
         const canPair = w.crab && (lastKind === "left" || lastKind === "right");
-        html += "</div>" + planHtml(me) + "<h2>Your hand</h2><div class='hand'>";
+        html += "</div>" + planHtml(me, true) + "<h2>Your hand</h2><div class='hand'>";
         me.hand.forEach((ci, i) => {
           if (pickHas(i)) return;
           const pairable = canPair && card(st, ci).kind === "move1";
