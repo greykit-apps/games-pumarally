@@ -11,7 +11,7 @@ import {
 } from "../../engine/rules.js";
 import { openRegisters, cardsDealt, CLASSIC_DECK } from "../../engine/cards.js";
 import { newGame, LIVERIES } from "../../engine/state.js";
-import { step } from "../../engine/machine.js";
+import { step, tick } from "../../engine/machine.js";
 import { runGame } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
 
@@ -180,14 +180,50 @@ export const TESTS = [
     assert(p.alive && p.c === 2 && p.r === 2 && p.face === S && p.damage === 2, "back at the archive, facing as archived, with two damage");
     assert(r.waiting && r.waiting.kind === "program", "and the turn went on to programming");
   }],
-  ["a robot returning to an occupied archive takes the nearest free square", () => {
+  ["a robot returning to an occupied archive comes back virtual, on the square", () => {
     const co = plain();
     const st = game(co, [{ c: 5, r: 5, archive: { c: 2, r: 2, face: N } }, { c: 2, r: 2 }]);
     st.players[0].alive = false; st.players[0].lives = 2;
     st.phase = "turn"; st.step = "respawn";
     step(st, co.library);
     const p = st.players[0];
-    assert(p.alive && Math.max(Math.abs(p.c - 2), Math.abs(p.r - 2)) === 1, "one square from the archive");
+    eq([p.alive, p.c, p.r, p.virtual, st.players[1].virtual], [true, 2, 2, true, false], "on the archive square, sharing it, virtual");
+  }],
+  ["two robots re-entering on one square are both virtual", () => {
+    const co = plain();
+    const st = game(co, [{ c: 5, r: 5, archive: { c: 2, r: 2, face: N } }, { c: 6, r: 6, archive: { c: 2, r: 2, face: E } }]);
+    for (const p of st.players) { p.alive = false; p.lives = 2; }
+    st.phase = "turn"; st.step = "respawn";
+    step(st, co.library);
+    eq(st.players.map(p => [p.c, p.r, p.virtual]), [[2, 2, false], [2, 2, true]], "the first back is alone and real, the second shares and is virtual");
+  }],
+  ["a virtual robot pushes nobody and is pushed by nobody", () => {
+    const co = plain();
+    const st = game(co, [{ c: 2, r: 3, face: E }, { c: 3, r: 3, face: N }, { c: 4, r: 3, face: W }]);
+    const [v, q, w] = st.players;
+    v.virtual = true;
+    stepRobot(st, co.C, v, E, "card");
+    eq([[v.c, v.r], [q.c, q.r]], [[3, 3], [3, 3]], "it walked onto the other robot's square without shoving it");
+    stepRobot(st, co.C, w, W, "card");
+    eq([[w.c, w.r], [q.c, q.r], [v.c, v.r]], [[3, 3], [2, 3], [3, 3]], "a real robot shoving into the pair shoves the real one and leaves the virtual one where it stands");
+    stepRobot(st, co.C, q, E, "card");
+    eq([[q.c, q.r], [w.c, w.r], [v.c, v.r]], [[3, 3], [4, 3], [3, 3]], "and back: the real robot is shoved, the virtual one is not");
+  }],
+  ["a virtual robot is not shot by robots, and shoots none, but a board laser hits it", () => {
+    const co = plain((b, t) => { t.wall(0, 6, W); b.wallDevices.push({ kind: "laser", edge: { kind: "v", c: 0, r: 6 }, face: E, damage: 1 }); });
+    const st = game(co, [{ c: 1, r: 3, face: E }, { c: 4, r: 3, face: W }, { c: 3, r: 6, face: N }]);
+    const [p, v, b] = st.players;
+    v.virtual = true; b.virtual = true;
+    laserPass(st, co.C);
+    eq([p.damage, v.damage, b.damage], [0, 0, 1], "the two robots facing each other exchanged nothing; the board laser found the virtual robot in its beam");
+  }],
+  ["a virtual robot becomes real at the end of a turn alone on its square", () => {
+    const co = plain();
+    const st = game(co, [{ c: 2, r: 2 }, { c: 2, r: 2 }, { c: 5, r: 5 }]);
+    st.players[0].virtual = true; st.players[2].virtual = true;
+    st.phase = "cleanup"; st.step = "endTurn";
+    tick(st, co.library);
+    eq(st.players.map(p => p.virtual), [true, false, false], "the one still sharing stays virtual; the one alone is real");
   }],
   ["flags must be touched in order", () => {
     const co = courseOn(board(8, 8), [[1, 1], [5, 5]]);

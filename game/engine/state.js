@@ -128,6 +128,7 @@ export function newGame(opts) {
       reserve: null, flywheel: null, aborted: false, controlledBy: null, locks: new Array(REGISTERS).fill(null),
       reserveAsked: false, revealed: -1,
       alive: true,
+      virtual: false,      // classic: re-entered onto an occupied square, and interacting with no robot until alone
       out: false,
       trail: [],
       /* the 2016 robot: its own deck and discard, the Energy track, the
@@ -215,6 +216,7 @@ export function normaliseSave(st) {
     if (!p.locks) p.locks = new Array(REGISTERS).fill(null);
     if (p.reserveAsked === undefined) p.reserveAsked = false;
     if (p.fellFrom === undefined) p.fellFrom = -1;
+    if (p.virtual === undefined) p.virtual = false;
     if (p.revealed === undefined) p.revealed = -1;
   }
   const S = { priority: 0, priorityHeld: false, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };

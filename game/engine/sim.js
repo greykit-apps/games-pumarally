@@ -28,6 +28,7 @@ export function assertInvariants(st, library) {
       if (Number.isInteger(p.flywheel)) n++;             // on the Flywheel
     }
     if (n !== CLASSIC_DECK.length) throw new Error("program card conservation broken: " + n + "/" + CLASSIC_DECK.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
+
   }
   /* option cards are conserved too: every id once, across the deck, the
    * discard and every hand */
@@ -51,8 +52,8 @@ export function assertInvariants(st, library) {
     if (!p.placed && st.phase !== "draft") throw new Error(p.name + " is alive and unplaced at " + st.phase + "." + st.step);
     if (!p.placed) continue;
     const key = p.c + "," + p.r;
-    if (seen.has(key)) throw new Error("two robots on " + key + " at " + st.phase + "." + st.step + " turn " + st.turn);
-    seen.add(key);
+    /* a virtual robot shares its square by the book; two real robots never do (the classic check below says which) */
+    if (!p.virtual) { if (seen.has(key)) throw new Error("two robots on " + key + " at " + st.phase + "." + st.step + " turn " + st.turn); seen.add(key); }
     if (!inGrid(C, p.c, p.r)) throw new Error(p.name + " is off the course at " + key);
     if (isHole(C, p.c, p.r)) throw new Error(p.name + " is standing in a hole at " + key);
     /* an integer, not merely in range: NaN passes every comparison */

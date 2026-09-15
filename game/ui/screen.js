@@ -229,6 +229,7 @@ export function mountScreen(root, ctx) {
     if (!animate) { void g.getBoundingClientRect(); g.style.transition = ""; }
     g.classList.toggle("gone", !p.alive || !p.placed);
     g.classList.toggle("down", !!p.poweredDown);
+    g.classList.toggle("virtual", !!p.virtual);
   }
 
   function syncPieces() { for (const p of st.players) placePiece(p, p.c, p.r, p.face, false); }
@@ -494,6 +495,7 @@ export function mountScreen(root, ctx) {
       html += '<div class="robot' + (p.alive ? "" : " dead") + '"><div class="head"><span class="sw" style="background:' + liv.a + '"></span>' +
         '<span class="name">' + esc(p.name) + (isHuman(p) ? " <span class='tag'>human</span>" : "") + (p.poweredDown ? " <span class='tag'>" + (modern ? "shut down" : "powered down") + "</span>" : "") +
         (p.out ? " <span class='tag'>out</span>" : !p.alive ? " <span class='tag'>" + (modern ? "rebooting" : "returning") + "</span>" : "") +
+        (p.virtual ? " <span class='tag' data-tip='text:Virtual: it came back onto a square another robot was on. It meets no robot -- no pushing, no shooting either way -- until it ends a turn alone on its square.'>virtual</span>" : "") +
         (st.priority === p.id && modern ? " <span class='tag' data-tip='text:holds the Priority Token'>&#9733; priority</span>" : "") + "</span></div>" +
         /* the bars: lives (classic), flags, Energy (2016), damage */
         '<div class="bars">' + (modern ? "" : pips(p.lives, Math.max(startLives, p.lives), "lives", p.lives + (p.lives === 1 ? " life" : " lives"))) +

@@ -251,7 +251,31 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
-    "name": "a robot returning to an occupied archive takes the nearest free square",
+    "name": "two robots re-entering on one square are both virtual",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a virtual robot pushes nobody and is pushed by nobody",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a virtual robot is not shot by robots, and shoots none, but a board laser hits it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a virtual robot becomes real at the end of a turn alone on its square",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot returning to an occupied archive comes back virtual, on the square",
     "layer": "rules",
     "status": "ported"
   },
