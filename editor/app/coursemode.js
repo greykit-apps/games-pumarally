@@ -13,7 +13,7 @@ import {
   suggestFlags, usableFlagSpots
 } from "../lib/course.js";
 import {
-  newCourse, place, turn, remove, moveStamp, stampAt, nearestSnap, normalise,
+  newCourse, place, turn, remove, moveStamp, stampAt, normalise, overlapsAny,
   addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit
 } from "./compose.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
@@ -86,6 +86,15 @@ const EXTRA_CSS = `
 .flaglist li{display:flex;gap:5px;align-items:center;margin-bottom:3px;font-size:12px}
 .flaglist .n{width:20px;height:20px;display:grid;place-items:center;border-radius:50%;
   background:#ff5f56;color:#0b0d14;font-weight:700;font-size:11px;flex:0 0 20px}
+.dragbox{position:absolute;opacity:.75;pointer-events:none;outline:3px solid var(--hot);outline-offset:-3px;background:#05070f}
+.dragbox.bad{outline-color:#ff5f56;opacity:.55}
+.dragbox svg{width:100%;height:100%;display:block}
+.stamptools{position:absolute;display:flex;gap:6px;pointer-events:auto}
+.stamptools button{font-size:30px;line-height:1;padding:6px 14px;min-height:0;background:rgba(5,7,15,.85);border:2px solid var(--hot);color:var(--hot);border-radius:6px;cursor:pointer}
+.stamptools button:hover{background:#0d2028}
+.pb{touch-action:none;user-select:none}
+.dragging .viewport{cursor:grabbing}
+.dragging .pb{cursor:grabbing}
 `;
 
 export async function mountCourse(root, wanted) {
@@ -206,6 +215,13 @@ export async function mountCourse(root, wanted) {
         '" style="left:' + x + "px;top:" + y + "px;width:" + w * 100 + "px;height:" + h * 100 + 'px"></div>';
       html += '<div class="stamplabel" style="left:' + (x + 6) + "px;top:" + (y + 6) + 'px;font-size:26px">' +
         esc(src.name) + (s.rot ? " ↻" + (s.rot * 90) + "°" : "") + (s.role === "dock" ? " • start" : "") + "</div>";
+      /* the selected board carries its own buttons: turn either way, take off */
+      if (i === st.sel) {
+        html += '<div class="stamptools" style="left:' + (x + 8) + "px;top:" + (y + h * 100 - 62) + 'px">' +
+          '<button data-act="turn-left" title="Turn anticlockwise (Q)">&#8630;</button>' +
+          '<button data-act="turn-right" title="Turn clockwise (E)">&#8631;</button>' +
+          '<button data-act="drop" title="Take off (Delete)">&times;</button></div>';
+      }
     });
     st.course.flags.forEach(([c, r], i) => {
       html += '<div class="flag" style="left:' + (c * 100 + 18) + "px;top:" + (r * 100 + 18) +
@@ -275,7 +291,7 @@ export async function mountCourse(root, wanted) {
       html += '<div class="row"><label>Turn</label>' +
         [0, 1, 2, 3].map(q => '<button data-handrot="' + q + '" aria-pressed="' + (st.handRot === q) + '">' + (q * 90) + "&deg;</button>").join("") +
         "</div>";
-      html += '<div class="row"><span class="none">Click where it should go. It snaps against what is already down.</span></div>';
+      html += '<div class="row"><span class="none">Move over the floor and click where it should go; it snaps to the squares. Or drag a board straight off the rail.</span></div>';
     }
 
     if (st.sel >= 0 && st.course.stamps[st.sel]) {
@@ -351,25 +367,84 @@ export async function mountCourse(root, wanted) {
     mainEl.innerHTML = html;
   }
 
-  /* --- pointer ----------------------------------------------------------- */
+  /* --- pointer: boards are dragged ----------------------------------------
+   *
+   * A board comes off the rail, or off the floor, under the pointer and
+   * follows it as a ghost snapped to the squares; it goes down where it is
+   * let go, anywhere that is free -- the edges need not line up with another
+   * board's, because Master Builder's small boards do not. A board picked
+   * from the rail by a click rides the pointer the same way and goes down on
+   * the next click. The ghost is drawn once and moved, not re-rendered. */
 
   let panning = null;
-  view.viewport.addEventListener("pointerdown", ev => {
-    view.viewport.setPointerCapture(ev.pointerId);
-    if (ev.button === 1 || ev.shiftKey) {
-      panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY };
-      return;
-    }
-    const h = hit(view, st, ev);
-    if (!h) return;
-    const abs = { c: h.c + asm.bounds.x0, r: h.r + asm.bounds.y0 };
+  let drag = null;       // { kind: "new"|"move", board, rot, role, index, grab: [c, r], at, over, el }
+  let pending = null;    // a press that may become a drag once the pointer has travelled
+  let suppressClick = false;
 
-    if (st.hand) {
-      const role = st.handRole || "board";
-      const target = nearestSnap(st.course, library, st.hand, st.handRot, abs.c, abs.r);
-      const at = target ? target.at : [abs.c, abs.r];
-      snap();
-      const i = place(st.course, library, st.hand, st.handRot, at, role);
+  /* course coordinates, fractional, under a pointer event; and whether it is over the floor at all */
+  function worldPoint(ev) {
+    const r = view.viewport.getBoundingClientRect();
+    const size = 100 * st.zoom;
+    return {
+      fx: (ev.clientX - r.left - st.offX) / size + asm.bounds.x0,
+      fy: (ev.clientY - r.top - st.offY) / size + asm.bounds.y0,
+      over: ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom
+    };
+  }
+  function ghostSvg(boardId, rot) {
+    const b = library.get(boardId);
+    return boardSVG(rot ? rotateBoard(b, rot) : b, { mode: st.mode, background: true });
+  }
+  function startDrag(d) {
+    drag = d;
+    drag.el = document.createElement("div");
+    drag.el.className = "dragbox";
+    drag.el.style.display = "none";
+    drag.el.innerHTML = ghostSvg(d.board, d.rot);
+    overlay.appendChild(drag.el);
+    root.classList.add("dragging");
+  }
+  function dragTo(ev) {
+    if (!drag) return;
+    const p = worldPoint(ev);
+    const [w, h] = stampDims(library.get(drag.board), drag.rot);
+    drag.at = [Math.round(p.fx - drag.grab[0]), Math.round(p.fy - drag.grab[1])];
+    drag.over = p.over;
+    const bad = overlapsAny(st.course, library, drag.at, w, h, drag.kind === "move" ? drag.index : -1) ||
+      (drag.role === "dock" && drag.kind === "new" && dockStamp(st.course));
+    drag.bad = !!bad;
+    const el = drag.el;
+    el.className = "dragbox" + (bad ? " bad" : "");
+    el.style.display = p.over ? "" : "none";
+    el.style.left = ((drag.at[0] - asm.bounds.x0) * 100) + "px";
+    el.style.top = ((drag.at[1] - asm.bounds.y0) * 100) + "px";
+    el.style.width = (w * 100) + "px";
+    el.style.height = (h * 100) + "px";
+  }
+  function turnDrag(quarters) {
+    if (!drag) return;
+    drag.rot = (((drag.rot + quarters) % 4) + 4) % 4;
+    const [w, h] = stampDims(library.get(drag.board), drag.rot);
+    drag.grab = [w / 2, h / 2];
+    drag.el.innerHTML = ghostSvg(drag.board, drag.rot);
+    if (drag.last) dragTo(drag.last);
+    if (drag.kind === "new") st.handRot = drag.rot;
+  }
+  function cancelDrag() {
+    if (drag && drag.el) drag.el.remove();
+    drag = null; pending = null;
+    root.classList.remove("dragging");
+  }
+  /* let go: the board goes down where the ghost is, if that is free */
+  function dropDrag() {
+    if (!drag) return;
+    const d = drag;
+    cancelDrag();
+    if (!d.over || !d.at) { if (d.kind === "new") { st.hand = null; refresh(); } return; }
+    if (d.bad) { say(d.role === "dock" && dockStamp(st.course) && d.kind === "new" ? "A course has one docking bay." : "That would sit on top of a board already down.", "bad"); if (d.kind === "new") { st.hand = null; refresh(); } return; }
+    snap();
+    if (d.kind === "new") {
+      const i = place(st.course, library, d.board, d.rot, d.at, d.role);
       if (i < 0) { history.pop(); say("That would sit on top of a board already down.", "bad"); return; }
       st.sel = i;
       st.hand = null;
@@ -377,9 +452,61 @@ export async function mountCourse(root, wanted) {
        * fitted at maximum zoom, and keeping that view put one corner of a
        * 12x12 on screen at 530% */
       refresh({ keepView: st.course.stamps.length > 1 });
-      say(library.get(st.course.stamps[i].board).name + " laid at " + at[0] + "," + at[1] + ".", "");
+      say(library.get(d.board).name + " laid at " + st.course.stamps[i].at[0] + "," + st.course.stamps[i].at[1] + ".", "");
+    } else {
+      if (!moveStamp(st.course, library, d.index, d.at)) { history.pop(); say("That would sit on top of a board already down.", "bad"); return; }
+      st.sel = d.index;
+      refresh();
+      say(library.get(d.board).name + " moved to " + st.course.stamps[d.index].at[0] + "," + st.course.stamps[d.index].at[1] + ".", "");
+    }
+  }
+
+  /* off the rail: a press that travels is a drag, a press that does not is the click below */
+  railEl.addEventListener("pointerdown", ev => {
+    const b = ev.target.closest("button[data-place]");
+    if (!b || ev.button !== 0) return;
+    b.setPointerCapture(ev.pointerId);
+    pending = { kind: "new", board: b.dataset.place, role: b.dataset.role || "board", x: ev.clientX, y: ev.clientY };
+  });
+  railEl.addEventListener("pointermove", ev => {
+    if (drag) { drag.last = ev; dragTo(ev); return; }
+    if (!pending || pending.kind !== "new") return;
+    if (Math.abs(ev.clientX - pending.x) + Math.abs(ev.clientY - pending.y) < 6) return;
+    const [w, h] = stampDims(library.get(pending.board), st.handRot);
+    startDrag({ kind: "new", board: pending.board, rot: st.handRot, role: pending.role, grab: [w / 2, h / 2], last: ev });
+    pending = null;
+    suppressClick = true;
+    dragTo(ev);
+  });
+  const railUp = ev => {
+    if (drag && drag.kind === "new") { drag.last = ev; dragTo(ev); dropDrag(); return; }
+    pending = null;
+  };
+  railEl.addEventListener("pointerup", railUp);
+  railEl.addEventListener("pointercancel", () => { cancelDrag(); });
+
+  view.viewport.addEventListener("pointerdown", ev => {
+    if (ev.target.closest(".stamptools")) return;       // the selected board's own buttons
+    view.viewport.setPointerCapture(ev.pointerId);
+    if (ev.button === 1 || ev.shiftKey) {
+      panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY };
       return;
     }
+
+    /* a board in hand rides the pointer; this click puts it down */
+    if (st.hand) {
+      if (!drag) {
+        const [w, h] = stampDims(library.get(st.hand), st.handRot);
+        startDrag({ kind: "new", board: st.hand, rot: st.handRot, role: st.handRole || "board", grab: [w / 2, h / 2], last: ev });
+      }
+      dragTo(ev);
+      dropDrag();
+      return;
+    }
+
+    const h = hit(view, st, ev);
+    if (!h) return;
+    const abs = { c: h.c + asm.bounds.x0, r: h.r + asm.bounds.y0 };
 
     if (st.flagMode) {
       if (ev.button === 2) {
@@ -403,19 +530,42 @@ export async function mountCourse(root, wanted) {
     refresh();
     if (st.sel >= 0) {
       const s = st.course.stamps[st.sel];
-      say(library.get(s.board).name + " selected. Q and E turn it, Delete takes it off.", "");
+      const p = worldPoint(ev);
+      /* held by the square it was grabbed at, so it does not jump under the pointer */
+      pending = { kind: "move", index: st.sel, board: s.board, rot: s.rot, role: s.role, grab: [p.fx - s.at[0], p.fy - s.at[1]], x: ev.clientX, y: ev.clientY };
+      say(library.get(s.board).name + " selected. Drag it to move it; Q and E turn it, Delete takes it off.", "");
     }
   });
 
   view.viewport.addEventListener("pointermove", ev => {
-    if (!panning) return;
-    st.offX = panning.ox + (ev.clientX - panning.x);
-    st.offY = panning.oy + (ev.clientY - panning.y);
-    layout(view, st);
+    if (panning) {
+      st.offX = panning.ox + (ev.clientX - panning.x);
+      st.offY = panning.oy + (ev.clientY - panning.y);
+      layout(view, st);
+      return;
+    }
+    if (drag) { drag.last = ev; dragTo(ev); return; }
+    if (pending && pending.kind === "move") {
+      if (Math.abs(ev.clientX - pending.x) + Math.abs(ev.clientY - pending.y) < 6) return;
+      startDrag({ ...pending, last: ev });
+      pending = null;
+      dragTo(ev);
+      return;
+    }
+    /* a board picked from the rail by a click: the ghost follows the pointer until the next click */
+    if (st.hand) {
+      const [w, h] = stampDims(library.get(st.hand), st.handRot);
+      startDrag({ kind: "new", board: st.hand, rot: st.handRot, role: st.handRole || "board", grab: [w / 2, h / 2], last: ev });
+      dragTo(ev);
+    }
   });
-  const end = () => { panning = null; };
+  const end = ev => {
+    panning = null;
+    if (drag && drag.kind === "move") { drag.last = ev; dragTo(ev); dropDrag(); return; }
+    pending = null;
+  };
   view.viewport.addEventListener("pointerup", end);
-  view.viewport.addEventListener("pointercancel", end);
+  view.viewport.addEventListener("pointercancel", () => { panning = null; if (drag && drag.kind === "move") cancelDrag(); });
   view.viewport.addEventListener("contextmenu", ev => ev.preventDefault());
   view.viewport.addEventListener("wheel", ev => {
     ev.preventDefault();
@@ -435,6 +585,8 @@ export async function mountCourse(root, wanted) {
     }
     const d = b.dataset;
     if (d.place !== undefined) {
+      if (suppressClick) { suppressClick = false; return; }
+      cancelDrag();
       st.hand = st.hand === d.place ? null : d.place;
       st.handRole = d.role;
       st.flagMode = false;
@@ -500,8 +652,10 @@ export async function mountCourse(root, wanted) {
     const k = ev.key.toLowerCase();
     if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); undo(); return; }
     if (ev.ctrlKey || ev.metaKey) return;
-    if (k === "f") { st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
-    if (k === "escape") { st.hand = null; st.sel = -1; st.flagMode = false; refresh(); return; }
+    if (k === "escape") { cancelDrag(); st.hand = null; st.sel = -1; st.flagMode = false; refresh(); return; }
+    if (drag && k === "q") { turnDrag(-1); return; }
+    if (drag && k === "e") { turnDrag(1); return; }
+    if (k === "f") { cancelDrag(); st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
     if (k === "q" && st.sel >= 0) { act("turn-left"); return; }
     if (k === "e" && st.sel >= 0) { act("turn-right"); return; }
     if (k === "q" && st.hand) { st.handRot = (st.handRot + 3) % 4; refresh(); return; }
@@ -576,7 +730,7 @@ export async function mountCourse(root, wanted) {
 
   window.addEventListener("resize", () => layout(view, st));
   refresh({ keepView: false });
-  say("Pick a board, click where it goes. F for flags, Q E turn, ` swaps the drawing.", "");
+  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, ` swaps the drawing.", "");
   window.__EDC = { st, view, refresh, act, library, undo };
   return window.__EDC;
 }

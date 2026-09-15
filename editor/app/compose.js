@@ -131,7 +131,7 @@ export function snapTargets(course, library, boardId, rot) {
   return out;
 }
 
-function overlapsAny(course, library, at, w, h, ignoreIndex) {
+export function overlapsAny(course, library, at, w, h, ignoreIndex) {
   const box = { x0: at[0], y0: at[1], x1: at[0] + w - 1, y1: at[1] + h - 1 };
   return course.stamps.some((s, i) => {
     if (i === ignoreIndex) return false;
