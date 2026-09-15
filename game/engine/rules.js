@@ -391,7 +391,7 @@ export function firstRobotAlong(st, C, c, r, dir, skipOrigin, pierce = 0) {
  * so a robot taking its tenth damage from a board laser still fires its own
  * laser this register.
  */
-export function computeLaserHits(st, C) {
+export function computeLaserHits(st, C, cache) {
   const hits = [];
   for (const L of C.lasers) {
     const path = laserSquares(C, L, st.register);
@@ -407,8 +407,17 @@ export function computeLaserHits(st, C) {
     const ri = p.registers[st.register];
     const cardKind = ri === null || ri === undefined ? null : card(st, ri).kind;
     /* a Haywire can charge the main laser for the register it was revealed in */
-    const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: p.laserBonus === st.register ? 2 : 1, pierce: 0 }], cardKind });
-    for (const sh of ctx.shots) {
+    /* a resolved volley is kept while the pass asks its questions, so a
+     * Turret's aim is not asked twice and not lost on the re-run */
+    let shots = cache && cache[p.id];
+    if (!shots) {
+      const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: p.laserBonus === st.register ? 2 : 1, pierce: 0 }], cardKind,
+        sees: d => firstRobotAlong(st, C, p.c, p.r, d, true, 0) });
+      if (ctx.pending) return { ask: ctx.ask };
+      shots = ctx.shots;
+      if (cache) cache[p.id] = shots;
+    }
+    for (const sh of shots) {
       if (sh.damage <= 0) continue;
       /* a rail gun's beam goes on through every robot and wall to the edge */
       const victims = sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0)].filter(Boolean);
@@ -418,7 +427,7 @@ export function computeLaserHits(st, C) {
       }
     }
   }
-  return hits;
+  return { hits };
 }
 
 /** Every robot on the line from (c,r) heading `dir`, walls or not, nearest first. */
@@ -450,21 +459,33 @@ export function everyRobotAlong(st, C, c, r, dir) {
  */
 export function laserPass(st, C) {
   if (!st.laser) {
-    const hits = computeLaserHits(st, C);
+    /* every shooter's decisions are kept as they are made: a pass that asks
+     * twice (two robots with optional weapons) re-runs from the top, and a
+     * card's answer is applied once, so the first robot's choice would be
+     * lost -- or its charge spent again -- if its hook were fired again */
+    if (!st.laserSeen) st.laserSeen = { shots: {}, hits: {} };
+    const res = computeLaserHits(st, C, st.laserSeen.shots);
+    if (res.ask) return res.ask;
+    const hits = res.hits;
     for (const h of hits) {
       if (!h.shooter || !h.main) continue;
-      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null,
+      const k = h.shooter.id + ":" + h.target.id;
+      const seen = st.laserSeen.hits[k];
+      if (seen) { h.damage = seen.damage; h.replaceWith = seen.replaceWith; h.fireControl = seen.fireControl; continue; }
+      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null, fireControl: null,
         distance: h.distance, lastRegister: st.register >= REGISTERS - 1 });
       if (hctx.pending) return hctx.ask;
-      h.damage = hctx.damage; h.replaceWith = hctx.replaceWith;
+      h.damage = hctx.damage; h.replaceWith = hctx.replaceWith; h.fireControl = hctx.fireControl || null;
+      st.laserSeen.hits[k] = { damage: h.damage, replaceWith: h.replaceWith, fireControl: h.fireControl };
     }
+    st.laserSeen = null;
     for (const h of hits) {
       if (h.replaceWith || h.damage <= 0 || !h.target.alive) continue;
-      const ctx = fire(st, h.target, "onDamage", { amount: h.damage, source: "laser", absorbed: 0 });
+      const ctx = fire(st, h.target, "onDamage", { amount: h.damage, source: "laser", absorbed: 0, dir: h.dir });
       if (ctx.absorbed > 0) log(st, h.target.name + " absorbs " + ctx.absorbed + " damage");
       h.damage = ctx.amount;
     }
-    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith, distance: h.distance }));
+    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith, distance: h.distance, fireControl: h.fireControl || null }));
   }
   const hits = st.laser.map(h => ({ ...h, target: st.players[h.target], shooter: h.shooter === null ? null : st.players[h.shooter] }));
 
@@ -521,8 +542,19 @@ export function laserPass(st, C) {
         const rw = h.replaceWith;
         if (rw.kind === "push") { log(st, h.target.name + " is shoved by a beam"); stepRobot(st, C, h.target, rw.dir, "beam"); }
         else if (rw.kind === "scramble") scrambleRegister(st, h.target);
-        /* Mini Howitzer: two damage, then a shove in the direction of fire */
-        else if (rw.kind === "blast") { log(st, h.target.name + " takes " + rw.damage + " from " + h.shooter.name + "'s howitzer"); landDamage(st, C, h.target, rw.damage, "laser"); if (h.target.alive) stepRobot(st, C, h.target, rw.dir, "beam"); }
+        /* Mini Howitzer: two damage, then a shove in the direction of fire;
+         * the Turbo Blaster's one point goes through the target's absorbers */
+        else if (rw.kind === "blast") {
+          log(st, h.target.name + " takes " + rw.damage + " from " + h.shooter.name + "'s " + (rw.absorb ? "blaster" : "howitzer"));
+          if (rw.absorb) damage(st, C, h.target, rw.damage, "laser", rw.dir); else landDamage(st, C, h.target, rw.damage, "laser");
+          if (h.target.alive) stepRobot(st, C, h.target, rw.dir, "beam");
+        }
+        /* Remote Control: from the next register on, the target runs the controller's cards */
+        else if (rw.kind === "radio") {
+          h.target.controlledBy = h.shooter.id;
+          st.events.push({ type: "controlled", player: h.target.id, by: h.shooter.id });
+          log(st, h.target.name + " is under " + h.shooter.name + "'s remote control for the rest of the turn");
+        }
         /* Displacing Blast: to the reboot point of the board it stands on, facing unchanged */
         else if (rw.kind === "displace") displaceTo(st, C, h.target, h.shooter);
         continue;
@@ -530,6 +562,12 @@ export function laserPass(st, C) {
       if (h.damage <= 0) continue;
       st.events.push({ type: "shot", from: h.at, dir: h.dir, target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage });
       log(st, h.target.name + " takes " + h.damage + " from " + h.from);
+      /* Fire Control lands with the damage: a register locked for next turn, or an option card gone */
+      if (h.fireControl && h.shooter) {
+        const fc = h.fireControl;
+        if (fc.lock !== undefined) { h.target.locks[fc.lock] = st.turn; st.events.push({ type: "locked", player: h.target.id, register: fc.lock, by: h.shooter.id }); log(st, h.shooter.name + "'s fire control locks " + h.target.name + "'s register " + (fc.lock + 1)); }
+        else if (fc.destroy) discardOption(st, h.target, fc.destroy, "loses to fire control");
+      }
       landDamage(st, C, h.target, h.damage, "laser");
       if (!h.shooter && !boardHit.includes(h.target.id)) boardHit.push(h.target.id);
     }
@@ -658,9 +696,9 @@ export const waterAtCourse = waterAt;
 /* --- damage and destruction --------------------------------------------- */
 
 /** Damage from anything but a laser: the absorbers get their say, then it lands. */
-export function damage(st, C, p, n, source) {
+export function damage(st, C, p, n, source, dir) {
   if (n <= 0 || !p.alive) return;
-  const ctx = fire(st, p, "onDamage", { amount: n, source: source || "laser", absorbed: 0 });
+  const ctx = fire(st, p, "onDamage", { amount: n, source: source || "laser", absorbed: 0, dir: dir === undefined ? null : dir });
   if (ctx.absorbed > 0) log(st, p.name + " absorbs " + ctx.absorbed + " damage");
   landDamage(st, C, p, ctx.amount, source);
 }
@@ -682,6 +720,10 @@ export function destroy(st, C, p, how) {
   for (const i of p.hand) st.discard.push(i);
   p.hand = [];
   for (let i = 0; i < REGISTERS; i++) if (p.registers[i] !== null) { st.discard.push(p.registers[i]); p.registers[i] = null; }
+  /* what lay on its option cards goes back too, and nothing it was running or holding survives the wreck */
+  if (Number.isInteger(p.reserve)) { st.discard.push(p.reserve); p.reserve = null; }
+  if (Number.isInteger(p.flywheel)) { st.discard.push(p.flywheel); p.flywheel = null; }
+  p.locks.fill(null); p.controlledBy = null; p.aborted = false;
   p.damage = 0;
   p.poweredDown = false;
   p.announceDown = false;

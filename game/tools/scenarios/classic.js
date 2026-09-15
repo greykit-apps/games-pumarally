@@ -150,7 +150,7 @@ export const TESTS = [
   ["a beam stops at the first robot, not the one behind it", () => {
     const co = plain();
     const st = game(co, [{ c: 1, r: 3, face: E }, { c: 3, r: 3, face: N }, { c: 6, r: 3, face: N }]);
-    const hits = computeLaserHits(st, co.C);
+    const hits = computeLaserHits(st, co.C).hits;
     eq(hits.map(h => h.target.id), [1], "one hit, on the nearer robot");
   }],
   ["lasers are simultaneous: a robot destroyed this register still fires", () => {

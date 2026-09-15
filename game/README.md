@@ -112,8 +112,10 @@ row, never an edit to the register loop.
 `data/cards.json`, `data/options.json`, `data/upgrades.json`,
 `data/liveries.json`. Card text, deck compositions and prices are
 transcriptions of the physical cards and are copied, not retyped. The gaps
-travel with them: sixteen option cards of twenty-six, forty upgrades of which
-eleven had effects, a damage deck with no Haywire.
+travelled with them: sixteen option cards of twenty-six, forty upgrades of
+which eleven had effects, a damage deck with no Haywire. All three gaps are
+closed now from photographs: the eleven AMIGO option cards (with their German
+text alongside the English), the forty upgrade effects, and Haywire.
 
 ## Sequence
 
@@ -233,8 +235,9 @@ tables (`oilSlideAfter`, `portalBlockedBy` in `editor/rulesets/`), so the
 games on board G, O-Ring, Cannery Row and board H hop, skid, sit in flames
 and get crushed with the invariants armed.
 
-Option cards are built under the classic rules: the sixteen transcribed
-cards, each a data row bound to one of ten hooks in `engine/options.js`,
+Option cards are built under the classic rules: all twenty-seven of the two
+printings (sixteen English, eleven more from the AMIGO box, which lacks Crab
+Legs), each a data row bound to one of thirteen hooks in `engine/options.js`,
 fired through one dispatcher. A card's *you may* asks through the same
 request door as everything else (`cardChoice`), keyed so the step that asked
 re-runs and finds the answer; a two-wrench site asks repair-or-card
@@ -249,6 +252,33 @@ everyone at the start so every hook and every question runs on every course.
 The starting hand is dealt through the same door as a drawn card, so a coat
 dealt at the start has its three charges; the invariants now refuse a held
 card without its state and a damage total that is not an integer.
+
+The AMIGO eleven (manual1/IMG_1334-1342, German text kept on each data row)
+brought three new moments and a few readings, each stated on the card's row
+in `engine/options.js`. Reverse Gear and Fourth Gear are Brakes' shape. Turbo
+Blaster is an optional weapon with five charges: one damage through the
+target's absorbers, then a shove. Remote Control is an optional weapon too
+(p.36-37: used when the main laser could fire, instead of it; the Turret
+names it among them), range six, and "the program" is read as the rest of
+this turn: the target runs the controller's card in each later register.
+Shield names a direction without saying which; read as the front, one point
+a register. Turret lets the main shot, and the optional weapons riding on
+it, aim any way, asked only when a robot is in line off the bow. Fire
+Control rides on a main-laser hit (p.36 files it with the extra weapons) and
+lands with the damage: the shooter must lock a register, which holds its
+card through the next turn as a damage lock would, or destroy an option
+card. Command in Reserve parks a sixth card after programming and offers it
+as each register's card is about to be revealed, so the card swapped in sets
+the priority; Emergency Switch is offered at the same moment and, once
+thrown, replaces every later card that turn from the deck; both leave a
+locked register alone. Flywheel parks a card past the reshuffle into next
+turn's hand. Circuit Breaker trips at the end of a turn on three damage. The
+program cards lying on the option cards are counted by the conservation law
+and go back to the table with the option card, or with the wreck. Building
+Turret found that a laser pass asking two questions re-ran the first
+robot's hook and lost its choice (a Pressor Beam next to a Tractor Beam
+shot instead of shoving); the pass now keeps each shooter's decision as it
+is made. Twenty-two more scenarios by name.
 
 M3, the cutover, is done: the repository root's `index.html` is this game,
 and `pumarally.js`, `pumarally-boards.js` and the tools that read them are

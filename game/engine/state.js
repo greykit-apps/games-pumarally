@@ -117,6 +117,12 @@ export function newGame(opts) {
       stayAsked: false,
       options: [],
       mustDrop: false,
+      /* the AMIGO option cards' baggage: a program card on the Command in
+       * Reserve, one on the Flywheel, an Emergency Switch thrown this turn, a
+       * Remote Control running this robot, and registers Fire Control locked
+       * (the turn each lock was set: it holds through that turn's cleanup) */
+      reserve: null, flywheel: null, aborted: false, controlledBy: null, locks: new Array(REGISTERS).fill(null),
+      reserveAsked: false, revealed: -1,
       alive: true,
       out: false,
       trail: [],
@@ -198,6 +204,13 @@ export function normaliseSave(st) {
     if (!p.haywire) p.haywire = new Array(REGISTERS).fill(null);
     if (p.laserBonus === undefined) p.laserBonus = -1;
     if (p.hwInstalled === undefined) p.hwInstalled = null;
+    if (p.reserve === undefined) p.reserve = null;
+    if (p.flywheel === undefined) p.flywheel = null;
+    if (p.aborted === undefined) p.aborted = false;
+    if (p.controlledBy === undefined) p.controlledBy = null;
+    if (!p.locks) p.locks = new Array(REGISTERS).fill(null);
+    if (p.reserveAsked === undefined) p.reserveAsked = false;
+    if (p.revealed === undefined) p.revealed = -1;
   }
   const S = { priority: 0, priorityHeld: false, damageDeck: [], damageDiscard: [], upgradeDeck: [], upgradeDiscard: [], laserAfter: null, act: null };
   for (const k of Object.keys(S)) if (st[k] === undefined) st[k] = Array.isArray(S[k]) ? [] : S[k];
