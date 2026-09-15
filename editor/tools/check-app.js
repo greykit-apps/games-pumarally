@@ -605,6 +605,10 @@ const fresh = (w = 8, h = 8) =>
     ok(!usable.some(s2 => s2.c === 0 && s2.r === 0),
        "suggest: a mark in a board's corner is not offered -- the validator would refuse it");
     ok(flagRefusal(course, lib, asm, 0, 0), "suggest: and the refusal says why");
+    /* the 12x12's bottom-right corner has the 6x2 dock lying under it: a board
+     * corner another board lies against is floor like any other, since the
+     * book's corner rule (p.9) is about walls, not where the cardboard ends */
+    eq(flagRefusal(course, lib, asm, 11, 11), null, "suggest: a board's inner corner takes a flag");
 
     const three = suggestFlags(course, lib, { count: 3, asm });
     eq(three.length, 3, "suggest: three flags when three are asked for");

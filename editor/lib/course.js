@@ -160,6 +160,21 @@ export function inBoardCorner(local) {
 }
 
 /**
+ * Is this square an OUTER corner of the course: a board's corner whose two
+ * outward sides face off the course, so a robot there is hemmed in by the
+ * drop on two sides? A board's corner that another board lies against on
+ * either side is floor like any other, and the book's only corner rule is
+ * about walls (p.9: "should not be placed in a corner formed by two or more
+ * walls"), which `wallsAround` reports as the warning it is.
+ */
+export function inOuterCorner(grid, local, c, r) {
+  if (!inBoardCorner(local)) return false;
+  const dc = local.c === 0 ? W : E, dr = local.r === 0 ? N : S;
+  const off = d => { const nc = c + DC[d], nr = r + DR[d]; return !inBoard(grid, nc, nr) || isVoid(grid, nc, nr); };
+  return off(dc) && off(dr);
+}
+
+/**
  * Connected components over non-void squares, 4-adjacency, IGNORING WALLS.
  * Stronger than the old slot adjacency without needing a rule that says so:
  * two boards touching only at a corner are not 4-adjacent, so nothing can drive
@@ -257,9 +272,9 @@ export function flagRefusal(course, library, asm, c, r) {
     }
   }
   const local = boardLocal(course, library, from, bounds, grid.w, c, r);
-  if (inBoardCorner(local)) {
+  if (inOuterCorner(grid, local, c, r)) {
     return { code: "course.flagInCorner",
-      why: "the very corner of " + (local ? JSON.stringify(local.boardId) : "its board") };
+      why: "the outer corner of the course, on " + (local ? JSON.stringify(local.boardId) : "its board") };
   }
   return null;
 }

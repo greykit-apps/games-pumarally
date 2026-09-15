@@ -147,7 +147,7 @@ export const CODES = Object.freeze({
   "course.flagNotFloor":  "a flag on something other than plain floor",
   "course.flagInDock":    "a flag inside the docking bay's footprint",
   "course.flagUnderDevice":"a flag on a square a wall device stands in",
-  "course.flagInCorner":  "a flag in the very corner of the board that wrote it",
+  "course.flagInCorner":  "a flag in an outer corner of the course, the drop on two sides",
   "course.flagWallCorner":"a flag in a corner formed by two or more walls, which the classic rulebook advises against",
   "course.unverifiedBoard":"a board marked unverified is laid in this course",
   "course.flagGap":       "a flag further from the previous one than the ruleset allows",
