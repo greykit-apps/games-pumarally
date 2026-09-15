@@ -36,6 +36,7 @@ const BEHAVIOUR = {
   },
   /* "After resolving a Rotate Left card, you may move 1 space forward." */
   drifting: {
+    on: ["left"],
     botPrefers: 0,
     hooks: {
       afterCard(ctx) {
@@ -118,6 +119,7 @@ const BEHAVIOUR = {
   },
   /* "After resolving a Rotate Right card, you may move 1 space forward." */
   powerSlide: {
+    on: ["right"],
     botPrefers: 0,
     hooks: {
       afterCard(ctx) {
@@ -371,7 +373,7 @@ const BEHAVIOUR = {
   /* "Move 1 cards in your registers may be treated as Move 0." Not an Again
    * played after a Move 1, and not a Haywire with a Move 1 effect. */
   brakes: {
-    botPrefers: 0,
+    botPrefers: 0, on: ["move1"],
     hooks: {
       modifyMove(ctx) {
         if (ctx.kind !== "move" || ctx.dist !== 1 || ctx.again) return;
@@ -504,7 +506,7 @@ for (const c of UPGRADES_DATA.cards) {
     if (/"dealt"/.test(src)) asksIn.switch = true;
   }
   if (c.id === "memoryCards") asksIn.switch = true;
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp,
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null,
     temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);

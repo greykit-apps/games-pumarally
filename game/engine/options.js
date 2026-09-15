@@ -64,7 +64,7 @@ const BEHAVIOUR = {
     }
   },
   brakes: {
-    botPrefers: 0,
+    botPrefers: 0, on: ["move1"],
     hooks: {
       modifyMove(ctx) {
         if (ctx.kind !== "move" || ctx.dist !== 1) return;
@@ -74,7 +74,7 @@ const BEHAVIOUR = {
     }
   },
   crabLegs: {
-    botPrefers: 0,
+    botPrefers: 0, on: ["move1"],
     hooks: {
       modifyMove(ctx) {
         if (ctx.kind !== "move" || ctx.dist !== 1) return;
@@ -164,7 +164,7 @@ const BEHAVIOUR = {
   /* "Du kannst wählen, ob dein Roboter ein oder zwei Felder rückwärts geht,
    * wenn du den Befehl 'gehe ein Feld zurück' programmiert hast." */
   reverseGear: {
-    botPrefers: 0,
+    botPrefers: 0, on: ["back"],
     hooks: {
       modifyMove(ctx) {
         if (ctx.kind !== "move" || ctx.dist !== -1) return;
@@ -175,7 +175,7 @@ const BEHAVIOUR = {
   },
   /* "... drei oder vier Felder vorwärts ... 'gehe drei Felder vorwärts'" */
   fourthGear: {
-    botPrefers: 0,
+    botPrefers: 0, on: ["move3"],
     hooks: {
       modifyMove(ctx) {
         if (ctx.kind !== "move" || ctx.dist !== 3) return;
@@ -347,7 +347,8 @@ export const OPTION_DEFS = {};
 for (const c of OPTIONS_DATA.cards) {
   const b = BEHAVIOUR[c.id];
   if (!b) throw new Error("option card " + c.id + " is transcribed but has no behaviour");
-  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, de: c.de || null, cat: c.cat || null, asks: !!c.asks, asksIn: asksWhere(b.hooks), single: false,
+  /* `on`: the program-card kinds a planned card acts on (null: any card), so the screen offers it only where it applies */
+  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, de: c.de || null, cat: c.cat || null, asks: !!c.asks, asksIn: asksWhere(b.hooks), single: false, on: b.on || null,
     hooks: b.hooks, init: b.init, botPrefers: b.botPrefers };
 }
 for (const id of Object.keys(BEHAVIOUR)) if (!OPTION_DEFS[id]) throw new Error("option behaviour " + id + " has no card");
