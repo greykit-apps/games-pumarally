@@ -314,10 +314,13 @@ whose contents the player already knows, so it has a button under each
 register slot, armed per register, a single-use card in one register only;
 a card that reacts to the floor (a Tractor Beam when somebody is in line,
 the Turret's aim, Fire Control on a hit, a temporary used after the deal)
-asks about a situation nobody can see while programming, so it has an
-on/off switch on its face. Off answers the first option without asking, on
-answers yes to a two-way question, and anything richer (which register to
-lock, which way to aim) is still put to the player. The cards on a mat
+asks about a situation nobody can see while programming, so it has only the
+switch. Every card that asks has the on/off switch on its face: off takes
+its first option without asking, on asks the player each time the card
+could be used, so two Move 3s can be run with Fourth Gear engaged for one of
+them. An armed register is a standing yes and asks nothing, unless the
+question has more than two answers (which register to lock, which way to
+aim), which is always put to the player. The cards on a mat
 can be dragged into an order, and the first card is the one paid for damage
 or lost to a wreck or the hand limit. The preferences live in the screen and
 localStorage, never in the state: `autoAnswer` is consulted by the loop
