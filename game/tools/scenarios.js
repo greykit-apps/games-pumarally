@@ -318,22 +318,22 @@ export const SCENARIOS = [
   {
     "name": "a powered-down robot does not acquire an option card",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a two-wrench site repairs 2 when the repair is chosen",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a two-wrench site gives a card instead of the repair",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a one-wrench site still repairs exactly 1 and asks nothing",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a parked upgrade question survives a save and does not repair twice",
@@ -573,72 +573,72 @@ export const SCENARIOS = [
   {
     "name": "Ablative Coat absorbs three damage and then burns off",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Power Down Shield stops lasers only while powered down",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Extra Memory deals one more card",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Gyroscopic Stabilizer ignores gears but not conveyor curves",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Ramming Gear hurts the robot you shove",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Double-Barreled Laser does 2",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Rear-Firing Laser shoots the robot behind you",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "High-Power Laser shoots through exactly one wall",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Pressor Beam shoves instead of damaging",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Mechanical Arm touches a flag one square away",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Superior Archive brings you back with 1 damage",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Superior Archive is still lost if it is your only card",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a wrecked robot loses one option card, not all of them",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "option cards are conserved across a whole game",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the table rejects an upgrade deck that has drifted",
@@ -653,7 +653,7 @@ export const SCENARIOS = [
   {
     "name": "the table rejects a card bound to a hook that does not exist",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Bogus (2)",
@@ -708,7 +708,7 @@ export const SCENARIOS = [
   {
     "name": "the table rejects a hook that no card uses",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a quarter turn rotates conveyors, lasers and walls together",
@@ -1008,7 +1008,7 @@ export const SCENARIOS = [
   {
     "name": "a recompile throws away the hand, not the damage in it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "shutting down is the other way to be rid of SPAM",
@@ -1258,7 +1258,7 @@ export const SCENARIOS = [
   {
     "name": "an option hand is capped at three, and the fourth forces one out",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a jet burns what crosses it, and again what stops in it",
@@ -1460,6 +1460,48 @@ export const SCENARIOS = [
   },
   {
     "name": "crossing a flag counts under the flag-touch house rule, and only then",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Tractor Beam pulls instead of damaging",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Scrambler replaces the next register instead of damaging",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "an optional weapon left alone fires the main laser",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a wrecked human is asked which card to lose",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Brakes may turn a Move 1 into standing still",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Crab Legs sidesteps a Move 1 without turning",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "an option exchange sacrifices a card to absorb a point of damage",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"

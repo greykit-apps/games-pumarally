@@ -79,6 +79,8 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
       ["humanPrivilege", "Human privilege", "the people at the keyboard pick their bays before the bots"]]) {
       html += '<label title="' + esc(note) + '"><input type="checkbox" data-house="' + k + '"' + (prefs.house[k] ? " checked" : "") + "> " + label + "</label>";
     }
+    html += '<label title="Option cards dealt to everyone at the start. The printed route, a two-wrench site instead of two points of repair, hands one out in about one game in fifty.">Starting options ' +
+      '<select data-house-n="startOptions">' + [0, 1, 2, 3].map(n => '<option value="' + n + '"' + ((prefs.house.startOptions | 0) === n ? " selected" : "") + ">" + n + "</option>").join("") + "</select></label>";
     html += "</div><div class='row'><button class='primary' data-act='start'" + (prefs.course ? "" : " disabled") + ">Start the race</button></div></div>";
     root.innerHTML = html;
   }
@@ -103,6 +105,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume })
     if (t.dataset.seat !== undefined) { prefs.seats[+t.dataset.seat].seat = t.value; store(SETUP_KEY, prefs); render(); }
     else if (t.dataset.skill !== undefined) { prefs.seats[+t.dataset.skill].skill = +t.value; store(SETUP_KEY, prefs); }
     else if (t.dataset.house !== undefined) { prefs.house[t.dataset.house] = t.checked; store(SETUP_KEY, prefs); }
+    else if (t.dataset.houseN !== undefined) { prefs.house[t.dataset.houseN] = +t.value; store(SETUP_KEY, prefs); }
   };
   render();
 }

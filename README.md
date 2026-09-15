@@ -34,7 +34,7 @@ at play time beyond fetching the boards.
 | Bots: distance fields and beam search, three skill levels | done |
 | Headless simulation with conservation laws, on every course, mixed seats | done, in CI |
 | The game on screen: set-up, draft, programming by click, keys and drag, animated floor, hot seat, autosave and resume | done |
-| Option cards | not yet: the sixteen transcribed cards are data under `game/data/`, awaiting their hooks |
+| Option cards: the sixteen transcribed, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 29 scenarios by name; the ten untranscribed cards are not guessed at |
 | Oil, portals, swing doors, the Crash and Burn extras | not yet |
 | The 2016 rules | not yet: M4 in `PLAN.md` |
 | Flag locations marked on the boards, for the engine to choose among | not yet: board design |
@@ -81,6 +81,12 @@ the floor in the printed order.
 | `Backspace` | take the last card back |
 | `Enter` | run the registers, or lift the hot-seat curtain |
 | `y` / `n` | answer a power-down question |
+
+A card's own question, a two-wrench site's offer and a choice of which card
+to lose are asked on the panel as buttons; the held cards show under each
+robot with the printed text on hover. **Starting options** in set-up deals
+everyone up to three at the start, because the printed route hands one out
+in about one game in fifty.
 
 Drag a card onto a register to place it there instead. Set-up remembers your
 seats and house rules; the game autosaves every step and resumes.

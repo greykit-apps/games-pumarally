@@ -22,11 +22,18 @@ for (const [id, doc] of courses) {
   try { course = readCourse(doc, library, id); } catch (e) { console.error("  skip " + id + ": " + e.message); continue; }
   const seats = [{ seat: "human" }, { seat: "bot", skill: 1 }, { seat: "human", skill: 2 }, { seat: "bot", skill: 2 }];
   const t0 = Date.now();
-  const r = runSim({ course, seats, library, seed: 100 }, games);
+  /* half the games with three option cards dealt to everyone at the start,
+   * so the hooks and their questions are exercised on every course rather
+   * than at the printed rate of one card in fifty games */
+  const plain = runSim({ course, seats, library, seed: 100 }, Math.ceil(games / 2));
+  const armed = runSim({ course, seats, library, seed: 500, house: { startOptions: 3 } }, Math.floor(games / 2));
   const ms = Date.now() - t0;
+  const r = { games: plain.games + armed.games, decided: plain.decided + armed.decided, unfinished: plain.unfinished + armed.unfinished,
+    crashes: plain.crashes.concat(armed.crashes), avgTurns: +((plain.turns + armed.turns) / (plain.games + armed.games || 1)).toFixed(1),
+    asks: (armed.requests.cardChoice || 0) + (armed.requests.siteChoice || 0) + (armed.requests.dropOption || 0) };
   totalDecided += r.decided;
   const line = "course " + id + ": " + r.games + " games in " + ms + "ms, avg " + r.avgTurns + " turns, " +
-    r.decided + " decided, " + r.unfinished + " unfinished, " + r.crashes.length + " crashes";
+    r.decided + " decided, " + r.unfinished + " unfinished, " + r.crashes.length + " crashes, " + r.asks + " card questions";
   if (r.crashes.length) { failed++; console.error(line); for (const c of r.crashes.slice(0, 3)) console.error("    seed " + c.seed + ": " + c.error); }
   else console.log(line);
 }

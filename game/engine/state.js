@@ -8,6 +8,7 @@
 import { CLASSIC_DECK, REGISTERS } from "./cards.js";
 import { shuffle } from "./rng.js";
 import LIVERY_DATA from "../data/liveries.js";
+import OPTIONS_DATA from "../data/options.js";
 
 export const LIVERIES = LIVERY_DATA.liveries;
 export const SAVE_VERSION = 1;
@@ -39,13 +40,23 @@ export function newGame(opts) {
     house: {
       bumpers: !!(opts.house && opts.house.bumpers),
       flagTouch: !!(opts.house && opts.house.flagTouch),
-      humanPrivilege: !!(opts.house && opts.house.humanPrivilege)
+      humanPrivilege: !!(opts.house && opts.house.humanPrivilege),
+      /* option cards dealt to everyone at the start: a house rule, because the
+       * printed route -- a two-wrench site, instead of two points of repair --
+       * hands one out in about one game in fifty */
+      startOptions: Math.max(0, Math.min(3, (opts.house && opts.house.startOptions) | 0))
     },
     turn: 1, register: 0,
     phase: "draft", step: "livery",
     draft: { order: [], at: 0, cards: {} },
     players: [],
     deck: [], discard: [],
+    optionDeck: [], optionDiscard: [],
+    /* answers to card and board questions, keyed by turn, register, hook,
+     * card and player; cleared at the end of every turn */
+    answers: {},
+    elem: 0,
+    laser: null,
     log: [],
     events: [],
     waiting: null,
@@ -79,6 +90,8 @@ export function newGame(opts) {
       poweredDown: false,
       announceDown: false,
       stayAsked: false,
+      options: [],
+      mustDrop: false,
       alive: true,
       out: false,
       trail: []
@@ -87,6 +100,14 @@ export function newGame(opts) {
 
   for (let i = 0; i < CLASSIC_DECK.length; i++) st.deck.push(i);
   shuffle(st, st.deck);
+  st.optionDeck = OPTIONS_DATA.cards.map(c => c.id);
+  shuffle(st, st.optionDeck);
+  for (let q = 0; q < st.house.startOptions; q++) {
+    for (const p of st.players) {
+      const id = st.optionDeck.pop();
+      if (id !== undefined) p.options.push({ id, st: {} });
+    }
+  }
   return st;
 }
 

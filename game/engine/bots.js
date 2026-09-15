@@ -10,6 +10,7 @@ import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
 import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks } from "./course.js";
 import { card, planOf } from "./cards.js";
 import { hash32 } from "./rng.js";
+import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
 
 /* --- distance fields ----------------------------------------------------------
  * For each flag, a breadth-first distance over the course under a movement
@@ -176,6 +177,16 @@ export function botAnswer(st, library, req) {
     case "program": return botProgram(st, C, p, req.count);
     case "powerDown": return botWantsPowerDown(p);
     case "stayDown": return botWantsPowerDown(p);
+    case "cardChoice": {
+      if (!req.exchange) return botCardPick(req);
+      /* a card is worth a point only when the point would be the tenth */
+      if (p.damage + (req.incoming || 1) < 10) return 0;
+      const keep = i => OPTION_DEFS[p.options[i].id].hooks.onRespawn;
+      const give = req.options.slice(1).find(o => !keep(o - 1));
+      return give === undefined ? req.options[req.options.length - 1] : give;
+    }
+    case "siteChoice": return p.damage >= 2 ? "repair" : "card";
+    case "dropOption": return botTrimPick(p);
     default: throw new Error("no bot answer for request kind " + req.kind);
   }
 }

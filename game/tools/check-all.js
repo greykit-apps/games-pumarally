@@ -9,7 +9,9 @@
  * failure this project has met most often.
  */
 import { SCENARIOS, tally } from "./scenarios.js";
-import { TESTS } from "./scenarios/classic.js";
+import { TESTS as CLASSIC } from "./scenarios/classic.js";
+import { TESTS as OPTIONS } from "./scenarios/options.js";
+const TESTS = CLASSIC.concat(OPTIONS);
 import cardsData from "../data/cards.js";
 import optionsData from "../data/options.js";
 import upgradesData from "../data/upgrades.js";
