@@ -18,97 +18,97 @@ export const SCENARIOS = [
   {
     "name": "a robot pushes the robot in front of it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a wall stops the whole push chain, pusher included",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "pushing a robot off the edge destroys only it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a wall cancels the rest of a multi-square move",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "Back Up moves backwards without turning",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "U-Turn reverses facing",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a conveyor carries a robot one square",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "an express conveyor moves on both passes, a normal one only on the second",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a curve rotates a robot the conveyor carried onto it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a curve does NOT rotate a robot that was pushed onto it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "two conveyors converging on one square move neither robot",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a conveyor does not push a robot standing off the belt",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a conveyor carries a robot into a pit and destroys it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "gears turn a robot 90 degrees the printed way",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a pusher fires only on its own registers",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a board laser damages the first robot in the beam only",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a wall blocks a laser",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "robot lasers fire forwards and skip their own square",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a powered-down robot does not fire but is still hit",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a shot is drawn only when it connects with a robot",
@@ -118,7 +118,7 @@ export const SCENARIOS = [
   {
     "name": "a beam stops at the first robot, not the one behind it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a shot absorbed before it lands is not drawn",
@@ -188,22 +188,22 @@ export const SCENARIOS = [
   {
     "name": "the draft seats everyone, once each, on a real bay",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the fastest priority drafts first",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "human privilege jumps the bots and nothing else",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "no two robots share a colour, whatever you pick",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "an expansion tile turns its ruleset on",
@@ -233,57 +233,57 @@ export const SCENARIOS = [
   {
     "name": "lasers are simultaneous: a robot destroyed this register still fires",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "ten damage destroys a robot and costs a life",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "registers lock from the right as damage mounts",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a destroyed robot returns to its archive with two damage",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a robot returning to an occupied archive takes the nearest free square",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "flags must be touched in order",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "an out-of-order flag still updates the archive",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a repair site updates the archive",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "touching every flag in order wins the game",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "repairs happen in cleanup, not when the flag is touched",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "power down clears damage at the start of the powered-down turn, not on announcing",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "every option card draws as a card, with its effect on the hover",
@@ -298,22 +298,22 @@ export const SCENARIOS = [
   {
     "name": "a powered-down human is asked whether to stay down",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a human with every register locked still reaches the announce",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a powered-down robot does not tag a checkpoint",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a powered-down robot does not update its archive",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a powered-down robot does not acquire an option card",
@@ -1409,6 +1409,60 @@ export const SCENARIOS = [
     "name": "destroying a robot returns all of its cards to the discard",
     "layer": "rules",
     "status": "pending"
+  },
+  {
+    "name": "a new game starts in the draft, at the colours",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a table of bots stops at nothing before the first program",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a seat is any mix: solo, eight, bots only",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "an illegal answer is refused and the same question stands",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a seed replays identically",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "cards are conserved: 84 across deck, discard, hands and registers",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a locked register keeps its card and re-executes it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the bumpers house rule keeps a robot on the course",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "crossing a flag counts under the flag-touch house rule, and only then",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 

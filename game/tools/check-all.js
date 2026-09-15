@@ -8,16 +8,17 @@
  * nothing to check says so and FAILS -- a green run over zero tests is the
  * failure this project has met most often.
  */
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { SCENARIOS, tally } from "./scenarios.js";
+import { TESTS } from "./scenarios/classic.js";
+import cardsData from "../data/cards.js";
+import optionsData from "../data/options.js";
+import upgradesData from "../data/upgrades.js";
+import liveriesData from "../data/liveries.js";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const DATA = join(HERE, "..", "data");
+const TABLES = { "cards.json": cardsData, "options.json": optionsData, "upgrades.json": upgradesData, "liveries.json": liveriesData };
 let failed = 0, passed = 0;
 const ok = (cond, msg) => { if (cond) passed++; else { failed++; console.error("FAIL " + msg); } };
-const json = f => JSON.parse(readFileSync(join(DATA, f), "utf8"));
+const json = f => TABLES[f];
 
 /* --- the lifted tables ------------------------------------------------------ */
 {
@@ -49,6 +50,22 @@ const json = f => JSON.parse(readFileSync(join(DATA, f), "utf8"));
   const liv = json("liveries.json");
   ok(liv.liveries.length === liv.maxSeats, "liveries: one per seat");
   ok(new Set(liv.liveries.map(l => l.id)).size === liv.liveries.length, "liveries: ids unique");
+}
+
+/* --- the rule tests ----------------------------------------------------------- */
+{
+  const names = new Set();
+  for (const [name, run] of TESTS) {
+    ok(!names.has(name), "rule test names are unique: " + name);
+    names.add(name);
+    try { run(); passed++; }
+    catch (e) { failed++; console.error("FAIL " + name + "\n  " + e.message); }
+  }
+  /* the list and the tests agree in both directions */
+  const ported = new Set(SCENARIOS.filter(s => s.status === "ported").map(s => s.name));
+  for (const n of names) ok(ported.has(n), "scenario list: the test \"" + n + "\" is marked ported");
+  for (const n of ported) ok(names.has(n), "scenario list: the ported scenario \"" + n + "\" has a test");
+  console.log("rule tests: " + names.size + " ran");
 }
 
 /* --- the scenarios ----------------------------------------------------------- */

@@ -1,4 +1,5 @@
-{
+/* Lifted from the old game verbatim; see game/README.md. A module rather than JSON so the browser and Node load it the same way. */
+export default {
   "format": "PRCards",
   "version": 1,
   "kind": "decks",
@@ -134,4 +135,4 @@
     },
     "rebootPoint": "archive"
   }
-}
+};

@@ -120,12 +120,24 @@ matters is visible from the first commit.
 ## Checks
 
 ```
-node game/tools/check-all.js
+node game/tools/check-all.js      # the tables, the rule tests, the scenario ledger
+node game/tools/sim.js 20         # twenty mixed games on every shipped course
 ```
 
-runs every check in this directory and prints the pending scenario count on
-every run, so the number lives in the output and never only in a README. CI
-runs it after the editor's checks.
+`check-all` prints the pending scenario count on every run, so the number
+lives in the output and never only in a README. `sim` seats two bots and two
+randomly-answered "humans" on every course and fails if any game crashes, a
+conservation law breaks, a request goes unanswerable, or no game is ever won.
+CI runs both after the editor's checks.
+
+## Status
+
+M1, the classic engine headless, is built: draft, deal, programming, the five
+registers in the printed order, damage and locking, destruction and return,
+power down as three moments, repair at cleanup, checkpoints and the win, the
+bots ported, and the bumpers and flag-touch house rules. Not yet: option cards
+(the two-wrench site repairs two until they are), oil and portals, and
+anything modern.
 
 ## Open, and recorded here rather than solved in passing
 

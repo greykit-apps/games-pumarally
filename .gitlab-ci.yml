@@ -57,6 +57,7 @@ validate:
     # tables and its scenarios are the old suite's names; the run prints how
     # many are still pending, so the number is never only in a README.
     - node game/tools/check-all.js
+    - node game/tools/sim.js 20
 
 deploy:
   stage: deploy
