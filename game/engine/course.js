@@ -11,7 +11,7 @@ import {
   inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt,
   deviceCell, blockedAt, laserPath
 } from "../../editor/lib/board.js";
-import { beltTurn, tokenBeltSpeed } from "../../editor/lib/token.js";
+import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { DC, DR, opposite } from "../../editor/lib/dir.js";
 
@@ -46,7 +46,28 @@ export function buildCourse(doc, library) {
     for (let i = 0; i < (d.reach || 1); i++) squares.push([cell[0] + DC[d.face] * i, cell[1] + DR[d.face] * i]);
     return { squares, regs: d.regs || null };
   });
-  return { id: doc.id, w: grid.w, h: grid.h, grid, from, bounds, flags, docks, lasers, jets, key: JSON.stringify(doc) };
+  /* Portals pair by colour WITHIN A BOARD: a course stamped from two copies
+   * of board G carries two violet pairs, and each robot comes out on the
+   * board it went in on. The validator has already refused a colour that is
+   * not exactly two on its board, so anything unpaired here is left dead. */
+  const portals = new Map();
+  const byColour = new Map();
+  for (let r = 0; r < grid.h; r++) {
+    for (let c = 0; c < grid.w; c++) {
+      const tok = cellAt(grid, c, r);
+      const def = tokenElement(tok);
+      if (!def || !def.props.portal) continue;
+      const key = from[r * grid.w + c] + ":" + tok.charAt(1);
+      if (!byColour.has(key)) byColour.set(key, []);
+      byColour.get(key).push([c, r]);
+    }
+  }
+  for (const ends of byColour.values()) {
+    if (ends.length !== 2) continue;
+    portals.set(ends[0].join(","), ends[1]);
+    portals.set(ends[1].join(","), ends[0]);
+  }
+  return { id: doc.id, w: grid.w, h: grid.h, grid, from, bounds, flags, docks, lasers, jets, portals, key: JSON.stringify(doc) };
 }
 
 /* --- square questions ------------------------------------------------------- */
@@ -79,6 +100,9 @@ export function repairAt(C, c, r) { return propAt(C.grid, c, r, "repair") || 0; 
 export function optionSiteAt(C, c, r) { return !!propAt(C.grid, c, r, "option"); }
 export function energyAt(C, c, r) { return propAt(C.grid, c, r, "energy") || 0; }
 export function oilAt(C, c, r) { return !!propAt(C.grid, c, r, "oil"); }
+
+/** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
+export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }
 
 /** A wall or a shut door between (c,r) and its neighbour in `dir`; register is 0-based. */
 export function wallBlocks(C, c, r, dir, register) {

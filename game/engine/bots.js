@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin } from "./course.js";
 import { card, planOf } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -60,7 +60,18 @@ function ghostMove(st, C, g, dir) {
   if (wallBlocks(C, g.c, g.r, dir, g.reg) || railed(st, C, g.c, g.r, dir)) return;
   const [nc, nr] = stepCell(g.c, g.r, dir);
   g.c = nc; g.r = nr;
-  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) g.dead = true;
+  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
+  /* the ghost ignores other robots, so a portal always fires for it */
+  const twin = portalTwin(C, nc, nr);
+  if (twin) { g.c = twin[0]; g.r = twin[1]; }
+}
+
+/* the ghost skids the way the rules do, minus the robots it does not model */
+function ghostSlide(st, C, g, dir) {
+  for (let guard = 0; guard < 64 && !g.dead && oilAt(C, g.c, g.r); guard++) {
+    if (wallBlocks(C, g.c, g.r, dir, g.reg) || railed(st, C, g.c, g.r, dir)) return;
+    ghostMove(st, C, g, dir);
+  }
 }
 
 function ghostCard(st, C, g, cd) {
@@ -68,7 +79,11 @@ function ghostCard(st, C, g, cd) {
   if (plan.kind === "turn") { g.face = rot(g.face, plan.turn); return; }
   if (plan.kind !== "move") return;
   const dir = plan.dist > 0 ? g.face : opposite(g.face);
-  for (let i = 0; i < Math.abs(plan.dist) && !g.dead; i++) ghostMove(st, C, g, dir);
+  let n = Math.abs(plan.dist);
+  if (n > 0 && oilAt(C, g.c, g.r)) n--;
+  let moved = 0;
+  for (let i = 0; i < n && !g.dead; i++) { ghostMove(st, C, g, dir); moved++; }
+  if (moved > 0 && !g.dead && oilAt(C, g.c, g.r)) ghostSlide(st, C, g, dir);
 }
 
 function ghostBelt(st, C, g, lo, hi) {

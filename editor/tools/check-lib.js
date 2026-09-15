@@ -103,15 +103,16 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
    * the easy way to "simplify" this away -- and this goes red. */
   for (const id of ["classic", "modern"]) {
     const r = rulesetFor(id);
-    ok(typeof r.oilSlidePushes === "boolean",
-       "rulesets: " + id + " says whether an oil slide pushes a robot it meets");
+    ok(Array.isArray(r.oilSlideAfter) && r.oilSlideAfter.indexOf("card") >= 0 &&
+       r.oilSlideAfter.every(k => ["card", "belt", "push"].indexOf(k) >= 0),
+       "rulesets: " + id + " lists what sets off an oil slide, and a card move is always one");
     ok(r.portalBlockedBy === "eitherEnd" || r.portalBlockedBy === "destination",
        "rulesets: " + id + " says when a portal refuses to fire");
   }
-  ok(rulesetFor("classic").oilSlidePushes !== rulesetFor("modern").oilSlidePushes,
-     "rulesets: the editions disagree about an oil slide meeting a robot");
+  ok(rulesetFor("classic").oilSlideAfter.join() !== rulesetFor("modern").oilSlideAfter.join(),
+     "rulesets: the editions disagree about what sets off an oil slide");
   ok(rulesetFor("classic").portalBlockedBy !== rulesetFor("modern").portalBlockedBy,
-     "rulesets: the editions disagree about when a portal refuses");
+     "rulesets: the editions word the portal refusal differently");
 }
 
 /* --- devices and sets ----------------------------------------------------- */

@@ -408,77 +408,77 @@ export const SCENARIOS = [
   {
     "name": "a swing door blocks when shut and lets you through when open",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a shut door stops a laser, an open one does not",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a door round-trips through the picture byte for byte",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a door survives board rotation",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a door is not a wall, and a wall is not a door",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a portal drops you out of its twin and you carry on",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "the pair counts as one square, so a robot cannot bounce back",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a robot standing on a portal switches the colour off",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a lone portal is refused as a transcription error",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "ending a move on oil slides you off it",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "starting a move on oil costs a square",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a Move 1 that starts on oil goes nowhere, and does not then skid",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a slide stops against a robot with grip, and shoves one without",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "oil does not touch rotation",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a press is a thing ON a square, and knows which squares it may not be on",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a pusher can fire on an arbitrary set of registers",
@@ -498,17 +498,17 @@ export const SCENARIOS = [
   {
     "name": "a press flattens what stands on it, but only in its registers",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a press fires on every register it lists, and no others",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a burner scorches for one, in its registers only",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a flame jet burns the floor in front of it, not the wall it is on",
@@ -538,7 +538,7 @@ export const SCENARIOS = [
   {
     "name": "burners fire after the lasers, not with the other elements",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "every turn is dealt from a reshuffled deck",
@@ -1248,12 +1248,12 @@ export const SCENARIOS = [
   {
     "name": "the board takes its turn in the printed order, presses between the gears and the lasers",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "a crusher destroys, and only where and when it is printed",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
   },
   {
     "name": "an option hand is capped at three, and the fourth forces one out",
@@ -1268,7 +1268,47 @@ export const SCENARIOS = [
   {
     "name": "lives scale with the number of robots and the number of boards",
     "layer": "rules",
-    "status": "pending"
+    "status": "ported"
+  },
+  {
+    "name": "a portal fires however you arrive: shoved, conveyed or skidding",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a portal pair belongs to its own board",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a slide stops before a wall, and a slide is not a move",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a slide is set off by what the edition says",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a press with no number printed on it comes down every register",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a burner scorches a robot that drives through it, and again when the burners act",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a robot that stays in an active burner is scorched, and one that leaves is not",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a card dealt at the start carries its state, so a coat wears out",
+    "layer": "rules",
+    "status": "ported"
   },
   {
     "name": "a trap with no register printed on it fires in every one",

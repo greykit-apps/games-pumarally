@@ -1,7 +1,8 @@
 /* The option cards, one scenario each, named as the old suite named them. */
 import { board, courseOn, game, give, runRegister, N, E, S, W } from "./harness.js";
-import { stepRobot, beltPass, gearPass, laserPass, checkpointPass } from "../../engine/rules.js";
+import { stepRobot, beltPass, gearPass, laserPass, checkpointPass, damage } from "../../engine/rules.js";
 import { step } from "../../engine/machine.js";
+import { newGame } from "../../engine/state.js";
 import { runGame } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
 import { OPTION_DEFS, OPTION_IDS, HOOKS, OPTION_LIMIT, fire } from "../../engine/options.js";
@@ -285,5 +286,27 @@ export const TESTS = [
     let n = r.state.optionDeck.length + r.state.optionDiscard.length;
     for (const p of r.state.players) n += p.options.length;
     eq(n, OPTION_IDS.length, "sixteen at the end");
+  }],
+  ["a card dealt at the start carries its state, so a coat wears out", () => {
+    /* the starting-options house rule handed cards out without their state:
+     * an Ablative Coat with no charges absorbed forever and turned damage
+     * into NaN, which every range check waved through. Seen on screen. */
+    const co = plain();
+    const st = newGame({ seed: 7, course: co.doc, seats: new Array(6).fill(0).map(() => ({ seat: "bot" })), house: { startOptions: 3 } });
+    let coats = 0;
+    for (const p of st.players) for (const o of p.options) {
+      const def = OPTION_DEFS[o.id];
+      if (!def.init) continue;
+      coats++;
+      eq(o.st, def.init(), p.name + "'s " + def.name + " starts with its state");
+    }
+    eq(coats, 1, "three cards to six seats empties the sixteen-card deck: the one card with state is in somebody's hand");
+    /* and it wears out: three absorbed, the fourth lands, the coat is gone */
+    const holder = st.players.find(p => p.options.some(o => o.id === "ablativeCoat"));
+    holder.placed = true; holder.c = 2; holder.r = 2;
+    for (let k = 0; k < 4; k++) damage(st, co.C, holder, 1, "burner");
+    eq(holder.damage, 1, "three points absorbed, the fourth landed");
+    assert(!holder.options.some(o => o.id === "ablativeCoat"), "the coat burnt out");
+    assert(st.optionDiscard.indexOf("ablativeCoat") >= 0, "and is on the discard");
   }]
 ];

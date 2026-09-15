@@ -207,6 +207,12 @@ export function fire(st, player, hook, ctx) {
   return ctx;
 }
 
+/** A card as held: its id and a fresh copy of whatever state it keeps. The ONLY way a hand gets a card. */
+export function newHeld(id) {
+  const def = OPTION_DEFS[id];
+  return { id, st: def && def.init ? def.init() : {} };
+}
+
 export function drawOption(st, p) {
   if (!st.optionDeck.length) {
     st.optionDeck = st.optionDiscard.slice();
@@ -221,7 +227,7 @@ export function drawOption(st, p) {
   if (!st.optionDeck.length) return null;
   const id = st.optionDeck.pop();
   const def = OPTION_DEFS[id];
-  p.options.push({ id, st: def.init ? def.init() : {} });
+  p.options.push(newHeld(id));
   st.events.push({ type: "option", player: p.id, card: id, how: "gained" });
   log(st, p.name + " picks up " + def.name);
   return id;

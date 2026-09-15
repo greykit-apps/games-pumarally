@@ -37,13 +37,29 @@ export default {
    * two element characters, and merging those must not become forgetting this.
    * check-lib.js asserts both rulesets define both keys and that they disagree.
    *
-   * A slide meeting a robot: the classic slide STOPS there. AMIGO's Crash and
-   * Burn Spielanleitung -- a robot ending its move on oil slides on until it is
-   * off the oil, is stopped by a wall, or would slide into a robot. */
-  oilSlidePushes: false,
+   * What makes a robot slide. Crash and Burn (AMIGO Spielanleitung p.7,
+   * manual1/IMG_1227): a robot that ENDS ITS MOVEMENT on oil slides on in the
+   * direction it was going until it reaches a square without oil, or stops
+   * before a wall or before a robot that is not itself on oil; a robot on the
+   * same slick is shoved along and both slide. "Ein Roboter rutscht nicht,
+   * solange er in Bewegung ist" -- the slide happens once, after the card.
+   * Starting a move on oil costs one square, so a Move 1 from oil goes nowhere
+   * and does not then skid; rotation is unaffected. The book states the slide
+   * for a robot's own movement and shows only card moves; it says nothing
+   * about a belt dropping a robot on oil or a push ending there, so the
+   * classic list carries the stated case only. (An earlier draft of this file
+   * said the classic slide stops at ANY robot. The photograph says otherwise,
+   * and the editions agree on the shove.) */
+  oilSlideAfter: ["card"],
 
-  /* When a portal will not fire: while a robot stands on EITHER end of the
-   * pair, which switches the whole pair off rather than only the far side. */
+  /* When a portal will not fire. Crash and Burn p.8 (manual1/IMG_1228): "Steht
+   * ein Roboter auf einem Portalfeld, dann sind sofort beide Portale der
+   * gleichen Farbe ausgeschaltet" -- a robot standing on EITHER end switches
+   * the pair off, and a switched-off portal is ordinary floor. The 2016 sheet
+   * says only that an occupied DESTINATION refuses. The two wordings pick out
+   * the same positions, because a square holds one robot: the only end that
+   * can be occupied when a robot enters the other is the far one. The engine
+   * therefore has one portal, and this key records the book's own wording. */
   portalBlockedBy: "eitherEnd",
 
   /* The board's turn, in printed order. */

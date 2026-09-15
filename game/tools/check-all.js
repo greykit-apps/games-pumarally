@@ -11,7 +11,8 @@
 import { SCENARIOS, tally } from "./scenarios.js";
 import { TESTS as CLASSIC } from "./scenarios/classic.js";
 import { TESTS as OPTIONS } from "./scenarios/options.js";
-const TESTS = CLASSIC.concat(OPTIONS);
+import { TESTS as CRASH } from "./scenarios/crashAndBurn.js";
+const TESTS = CLASSIC.concat(OPTIONS, CRASH);
 import cardsData from "../data/cards.js";
 import optionsData from "../data/options.js";
 import upgradesData from "../data/upgrades.js";

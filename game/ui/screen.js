@@ -132,6 +132,14 @@ export function mountScreen(root, ctx) {
           placePiece(p, e.to[0], e.to[1], pieceFace(p.id), true);
           await wait(e.type === "conveyed" ? 200 : 260);
           break;
+        case "portal":
+          /* in one end and out of the other: no glide across the floor between */
+          pieces.get(p.id).classList.add("gone");
+          await wait(120);
+          placePiece(p, e.to[0], e.to[1], pieceFace(p.id), false);
+          pieces.get(p.id).classList.remove("gone");
+          await wait(160);
+          break;
         case "turned":
           setFace(p.id, e.face);
           await wait(200);

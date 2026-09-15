@@ -8,9 +8,11 @@ branch is on `main`, the tag `classic-monolith` marks the last commit before
 the rebuild, `game/` holds the classic engine, bots, simulation and screen,
 the repository root's `index.html` is the new game, and the old game and its
 tools are deleted. Option cards followed the same day: the sixteen
-transcribed, with their questions through the request door. Seventy-seven
+transcribed, with their questions through the request door. Crash and Burn's
+floor followed: doors, portals, oil, unnumbered presses, burners on the way
+through, lives by game size, all read off the AMIGO book. A hundred and six
 of the old suite's scenarios are ported by name; the runner prints the rest
-as pending. Next: oil, portals and the Crash and Burn extras, then M4.
+as pending. Next: M4.
 
 ## The verdict
 
@@ -136,7 +138,7 @@ games in ten seconds and one game on screen.
 `editor/rulesets/classic.js` and `modern.js` already carry the board's
 activation order as a table (`order: [expressConveyor, conveyor, pusher,
 gear, crusher, boardLaser, robotLaser, ...]`) and the resolution flags
-(`expressAlsoRunsWithNormals`, `oilSlidePushes`, `portalBlockedBy`). The
+(`expressAlsoRunsWithNormals`, `oilSlideAfter`, `portalBlockedBy`). The
 engine walks `ruleset.order` and dispatches each step to an element handler
 keyed by **property** (`belt`, `gear`, `pit`, `laser`) read through
 `propAt()`, exactly as the editor's inspector already does. Adding an element

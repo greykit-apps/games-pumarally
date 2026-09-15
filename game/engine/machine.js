@@ -25,7 +25,7 @@ import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./opt
 /* The board's turn, in the classic printed order. Each name is a pass in
  * rules.js; the table is the order, so the sequence can be read rather than
  * traced through eight functions that each name the next. */
-const CLASSIC_ORDER = [
+export const CLASSIC_ORDER = [
   ["express", (st, C) => beltPass(st, C, 2, 2)],
   ["belts", (st, C) => beltPass(st, C, 1, 2)],
   ["pushers", pusherPass],
