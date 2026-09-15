@@ -1463,6 +1463,61 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "water costs a space of movement on the way out, once per card, and only on your own card",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "drains are pits, in every way",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a ledge cannot be climbed, and the drop off one costs two damage, or one into water",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "weapons and board lasers cannot hit a target on another level",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a ramp is an extra space on the way up, and is ignored on the way down",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "stopping on the way up a ramp slides you back down, pushing whoever is there",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "currents convey at their own step, and are water",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a randomizer replaces the card you reveal with the top of your deck",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a teleporter throws a Move card two further forward, unless the arrival square is taken",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a flamer burns on the way in and at the end of the register, not at the start",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
+    "name": "a board printing the expansion floor is a 2016 board",
+    "layer": "rules",
+    "status": "ported"
+  },
+  {
     "name": "a trap with no register printed on it fires in every one",
     "layer": "rules",
     "status": "pending"

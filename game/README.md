@@ -137,6 +137,26 @@ CI runs both after the editor's checks.
 
 ## Status
 
+The three 2016 expansions' floor is built (M5, second part), read off the
+Factory Floor Guides in `manual1/` (Wet and Wild `IMG_1236` to `IMG_1239`,
+Chaos and Carnage `IMG_1243`, Thrills and Spills `IMG_1248` to `IMG_1251`):
+water that costs a space on the way out of it, once per card and only on the
+robot's own card; drains as pits; ledges, which cannot be climbed and cost
+two damage on the way down, one into water, and which no weapon or board
+laser fires across; ramps, an extra space on the way up that slides a robot
+back down if it stops there, and no space at all on the way down; currents,
+green belts that run at the board's third step and are water; randomizers,
+which swap the card a robot reveals for the top of its deck; teleporters,
+which throw a Move card two squares further forward, ignoring everything
+between, and do nothing when the arrival square is taken; and flamers,
+active for the whole of their registers, one damage on the way in or through
+and one for ending the register in them. Eleven scenarios on authored
+boards, since no shipped board prints any of it yet: the readers see these
+elements (`editor/rulesets/elements.js`) and a course laying one is a 2016
+course. Two readings are declared where the sheets are silent: a ramp's
+slide-back is for the robot's own card, and a teleporter whose arrival
+square is off the course does not operate.
+
 All forty upgrade cards have their effect (M5, first part), read off the
 rulebook pp.21-23 (`manual1/IMG_1264`, `IMG_1265`): the twenty-nine that
 were installable and inert now act, through the same hooks as option cards

@@ -23,8 +23,9 @@ import { shuffle } from "./rng.js";
 import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
-  checkpointPass, batteryPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot
+  checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived
 } from "./rules.js";
+import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
 import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy } from "./upgrades.js";
 import { step as stepCell, rot } from "../../editor/lib/dir.js";
@@ -51,11 +52,14 @@ export const CLASSIC_ORDER = [
 export const MODERN_ORDER = [
   ["blue1", (st, C) => beltPass(st, C, 2, 2)],
   ["blue2", (st, C) => beltPass(st, C, 2, 2)],
-  ["green", (st, C) => beltPass(st, C, 1, 1)],
+  ["green", (st, C) => beltPass(st, C, 1, 1, null, (C2, c, r) => !currentAt(C2, c, r))],
+  /* Wet and Wild: "Currents act just like green conveyor belts, but convey robots on their spaces during Board Element Activation Step #3." */
+  ["currents", (st, C) => beltPass(st, C, 1, 1, null, currentAt)],
   ["pushers", pusherPass],
   ["gears", gearPass],
   ["crushers", crusherPass],
   ["lasers", laserPass],
+  ["flamers", flamerPass],
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -646,6 +650,16 @@ const STEPS = {
           st.act.stage = "card";
         }
         if (st.act.stage === "card") {
+          /* Chaos and Carnage: "If your robot is on a randomizer when you would
+           * reveal a programming card, discard all cards in the current register
+           * and replace them with the top card of your programming deck." */
+          if (randomizerAt(C, p.c, p.r) && p.registers[st.register] !== null) {
+            putAway(st, p, p.registers[st.register], true);
+            if (p.crab[st.register] !== null) { putAway(st, p, p.crab[st.register], true); p.crab[st.register] = null; }
+            p.registers[st.register] = drawOwn(st, p);
+            st.events.push({ type: "randomized", player: p.id, register: st.register });
+            log(st, p.name + "'s card is randomized");
+          }
           let i = replaceInRegister(st, p, st.register);
           if (i !== null) {
             let cd = card(st, i), again = false;
@@ -656,7 +670,29 @@ const STEPS = {
               if (ti === null) { log(st, p.name + "'s Again repeats nothing"); i = null; }
               else { cd = card(st, ti); again = true; }
             }
-            if (i !== null && p.crab[st.register] !== null && (cd.kind === "left" || cd.kind === "right") && !again) {
+            /* Chaos and Carnage: a teleporter under a robot revealing a Move card
+             * (Move 1-3 and Back Up) throws it 2 further forward than the card,
+             * "ignoring all intervening board elements and robots", and does not
+             * operate at all when the arrival square is occupied. Off the course
+             * is read as an arrival square it cannot reach: the card plays normally. */
+            const jumps = { move1: 3, move2: 4, move3: 5, back: 2 };
+            if (i !== null && !again && jumps[cd.kind] && teleporterAt(C, p.c, p.r) && p.crab[st.register] === null) {
+              const n = jumps[cd.kind];
+              const to = [p.c + [0, 1, 0, -1][p.face] * n, p.r + [-1, 0, 1, 0][p.face] * n];
+              if (inCourse(C, to[0], to[1]) && !robotAt(st, to[0], to[1])) {
+                st.act.cardKind = cd.kind;
+                p.pushed = []; p.lastMove = null;
+                st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
+                const from = [p.c, p.r];
+                p.c = to[0]; p.r = to[1];
+                p.trail = [[p.c, p.r]];
+                st.events.push({ type: "teleported", player: p.id, from, to: [p.c, p.r], n });
+                log(st, p.name + " teleports " + n + " forward");
+                arrived(st, C, p);
+                st.act.stage = "after";
+              }
+            }
+            if (st.act.stage === "card" && i !== null && p.crab[st.register] !== null && (cd.kind === "left" || cd.kind === "right") && !again) {
               /* Crab Legs: the Move 1 paired with the rotate becomes a sidestep, and neither card's own effect happens */
               st.act.cardKind = cd.kind;
               p.pushed = []; p.lastMove = null;
@@ -664,7 +700,7 @@ const STEPS = {
               log(st, p.name + " crab-walks " + DIR_WORDS[dir]);
               st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
               if (stepRobot(st, C, p, dir, "card")) p.lastMove = { dir, n: 1 };
-            } else if (i !== null) {
+            } else if (st.act.stage === "card" && i !== null) {
               const plan = planCard(st, p, cd, again);
               if (plan.pending) { st.waiting = plan.ask; return; }
               st.act.cardKind = again ? null : cd.kind;
