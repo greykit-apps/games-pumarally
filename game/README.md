@@ -305,11 +305,19 @@ the floor moving or not, and answers the routine questions so the player is
 not asked at every phase: a Shutdown button under the registers (Power down
 under the classic rules, waiting for a point of damage as the book requires)
 declares the shutdown for this turn and is otherwise taken as no; a damage
-button says whether the option exchange pays a card or takes the point; each
-card with a question has an on/off switch, off answering its first option
-without asking and on answering yes to a two-way question, with anything
-richer (which register, which way) still put to the player; a temporary
-upgrade switched on is used the first time it is offered. The cards on a mat
+button says whether the option exchange pays a card or takes the point.
+A card's questions are answered two ways, by where they come from
+(`engine/asks.js`): a card that acts on the programmed card itself (Brakes,
+Fourth Gear, an Emergency Switch at the reveal, a Power Slide after the
+move, a temporary used before or after your card) asks about a register
+whose contents the player already knows, so it has a button under each
+register slot, armed per register, a single-use card in one register only;
+a card that reacts to the floor (a Tractor Beam when somebody is in line,
+the Turret's aim, Fire Control on a hit, a temporary used after the deal)
+asks about a situation nobody can see while programming, so it has an
+on/off switch on its face. Off answers the first option without asking, on
+answers yes to a two-way question, and anything richer (which register to
+lock, which way to aim) is still put to the player. The cards on a mat
 can be dragged into an order, and the first card is the one paid for damage
 or lost to a wreck or the hand limit. The preferences live in the screen and
 localStorage, never in the state: `autoAnswer` is consulted by the loop

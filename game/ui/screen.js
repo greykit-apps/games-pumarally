@@ -22,7 +22,7 @@ import { esc } from "../../editor/render/theme.js";
 import { courseOf } from "../engine/course.js";
 import { card, KINDS, openRegisters, REGISTERS, isDamage, isModern, MAX_ENERGY } from "../engine/cards.js";
 import { LIVERIES, isHuman, livesFor } from "../engine/state.js";
-import { OPTION_DEFS } from "../engine/options.js";
+import { OPTION_DEFS, PLAN_HOOKS } from "../engine/options.js";
 import { UPGRADE_DEFS } from "../engine/upgrades.js";
 import { cardArt } from "./cardart.js";
 import { kitArt, categoryOf } from "./kitart.js";
@@ -73,8 +73,22 @@ export function mountScreen(root, ctx) {
     } catch (e) { /* no storage */ }
   }
   function prefsFor(pid) {
-    if (!prefs[pid]) prefs[pid] = { shutdownTurn: -1, sacrifice: false, on: {}, order: [] };
+    if (!prefs[pid]) prefs[pid] = { shutdownTurn: -1, sacrifice: false, on: {}, order: [], plan: {} };
+    if (!prefs[pid].plan) prefs[pid].plan = {};
     return prefs[pid];
+  }
+  /* the register plan: a card that asks about a register is armed for the
+   * registers its player picked under the slots; a single-use card for one */
+  function armed(pid, id, reg) { const pl = prefsFor(pid).plan[id]; return !!(pl && pl[reg]); }
+  function toggleArm(pid, id, reg) {
+    const pf = prefsFor(pid);
+    const def = OPTION_DEFS[id] || UPGRADE_DEFS[id];
+    const was = armed(pid, id, reg);
+    if (def && def.single) pf.plan[id] = [false, false, false, false, false];
+    else if (!pf.plan[id]) pf.plan[id] = [false, false, false, false, false];
+    pf.plan[id][reg] = !was;
+    savePrefs();
+    renderPanel();
   }
   function togglePref(pid, key) {
     const pf = prefsFor(pid);
@@ -138,18 +152,27 @@ export function mountScreen(root, ctx) {
           const i = firstOnMat(me, w.options.slice(1).map(o => o - 1));
           return i === null ? 0 : i + 1;
         }
-        /* a card's own question: off answers its first option, on answers yes; more than two answers is still asked */
-        if (w.card && w.card !== "haywire" && (OPTION_DEFS[w.card] || UPGRADE_DEFS[w.card])) {
-          if (!pf.on[w.card]) return w.options[0];
+        /* a card's own question: from a hook about the programmed card, the
+         * plan under the slots says; from anything else, the card's switch.
+         * Off answers the first option, on answers yes; more than two answers
+         * is still asked. The key names the hook that asked. */
+        const def = w.card && w.card !== "haywire" ? OPTION_DEFS[w.card] || UPGRADE_DEFS[w.card] : null;
+        if (def) {
+          const hook = (w.key || "").split(":")[2];
+          const on = PLAN_HOOKS.includes(hook) ? armed(me.id, w.card, st.register) : !!pf.on[w.card];
+          if (!on) return w.options[0];
           return w.options.length === 2 ? w.options[1] : undefined;
         }
         return undefined;
       }
-      /* a temporary upgrade at this moment: a card switched on is used the first time it can be */
+      /* a temporary upgrade at this moment: before or after the card, the
+       * register plan; after the deal, the card's switch. Used the first
+       * time it can be, unless it needs an argument, which is asked */
       case "useTemp": {
         const offers = w.options.slice(1);
         for (const o of offers) {
-          if (!pf.on[o.id]) continue;
+          const on = w.moment === "dealt" ? !!pf.on[o.id] : armed(me.id, o.id, st.register);
+          if (!on) continue;
           return offers.filter(x => x.id === o.id).length === 1 ? o : undefined;
         }
         return null;
@@ -342,7 +365,7 @@ export function mountScreen(root, ctx) {
     return '<div class="ucard' + (it.kind === "upgrade" ? " up" : "") + (d.temp ? " temp" : "") + (d.built === false ? " inert" : "") +
       '" draggable="' + (human ? "true" : "false") + '" data-kit="' + esc(it.id) + '" data-player="' + p.id + '" data-tip="' + it.kind + ":" + esc(it.id) + ":" + p.id + '">' +
       kitArt(cat) + '<span class="n">' + esc(d.name) + '</span><span class="m">' + meta + "</span>" +
-      (d.asks && human ? '<button class="tog" data-tog="' + esc(it.id) + '" data-player="' + p.id + '" aria-pressed="' + on + '">' + (on ? "on" : "off") + "</button>" : "") +
+      (d.asks && d.asksIn.switch && human ? '<button class="tog" data-tog="' + esc(it.id) + '" data-player="' + p.id + '" aria-pressed="' + on + '">' + (on ? "on" : "off") + "</button>" : "") +
       "</div>";
   }
   /* the mat's buttons: shut down, and (classic) pay a card rather than take damage */
@@ -352,10 +375,23 @@ export function mountScreen(root, ctx) {
     const down = pf.shutdownTurn === st.turn;
     /* "Only damaged robots may choose to power down": the classic button waits for a point */
     const may = modern || p.damage > 0 || p.poweredDown;
-    let html = '<div class="ctl"><button data-pref="shutdown" data-player="' + p.id + '" aria-pressed="' + (down && may) + '"' + (may ? "" : " disabled") + ' data-tip="pref:shutdown:' + p.id + '">' +
+    let html = '<button data-pref="shutdown" data-player="' + p.id + '" aria-pressed="' + (down && may) + '"' + (may ? "" : " disabled") + ' data-tip="pref:shutdown:' + p.id + '">' +
       (modern ? (down ? "Shutting down this round" : "Shutdown") : (down && may ? "Powering down next turn" : "Power down")) + "</button>";
     if (!modern) html += '<button data-pref="sacrifice" data-player="' + p.id + '" aria-pressed="' + pf.sacrifice + '" data-tip="pref:sacrifice:' + p.id + '">' +
       (pf.sacrifice ? "Sacrificing a card for damage" : "Taking damage") + "</button>";
+    return html;
+  }
+  /* under each register, a button per card that asks about a register:
+   * pressed, the card is used there if it can be; a single-use card in one */
+  function planHtml(p) {
+    if (!isHuman(p) || p.out) return "";
+    const cards = kitOf(p).filter(it => it.def.asks && it.def.asksIn.plan);
+    if (!cards.length) return "";
+    let html = '<div class="plan">';
+    for (let reg = 0; reg < REGISTERS; reg++) {
+      html += '<div class="col">' + cards.map(it => '<button class="arm" data-arm="' + esc(it.id) + '" data-reg="' + reg + '" data-player="' + p.id +
+        '" aria-pressed="' + armed(p.id, it.id, reg) + '" data-tip="arm:' + esc(it.id) + ":" + p.id + ":" + reg + '">' + esc(it.def.name) + "</button>").join("") + "</div>";
+    }
     return html + "</div>";
   }
   function pips(n, total, cls, title) {
@@ -375,6 +411,14 @@ export function mountScreen(root, ctx) {
       return "<b>" + esc(k.label) + "</b>" + (cd.pri ? "<span class='tt'>priority " + cd.pri + "</span>" : "") +
         "<p>" + esc(cd.kind === "haywire" ? cd.text : k.note || KIND_NOTES[cd.kind] || "") + "</p>";
     }
+    if (kind === "arm") {
+      const [id, pid, reg] = rest.split(":");
+      const def = OPTION_DEFS[id] || UPGRADE_DEFS[id];
+      const on = armed(+pid, id, +reg);
+      return "<b>" + esc(def.name) + "</b><span class='tt'>register " + (+reg + 1) + "</span><p>" + esc(def.text) + "</p><p class='st'>" +
+        (on ? "Armed for this register: used here if it can be. A question with more than two answers is still put to you." : "Not armed for this register: not used here, and you are not asked.") +
+        (def.single ? " One use: arming another register moves it." : "") + "</p>";
+    }
     if (kind === "pref") {
       const [what, pid] = rest.split(":");
       const modern = isModern(st);
@@ -392,9 +436,13 @@ export function mountScreen(root, ctx) {
     if (def.de) h += "<p class='de'>" + esc(def.de) + "</p>";
     if (held && held.st && held.st.charges !== undefined) h += "<p class='st'>" + held.st.charges + (held.st.charges === 1 ? " charge" : " charges") + " left.</p>";
     if (def.built === false) h += "<p class='st'>Its effect is not built: it can be bought and fitted, and does nothing.</p>";
-    if (def.asks && p && isHuman(p)) h += "<p class='st'>" + (prefsFor(p.id).on[id]
-      ? "Switched on: used whenever it can be. A question with more than two answers is still put to you."
-      : "Switched off: not used, and you are not asked.") + "</p>";
+    if (def.asks && p && isHuman(p)) {
+      if (def.asksIn.switch) h += "<p class='st'>" + (prefsFor(p.id).on[id]
+        ? "Switched on: used whenever it can be. A question with more than two answers is still put to you."
+        : "Switched off: not used, and you are not asked.") + "</p>";
+      if (def.asksIn.plan) h += "<p class='st'>Armed register by register under the slots: " +
+        ((prefsFor(p.id).plan[id] || []).map((v, i) => v ? i + 1 : 0).filter(Boolean).join(", ") || "none") + ".</p>";
+    }
     return h;
   }
 
@@ -432,7 +480,8 @@ export function mountScreen(root, ctx) {
       /* the mat: option cards and fitted upgrades as card faces, in the player's order, with their switches */
       const kit = kitOf(p);
       if (kit.length) html += '<div class="kit" data-kitof="' + p.id + '">' + kit.map(it => kitCardHtml(it, p, true)).join("") + "</div>";
-      html += ctlHtml(p) + "</div>";
+      const ctl = ctlHtml(p);
+      html += planHtml(p) + (ctl ? '<div class="ctl">' + ctl + "</div>" : "") + "</div>";
     }
     html += "</div><div class='log'></div>";
     els.side.innerHTML = html;
@@ -469,7 +518,7 @@ export function mountScreen(root, ctx) {
         const lastPick = pick.length ? pick[pick.length - 1] : null;
         const lastKind = lastPick === null ? null : Array.isArray(lastPick) ? null : card(st, me.hand[lastPick]).kind;
         const canPair = w.crab && (lastKind === "left" || lastKind === "right");
-        html += "</div>" + ctlHtml(me) + "<h2>Your hand</h2><div class='hand'>";
+        html += "</div>" + planHtml(me) + "<h2>Your hand</h2><div class='hand'>";
         me.hand.forEach((ci, i) => {
           if (pickHas(i)) return;
           const pairable = canPair && card(st, ci).kind === "move1";
@@ -478,9 +527,8 @@ export function mountScreen(root, ctx) {
         if (isModern(st) && me.installed.some(u => u.id === "spamFilter") && me.deck.length) {
           html += "</div><h2>Top of your deck</h2><div class='hand'>" + cardHtml(me.deck[me.deck.length - 1], "disabled");
         }
-        html += "</div><div class='row'><button class='primary' data-act='run'" + (pick.length === w.count ? "" : " disabled") + ">Run</button>" +
-          "<button data-act='clear'" + (pick.length ? "" : " disabled") + ">Clear</button>" +
-          "<span class='keys'>1&ndash;9 place, Backspace takes back, Enter runs</span></div></div>";
+        html += "</div><div class='row ctl'><button class='primary' data-act='run'" + (pick.length === w.count ? "" : " disabled") + ">Run</button>" +
+          "<button data-act='clear'" + (pick.length ? "" : " disabled") + ">Clear</button>" + ctlHtml(me) + "</div></div>";
         return html;
       }
       case "powerDown":
@@ -605,6 +653,7 @@ export function mountScreen(root, ctx) {
     /* the mat's switches are live at every moment, the floor moving or not */
     if (d.pref !== undefined) return togglePref(+d.player, d.pref);
     if (d.tog !== undefined) return toggleCard(+d.player, d.tog);
+    if (d.arm !== undefined) return toggleArm(+d.player, d.arm, +d.reg);
     if (animating || !st.waiting) return;
     if (d.livery !== undefined) return answer(+d.livery);
     if (d.bay !== undefined) return answer(+d.bay);

@@ -12,6 +12,7 @@
 import { opposite, step as stepCell, rot } from "../../editor/lib/dir.js";
 import UPGRADES_DATA from "../data/upgrades.js";
 import { log, alive } from "./state.js";
+import { asksWhere } from "./asks.js";
 import { INSTALL_LIMIT, UPGRADE_DRAW_COST, MAX_ENERGY, card, isDamage } from "./cards.js";
 import { inGrid, isHole, wallBlocks, teleporterAt } from "./course.js";
 
@@ -494,7 +495,16 @@ for (const c of UPGRADES_DATA.cards) {
   /* `asks`: the card puts a question to its holder (a hook that picks, or a
    * temporary's offer), which is what the screen gives a toggle to */
   const asks = !!b.temp || c.id === "memoryCards" || Object.values(b.hooks || {}).some(fn => /\.pick\(/.test(String(fn)));
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null, asks,
+  /* and where: a temporary offered before or after the robot's card is
+   * planned under the register; one offered after the deal is a switch */
+  const asksIn = asksWhere(b.hooks);
+  if (b.temp && b.offers) {
+    const src = String(b.offers);
+    if (/"before"|"after"/.test(src) || !/"dealt"/.test(src)) asksIn.plan = true;
+    if (/"dealt"/.test(src)) asksIn.switch = true;
+  }
+  if (c.id === "memoryCards") asksIn.switch = true;
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp,
     temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);

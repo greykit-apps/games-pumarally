@@ -23,6 +23,8 @@ import OPTIONS_DATA from "../data/options.js";
 import { card, KINDS, openRegisters } from "./cards.js";
 import { log } from "./state.js";
 import { UPGRADE_DEFS, uninstallUpgrade } from "./upgrades.js";
+import { asksWhere } from "./asks.js";
+export { PLAN_HOOKS, asksWhere } from "./asks.js";
 
 export const HOOKS = [
   "modifyDealt",        // how many program cards you are dealt
@@ -41,6 +43,7 @@ export const HOOKS = [
 ];
 
 const DIR_NAMES = ["north", "east", "south", "west"];
+
 
 /* Crash and Burn caps the option hand at three: draw a fourth and one goes
  * face up on the discard immediately. */
@@ -344,7 +347,8 @@ export const OPTION_DEFS = {};
 for (const c of OPTIONS_DATA.cards) {
   const b = BEHAVIOUR[c.id];
   if (!b) throw new Error("option card " + c.id + " is transcribed but has no behaviour");
-  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, de: c.de || null, cat: c.cat || null, asks: !!c.asks, hooks: b.hooks, init: b.init, botPrefers: b.botPrefers };
+  OPTION_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, de: c.de || null, cat: c.cat || null, asks: !!c.asks, asksIn: asksWhere(b.hooks), single: false,
+    hooks: b.hooks, init: b.init, botPrefers: b.botPrefers };
 }
 for (const id of Object.keys(BEHAVIOUR)) if (!OPTION_DEFS[id]) throw new Error("option behaviour " + id + " has no card");
 export const OPTION_IDS = Object.keys(OPTION_DEFS);
