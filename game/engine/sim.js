@@ -11,6 +11,7 @@ import { step } from "./machine.js";
 import { botAnswer, randomAnswer } from "./bots.js";
 import { courseOf, isHole, inGrid } from "./course.js";
 import { CLASSIC_DECK, REGISTERS, MAX_DAMAGE } from "./cards.js";
+import { OPTION_IDS } from "./options.js";
 
 /** The conservation laws. Throws with the law that broke. */
 export function assertInvariants(st, library) {
@@ -21,6 +22,13 @@ export function assertInvariants(st, library) {
     for (const r of p.registers) if (r !== null) n++;
   }
   if (n !== CLASSIC_DECK.length) throw new Error("program card conservation broken: " + n + "/" + CLASSIC_DECK.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
+  /* option cards are conserved too: every id once, across the deck, the
+   * discard and every hand */
+  const opt = st.optionDeck.concat(st.optionDiscard);
+  for (const p of st.players) for (const o of p.options) opt.push(o.id);
+  if (opt.length !== OPTION_IDS.length || new Set(opt).size !== OPTION_IDS.length) {
+    throw new Error("option card conservation broken: " + opt.length + " cards, " + new Set(opt).size + " distinct, of " + OPTION_IDS.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
+  }
   const seen = new Set();
   for (const p of st.players) {
     if (!p.alive) continue;

@@ -12,6 +12,7 @@ import { esc } from "../../editor/render/theme.js";
 import { courseOf } from "../engine/course.js";
 import { card, KINDS, openRegisters, REGISTERS } from "../engine/cards.js";
 import { LIVERIES, isHuman } from "../engine/state.js";
+import { OPTION_DEFS } from "../engine/options.js";
 
 const CELL = 100;
 const GLYPH = { move1: "1", move2: "2", move3: "3", back: "↩", left: "↰", right: "↱", uturn: "↺" };
@@ -24,6 +25,9 @@ function flagSvg(n, c, r) {
   return '<g class="flag" transform="translate(' + (c * CELL) + " " + (r * CELL) + ')"><rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
     '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/><text x="56" y="41" class="pr-num">' + n + "</text></g>";
 }
+
+let current = null;
+let keysBound = false;
 
 export function mountScreen(root, ctx) {
   const { library, speedOf } = ctx;
@@ -89,7 +93,7 @@ export function mountScreen(root, ctx) {
     const w = Math.max(200, Math.min(availW, availH * C.w / C.h));
     els.board.style.width = w + "px";
   }
-  window.addEventListener("resize", fitBoard);
+  window.addEventListener("resize", () => { if (current && current.fitBoard === fitBoard) fitBoard(); });
 
   function beam(from, to) {
     const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -212,6 +216,11 @@ export function mountScreen(root, ctx) {
         (p.out ? " <span class='tag'>out</span>" : !p.alive ? " <span class='tag'>returning</span>" : "") + "</span>" +
         '<span class="tag">' + p.flags + "/" + C.flags.length + " flags &middot; " + p.lives + " lives</span>" +
         '<span class="pips" title="' + p.damage + ' damage">' + Array.from({ length: 10 }, (_, i) => '<span class="pip' + (i < p.damage ? " on" : "") + '"></span>').join("") + "</span></div>";
+      /* held option cards, as chips with the printed text on hover */
+      if (p.options.length) {
+        html += '<div class="chips">' + p.options.map(o => '<span class="chip" title="' + esc(OPTION_DEFS[o.id].text) + '">' + esc(OPTION_DEFS[o.id].name) +
+          (o.st && o.st.charges !== undefined ? " \u00b7 " + o.st.charges : "") + "</span>").join("") + "</div>";
+      }
     }
     html += "</div><div class='log'></div>";
     els.side.innerHTML = html;
@@ -257,6 +266,16 @@ export function mountScreen(root, ctx) {
       case "stayDown":
         return '<div class="ask"><p>' + esc(me.name) + ", stay powered down for another turn?</p><div class='row'>" +
           '<button data-answer="false">Power up</button><button class="primary" data-answer="true">Stay down</button></div></div>';
+      /* a card's own question, or the option exchange: the labels are the card's words */
+      case "cardChoice":
+        return '<div class="ask"><p>' + (w.card ? "<b>" + esc(OPTION_DEFS[w.card].name) + "</b>: " : "") + esc(w.prompt) + "</p><div class='row'>" +
+          w.options.map((o, i) => '<button data-pick="' + o + '"' + (i === 0 ? "" : ' class="primary"') + ">" + esc(w.labels[i]) + "</button>").join("") + "</div></div>";
+      case "siteChoice":
+        return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
+          '<button data-site="repair">Repair 2 damage</button><button class="primary" data-site="card">Take an option card</button></div></div>';
+      case "dropOption":
+        return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
+          w.options.map(o => '<button data-pick="' + o + '" title="' + esc(OPTION_DEFS[me.options[o].id].text) + '">' + esc(w.labels[o]) + "</button>").join("") + "</div></div>";
       default:
         return '<div class="ask"><p>' + esc(w.kind) + "?</p></div>";
     }
@@ -303,6 +322,8 @@ export function mountScreen(root, ctx) {
     if (d.livery !== undefined) return answer(+d.livery);
     if (d.bay !== undefined) return answer(+d.bay);
     if (d.answer !== undefined) return answer(d.answer === "true");
+    if (d.pick !== undefined) return answer(+d.pick);
+    if (d.site !== undefined) return answer(d.site);
     if (d.card !== undefined) return place(+d.card);
     if (d.unpick !== undefined) return unpick(+d.unpick);
     if (d.act === "run" && pick.length === st.waiting.count) return answer(pick.slice());
@@ -333,7 +354,10 @@ export function mountScreen(root, ctx) {
     dragging = null;
   });
 
-  document.addEventListener("keydown", ev => {
+  /* ONE keyboard listener per document, dispatching to whichever screen is
+   * current. Each mount used to add its own, and after New game the previous
+   * screen's listener was still firing on a state that no longer existed. */
+  function onKey(ev) {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName) || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (curtainFor !== null) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); liftCurtain(); } return; }
     const w = st && st.waiting;
@@ -351,7 +375,9 @@ export function mountScreen(root, ctx) {
     } else if (w.kind === "powerDown" || w.kind === "stayDown") {
       if (ev.key === "y") answer(true); else if (ev.key === "n") answer(false);
     }
-  });
+  }
+  current = { onKey, fitBoard };
+  if (!keysBound) { document.addEventListener("keydown", ev => { if (current) current.onKey(ev); }); keysBound = true; }
 
   root.querySelector(".top").addEventListener("click", ev => {
     const b = ev.target.closest("button");

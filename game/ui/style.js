@@ -74,6 +74,8 @@ h2:first-child{margin-top:0}
 .robot .pip{width:6px;height:10px;background:var(--line);border-radius:1px}
 .robot .pip.on{background:var(--danger)}
 .robot .tag{font-size:10px;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px 22px}
+.chip{font-size:10px;border:1px solid var(--violet);color:var(--violet);border-radius:3px;padding:1px 6px;cursor:help}
 .log{font-size:11px;color:var(--dim);max-height:180px;overflow-y:auto;border-top:1px solid var(--line);padding-top:6px}
 .log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log .reg{color:var(--accent)}

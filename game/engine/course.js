@@ -15,15 +15,20 @@ import { beltTurn, tokenBeltSpeed } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { DC, DR, opposite } from "../../editor/lib/dir.js";
 
-const cache = new Map();
+/* keyed on the LIBRARY as well as the document: two courses with the same
+ * placements over different boards are different courses, and a cache that
+ * read only the document handed one test's board to the next */
+const cache = new WeakMap();
 
 /** Build (or fetch from the cache) the course a state plays on. */
 export function courseOf(st, library) {
+  let byDoc = cache.get(library);
+  if (!byDoc) { byDoc = new Map(); cache.set(library, byDoc); }
   const key = JSON.stringify(st.course);
-  let C = cache.get(key);
+  let C = byDoc.get(key);
   if (C) return C;
   C = buildCourse(st.course, library);
-  cache.set(key, C);
+  byDoc.set(key, C);
   return C;
 }
 
