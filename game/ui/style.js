@@ -118,6 +118,11 @@ button[data-ruleset]{padding:8px 14px}
 .ucard .tog[aria-pressed=true]{color:var(--good);border-color:var(--good)}
 .ctl{display:flex;flex-wrap:wrap;gap:6px;margin-left:20px}
 .ask .ctl{margin:8px 0 0}
+.plan{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:4px 0 0}
+.robot .plan{margin-left:20px}
+.plan .col{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plan .arm{font-size:9px;min-height:0;padding:1px 3px;line-height:15px;border-color:var(--line);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan .arm[aria-pressed=true]{color:var(--good);border-color:var(--good)}
 .ctl button{font-size:11px;min-height:26px;padding:2px 8px}
 .ctl button[aria-pressed=true]{border-color:var(--warn);color:var(--warn)}
 .shop{margin-left:0}
