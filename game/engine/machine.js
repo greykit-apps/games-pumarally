@@ -23,11 +23,11 @@ import { shuffle } from "./rng.js";
 import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
-  checkpointPass, batteryPass, freeSpotNear, robotAt, drawOwn, putAway
+  checkpointPass, batteryPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot
 } from "./rules.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
-import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall } from "./upgrades.js";
-import { step as stepCell } from "../../editor/lib/dir.js";
+import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy } from "./upgrades.js";
+import { step as stepCell, rot } from "../../editor/lib/dir.js";
 
 /* The board's turn, in the classic printed order. Each name is a pass in
  * rules.js; the table is the order, so the sequence can be read rather than
@@ -92,18 +92,34 @@ const REQUESTS = {
     }
   },
   program: {
+    /* an entry is a hand index, or -- with Crab Legs fitted -- a pair
+     * [rotate, move1] of hand indices for one register */
     legal: (st, req, a) => {
       if (!Array.isArray(a) || a.length !== req.count) return false;
+      const p = st.players[req.player];
       const seen = new Set();
-      for (const i of a) { if (!Number.isInteger(i) || !req.options.includes(i) || seen.has(i)) return false; seen.add(i); }
+      const one = i => { if (!Number.isInteger(i) || !req.options.includes(i) || seen.has(i)) return false; seen.add(i); return true; };
+      for (const e of a) {
+        if (Array.isArray(e)) {
+          if (!req.crab || e.length !== 2 || !one(e[0]) || !one(e[1])) return false;
+          const k0 = card(st, p.hand[e[0]]).kind, k1 = card(st, p.hand[e[1]]).kind;
+          if (!((k0 === "left" || k0 === "right") && k1 === "move1")) return false;
+        } else if (!one(e)) return false;
+      }
       return true;
     },
     apply: (st, req, a) => {
       const p = st.players[req.player];
-      const chosen = a.map(i => p.hand[i]);
-      p.hand = p.hand.filter((_, i) => !a.includes(i));
+      const flat = [];
+      for (const e of a) { if (Array.isArray(e)) flat.push(e[0], e[1]); else flat.push(e); }
+      const chosen = a.map(e => Array.isArray(e) ? [p.hand[e[0]], p.hand[e[1]]] : p.hand[e]);
+      p.hand = p.hand.filter((_, i) => !flat.includes(i));
       let k = 0;
-      for (let reg = 0; reg < REGISTERS && k < chosen.length; reg++) if (p.registers[reg] === null) p.registers[reg] = chosen[k++];
+      for (let reg = 0; reg < REGISTERS && k < chosen.length; reg++) {
+        if (p.registers[reg] !== null) continue;
+        const e = chosen[k++];
+        if (Array.isArray(e)) { p.registers[reg] = e[0]; p.crab[reg] = e[1]; } else p.registers[reg] = e;
+      }
       p.ready = true;
       st.events.push({ type: "programmed", player: p.id });
     }
@@ -168,6 +184,33 @@ const REQUESTS = {
   rebootFacing: {
     legal: (st, req, a) => Number.isInteger(a) && req.options.includes(a),
     apply: (st, req, a) => { st.answers[req.key] = a; }
+  },
+  /* a temporary upgrade at this moment: null for none, or one of the listed
+   * uses. The use happens here, once, when the answer lands; the step that
+   * asked re-runs and asks again until the answer is none. */
+  useTemp: {
+    legal: (st, req, a) => a === null || (a && typeof a === "object" && req.options.some(o => o !== null && JSON.stringify(o) === JSON.stringify(a))),
+    apply: (st, req, a) => {
+      st.answers[req.key] = a === null ? null : 1;
+      if (a) useTemporary(st, req._course, st.players[req.player], a);
+    }
+  },
+  /* cards chosen from the hand in order: exactly `count`, or any number when count is null */
+  stack: {
+    legal: (st, req, a) => {
+      if (!Array.isArray(a)) return false;
+      if (req.count !== null && req.count !== undefined && a.length !== req.count) return false;
+      const seen = new Set();
+      for (const i of a) { if (!Number.isInteger(i) || !req.options.includes(i) || seen.has(i)) return false; seen.add(i); }
+      return true;
+    },
+    apply: (st, req, a) => {
+      const p = st.players[req.player];
+      const picked = a.map(i => p.hand[i]);
+      p.hand = p.hand.filter((_, i) => !a.includes(i));
+      if (req.why === "memorySwap") { for (const ci of picked.slice().reverse()) p.deck.push(ci); p.stackBack = 0; log(st, p.name + " stacks " + picked.length + " cards back on its deck"); }
+      else if (req.why === "memoryCards") { p.parked = p.parked.concat(picked); p.parkAsked = true; if (picked.length) log(st, p.name + " parks " + picked.length + " cards on its Memory Cards"); }
+    }
   }
 };
 
@@ -248,6 +291,35 @@ function landReboot(st, C, p, facing) {
 }
 
 /**
+ * Offer the temporary upgrades usable at this moment, one use at a time,
+ * until the player says none. Returns a request to raise, or null when
+ * the player is done (or has nothing to use).
+ */
+function askTemps(st, C, p, moment) {
+  for (let k = 0; k < 8; k++) {
+    const key = st.turn + ":" + st.register + ":temp:" + moment + ":" + p.id + ":" + k;
+    const have = st.answers[key];
+    if (have === null) return null;
+    if (have !== undefined) continue;                  // used one; there may be another
+    const offers = temporaryOffers(st, C, p, moment);
+    if (!offers.length) { st.answers[key] = null; return null; }
+    return { player: p.id, kind: "useTemp", key, moment, options: [null].concat(offers),
+      labels: offers.map(o => tempLabel(st, o)),
+      prompt: p.name + ", use a temporary upgrade " + (moment === "dealt" ? "before programming" : moment === "before" ? "before your card" : "after your card") + "?" };
+  }
+  return null;
+}
+const DIR_WORDS = ["north", "east", "south", "west"];
+function tempLabel(st, o) {
+  const d = UPGRADE_DEFS[o.id];
+  if (o.dir !== undefined && o.with !== undefined) return d.name + " with " + st.players[o.with].name;
+  if (o.dir !== undefined) return d.name + " " + DIR_WORDS[o.dir];
+  if (o.face !== undefined) return d.name + " to face " + DIR_WORDS[o.face];
+  if (o.seat !== undefined) return d.name + ": " + st.players[o.seat].name;
+  return d.name;
+}
+
+/**
  * A SPAM card revealed in a register (p.17): straight to the damage discard,
  * and the top card of the robot's own deck is played in its place -- and
  * again if that is SPAM too. An Again in register 1 does the same, into the
@@ -255,6 +327,7 @@ function landReboot(st, C, p, facing) {
  * when the robot owns nothing else to play.
  */
 function replaceInRegister(st, p, reg, why) {
+  let first = true;
   for (let guard = 0; guard < 80; guard++) {
     const ci = p.registers[reg];
     if (ci === null) return null;
@@ -265,6 +338,9 @@ function replaceInRegister(st, p, reg, why) {
     putAway(st, p, ci, true);
     st.events.push({ type: "spam", player: p.id, register: reg, card: ci, again: dud });
     log(st, p.name + (spam ? " reveals SPAM and throws it away" : "'s Again has nothing to repeat"));
+    /* Chaos Theory: the SPAM programmed, not the one the replacement turned up */
+    if (spam) { const sctx = fire(st, p, "onSpam", { register: reg, first, energy: 0 }); if (sctx.energy) { gainEnergy(st, p, sctx.energy, "chaosTheory"); log(st, p.name + " turns the SPAM into Energy"); } }
+    first = false;
     const next = drawOwn(st, p);
     p.registers[reg] = next === null ? null : next;
     if (next === null) { log(st, p.name + " has no card left to play"); return null; }
@@ -400,11 +476,23 @@ const STEPS = {
     program(st, C, policy) {
       for (const p of (isModern(st) ? racing(st) : alive(st))) {
         if (p.poweredDown || p.ready) continue;
+        /* 2016: the temporary upgrades with a use before programming (Memory
+         * Swap, Calibration Protocol, Recharge, Re-initialize), then the three
+         * cards a Memory Swap puts back */
+        if (isModern(st)) {
+          if (p.stackBack > 0) {
+            ask(st, p, "stack", p.hand.map((_, i) => i), { count: Math.min(p.stackBack, p.hand.length), why: "memorySwap", prompt: p.name + ", put three cards back on top of your deck. The first goes on top." });
+            return;
+          }
+          const t = askTemps(st, C, p, "dealt");
+          if (t) { st.waiting = t; st.waiting._course = C; return; }
+        }
         const open = isModern(st) ? REGISTERS : openRegisters(p.damage);
         let count = 0;
         for (let i = 0; i < open; i++) if (p.registers[i] === null) count++;
         count = Math.min(count, p.hand.length);
-        ask(st, p, "program", p.hand.map((_, i) => i), { count, open });
+        const crab = isModern(st) && p.installed.some(u => u.id === "crabLegs");
+        ask(st, p, "program", p.hand.map((_, i) => i), { count, open, crab });
         return;
       }
       go(st, "turn", isModern(st) ? "leftovers" : "announce");
@@ -431,6 +519,8 @@ const STEPS = {
     upgrade(st) {
       for (const p of racing(st)) {
         if (p.upgradeDone) continue;
+        /* Memory Cards: "At the start of the Upgrade Phase, add all cards on this card to your hand." */
+        if (p.parked.length) { p.hand = p.hand.concat(p.parked); log(st, p.name + " takes " + p.parked.length + " cards back from its Memory Cards"); p.parked = []; }
         const buy = !p.bought && p.energy >= UPGRADE_DRAW_COST && (st.upgradeDeck.length + st.upgradeDiscard.length) > 0 ? [false, true] : [false];
         const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id)));
         const uninstall = p.installed.map(u => u.id);
@@ -445,7 +535,8 @@ const STEPS = {
     dealModern(st) {
       st.events.push({ type: "turnStart", turn: st.turn });
       for (const p of racing(st)) {
-        p.ready = false; p.dealtAsked = false; p.shutAsked = false;
+        p.ready = false; p.dealtAsked = false; p.shutAsked = false; p.parkAsked = false; p.stackBack = 0;
+        for (let reg = 0; reg < REGISTERS; reg++) p.crab[reg] = null;
         const target = Math.max(0, fire(st, p, "modifyDealt", { count: HAND }).count);
         let drew = 0;
         while (p.hand.length < target) {
@@ -462,6 +553,14 @@ const STEPS = {
     /* "Place any non-damage programming cards still in your hand in the
      * discard pile on your player mat." The damage cards stay. */
     leftovers(st) {
+      /* Memory Cards first: the parked cards are the ones that would otherwise go */
+      for (const p of racing(st)) {
+        if (p.parkAsked || !p.installed.some(u => u.id === "memoryCards")) continue;
+        const opts = p.hand.map((i, k) => isDamage(st, i) ? -1 : k).filter(k => k >= 0);
+        if (!opts.length) { p.parkAsked = true; continue; }
+        ask(st, p, "stack", opts, { count: null, why: "memoryCards", prompt: p.name + ", park any cards on your Memory Cards for next round?" });
+        return;
+      }
       for (const p of racing(st)) {
         const keep = [];
         for (const i of p.hand) { if (isDamage(st, i)) keep.push(i); else p.pile.push(i); }
@@ -525,27 +624,80 @@ const STEPS = {
           landReboot(st, C, p, facing);
         }
         if (!p.alive) { st.queue.shift(); continue; }
-        let i = p.registers[st.register];
-        if (i === null) { st.queue.shift(); continue; }
-        let cd = card(st, i);
-        let again = false;
-        if (isModern(st)) {
-          i = replaceInRegister(st, p, st.register);
+        if (!isModern(st)) {
+          const i = p.registers[st.register];
           if (i === null) { st.queue.shift(); continue; }
-          cd = card(st, i);
-          if (cd.kind === "again") {
-            /* "Repeat the programming in your previous register, as if that
-             * card were in this register." Two in a row repeat the last real card. */
-            const ti = againTarget(st, p, st.register);
-            if (ti === null) { log(st, p.name + "'s Again repeats nothing"); st.queue.shift(); continue; }
-            cd = card(st, ti);
-            again = true;
-          }
+          const cd = card(st, i);
+          const plan = planCard(st, p, cd, false);
+          if (plan.pending) { st.waiting = plan.ask; return; }
+          st.queue.shift();
+          playCard(st, C, p, cd, plan);
+          continue;
         }
-        const plan = planCard(st, p, cd, again);
-        if (plan.pending) { st.waiting = plan.ask; return; }
+        /* 2016: a robot's activation is three moments. Before its card, the
+         * temporary upgrades usable then (p.23: movement upgrades "immediately
+         * before or after", the rest "at any time") and the Abort Switch; the
+         * card; then the upgrades that act on what the card did. Each moment
+         * is safe to re-run: its questions are keyed, the card is played once. */
+        if (!st.act || st.act.player !== p.id) st.act = { player: p.id, stage: "before" };
+        if (st.act.stage === "before") {
+          const t = askTemps(st, C, p, "before");
+          if (t) { st.waiting = t; st.waiting._course = C; return; }
+          st.act.stage = "card";
+        }
+        if (st.act.stage === "card") {
+          let i = replaceInRegister(st, p, st.register);
+          if (i !== null) {
+            let cd = card(st, i), again = false;
+            if (cd.kind === "again") {
+              /* "Repeat the programming in your previous register, as if that
+               * card were in this register." */
+              const ti = againTarget(st, p, st.register);
+              if (ti === null) { log(st, p.name + "'s Again repeats nothing"); i = null; }
+              else { cd = card(st, ti); again = true; }
+            }
+            if (i !== null && p.crab[st.register] !== null && (cd.kind === "left" || cd.kind === "right") && !again) {
+              /* Crab Legs: the Move 1 paired with the rotate becomes a sidestep, and neither card's own effect happens */
+              st.act.cardKind = cd.kind;
+              p.pushed = []; p.lastMove = null;
+              const dir = rot(p.face, cd.kind === "left" ? -1 : 1);
+              log(st, p.name + " crab-walks " + DIR_WORDS[dir]);
+              st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
+              if (stepRobot(st, C, p, dir, "card")) p.lastMove = { dir, n: 1 };
+            } else if (i !== null) {
+              const plan = planCard(st, p, cd, again);
+              if (plan.pending) { st.waiting = plan.ask; return; }
+              st.act.cardKind = again ? null : cd.kind;
+              playCard(st, C, p, cd, plan);
+            }
+          }
+          st.act.stage = "after";
+        }
+        if (st.act.stage === "after" && p.alive) {
+          /* the hooks that act on the card just played: Drifting, Power Slide,
+           * Piercing Drill's spin, the Modular Chassis swap */
+          const actx = fire(st, p, "afterCard", { cardKind: st.act.cardKind || null, pushed: p.pushed || [], forward: 0 });
+          if (actx.pending) { st.waiting = actx.ask; return; }
+          if (actx.forward > 0 && !st.act.rolled) { st.act.rolled = true; stepRobot(st, C, p, p.face, "upgrade"); }
+          /* Magnetic: a neighbour of the square the robot moved from may move with it */
+          if (p.lastMove && !st.act.magnets) {
+            const mv = p.lastMove;
+            const from = [p.c, p.r];
+            for (let k = 0; k < mv.n; k++) { const b = stepCell(from[0], from[1], (mv.dir + 2) % 4); from[0] = b[0]; from[1] = b[1]; }
+            for (const q of alive(st)) {
+              if (q.id === p.id || !q.installed.some(u => u.id === "magnetic")) continue;
+              if (Math.abs(q.c - from[0]) + Math.abs(q.r - from[1]) !== 1) continue;
+              const mctx = fire(st, q, "onNeighbourMoved", { mover: p, moverName: p.name, register: st.register, follow: false });
+              if (mctx.pending) { st.waiting = mctx.ask; return; }
+              if (mctx.follow) { log(st, q.name + " is drawn along magnetically"); for (let k = 0; k < mv.n && q.alive; k++) if (!stepRobot(st, C, q, mv.dir, "upgrade")) break; }
+            }
+            st.act.magnets = true;
+          }
+          const t = askTemps(st, C, p, "after");
+          if (t) { st.waiting = t; st.waiting._course = C; return; }
+        }
+        st.act = null;
         st.queue.shift();
-        playCard(st, C, p, cd, plan);
       }
       go(st, "exec", "board");
     },
@@ -673,10 +825,10 @@ const STEPS = {
       for (const p of st.players) {
         for (let reg = 0; reg < REGISTERS; reg++) {
           const ci = p.registers[reg];
-          if (ci === null) continue;
-          putAway(st, p, ci, true);
-          p.registers[reg] = null;
+          if (ci !== null) { putAway(st, p, ci, true); p.registers[reg] = null; }
+          if (p.crab[reg] !== null) { putAway(st, p, p.crab[reg], true); p.crab[reg] = null; }
         }
+        p.drilled = null; p.pushed = []; p.lastMove = null;
         p.poweredDown = false; p.announceDown = false;
         p.upgradeDone = false; p.bought = false; p.fitted = false; p.shutAsked = false;
       }
@@ -710,6 +862,16 @@ export function tick(st, library) {
   fn(st, C);
 }
 
+/** Apply an answer to the pending request without advancing; false when refused. For tests that drive step by step. */
+export function applyAnswer(st, library, answer) {
+  const req = st.waiting;
+  if (!req || !isLegal(st, req, answer)) return false;
+  delete req._course;
+  st.waiting = null;
+  REQUESTS[req.kind].apply(st, { ...req, _course: courseOf(st, library) }, answer);
+  return true;
+}
+
 /**
  * Advance the game until it needs an answer or is over.
  * @param st       the state; mutated in place and returned
@@ -717,6 +879,7 @@ export function tick(st, library) {
  * @param answer   the reply to `st.waiting`, when there is one
  */
 export function step(st, library, answer) {
+  st.act = st.act || null;
   st.events = [];
   if (st.waiting) {
     const req = st.waiting;

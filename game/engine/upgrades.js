@@ -9,15 +9,333 @@
  * upgrades, each against its own table). Read off the 2016 rulebook, pp.4-5
  * and 20-23 (manual1/IMG_1256, IMG_1264, IMG_1265).
  */
-import { opposite, step as stepCell } from "../../editor/lib/dir.js";
+import { opposite, step as stepCell, rot } from "../../editor/lib/dir.js";
 import UPGRADES_DATA from "../data/upgrades.js";
-import { log } from "./state.js";
-import { INSTALL_LIMIT, UPGRADE_DRAW_COST, MAX_ENERGY } from "./cards.js";
+import { log, alive } from "./state.js";
+import { INSTALL_LIMIT, UPGRADE_DRAW_COST, MAX_ENERGY, card, isDamage } from "./cards.js";
+import { inGrid, isHole, wallBlocks } from "./course.js";
+
+const DIRS = ["North", "East", "South", "West"];
 
 const BEHAVIOUR = {
-  /* "Move 1 cards in your registers may be treated as Move 0. The decision
-   * to brake is made after revealing a Move 1 card, but before you would
-   * activate the programming card." */
+  /* --- permanent, pp.21-22 -------------------------------------------------- */
+
+  /* "When you reveal SPAM in Register 1, 2, or 3, gain 1 Energy. The card that
+   * replaces the SPAM enters your register face up, so drawing another SPAM
+   * does not trigger this effect again." */
+  chaosTheory: {
+    hooks: { onSpam(ctx) { if (ctx.register <= 2 && ctx.first) ctx.energy += 1; } }
+  },
+  /* "You may place a Move 1 card in the same register as a Rotate Left or
+   * Rotate Right card, and during that register your robot will move 1 space
+   * to the left or right, respectively, without rotating." The pairing is the
+   * programming request's (an entry of two cards); this is the movement. */
+  crabLegs: {
+    hooks: { modifyMove(ctx) { if (ctx.kind === "crab") ctx.allowed = true; } }
+  },
+  /* "After resolving a Rotate Left card, you may move 1 space forward." */
+  drifting: {
+    botPrefers: 0,
+    hooks: {
+      afterCard(ctx) {
+        if (ctx.cardKind !== "left") return;
+        if (ctx.pick("drifting", "Drift one square forward after the rotate?", ["Stay", "Drift forward"]) === 1) ctx.forward += 1;
+      }
+    }
+  },
+  /* "After your robot takes damage from a board laser, you may move 1 space forward or backward." */
+  energyConversion: {
+    botPrefers: 0,
+    hooks: {
+      afterBoardLaser(ctx) {
+        const pick = ctx.pick("energyConversion", "Convert the board laser's hit into a move?", ["Stay", "Forward one", "Back one"]);
+        if (pick === 1) ctx.move = 1; else if (pick === 2) ctx.move = -1;
+      }
+    }
+  },
+  /* "You do not draw any damage cards when Rebooting after falling into a pit." Not the edge. */
+  firewall: {
+    hooks: { onReboot(ctx) { if (ctx.how === "into a pit") ctx.cards = 0; } }
+  },
+  /* "Your robot can pass over pits during your Programming Card Activation,
+   * but falls in if it ends its move on one. Board edges are not pits." */
+  hoverUnit: {
+    hooks: { modifyMove(ctx) { if (ctx.kind === "hover") ctx.hover = true; } }
+  },
+  /* "At the end of the Programming Phase, you may place any number of
+   * non-damage cards from your hand onto this card. At the start of the
+   * Upgrade Phase, add all cards on this card to your hand." The parking is
+   * the machine's `stack` request; the cards live in `p.parked`. */
+  memoryCards: {
+    hooks: { onLeftovers(ctx) { ctx.park = true; } }
+  },
+  /* "Instead of firing your robot's main laser, you may pay 1 Energy to fire
+   * Mini Howitzer. If you do, deal 2 damage to the target robot, then push it
+   * 1 space in the direction of fire. If you have no Energy, you cannot." */
+  miniHowitzer: {
+    botPrefers: 0,
+    hooks: {
+      onLaserHit(ctx) {
+        if (ctx.damage <= 0 || ctx.player.energy < 1) return;
+        const pick = ctx.pick("miniHowitzer", "Pay an Energy to fire the Mini Howitzer at " + ctx.targetName + " instead of the laser?", ["Main laser", "Mini Howitzer (1 Energy)"]);
+        if (pick !== 1) return;
+        const p = ctx.player, st = ctx.st;
+        p.energy -= 1;
+        st.events.push({ type: "energy", player: p.id, amount: -1, energy: p.energy, why: "howitzer" });
+        ctx.damage = 0; ctx.replaceWith = { kind: "blast", dir: ctx.shotDir, damage: 2 };
+      }
+    }
+  },
+  /* "After your robot pushes another robot during your Programming Card
+   * Activation, you may give that player this card, and take one of their
+   * installed upgrades. Both are immediately installed and active." */
+  modularChassis: {
+    botPrefers: 0,
+    hooks: {
+      afterCard(ctx) {
+        const st = ctx.st, p = ctx.player;
+        for (const id of ctx.pushed) {
+          const q = st.players[id];
+          const theirs = q.installed.filter(u => u.id !== "modularChassis");
+          if (!theirs.length) continue;
+          const labels = ["Keep it"].concat(theirs.map(u => "Take " + UPGRADE_DEFS[u.id].name));
+          const pick = ctx.pick("modularChassis", "Give " + q.name + " the Modular Chassis and take one of its upgrades?", labels, String(id));
+          if (pick === null || pick === 0) continue;
+          const taken = theirs[pick - 1];
+          const mine = p.installed.findIndex(u => u.id === "modularChassis");
+          if (mine < 0) return;
+          q.installed.splice(q.installed.indexOf(taken), 1);
+          const chassis = p.installed.splice(mine, 1)[0];
+          q.installed.push(chassis);
+          p.installed.push(taken);
+          st.events.push({ type: "upgrade", player: p.id, card: taken.id, how: "taken", from: q.id });
+          log(st, p.name + " hands " + q.name + " the Modular Chassis and takes " + UPGRADE_DEFS[taken.id].name);
+          return;
+        }
+      }
+    }
+  },
+  /* "After resolving a Rotate Right card, you may move 1 space forward." */
+  powerSlide: {
+    botPrefers: 0,
+    hooks: {
+      afterCard(ctx) {
+        if (ctx.cardKind !== "right") return;
+        if (ctx.pick("powerSlide", "Slide one square forward after the rotate?", ["Stay", "Slide forward"]) === 1) ctx.forward += 1;
+      }
+    }
+  },
+  /* "When your robot reaches a new Checkpoint, you may remove a card in your
+   * hand or discard pile from the game." */
+  selfDiagnostics: {
+    hooks: {
+      onCheckpoint(ctx) {
+        const st = ctx.st;
+        if (!ctx.cards.length) return;
+        const labels = ["Keep them all"].concat(ctx.cards.map(x => (isDamage(st, x.i) ? "SPAM" : card(st, x.i).kind) + " (" + x.from + ")"));
+        const pick = ctx.pick("selfDiagnostics", "Remove a card from the game?", labels);
+        if (pick !== null && pick > 0) ctx.remove = pick - 1;
+      }
+    }
+  },
+  /* "After refilling your hand at the start of the Programming Phase, flip the
+   * top card of your programming deck face up." Information: the screen shows
+   * the top of the deck to the holder. */
+  spamFilter: {
+    hooks: { onDealt(ctx) { ctx.peek = true; } }
+  },
+  /* "When an adjacent robot moves into your robot's space or is pushed into
+   * your robot's space, that robot takes 1 damage. A push occurs whether or
+   * not the adjacent robot actually moves your robot." */
+  spiky: {
+    hooks: { onPushed(ctx) { ctx.pusherDamage += 1; } }
+  },
+
+  /* --- temporary, p.23: one use, then the discard. `use` performs it; `offers`
+   * lists the legal ways to use it at a moment, or nothing ------------------ */
+
+  /* "Replace a register card you just revealed with the top card from your
+   * programming deck." Offered before the card resolves. */
+  abortSwitch: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "before" && p.registers[st.register] !== null ? [{}] : [],
+    use(st, C, p) {
+      const reg = st.register, old = p.registers[reg];
+      const next = drawOwnCard(st, p);
+      if (old !== null) putAwayCard(st, p, old);
+      p.registers[reg] = next;
+      log(st, p.name + " hits the Abort Switch and replaces its card");
+    }
+  },
+  /* "Movement Upgrade. Activate all conveyor belts, but only for your robot. Blue conveyors first, then green." */
+  allAboard: {
+    temp: true, movement: true,
+    offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [{}] : [],
+    use(st, C, p) { log(st, p.name + " rides the belts alone"); RULE_HOOKS.beltsFor(st, C, p); }
+  },
+  /* "Movement Upgrade. Move to an unoccupied adjacent space without changing facing." Adjacent: not through a wall. */
+  boink: {
+    temp: true, movement: true,
+    offers(st, C, p, moment) {
+      if (moment !== "before" && moment !== "after") return [];
+      const out = [];
+      for (let d = 0; d < 4; d++) {
+        if (wallBlocks(C, p.c, p.r, d, st.register)) continue;
+        const [nc, nr] = stepCell(p.c, p.r, d);
+        if (!inGrid(C, nc, nr) || isHole(C, nc, nr) || RULE_HOOKS.robotAt(st, nc, nr)) continue;
+        out.push({ dir: d });
+      }
+      return out;
+    },
+    use(st, C, p, arg) {
+      const [nc, nr] = stepCell(p.c, p.r, arg.dir);
+      const from = [p.c, p.r];
+      p.c = nc; p.r = nr;
+      st.events.push({ type: "moved", player: p.id, from, to: [nc, nr], dir: arg.dir, cause: "upgrade" });
+      log(st, p.name + " boinks " + DIRS[arg.dir].toLowerCase());
+      RULE_HOOKS.arrived(st, C, p);
+    }
+  },
+  /* "Return all damage cards in your hand to the damage discard pile, then draw that many cards from your programming deck." */
+  calibrationProtocol: {
+    temp: true,
+    offers: (st, C, p, moment) => (moment === "dealt" || moment === "before") && p.hand.some(i => isDamage(st, i)) ? [{}] : [],
+    use(st, C, p) {
+      const keep = [];
+      let n = 0;
+      for (const i of p.hand) { if (isDamage(st, i)) { st.damageDiscard.push(i); n++; } else keep.push(i); }
+      p.hand = keep;
+      for (let k = 0; k < n; k++) { const i = drawOwnCard(st, p); if (i === null) break; p.hand.push(i); }
+      log(st, p.name + " runs the Calibration Protocol and scraps " + n + " SPAM");
+    }
+  },
+  /* "Instead of firing your robot's main laser, you may fire Displacing Blast.
+   * If you do, relocate the target robot to the Reboot token on the board they
+   * occupy, without changing facing." A weapon: the beam hook, not a moment. */
+  displacingBlast: {
+    temp: true,
+    botPrefers: 0,
+    hooks: {
+      onLaserHit(ctx) {
+        if (ctx.damage <= 0) return;
+        const pick = ctx.pick("displacingBlast", "Fire the Displacing Blast and send " + ctx.targetName + " back to its reboot point instead of the laser?", ["Main laser", "Displacing Blast"]);
+        if (pick !== 1) return;
+        ctx.damage = 0; ctx.replaceWith = { kind: "displace" };
+        ctx.discard();
+      }
+    }
+  },
+  /* "Reveal and discard cards from the damage deck until you reveal Haywire..." No Haywire is transcribed: inert, and it says so. */
+  luckyBooster: { temp: true, inert: "the damage deck has no Haywire to dig for" },
+  /* "When an adjacent robot moves via a register card, you may move with them." Asked after the neighbour's card. */
+  magnetic: {
+    temp: true,
+    botPrefers: 0,
+    hooks: {
+      onNeighbourMoved(ctx) {
+        const pick = ctx.pick("magnetic", "Move with " + ctx.moverName + "?", ["Stay", "Move with it"], String(ctx.mover.id) + ":" + ctx.register);
+        if (pick === 1) { ctx.follow = true; ctx.discard(); }
+      }
+    }
+  },
+  /* "Draw 3 cards from your programming deck. Then choose 3 cards from your hand to put on top of your deck in any order." */
+  memorySwap: {
+    temp: true,
+    offers: (st, C, p, moment) => moment === "dealt" ? [{}] : [],
+    use(st, C, p) {
+      for (let k = 0; k < 3; k++) { const i = drawOwnCard(st, p); if (i === null) break; p.hand.push(i); }
+      p.stackBack = Math.min(3, p.hand.length);        // the machine asks which three go back
+      log(st, p.name + " draws three for a Memory Swap");
+    }
+  },
+  /* "Movement Upgrade. Move 2." */
+  overclocked: {
+    temp: true, movement: true,
+    offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [{}] : [],
+    use(st, C, p) { log(st, p.name + " overclocks: move 2"); for (let k = 0; k < 2; k++) if (p.alive && !RULE_HOOKS.stepRobot(st, C, p, p.face, "upgrade")) break; }
+  },
+  /* "When your robot pushes another robot during your Programming Card
+   * Activation, they take 1 damage and you may rotate them to any facing." */
+  piercingDrill: {
+    temp: true,
+    botPrefers: 0,
+    hooks: {
+      onPush(ctx) { if (ctx.cause === "card" && !ctx.failed) { ctx.pushDamage += 1; ctx.why = "piercing drill"; ctx.player.drilled = ctx.pushed.id; } },
+      afterCard(ctx) {
+        const st = ctx.st, p = ctx.player;
+        if (p.drilled === undefined || p.drilled === null) return;
+        const q = st.players[p.drilled];
+        const pick = ctx.pick("piercingDrill", "Spin " + q.name + " to face which way?", ["Leave it"].concat(DIRS));
+        if (pick === null) return;
+        if (pick > 0) { q.face = pick - 1; st.events.push({ type: "turned", player: q.id, face: q.face, cause: "drill" }); log(st, q.name + " is spun to face " + DIRS[q.face].toLowerCase()); }
+        p.drilled = null;
+        ctx.discard();
+      }
+    }
+  },
+  /* "Movement Upgrade. Move Back 5 spaces, but stop if your robot would push
+   * another robot. Your robot will also stop if it hits a wall, or falls into a pit." */
+  pressureRelease: {
+    temp: true, movement: true,
+    offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [{}] : [],
+    use(st, C, p) {
+      const dir = opposite(p.face);
+      log(st, p.name + " releases the pressure and reverses");
+      for (let k = 0; k < 5 && p.alive; k++) {
+        const [nc, nr] = stepCell(p.c, p.r, dir);
+        if (inGrid(C, nc, nr) && RULE_HOOKS.robotAt(st, nc, nr)) break;
+        if (!RULE_HOOKS.stepRobot(st, C, p, dir, "upgrade")) break;
+      }
+    }
+  },
+  /* "Give the Priority Token to any player at the table (including yourself)." */
+  reInitialize: {
+    temp: true,
+    offers: (st, C, p, moment) => (moment === "dealt" || moment === "before" || moment === "after") ? st.players.map(q => ({ seat: q.id })) : [],
+    use(st, C, p, arg) { st.priority = arg.seat; log(st, p.name + " re-initializes: the Priority Token goes to " + st.players[arg.seat].name); }
+  },
+  /* "Gain 3 Energy." */
+  recharge: {
+    temp: true,
+    offers: (st, C, p, moment) => (moment === "dealt" || moment === "before" || moment === "after") && p.energy < MAX_ENERGY ? [{}] : [],
+    use(st, C, p) { gainEnergy(st, p, 3, "recharge"); log(st, p.name + " recharges"); }
+  },
+  /* "Add all face-down Haywire cards in your registers to your hand..." No Haywire is transcribed: inert, and it says so. */
+  rewire: { temp: true, inert: "there are no Haywire cards to rewire" },
+  /* "Movement Upgrade. Swap places with an adjacent robot, without changing facing." */
+  switchPlaces: {
+    temp: true, movement: true,
+    offers(st, C, p, moment) {
+      if (moment !== "before" && moment !== "after") return [];
+      const out = [];
+      for (let d = 0; d < 4; d++) {
+        if (wallBlocks(C, p.c, p.r, d, st.register)) continue;
+        const [nc, nr] = stepCell(p.c, p.r, d);
+        const q = inGrid(C, nc, nr) ? RULE_HOOKS.robotAt(st, nc, nr) : null;
+        if (q) out.push({ dir: d, with: q.id });
+      }
+      return out;
+    },
+    use(st, C, p, arg) {
+      const q = st.players[arg.with];
+      const a = [p.c, p.r], b = [q.c, q.r];
+      p.c = b[0]; p.r = b[1]; q.c = a[0]; q.r = a[1];
+      st.events.push({ type: "moved", player: p.id, from: a, to: b, dir: arg.dir, cause: "upgrade" });
+      st.events.push({ type: "moved", player: q.id, from: b, to: a, dir: opposite(arg.dir), cause: "upgrade" });
+      log(st, p.name + " switches places with " + q.name);
+      RULE_HOOKS.arrived(st, C, p); RULE_HOOKS.arrived(st, C, q);
+    }
+  },
+  /* "Movement Upgrade. Rotate to face any direction." */
+  zoop: {
+    temp: true, movement: true,
+    offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [0, 1, 2, 3].filter(d => d !== p.face).map(d => ({ face: d })) : [],
+    use(st, C, p, arg) { p.face = arg.face; st.events.push({ type: "turned", player: p.id, face: p.face, cause: "upgrade" }); log(st, p.name + " zoops to face " + DIRS[arg.face].toLowerCase()); }
+  },
+
+  /* --- the eleven that were built first, pp.21-22 ------------------------- */
+  /* "Move 1 cards in your registers may be treated as Move 0." Not an Again
+   * played after a Move 1, and not a Haywire with a Move 1 effect. */
   brakes: {
     botPrefers: 0,
     hooks: {
@@ -126,17 +444,50 @@ const BEHAVIOUR = {
   }
 };
 
-/** id -> { id, name, text, cost, type, built, hooks, init?, botPrefers? } for all forty. */
+/* Three cross-module doors, set by rules.js at load so a temporary upgrade
+ * can move a robot without this module importing the rules (which import
+ * this one). rules.js registers them; check-all asserts they are set. */
+export const RULE_HOOKS = {};
+
+function drawOwnCard(st, p) { return RULE_HOOKS.drawOwn(st, p); }
+function putAwayCard(st, p, i) { return RULE_HOOKS.putAway(st, p, i, true); }
+
+/** id -> { id, name, text, cost, type, built, inert?, temp, movement, hooks, init?, botPrefers?, offers?, use? } for all forty. */
 export const UPGRADE_DEFS = {};
 for (const c of UPGRADES_DATA.cards) {
   const b = BEHAVIOUR[c.id];
-  if (c.built && !b) throw new Error("upgrade " + c.id + " is marked built and has no behaviour");
-  if (!c.built && b) throw new Error("upgrade " + c.id + " has behaviour and is not marked built");
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !!c.built,
-    hooks: b ? b.hooks : {}, init: b ? b.init : undefined, botPrefers: b ? b.botPrefers : undefined };
+  if (!b) throw new Error("upgrade " + c.id + " has no behaviour: every transcribed card is bound here, built or declared inert");
+  if ((c.type === "temporary") !== !!b.temp) throw new Error("upgrade " + c.id + " is " + c.type + " in the data and " + (b.temp ? "temporary" : "permanent") + " here");
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, type: c.type, built: !b.inert, inert: b.inert || null,
+    temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);
 export const UPGRADE_ROSTER = UPGRADES_DATA.roster;
+
+/**
+ * The ways a robot may use a temporary upgrade at this moment: one entry per
+ * legal use, each naming the card and its argument. `moment` is "dealt"
+ * (after the deal, before programming), "before" or "after" (its own card).
+ */
+export function temporaryOffers(st, C, p, moment) {
+  const out = [];
+  for (const u of p.installed) {
+    const def = UPGRADE_DEFS[u.id];
+    if (!def.temp || !def.offers) continue;
+    for (const arg of def.offers(st, C, p, moment)) out.push({ id: u.id, ...arg });
+  }
+  return out;
+}
+
+/** Use a temporary upgrade: its effect, then the card to the upgrade discard. */
+export function useTemporary(st, C, p, action) {
+  const def = UPGRADE_DEFS[action.id];
+  const held = p.installed.find(u => u.id === action.id);
+  if (!def || !def.use || !held) return false;
+  def.use(st, C, p, action);
+  uninstallUpgrade(st, p, action.id, "uses up");
+  return true;
+}
 
 /** A card as installed: its id and a fresh copy of whatever state it keeps. */
 export function newInstalled(id) {
@@ -203,6 +554,8 @@ export function uninstallUpgrade(st, p, id, how) {
   const i = p.installed.findIndex(u => u.id === id);
   if (i < 0) return false;
   p.installed.splice(i, 1);
+  /* Memory Cards: "If this upgrade is lost while cards are on it, discard those cards into your discard pile." */
+  if (id === "memoryCards" && p.parked && p.parked.length) { for (const ci of p.parked) p.pile.push(ci); p.parked = []; }
   st.upgradeDiscard.push(id);
   st.events.push({ type: "upgrade", player: p.id, card: id, how: how || "uninstalled" });
   log(st, p.name + " " + (how || "uninstalls") + " " + UPGRADE_DEFS[id].name);
@@ -218,5 +571,7 @@ export function gainEnergy(st, p, n, why) {
   return got;
 }
 
-/** The bay's neighbour a step away, for the reboot substitute's shove. */
-export { stepCell };
+
+/* the doors rules.js opens for the temporary upgrades; `st.hooks` is the same
+ * table reached through the state for the behaviours above */
+export function bindRuleHooks(h) { Object.assign(RULE_HOOKS, h); }

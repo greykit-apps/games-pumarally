@@ -9,13 +9,13 @@ import { step as stepCell, rot, opposite, DC, DR, N, E, S, W } from "../../edito
 import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
-  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt
+  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption } from "./options.js";
-import { gainEnergy } from "./upgrades.js";
+import { gainEnergy, bindRuleHooks } from "./upgrades.js";
 
 const DIR_NAMES = ["north", "east", "south", "west"];
 
@@ -57,16 +57,24 @@ function tread(p) {
 export function stepRobot(st, C, p, dir, cause) {
   const chain = [p];
   let c = p.c, r = p.r;
+  let blocked = false;
   for (let guard = 0; guard < 10; guard++) {
-    if (blockedMove(st, C, c, r, dir)) return false;
+    if (blockedMove(st, C, c, r, dir)) { blocked = true; break; }
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;                    // the head walks off the edge
     const occ = robotAt(st, nc, nr);
     if (!occ) break;
     chain.push(occ); c = nc; r = nr;
   }
-  /* far end first, so nobody is ever asked to land on an occupied square */
   const hurt = [];
+  /* "if your robot pushes (or attempts to push) an adjacent robot": a push
+   * that a wall stops is still a push for Ramming Gear and for Spiky */
+  if (blocked) {
+    for (let i = 1; i < chain.length; i++) pushHooks(st, chain[i - 1], chain[i], dir, cause, true, hurt);
+    for (const h of hurt) if (h.who.alive) { log(st, h.who.name + " takes " + h.n + " from " + h.why); damage(st, C, h.who, h.n, h.source); }
+    return false;
+  }
+  /* far end first, so nobody is ever asked to land on an occupied square */
   for (let i = chain.length - 1; i >= 0; i--) {
     const m = chain[i];
     const [tc, tr] = stepCell(m.c, m.r, dir);
@@ -76,10 +84,14 @@ export function stepRobot(st, C, p, dir, cause) {
     st.events.push({ type: i > 0 ? "pushed" : "moved", player: m.id, from, to: [tc, tr], dir, cause, by: i > 0 ? chain[i - 1].id : undefined });
     if (i > 0) {
       log(st, chain[i - 1].name + " shoves " + m.name + " " + DIR_NAMES[dir]);
-      const pctx = fire(st, chain[i - 1], "onPush", { pushed: m, dir, cause, pushDamage: 0 });
-      if (pctx.pushDamage > 0) hurt.push({ who: m, n: pctx.pushDamage, source: "ram", why: "ramming gear" });
+      pushHooks(st, chain[i - 1], m, dir, cause, false, hurt);
+      if (cause === "card") { if (!p.pushed) p.pushed = []; if (!p.pushed.includes(m.id)) p.pushed.push(m.id); }
     }
-    if (isHole(C, m.c, m.r)) { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
+    if (isHole(C, m.c, m.r)) {
+      /* a hovering robot passes over a pit, and falls in only where its move ends */
+      if (i === 0 && m.hoverSteps > 0 && inGrid(C, m.c, m.r)) { log(st, m.name + " hovers over the pit"); }
+      else { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
+    }
     throughPortal(st, C, m);
     /* a jet burns what passes through it, not only what stops in it */
     if (jetFires(C, m.c, m.r, st.register)) hurt.push({ who: m, n: 1, source: "burner", why: "the flame" });
@@ -92,6 +104,14 @@ export function stepRobot(st, C, p, dir, cause) {
     for (let i = 1; i < chain.length; i++) if (chain[i].alive && oilAt(C, chain[i].c, chain[i].r)) oilSlide(st, C, chain[i], dir);
   }
   return true;
+}
+
+/** The pusher's hooks (Ramming Gear, Piercing Drill) and the pushed robot's (Spiky), for one link of a chain. */
+function pushHooks(st, pusher, pushed, dir, cause, failed, hurt) {
+  const pctx = fire(st, pusher, "onPush", { pushed, dir, cause, failed, pushDamage: 0 });
+  if (pctx.pushDamage > 0) hurt.push({ who: pushed, n: pctx.pushDamage, source: "ram", why: pusher.name + "'s " + (pctx.why || "ramming gear") });
+  const dctx = fire(st, pushed, "onPushed", { pusher, dir, cause, failed, pusherDamage: 0 });
+  if (dctx.pusherDamage > 0) hurt.push({ who: pusher, n: dctx.pusherDamage, source: "spiky", why: pushed.name + "'s spikes" });
 }
 
 /* --- Crash and Burn: portals and oil ------------------------------------------
@@ -183,6 +203,7 @@ export function playCard(st, C, p, cd, plan) {
   log(st, p.name + " " + describePlan(cd, plan));
   st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
   const start = [p.c, p.r];
+  p.pushed = []; p.lastMove = null;
   if (plan.kind === "turn") {
     p.face = rot(p.face, plan.turn);
     st.events.push({ type: "turned", player: p.id, turn: plan.turn, face: p.face, cause: "card" });
@@ -195,12 +216,17 @@ export function playCard(st, C, p, cd, plan) {
   const dir = plan.lateral ? rot(p.face, plan.lateral) : plan.dist > 0 ? p.face : opposite(p.face);
   let n = Math.abs(plan.dist);
   if (n > 0 && oilAt(C, p.c, p.r)) n--;               // wheels spin on oil: one square less
+  if (n > 0 && isModern(st) && waterAt(C, p.c, p.r)) n--;   // Wet and Wild: leaving water costs a space, once per Move card
   let moved = 0;
+  const hover = fire(st, p, "modifyMove", { kind: "hover", hover: false }).hover;
   for (let i = 0; i < n; i++) {
     if (!p.alive) return;
-    if (!stepRobot(st, C, p, dir, "card")) break;      // a wall: the rest of the move is lost
+    p.hoverSteps = hover ? n - i - 1 : 0;
+    if (!stepRobot(st, C, p, dir, "card")) { p.hoverSteps = 0; break; }      // a wall: the rest of the move is lost
     moved++;
   }
+  p.hoverSteps = 0;
+  p.lastMove = moved > 0 ? { dir, n: moved } : null;
   /* "Erst wenn er seine Bewegung beendet (bremst), gerät er auf einer Öllache
    * ins Rutschen": once, after the card, and only if it actually travelled --
    * momentum it never had cannot carry it */
@@ -230,9 +256,10 @@ function stayedInFlame(st, C, p, start) {
  * it. `lo..hi` is the speed range that moves this pass: express alone (2,2),
  * then everything (1,2).
  */
-export function beltPass(st, C, lo, hi) {
+export function beltPass(st, C, lo, hi, only) {
   const movers = new Map();
   for (const p of alive(st)) {
+    if (only && p.id !== only.id) continue;
     const sp = beltAt(C, p.c, p.r);
     if (!sp || sp < lo || sp > hi) continue;
     const d = beltExit(C, p.c, p.r);
@@ -453,21 +480,58 @@ export function laserPass(st, C) {
     log(st, t.name + " absorbs " + ids.length + " damage with " + (ids.length === 1 ? "a card" : ids.length + " cards"));
   }
 
-  for (const h of hits) {
-    if (!h.target.alive) continue;
-    if (h.replaceWith) {
-      st.events.push({ type: "shot", from: h.at, dir: h.dir, target: h.target.id, shooter: h.shooter.id, damage: 0, effect: h.replaceWith.kind });
-      if (h.replaceWith.kind === "push") { log(st, h.target.name + " is shoved by a beam"); stepRobot(st, C, h.target, h.replaceWith.dir, "beam"); }
-      else if (h.replaceWith.kind === "scramble") scrambleRegister(st, h.target);
-      continue;
+  if (!st.laserAfter) {
+    const boardHit = [];
+    for (const h of hits) {
+      if (!h.target.alive) continue;
+      if (h.replaceWith) {
+        st.events.push({ type: "shot", from: h.at, dir: h.dir, target: h.target.id, shooter: h.shooter.id, damage: 0, effect: h.replaceWith.kind });
+        const rw = h.replaceWith;
+        if (rw.kind === "push") { log(st, h.target.name + " is shoved by a beam"); stepRobot(st, C, h.target, rw.dir, "beam"); }
+        else if (rw.kind === "scramble") scrambleRegister(st, h.target);
+        /* Mini Howitzer: two damage, then a shove in the direction of fire */
+        else if (rw.kind === "blast") { log(st, h.target.name + " takes " + rw.damage + " from " + h.shooter.name + "'s howitzer"); landDamage(st, C, h.target, rw.damage, "laser"); if (h.target.alive) stepRobot(st, C, h.target, rw.dir, "beam"); }
+        /* Displacing Blast: to the reboot point of the board it stands on, facing unchanged */
+        else if (rw.kind === "displace") displaceTo(st, C, h.target, h.shooter);
+        continue;
+      }
+      if (h.damage <= 0) continue;
+      st.events.push({ type: "shot", from: h.at, dir: h.dir, target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage });
+      log(st, h.target.name + " takes " + h.damage + " from " + h.from);
+      landDamage(st, C, h.target, h.damage, "laser");
+      if (!h.shooter && !boardHit.includes(h.target.id)) boardHit.push(h.target.id);
     }
-    if (h.damage <= 0) continue;
-    st.events.push({ type: "shot", from: h.at, dir: h.dir, target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage });
-    log(st, h.target.name + " takes " + h.damage + " from " + h.from);
-    landDamage(st, C, h.target, h.damage, "laser");
+    st.laserAfter = boardHit;
+  }
+  /* "After your robot takes damage from a board laser, you may move 1 space
+   * forward or backward" -- asked once the volley has landed */
+  while (st.laserAfter.length) {
+    const t = st.players[st.laserAfter[0]];
+    if (t.alive) {
+      const ctx = fire(st, t, "afterBoardLaser", { move: 0 });
+      if (ctx.pending) return ctx.ask;
+      if (ctx.move) { log(st, t.name + " converts the hit into a move"); stepRobot(st, C, t, ctx.move > 0 ? t.face : opposite(t.face), "upgrade"); }
+    }
+    st.laserAfter.shift();
   }
   st.laser = null;
+  st.laserAfter = null;
   return null;
+}
+
+/** The 2016 reboot point of the board a robot stands on, under the archive substitute: its archive. Facing is kept; an occupant moves to the nearest free floor. */
+export function displaceTo(st, C, p, by) {
+  const at = p.archive || { c: p.c, r: p.r };
+  const occ = robotAt(st, at.c, at.r);
+  if (occ && occ.id !== p.id) {
+    const spot = freeSpotNear(st, C, at.c, at.r);
+    if (spot) { const from = [occ.c, occ.r]; occ.c = spot[0]; occ.r = spot[1]; st.events.push({ type: "shoved", player: occ.id, from, to: spot, cause: "displace" }); }
+  }
+  const from = [p.c, p.r];
+  p.c = at.c; p.r = at.r;
+  tread(p);
+  st.events.push({ type: "moved", player: p.id, from, to: [p.c, p.r], dir: p.face, cause: "displace" });
+  log(st, p.name + " is blasted back to its reboot point by " + (by ? by.name : "a beam"));
 }
 
 /** Scrambler: the target's next register is replaced with the top card of the deck (classic: the shared one; 2016: the target's own). */
@@ -606,14 +670,19 @@ export function destroy(st, C, p, how) {
 export function reboot(st, C, p, how) {
   p.alive = false;
   p.rebooting = true;
-  for (let i = 0; i < REGISTERS; i++) if (p.registers[i] !== null) { p.pile.push(p.registers[i]); p.registers[i] = null; }
+  for (let i = 0; i < REGISTERS; i++) {
+    if (p.registers[i] !== null) { p.pile.push(p.registers[i]); p.registers[i] = null; }
+    if (p.crab && p.crab[i] !== null) { p.pile.push(p.crab[i]); p.crab[i] = null; }
+  }
   for (const i of p.hand) p.pile.push(i);
   p.hand = [];
   p.poweredDown = false;
   p.announceDown = false;
   st.events.push({ type: "destroyed", player: p.id, at: [p.c, p.r], how, rebooting: true });
   log(st, p.name + " goes " + how + " and must reboot");
-  drawDamageCards(st, p, 2, "reboot");
+  const rctx = fire(st, p, "onReboot", { how, cards: 2 });
+  if (rctx.cards > 0) drawDamageCards(st, p, rctx.cards, "reboot");
+  else log(st, p.name + " draws no damage for it");
 }
 
 /** "If your robot ends a register on a battery space, you gain 1 Energy." Not while shut down. */
@@ -668,9 +737,29 @@ export function checkpointPass(st, C) {
         st.events.push({ type: "flag", player: p.id, flag: F.n, at: [F.c, F.r] });
         log(st, p.name + " touches flag " + F.n);
         if (p.flags === C.flags.length) { win(st, C, p); return; }
+        if (isModern(st)) p.newCheckpoint = true;      // Self-Diagnostics asks afterwards, so a question cannot stop the pass halfway
       }
     }
   }
+  /* "When your robot reaches a new Checkpoint, you may remove a card in your
+   * hand or discard pile from the game." Asked here, after every robot has
+   * been scored, keyed so a re-run finds the answer. */
+  for (const p of alive(st)) {
+    if (!p.newCheckpoint) continue;
+    const cards = p.hand.map(i => ({ from: "hand", i })).concat(p.pile.map(i => ({ from: "pile", i })));
+    const ctx = fire(st, p, "onCheckpoint", { cards, remove: null });
+    if (ctx.pending) return ctx.ask;
+    if (ctx.remove !== null && ctx.remove !== undefined && cards[ctx.remove]) {
+      const pick = cards[ctx.remove];
+      const list = pick.from === "hand" ? p.hand : p.pile;
+      list.splice(list.indexOf(pick.i), 1);
+      p.removed.push(pick.i);
+      st.events.push({ type: "removed", player: p.id, card: pick.i });
+      log(st, p.name + " removes a " + card(st, pick.i).kind + " from the game");
+    }
+    p.newCheckpoint = false;
+  }
+  return null;
 }
 
 export function win(st, C, p) {
@@ -679,3 +768,17 @@ export function win(st, C, p) {
   st.events.push({ type: "won", player: p.id });
   log(st, p.name + " has all " + C.flags.length + " flags and wins");
 }
+
+/** A robot that arrived somewhere without stepping (Boink, a switch of places): the square it landed on still counts. */
+export function arrived(st, C, p) {
+  if (!p.alive) return;
+  if (isHole(C, p.c, p.r)) { destroy(st, C, p, inGrid(C, p.c, p.r) ? "into a pit" : "over the edge"); return; }
+  throughPortal(st, C, p);
+}
+
+/** All Aboard: the belts for one robot alone, blue twice then green, the normal rules applying. */
+export function beltsFor(st, C, p) {
+  beltPass(st, C, 2, 2, p); beltPass(st, C, 2, 2, p); beltPass(st, C, 1, 1, p);
+}
+
+bindRuleHooks({ drawOwn, putAway, stepRobot, robotAt, beltsFor, arrived });

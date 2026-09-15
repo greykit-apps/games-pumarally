@@ -15,7 +15,11 @@ of the old suite's scenarios are ported by name; the runner prints the rest
 as pending. M4, the 2016 rules, followed: own decks, the Priority Token,
 SPAM, Energy, the shop, shutdown and reboot, with three declared
 substitutes (`game/engine/state.js`). A hundred and fifty-two scenarios are
-ported. Next: M5, each item as its source is photographed.
+ported. M5 began with the twenty-nine upgrade effects the rulebook's pages
+21-23 give in full; two stay inert for want of Haywire. Next in M5: the
+expansion floor from the three reference sheets (water, drains, levels and
+ramps, currents, randomizers, teleporters, flamers), then whatever else is
+photographed.
 
 ## The verdict
 

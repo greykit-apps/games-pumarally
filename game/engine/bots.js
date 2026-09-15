@@ -216,6 +216,38 @@ export function bestFacing(st, C, p) {
 }
 
 /**
+ * Temporary upgrades: the ones with an obvious moment. Recharge at once,
+ * Re-initialize only to take the token, Calibration when holding SPAM,
+ * Overclocked before the card when the two squares ahead are floor. The
+ * rest wait for a person.
+ */
+export function botTemp(st, C, p, req) {
+  const opts = req.options.filter(o => o !== null);
+  const by = id => opts.filter(o => o.id === id);
+  if (by("recharge").length) return by("recharge")[0];
+  const re = by("reInitialize").find(o => o.seat === p.id);
+  if (re && st.priority !== p.id) return re;
+  if (by("calibrationProtocol").length && p.hand.filter(i => isDamage(st, i)).length >= 2) return by("calibrationProtocol")[0];
+  if (req.moment === "before" && by("overclocked").length) {
+    let ok = true, c = p.c, r = p.r;
+    for (let k = 0; k < 2 && ok; k++) {
+      if (wallBlocks(C, c, r, p.face, st.register)) { ok = false; break; }
+      [c, r] = stepCell(c, r, p.face);
+      if (!inGrid(C, c, r) || isHole(C, c, r)) ok = false;
+    }
+    const idx = p.flags >= C.flags.length ? -1 : p.flags;
+    if (ok && idx >= 0 && distField(C, idx)[r * C.w + c] < distField(C, idx)[p.r * C.w + p.c]) return by("overclocked")[0];
+  }
+  return null;
+}
+
+/** Which cards go back: Memory Swap puts the last of the hand back; Memory Cards parks nothing. */
+export function botStack(st, p, req) {
+  if (req.count === null || req.count === undefined) return [];
+  return req.options.slice(-req.count);
+}
+
+/**
  * The shop: fit what it owns before buying more, cheapest built card first,
  * keeping a cube back for the deflector shield; buy a card only with Energy
  * to spare. The lowest tier fits what it has and never buys.
@@ -240,6 +272,8 @@ export function botAnswer(st, library, req) {
     case "powerDown": return botWantsPowerDown(p);
     case "stayDown": return botWantsPowerDown(p);
     case "cardChoice": {
+      /* Self-Diagnostics: tear out a SPAM if one is on offer, else keep them all */
+      if (req.card === "selfDiagnostics") { const i = req.labels.findIndex(l => /^SPAM/.test(l)); return i > 0 ? req.options[i] : 0; }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */
       if (p.damage + (req.incoming || 1) < 10) return 0;
@@ -252,6 +286,8 @@ export function botAnswer(st, library, req) {
     case "upgrade": return botUpgrade(st, p, req);
     case "shutdown": return botWantsShutdown(st, p);
     case "rebootFacing": return bestFacing(st, C, p);
+    case "useTemp": return botTemp(st, C, p, req);
+    case "stack": return botStack(st, p, req);
     default: throw new Error("no bot answer for request kind " + req.kind);
   }
 }
@@ -267,6 +303,13 @@ export function randomAnswer(st, library, req, salt = 0) {
       return idx.slice(0, req.count);
     }
     case "powerDown": case "stayDown": case "shutdown": return (n % 7) === 0;
+    case "useTemp": return req.options[n % req.options.length];
+    case "stack": {
+      const idx = req.options.slice();
+      for (let i = idx.length - 1; i > 0; i--) { const j = hash32(n + i) % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+      const k = req.count === null || req.count === undefined ? n % (idx.length + 1) : req.count;
+      return idx.slice(0, k);
+    }
     case "upgrade": {
       const o = req.options;
       const buy = o.buy[n % o.buy.length];

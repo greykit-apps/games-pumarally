@@ -100,6 +100,7 @@ export function repairAt(C, c, r) { return propAt(C.grid, c, r, "repair") || 0; 
 export function optionSiteAt(C, c, r) { return !!propAt(C.grid, c, r, "option"); }
 export function energyAt(C, c, r) { return propAt(C.grid, c, r, "energy") || 0; }
 export function oilAt(C, c, r) { return !!propAt(C.grid, c, r, "oil"); }
+export function waterAt(C, c, r) { return !!propAt(C.grid, c, r, "water"); }
 
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }

@@ -264,14 +264,23 @@ export function mountScreen(root, ctx) {
           const picked = !locked && held === null ? pick[i - countHeld(me, i)] : undefined;
           html += '<div class="slot' + (locked ? " locked" : "") + '" data-slot="' + i + '"><span class="n">' + (i + 1) + "</span>";
           if (held !== null) html += cardHtml(held, "disabled");
+          else if (Array.isArray(picked)) html += cardHtml(me.hand[picked[0]], 'data-unpick="' + i + '"') + '<span class="crab">&#8646; ' + esc(KINDS[card(st, me.hand[picked[1]]).kind].label) + "</span>";
           else if (picked !== undefined) html += cardHtml(me.hand[picked], 'data-unpick="' + i + '"');
           html += "</div>";
         }
+        /* Crab Legs: the last placed card is a rotate and a Move 1 is in hand */
+        const lastPick = pick.length ? pick[pick.length - 1] : null;
+        const lastKind = lastPick === null ? null : Array.isArray(lastPick) ? null : card(st, me.hand[lastPick]).kind;
+        const canPair = w.crab && (lastKind === "left" || lastKind === "right");
         html += "</div><h2>Your hand</h2><div class='hand'>";
         me.hand.forEach((ci, i) => {
-          if (pick.includes(i)) return;
-          html += cardHtml(ci, 'data-card="' + i + '" draggable="true"');
+          if (pickHas(i)) return;
+          const pairable = canPair && card(st, ci).kind === "move1";
+          html += cardHtml(ci, 'data-card="' + i + '" draggable="true"') + (pairable ? '<button class="pair" data-pair="' + i + '" title="Crab Legs: pair this Move 1 with the rotate you just placed, and sidestep instead">&#8646; pair</button>' : "");
         });
+        if (isModern(st) && me.installed.some(u => u.id === "spamFilter") && me.deck.length) {
+          html += "</div><h2>Top of your deck</h2><div class='hand'>" + cardHtml(me.deck[me.deck.length - 1], "disabled");
+        }
         html += "</div><div class='row'><button class='primary' data-act='run'" + (pick.length === w.count ? "" : " disabled") + ">Run</button>" +
           "<button data-act='clear'" + (pick.length ? "" : " disabled") + ">Clear</button>" +
           "<span class='keys'>1&ndash;9 place, Backspace takes back, Enter runs</span></div></div>";
@@ -319,12 +328,28 @@ export function mountScreen(root, ctx) {
       case "rebootFacing":
         return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
           w.options.map(d => '<button data-pick="' + d + '">' + DIRS[d] + "</button>").join("") + "</div></div>";
+      /* a temporary upgrade at this moment: each legal use is a button, and "none" */
+      case "useTemp":
+        return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
+          '<button class="primary" data-temp="none">Not now</button>' +
+          w.options.slice(1).map((o, i) => '<button data-temp="' + (i + 1) + '" title="' + esc(UPGRADE_DEFS[o.id].text) + '">' + esc(w.labels[i]) + "</button>").join("") + "</div></div>";
+      /* cards from the hand, in order: Memory Swap's three back, or any number parked on Memory Cards */
+      case "stack": {
+        const exact = w.count !== null && w.count !== undefined;
+        let html = '<div class="ask"><p>' + esc(w.prompt) + (exact ? " Pick " + w.count + " in order." : " Pick any, then Done.") + "</p><div class='hand'>";
+        w.options.forEach(i => { const at = pick.indexOf(i); html += cardHtml(me.hand[i], 'data-stack="' + i + '"' + (at >= 0 ? ' aria-pressed="true"' : "")) + (at >= 0 ? "<span class='keys'>" + (at + 1) + "</span>" : ""); });
+        html += "</div><div class='row'><button class='primary' data-act='stackDone'" + (exact && pick.length !== w.count ? " disabled" : "") + ">Done</button>" +
+          "<button data-act='clear'" + (pick.length ? "" : " disabled") + ">Clear</button></div></div>";
+        return html;
+      }
       default:
         return '<div class="ask"><p>' + esc(w.kind) + "?</p></div>";
     }
   }
   /* registers before `i` that already hold a locked card do not consume a pick */
   function countHeld(me, i) { let n = 0; for (let k = 0; k < i; k++) if (me.registers[k] !== null) n++; return n; }
+  /* a hand index already placed, alone or as half of a Crab Legs pair */
+  function pickHas(i) { return pick.some(e => Array.isArray(e) ? e.includes(i) : e === i); }
 
   function renderLog() {
     const el = els.side.querySelector(".log");
@@ -348,8 +373,25 @@ export function mountScreen(root, ctx) {
 
   function place(handIndex) {
     const w = st.waiting;
-    if (!w || w.kind !== "program" || pick.length >= w.count || pick.includes(handIndex)) return;
+    if (!w || w.kind !== "program" || pick.length >= w.count || pickHas(handIndex)) return;
     pick.push(handIndex);
+    renderPanel();
+  }
+  /* Crab Legs: the Move 1 joins the rotate just placed */
+  function pair(handIndex) {
+    const w = st.waiting;
+    if (!w || w.kind !== "program" || !w.crab || !pick.length || pickHas(handIndex)) return;
+    const last = pick[pick.length - 1];
+    if (Array.isArray(last)) return;
+    pick[pick.length - 1] = [last, handIndex];
+    renderPanel();
+  }
+  function stackToggle(i) {
+    const w = st.waiting;
+    if (!w || w.kind !== "stack") return;
+    const at = pick.indexOf(i);
+    if (at >= 0) pick.splice(at, 1);
+    else if (w.count === null || w.count === undefined || pick.length < w.count) pick.push(i);
     renderPanel();
   }
   function unpick(slot) {
@@ -368,9 +410,13 @@ export function mountScreen(root, ctx) {
     if (d.pick !== undefined) return answer(+d.pick);
     if (d.site !== undefined) return answer(d.site);
     if (d.card !== undefined) return place(+d.card);
+    if (d.pair !== undefined) return pair(+d.pair);
     if (d.unpick !== undefined) return unpick(+d.unpick);
     if (d.act === "run" && pick.length === st.waiting.count) return answer(pick.slice());
     if (d.act === "clear") { pick = []; renderPanel(); }
+    if (d.temp !== undefined) return answer(d.temp === "none" ? null : st.waiting.options[+d.temp]);
+    if (d.stack !== undefined) return stackToggle(+d.stack);
+    if (d.act === "stackDone") return answer(pick.slice());
     /* the shop: one action per press, the engine asks again while there is more to do */
     if (d.install !== undefined) return answer({ buy: false, install: d.install, uninstall: [] });
     if (d.uninstall !== undefined) return answer({ buy: false, install: null, uninstall: [d.uninstall] });
@@ -423,6 +469,8 @@ export function mountScreen(root, ctx) {
     } else if (w.kind === "powerDown" || w.kind === "stayDown" || w.kind === "shutdown") {
       if (ev.key === "y") answer(true); else if (ev.key === "n") answer(false);
     } else if (w.kind === "upgrade" && ev.key === "Enter") { answer({ buy: false, install: null, uninstall: [] }); ev.preventDefault(); }
+    else if (w.kind === "useTemp" && ev.key === "Enter") { answer(null); ev.preventDefault(); }
+    else if (w.kind === "stack" && ev.key === "Enter") { const exact = w.count !== null && w.count !== undefined; if (!exact || pick.length === w.count) answer(pick.slice()); ev.preventDefault(); }
   }
   current = { onKey, fitBoard };
   if (!keysBound) { document.addEventListener("keydown", ev => { if (current) current.onKey(ev); }); keysBound = true; }
