@@ -28,7 +28,8 @@ const START_LIVES = 3;
  *   transcribed, so a robot re-enters at its ARCHIVE -- its last checkpoint,
  *   or its bay -- and an occupant is shoved along the facing it archived with.
  * - The Priority Token starts with "the youngest player" (p.3). Seat 1 here.
- * - The damage deck is forty SPAM: the Haywire faces are not photographed. */
+ *   (The damage deck was a third substitute, forty SPAM, until the Haywire
+ *   faces were photographed; it is the printed forty now.) */
 export const MODERN_REBOOT_POINT = "archive";
 export const MODERN_FIRST_PRIORITY = "seat 1";
 
