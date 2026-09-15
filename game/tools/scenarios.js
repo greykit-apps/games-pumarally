@@ -1795,6 +1795,138 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "Reverse Gear may back up two",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fourth Gear may move four",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the gears leave every other move alone",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Turbo Blaster hits for one and shoves, and is spent after five shots",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Turbo Blaster's point goes through the target's coat",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Shield stops one point from the front each register, not from the side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Shield takes one point off a double-barreled shot",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Remote Control runs the controller's program on the target for the rest of the turn",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Remote Control reaches six squares and no further",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Turret aims the laser at a robot beside you",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Turret carries the optional weapons round with it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "two robots with optional weapons both get their choice in one volley",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fire Control locks a register through the next turn",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fire Control may destroy an option card instead",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fire Control lands only with the damage",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Circuit Breaker forces a power down at three damage",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Emergency Switch replaces the register and every one after it from the deck",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Emergency Switch leaves a locked register alone",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Command in Reserve holds a sixth card and swaps it in for a register",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Flywheel carries a card past the reshuffle into next turn's hand",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a wreck sends the reserve and flywheel cards back to the table",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "losing the option card sends the program card on it back too",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "an option exchange sacrifices a card to absorb a point of damage",
     "layer": "rules",
     "status": "ported",

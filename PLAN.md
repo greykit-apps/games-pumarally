@@ -8,7 +8,8 @@ branch is on `main`, the tag `classic-monolith` marks the last commit before
 the rebuild, `game/` holds the classic engine, bots, simulation and screen,
 the repository root's `index.html` is the new game, and the old game and its
 tools are deleted. Option cards followed the same day: the sixteen
-transcribed, with their questions through the request door. Crash and Burn's
+transcribed, with their questions through the request door, and the AMIGO
+box's eleven once it was photographed. Crash and Burn's
 floor followed: doors, portals, oil, unnumbered presses, burners on the way
 through, lives by game size, all read off the AMIGO book. A hundred and six
 of the old suite's scenarios are ported by name; the runner prints the rest
@@ -241,8 +242,8 @@ built cards and the other 29 as purchasable-but-inert, exactly as now.
 *Acceptance: the same four checks as M1 on Energize, Steps and the six other
 2016 boards.*
 
-**M5. Everything gated on transcription** — the ten untranscribed option
-cards, Haywire, the 29 upgrade effects, Crash and Burn's four rule gaps,
+**M5. Everything gated on transcription** — the eleven AMIGO option cards
+(done), Haywire (done), the 29 upgrade effects (done), Crash and Burn's four rule gaps,
 Wet and Wild levels, Chaos and Carnage, Thrills and Spills. Each lands as
 data plus a handler plus a scenario, one at a time, only when its source is
 photographed. This is the existing rule and it stays.

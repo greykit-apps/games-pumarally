@@ -1,15 +1,18 @@
 /* The option cards, one scenario each, named as the old suite named them. */
 import { board, courseOn, game, give, runRegister, N, E, S, W } from "./harness.js";
-import { stepRobot, beltPass, gearPass, laserPass, checkpointPass, damage } from "../../engine/rules.js";
-import { step } from "../../engine/machine.js";
+import { stepRobot, beltPass, gearPass, laserPass, checkpointPass, damage, destroy } from "../../engine/rules.js";
+import { step, tick } from "../../engine/machine.js";
 import { newGame } from "../../engine/state.js";
 import { runGame } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
+import * as OPTS from "../../engine/options.js";
 import { OPTION_DEFS, OPTION_IDS, HOOKS, OPTION_LIMIT, fire } from "../../engine/options.js";
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(msg + ": got " + JSON.stringify(a) + ", expected " + JSON.stringify(b)); };
 const plain = edit => courseOn(board(8, 8, edit));
+/* a robot at (3,3) walled in on all four sides: it can run any dealt program without leaving the square */
+const penned = () => plain((b, t) => { t.wall(3, 3, N); t.wall(3, 3, E); t.wall(3, 3, S); t.wall(3, 3, W); });
 
 /** Hand a robot a card straight from the option deck, keeping the count honest. */
 function hold(st, p, id) {
@@ -292,7 +295,7 @@ export const TESTS = [
      * an Ablative Coat with no charges absorbed forever and turned damage
      * into NaN, which every range check waved through. Seen on screen. */
     const co = plain();
-    const st = newGame({ seed: 7, course: co.doc, seats: new Array(6).fill(0).map(() => ({ seat: "bot" })), house: { startOptions: 3 } });
+    const st = newGame({ seed: 7, course: co.doc, seats: new Array(8).fill(0).map(() => ({ seat: "bot" })), house: { startOptions: 3 } });
     let coats = 0;
     for (const p of st.players) for (const o of p.options) {
       const def = OPTION_DEFS[o.id];
@@ -300,7 +303,9 @@ export const TESTS = [
       coats++;
       eq(o.st, def.init(), p.name + "'s " + def.name + " starts with its state");
     }
-    eq(coats, 1, "three cards to six seats empties the sixteen-card deck: the one card with state is in somebody's hand");
+    assert(coats >= 1, "three cards to eight seats deals twenty-four of the twenty-seven: at least one of the three cards with state is in a hand");
+    /* the coat itself may be among the three left in the deck: then it is dealt by hand, through the same door */
+    if (!st.players.some(p => p.options.some(o => o.id === "ablativeCoat"))) hold(st, st.players[0], "ablativeCoat");
     /* and it wears out: three absorbed, the fourth lands, the coat is gone */
     const holder = st.players.find(p => p.options.some(o => o.id === "ablativeCoat"));
     holder.placed = true; holder.c = 2; holder.r = 2;
@@ -308,5 +313,287 @@ export const TESTS = [
     eq(holder.damage, 1, "three points absorbed, the fourth landed");
     assert(!holder.options.some(o => o.id === "ablativeCoat"), "the coat burnt out");
     assert(st.optionDiscard.indexOf("ablativeCoat") >= 0, "and is on the discard");
+  }],
+  /* --- the AMIGO box's eleven ------------------------------------------------ */
+
+  ["Reverse Gear may back up two", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 4, face: N, seat: "human" }]);
+    hold(st, st.players[0], "reverseGear");
+    give(st, st.players[0], 0, "back");
+    st.phase = "exec"; st.step = "reveal";
+    const r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "reverseGear", "asked before moving");
+    step(st, co.library, 1);
+    eq([st.players[0].c, st.players[0].r, st.players[0].face], [3, 6, N], "two squares back, still facing north");
+  }],
+  ["Fourth Gear may move four", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 6, face: N, seat: "human" }]);
+    hold(st, st.players[0], "fourthGear");
+    give(st, st.players[0], 0, "move3");
+    st.phase = "exec"; st.step = "reveal";
+    const r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "fourthGear", "asked before moving");
+    step(st, co.library, 1);
+    eq(st.players[0].r, 2, "four squares north");
+  }],
+  ["the gears leave every other move alone", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 5, face: N, seat: "human" }]);
+    hold(st, st.players[0], "fourthGear"); hold(st, st.players[0], "reverseGear");
+    give(st, st.players[0], 0, "move2");
+    runRegister(st, co.library);
+    eq(st.players[0].r, 3, "a Move 2 is a Move 2, and nothing was asked");
+  }],
+  ["Turbo Blaster hits for one and shoves, and is spent after five shots", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "turboBlaster");
+    for (let k = 0; k < 5; k++) {
+      st.register = k;
+      const ask = laserPass(st, co.C);
+      assert(ask && ask.kind === "cardChoice" && ask.card === "turboBlaster" && ask.player === 0, "shot " + (k + 1) + ": the shooter is offered the blaster");
+      st.answers[ask.key] = 1;
+      eq(laserPass(st, co.C), null, "answered, the pass completes");
+      eq([target.c, target.damage], [5, k + 1], "shot " + (k + 1) + ": one damage and a shove east");
+      target.c = 4;
+    }
+    eq(shooter.options.length, 0, "five shots and the blaster is spent");
+    assert(st.optionDiscard.includes("turboBlaster"), "on the discard");
+    st.register = 0; st.turn++;
+    eq(laserPass(st, co.C), null, "the sixth register asks nothing");
+    eq([target.c, target.damage], [4, 6], "the main laser, unshoved");
+  }],
+  ["Turbo Blaster's point goes through the target's coat", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "turboBlaster"); hold(st, target, "ablativeCoat");
+    const ask = laserPass(st, co.C);
+    st.answers[ask.key] = 1;
+    laserPass(st, co.C);
+    eq([target.c, target.damage, target.options[0].st.charges], [5, 0, 2], "shoved, the point absorbed, a charge spent");
+  }],
+  ["Shield stops one point from the front each register, not from the side", () => {
+    const co = plain();
+    const st = game(co, [{ c: 1, r: 3, face: E }, { c: 4, r: 3, face: W }]);
+    const target = st.players[1];
+    hold(st, target, "shield");
+    fireLasers(st, co);
+    eq(target.damage, 0, "a shot into the front bounces off");
+    fireLasers(st, co);
+    eq(target.damage, 1, "the second shot in the same register lands");
+    st.register = 1;
+    target.face = N;
+    fireLasers(st, co);
+    eq(target.damage, 2, "a shot into the side lands");
+    st.register = 2;
+    target.face = W;
+    fireLasers(st, co);
+    eq(target.damage, 2, "and the next register the front is covered again");
+  }],
+  ["Shield takes one point off a double-barreled shot", () => {
+    const co = plain();
+    const st = game(co, [{ c: 1, r: 3, face: E }, { c: 4, r: 3, face: W }]);
+    hold(st, st.players[0], "doubleBarreledLaser"); hold(st, st.players[1], "shield");
+    fireLasers(st, co);
+    eq(st.players[1].damage, 1, "two less one");
+  }],
+  ["Remote Control runs the controller's program on the target for the rest of the turn", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "remoteControl");
+    give(st, shooter, 1, "uturn"); give(st, target, 1, "move1");
+    const ask = laserPass(st, co.C);
+    assert(ask && ask.kind === "cardChoice" && ask.card === "remoteControl", "offered instead of the shot");
+    st.answers[ask.key] = 1;
+    eq(laserPass(st, co.C), null, "answered, the pass completes");
+    eq([target.damage, target.controlledBy], [0, 0], "undamaged, and under control");
+    st.register = 1;
+    runRegister(st, co.library);
+    eq([target.face, target.c, target.r], [S, 4, 3], "the target u-turned as the controller did, instead of its own Move 1");
+    st.phase = "cleanup"; st.step = "endTurn";
+    tick(st, co.library);
+    eq(target.controlledBy, null, "released at the end of the turn");
+  }],
+  ["Remote Control reaches six squares and no further", () => {
+    const co = plain();
+    const st = game(co, [{ c: 0, r: 3, face: E }, { c: 7, r: 3, face: N }]);
+    hold(st, st.players[0], "remoteControl");
+    eq(laserPass(st, co.C), null, "seven squares away: nothing is offered");
+    eq(st.players[1].damage, 1, "the laser fires as usual");
+    st.register = 1; st.players[1].c = 6;
+    const ask = laserPass(st, co.C);
+    assert(ask && ask.card === "remoteControl", "six squares away: offered");
+  }],
+  ["Turret aims the laser at a robot beside you", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, face: N }, { c: 6, r: 3, face: N }]);
+    hold(st, st.players[0], "turret");
+    const ask = laserPass(st, co.C);
+    assert(ask && ask.kind === "cardChoice" && ask.card === "turret", "asked where to aim");
+    assert(/east/.test(ask.labels[0]) && /Straight ahead/.test(ask.labels[1]), "east, at the robot, or straight ahead at nothing: " + ask.labels.join(" / "));
+    st.answers[ask.key] = 0;
+    eq(laserPass(st, co.C), null, "answered, the pass completes");
+    eq([st.players[1].damage, st.players[0].face], [1, N], "hit to the east without turning");
+  }],
+  ["Turret carries the optional weapons round with it", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, face: N }, { c: 6, r: 3, face: N }]);
+    hold(st, st.players[0], "turret"); hold(st, st.players[0], "pressorBeam");
+    let ask = laserPass(st, co.C);
+    st.answers[ask.key] = 0;
+    ask = laserPass(st, co.C);
+    assert(ask && ask.card === "pressorBeam", "the pressor beam is offered along the turret's line");
+    st.answers[ask.key] = 1;
+    eq(laserPass(st, co.C), null, "answered, the pass completes");
+    eq([st.players[1].c, st.players[1].damage], [7, 0], "shoved east, the way the turret was aimed");
+  }],
+  ["two robots with optional weapons both get their choice in one volley", () => {
+    /* the pass re-runs from the top for each question; the first robot's
+     * answer was applied once and then reported as used, so its choice fell
+     * back to the main laser while the second was being asked */
+    const co = plain();
+    const st = game(co, [{ c: 1, r: 3, face: E }, { c: 1, r: 5, face: E }, { c: 3, r: 3, face: E }, { c: 3, r: 5, face: E }]);
+    hold(st, st.players[0], "pressorBeam"); hold(st, st.players[1], "tractorBeam");
+    let ask = laserPass(st, co.C);
+    assert(ask && ask.card === "pressorBeam" && ask.player === 0, "the first shooter is asked");
+    st.answers[ask.key] = 1;
+    ask = laserPass(st, co.C);
+    assert(ask && ask.card === "tractorBeam" && ask.player === 1, "then the second");
+    st.answers[ask.key] = 1;
+    eq(laserPass(st, co.C), null, "answered, the pass completes");
+    eq([st.players[2].c, st.players[2].damage], [4, 0], "the first target was shoved, not shot");
+    eq([st.players[3].c, st.players[3].damage], [2, 0], "the second was pulled, not shot");
+  }],
+  ["Fire Control locks a register through the next turn", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "fireControl");
+    const held = give(st, target, 2, "move3");
+    const ask = laserPass(st, co.C);
+    assert(ask && ask.kind === "cardChoice" && ask.card === "fireControl" && ask.player === 0, "the shooter must choose");
+    eq(ask.labels, ["Lock its register 3"], "the one register holding a card is the only thing to lock");
+    st.answers[ask.key] = 0;
+    eq(laserPass(st, co.C), null, "answered, the pass completes");
+    eq([target.damage, target.locks[2]], [1, st.turn], "the damage lands and the register is locked");
+    st.phase = "cleanup"; st.step = "discard";
+    tick(st, co.library);
+    eq(target.registers[2], held, "the card stays through the cleanup");
+    st.turn++;
+    st.phase = "cleanup"; st.step = "discard";
+    tick(st, co.library);
+    eq([target.registers[2], st.discard.includes(held)], [null, true], "and goes at the end of the next turn");
+  }],
+  ["Fire Control may destroy an option card instead", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "fireControl"); hold(st, target, "brakes");
+    give(st, target, 0, "move1");
+    const ask = laserPass(st, co.C);
+    const i = ask.labels.indexOf("Destroy its Brakes");
+    assert(i > 0, "the target's card is on the list: " + ask.labels.join(" / "));
+    st.answers[ask.key] = i;
+    fireLasers(st, co);
+    eq([target.damage, target.options.length, st.optionDiscard.includes("brakes")], [1, 0, true], "damaged, and the Brakes are gone");
+  }],
+  ["Fire Control lands only with the damage", () => {
+    const { co, st, shooter, target } = range();
+    hold(st, shooter, "fireControl"); hold(st, target, "ablativeCoat");
+    give(st, target, 0, "move1");
+    const ask = laserPass(st, co.C);
+    st.answers[ask.key] = 0;
+    laserPass(st, co.C);
+    eq([target.damage, target.locks[0]], [0, null], "the coat ate the point, and no register was locked");
+  }],
+  ["Circuit Breaker forces a power down at three damage", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, seat: "human", damage: 3 }, { c: 5, r: 3, seat: "human", damage: 3 }]);
+    hold(st, st.players[0], "circuitBreaker");
+    st.phase = "cleanup"; st.step = "endTurn";
+    tick(st, co.library);
+    eq([st.players[0].poweredDown, st.players[1].poweredDown], [true, false], "three damage trips the breaker; the robot without one runs on");
+    st.players[0].poweredDown = false; st.players[0].damage = 2;
+    st.phase = "cleanup"; st.step = "endTurn";
+    tick(st, co.library);
+    eq(st.players[0].poweredDown, false, "two damage does not");
+  }],
+  ["Emergency Switch replaces the register and every one after it from the deck", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, face: N, seat: "human" }]);
+    hold(st, st.players[0], "emergencySwitch");
+    give(st, st.players[0], 0, "uturn"); give(st, st.players[0], 1, "uturn"); give(st, st.players[0], 2, "uturn");
+    st.phase = "exec"; st.step = "reveal";
+    const r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "emergencySwitch", "asked as the first card is about to be revealed");
+    step(st, co.library, 1);
+    eq(st.log.filter(l => /hits the emergency switch/.test(l.msg)).length, 1, "thrown once");
+    eq(st.log.filter(l => /is replaced from the deck/.test(l.msg)).length, 3, "and every card after it was replaced without asking");
+  }],
+  ["Emergency Switch leaves a locked register alone", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, face: N, seat: "human", damage: 5 }]);
+    hold(st, st.players[0], "emergencySwitch");
+    give(st, st.players[0], 0, "move1"); give(st, st.players[0], 4, "uturn");
+    st.phase = "exec"; st.step = "reveal";
+    step(st, co.library);
+    step(st, co.library, 1);
+    eq(st.log.filter(l => /is replaced from the deck/.test(l.msg)).length, 1, "the open register was replaced, the locked one kept its card");
+  }],
+  ["Command in Reserve holds a sixth card and swaps it in for a register", () => {
+    const co = penned();
+    const st = game(co, [{ c: 3, r: 3, face: N, seat: "human" }]);
+    const p = st.players[0];
+    hold(st, p, "commandInReserve");
+    st.phase = "turn"; st.step = "deal";
+    let r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "program", "dealt and asked to program");
+    r = step(st, co.library, [0, 1, 2, 3, 4]);
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "commandInReserve", "then asked what to keep in reserve");
+    eq(r.waiting.labels.length, 5, "none, or one of the four left in hand");
+    r = step(st, co.library, 1);
+    assert(Number.isInteger(p.reserve) && p.hand.length === 3, "one card lies on the option card, three stay in hand");
+    const reserve = p.reserve, first = p.registers[0];
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "commandInReserve" && st.register === 0, "register 1: asked whether to swap");
+    st.answers[r.waiting.key] = 1; st.waiting = null;
+    tick(st, co.library);
+    eq([p.registers[0], st.discard.includes(first), p.reserve], [reserve, true, null], "the reserve is in the register and the card it replaced on the discard");
+    r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "program" && st.turn === 2, "no further question this turn: the reserve was spent");
+  }],
+  ["Flywheel carries a card past the reshuffle into next turn's hand", () => {
+    const co = penned();
+    const st = game(co, [{ c: 3, r: 3, face: N, seat: "human" }]);
+    const p = st.players[0];
+    hold(st, p, "flywheel");
+    st.phase = "turn"; st.step = "deal";
+    step(st, co.library);
+    let r = step(st, co.library, [0, 1, 2, 3, 4]);
+    assert(r.waiting && r.waiting.kind === "cardChoice" && r.waiting.card === "flywheel", "asked what to spin on");
+    st.answers[r.waiting.key] = 1; st.waiting = null;
+    tick(st, co.library);
+    const spun = p.flywheel;
+    assert(Number.isInteger(spun) && p.hand.length === 3, "a card is on the flywheel, three stay in hand");
+    r = step(st, co.library);
+    assert(r.waiting && r.waiting.kind === "program" && st.turn === 2, "the turn ran through to the next deal");
+    assert(p.hand.includes(spun) && p.hand.length === 10 && p.flywheel === null, "and the card is in the new hand, on top of the nine");
+  }],
+  ["a wreck sends the reserve and flywheel cards back to the table", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, seat: "human" }]);
+    const p = st.players[0];
+    hold(st, p, "commandInReserve"); hold(st, p, "flywheel");
+    p.reserve = st.deck.pop(); p.flywheel = st.deck.pop();
+    const a = p.reserve, b = p.flywheel;
+    destroy(st, co.C, p, "in a test");
+    eq([p.reserve, p.flywheel, st.discard.includes(a), st.discard.includes(b)], [null, null, true, true], "both on the discard");
+  }],
+  ["losing the option card sends the program card on it back too", () => {
+    const co = plain();
+    const st = game(co, [{ c: 3, r: 3, seat: "human" }]);
+    const p = st.players[0];
+    hold(st, p, "flywheel");
+    p.flywheel = st.deck.pop();
+    const b = p.flywheel;
+    p.options = []; st.optionDiscard.push("flywheel");
+    p.options.push({ id: "flywheel", st: {} }); st.optionDiscard.pop();
+    const { dropOptionAt } = OPTS;
+    dropOptionAt(st, p, 0, "gives up");
+    eq([p.flywheel, st.discard.includes(b)], [null, true], "the card went with it");
   }]
 ];

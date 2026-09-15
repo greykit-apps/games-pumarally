@@ -18,7 +18,7 @@
  * activation register by register in Priority Token order, end of round.
  */
 import { courseOf, isHole, inGrid, repairAt, optionSiteAt } from "./course.js";
-import { card, openRegisters, cardsDealt, isDamage, isModern, REGISTERS, HAND, UPGRADE_DRAW_COST } from "./cards.js";
+import { card, KINDS, openRegisters, cardsDealt, isDamage, isModern, REGISTERS, HAND, UPGRADE_DRAW_COST } from "./cards.js";
 import { shuffle } from "./rng.js";
 import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
 import {
@@ -451,11 +451,13 @@ const STEPS = {
       st.discard = [];
       st.events.push({ type: "turnStart", turn: st.turn });
       for (const p of alive(st)) {
-        p.ready = false; p.downAsked = false; p.stayAsked = false; p.dealtAsked = false;
+        p.ready = false; p.downAsked = false; p.stayAsked = false; p.dealtAsked = false; p.reserveAsked = false; p.revealed = -1;
         if (p.poweredDown) { p.hand = []; p.dealtCount = 0; continue; }
         const n = Math.max(0, fire(st, p, "modifyDealt", { count: cardsDealt(p.damage) }).count);
         p.dealtCount = n;
         p.hand = st.deck.splice(st.deck.length - n, n);
+        /* Flywheel: the card spun on last turn joins this hand, on top of the deal */
+        if (Number.isInteger(p.flywheel)) { p.hand.push(p.flywheel); p.flywheel = null; log(st, p.name + " takes the card off its flywheel"); }
         st.events.push({ type: "dealt", player: p.id, count: n });
       }
       go(st, "turn", "postDeal");
@@ -504,7 +506,25 @@ const STEPS = {
         ask(st, p, "program", p.hand.map((_, i) => i), { count, open, crab, held, must });
         return;
       }
-      go(st, "turn", isModern(st) ? "leftovers" : "announce");
+      go(st, "turn", isModern(st) ? "leftovers" : "reserve");
+    },
+    /* the cards that take a program card off the rest of the hand once the
+     * registers are set: Command in Reserve and Flywheel, asked in one go */
+    reserve(st) {
+      for (const p of alive(st)) {
+        if (p.poweredDown || p.reserveAsked || !p.options.length) continue;
+        const hand = p.hand.map(ci => KINDS[card(st, ci).kind].label);
+        const ctx = fire(st, p, "onProgrammed", { hand, reserve: null, flywheel: null });
+        if (ctx.pending) { st.waiting = ctx.ask; return; }
+        let r = ctx.reserve, f = ctx.flywheel;
+        if (r !== null && f === r) f = null;                 // one card cannot lie on both
+        const take = [];
+        if (r !== null && p.hand[r] !== undefined) { p.reserve = p.hand[r]; take.push(r); st.events.push({ type: "reserved", player: p.id, card: p.reserve }); log(st, p.name + " keeps a " + hand[r] + " in reserve"); }
+        if (f !== null && p.hand[f] !== undefined) { p.flywheel = p.hand[f]; take.push(f); st.events.push({ type: "flywheel", player: p.id, card: p.flywheel }); log(st, p.name + " spins a " + hand[f] + " onto its flywheel"); }
+        p.hand = p.hand.filter((_, i) => !take.includes(i));
+        p.reserveAsked = true;
+      }
+      go(st, "turn", "announce");
     },
     /* "Only damaged robots may choose to power down." Decided after programming, for next turn. */
     announce(st) {
@@ -602,10 +622,37 @@ const STEPS = {
       if (isModern(st)) {
         q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0)).map(p => p.id);
       } else {
+        /* the cards that change what is in the register before it is turned
+         * over -- an Emergency Switch, a Command in Reserve -- act now, so
+         * the card that ends up there is the one that sets the priority */
+        for (const p of alive(st)) {
+          if (p.poweredDown || p.revealed === st.register || !p.options.length) continue;
+          const reg = st.register, ci = p.registers[reg];
+          const locked = reg >= openRegisters(p.damage) || p.locks[reg] === st.turn;
+          const ctx = fire(st, p, "onReveal", { register: reg, card: ci, locked, abort: false, swap: false,
+            label: ci === null ? null : KINDS[card(st, ci).kind].label, reserveLabel: Number.isInteger(p.reserve) ? KINDS[card(st, p.reserve).kind].label : null });
+          if (ctx.pending) { st.waiting = ctx.ask; return; }
+          if (ctx.abort && !locked && ci !== null) {
+            if (!p.aborted) { p.aborted = true; log(st, p.name + " hits the emergency switch"); }
+            if (!st.deck.length) { st.deck = shuffle(st, st.discard); st.discard = []; }
+            if (st.deck.length) {
+              st.discard.push(ci);
+              p.registers[reg] = st.deck.pop();
+              st.events.push({ type: "replaced", player: p.id, register: reg, why: "emergencySwitch" });
+              log(st, p.name + "'s register " + (reg + 1) + " is replaced from the deck");
+            }
+          } else if (ctx.swap && !locked && ci !== null && Number.isInteger(p.reserve)) {
+            st.discard.push(ci);
+            p.registers[reg] = p.reserve; p.reserve = null;
+            st.events.push({ type: "replaced", player: p.id, register: reg, why: "reserve" });
+            log(st, p.name + " swaps in the card from reserve");
+          }
+          p.revealed = reg;
+        }
         const qq = [];
         for (const p of alive(st)) {
           if (p.poweredDown) continue;
-          const i = p.registers[st.register];
+          const i = programCardOf(st, p, st.register);
           if (i === null || i === undefined) continue;
           qq.push({ id: p.id, pri: card(st, i).pri });
         }
@@ -634,12 +681,13 @@ const STEPS = {
         }
         if (!p.alive) { st.queue.shift(); continue; }
         if (!isModern(st)) {
-          const i = p.registers[st.register];
+          const i = programCardOf(st, p, st.register);
           if (i === null) { st.queue.shift(); continue; }
           const cd = card(st, i);
           const plan = planCard(st, p, cd, false);
           if (plan.pending) { st.waiting = plan.ask; return; }
           st.queue.shift();
+          if (i !== p.registers[st.register]) log(st, p.name + " runs " + st.players[p.controlledBy].name + "'s card by remote control");
           playCard(st, C, p, cd, plan);
           continue;
         }
@@ -853,16 +901,26 @@ const STEPS = {
         const open = openRegisters(p.damage);
         for (let reg = 0; reg < REGISTERS; reg++) {
           if (reg >= open) continue;                  // locked: the card stays put and re-executes
+          if (p.locks[reg] === st.turn) { log(st, p.name + "'s register " + (reg + 1) + " stays locked"); continue; }   // Fire Control's lock holds one turn
+          p.locks[reg] = null;
           if (p.registers[reg] !== null) { st.discard.push(p.registers[reg]); p.registers[reg] = null; }
         }
+        /* a Command in Reserve not called on goes back with the hand */
+        if (Number.isInteger(p.reserve)) { st.discard.push(p.reserve); p.reserve = null; }
       }
       go(st, "cleanup", "endTurn");
     },
     endTurn(st) {
       for (const p of st.players) {
+        /* Circuit Breaker: three or more damage at the end of the turn is a forced power down */
+        if (p.alive && !p.announceDown && fire(st, p, "onTurnEnd", { powerDown: false }).powerDown) {
+          p.announceDown = true;
+          log(st, p.name + "'s circuit breaker trips: it powers down next turn");
+        }
         p.poweredDown = p.announceDown;
         p.announceDown = false;
         p.siteAsked = false; p.siteChoice = null;
+        p.controlledBy = null; p.aborted = false;
       }
       st.answers = {};
       st.events.push({ type: "turnEnd", turn: st.turn });
@@ -909,6 +967,15 @@ const STEPS = {
     }
   }
 };
+
+/** The card a robot runs this register: its own, or its controller's under a Remote Control. */
+function programCardOf(st, p, reg) {
+  if (Number.isInteger(p.controlledBy)) {
+    const q = st.players[p.controlledBy];
+    if (q && q.registers[reg] !== null && q.registers[reg] !== undefined) return q.registers[reg];
+  }
+  return p.registers[reg];
+}
 
 function heldDamageOf(st, p) {
   let n = 0;

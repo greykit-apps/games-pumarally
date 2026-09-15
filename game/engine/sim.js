@@ -24,6 +24,8 @@ export function assertInvariants(st, library) {
     for (const p of st.players) {
       n += p.hand.length;
       for (const r of p.registers) if (r !== null) n++;
+      if (Number.isInteger(p.reserve)) n++;              // on the Command in Reserve
+      if (Number.isInteger(p.flywheel)) n++;             // on the Flywheel
     }
     if (n !== CLASSIC_DECK.length) throw new Error("program card conservation broken: " + n + "/" + CLASSIC_DECK.length + " at " + st.phase + "." + st.step + " turn " + st.turn);
   }
@@ -87,7 +89,10 @@ function modernInvariants(st) {
     if (!Number.isInteger(p.energy) || p.energy < 0 || p.energy > MAX_ENERGY) throw new Error(p.name + " has " + p.energy + " Energy" + where);
     for (const id of p.shelf) ups.push(id);
     for (const u of p.installed) ups.push(u.id);
-    if (p.hand.length > 12) throw new Error(p.name + " holds " + p.hand.length + " cards" + where);
+    /* nine dealt (ten with a modifyDealt card) plus the five Haywires a
+     * Rewire can pull off the registers into the hand: found at 13 by a
+     * seed on Big Cross, four Haywires held and rewired after a full deal */
+    if (p.hand.length > 15) throw new Error(p.name + " holds " + p.hand.length + " cards" + where);
     if (p.alive && p.rebooting) throw new Error(p.name + " is on the board and rebooting" + where);
     if (p.lives !== st.players[0].lives) throw new Error(p.name + " spent a life, and the 2016 game has none" + where);
   }

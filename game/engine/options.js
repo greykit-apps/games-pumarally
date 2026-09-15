@@ -1,7 +1,7 @@
-/* Option cards: sixteen of the twenty-six printed, each a data row bound to
- * one of ten hooks. Nothing outside this table may intercept the rules; a
- * card that needs a new moment gets a new hook here, not a branch in the
- * register loop.
+/* Option cards: all twenty-seven of the two printings (sixteen English,
+ * eleven more from the AMIGO box), each a data row bound to one of the hooks
+ * below. Nothing outside this table may intercept the rules; a card that
+ * needs a new moment gets a new hook here, not a branch in the register loop.
  *
  * Three rules keep it honest, carried over from the old engine because they
  * were right there:
@@ -20,6 +20,7 @@
  */
 import { opposite } from "../../editor/lib/dir.js";
 import OPTIONS_DATA from "../data/options.js";
+import { card, KINDS, openRegisters } from "./cards.js";
 import { log } from "./state.js";
 import { UPGRADE_DEFS, uninstallUpgrade } from "./upgrades.js";
 
@@ -33,8 +34,13 @@ export const HOOKS = [
   "onLaserHit",         // a shot of yours connected
   "onDamage",           // damage is about to land on you
   "onTouchCheckpoint",  // how far you can reach for a flag or wrench
-  "onRespawn"           // you are coming back from the scrap heap
+  "onRespawn",          // you are coming back from the scrap heap
+  "onProgrammed",       // your registers are set and the rest of the hand is in front of you
+  "onReveal",           // a register's card is about to be turned over
+  "onTurnEnd"           // the turn is over and the damage is counted
 ];
+
+const DIR_NAMES = ["north", "east", "south", "west"];
 
 /* Crash and Burn caps the option hand at three: draw a fourth and one goes
  * face up on the discard immediately. */
@@ -148,6 +154,188 @@ const BEHAVIOUR = {
         ctx.damage = 0; ctx.replaceWith = { kind: "push", dir: opposite(ctx.shotDir) };
       }
     }
+  },
+
+  /* --- the AMIGO box's eleven (manual1/IMG_1334-1342) ------------------------ */
+
+  /* "Du kannst wählen, ob dein Roboter ein oder zwei Felder rückwärts geht,
+   * wenn du den Befehl 'gehe ein Feld zurück' programmiert hast." */
+  reverseGear: {
+    botPrefers: 0,
+    hooks: {
+      modifyMove(ctx) {
+        if (ctx.kind !== "move" || ctx.dist !== -1) return;
+        const pick = ctx.pick("reverseGear", "Back up 1, or throw the reverse gear and back up 2?", ["Back up 1", "Back up 2"]);
+        if (pick === 1) ctx.dist = -2;
+      }
+    }
+  },
+  /* "... drei oder vier Felder vorwärts ... 'gehe drei Felder vorwärts'" */
+  fourthGear: {
+    botPrefers: 0,
+    hooks: {
+      modifyMove(ctx) {
+        if (ctx.kind !== "move" || ctx.dist !== 3) return;
+        const pick = ctx.pick("fourthGear", "Move 3, or shift into fourth and move 4?", ["Move 3", "Move 4"]);
+        if (pick === 1) ctx.dist = 4;
+      }
+    }
+  },
+  /* "Die Fernsteuerung überträgt das Programm deines Roboters auf einen
+   * anderen Roboter, wenn er maximal 6 Felder in gerader Richtung vor deinem
+   * Roboter steht." An optional weapon (p.36-37: used when the main laser
+   * could fire, instead of it; the Turret names it among them), so it is
+   * offered on a main-laser hit within six squares. The transmitted program
+   * is read as the rest of this turn: from the next register on, the target
+   * runs the card in the controller's register instead of its own. */
+  remoteControl: {
+    botPrefers: 0,
+    hooks: {
+      onLaserHit(ctx) {
+        if (ctx.damage <= 0 || ctx.replaceWith || ctx.distance > 6) return;
+        const pick = ctx.pick("remoteControl", "Transmit your program to " + ctx.targetName + " instead of shooting it? It runs your cards for the rest of the turn.", ["Main laser", "Remote control"]);
+        if (pick !== 1) return;
+        ctx.damage = 0; ctx.replaceWith = { kind: "radio" };
+      }
+    }
+  },
+  /* "... der ihn in jedem Programmschritt vor einem Schaden aus einer
+   * bestimmten Richtung schützt." The card names a direction without saying
+   * which; read as the front, the way the robot faces, so a shot travelling
+   * against its facing loses a point. Once a register. */
+  shield: {
+    init: () => ({ turn: -1, register: -1 }),
+    hooks: {
+      onDamage(ctx, cst) {
+        if (ctx.amount <= 0 || ctx.source !== "laser" || ctx.dir === undefined || ctx.dir === null) return;
+        if (ctx.dir !== opposite(ctx.player.face)) return;
+        const st = ctx.st;
+        if (cst.turn === st.turn && cst.register === st.register) return;
+        cst.turn = st.turn; cst.register = st.register;
+        ctx.amount -= 1; ctx.absorbed += 1;
+      }
+    }
+  },
+  /* "Der Turbo-Blaster fügt dem getroffenen Roboter einen Schaden zu und
+   * schiebt ihn zusätzlich ein Feld in Schussrichtung weiter. Der Turbo-
+   * Blaster kann nur fünf Mal benutzt werden." An optional weapon. */
+  turboBlaster: {
+    init: () => ({ charges: 5 }),
+    botPrefers: 1,
+    hooks: {
+      onLaserHit(ctx, cst) {
+        if (ctx.damage <= 0 || ctx.replaceWith || cst.charges <= 0) return;
+        const pick = ctx.pick("turboBlaster", "Fire the Turbo Blaster at " + ctx.targetName + " instead of the laser? One damage and a shove; " + cst.charges + (cst.charges === 1 ? " shot" : " shots") + " left.", ["Main laser", "Turbo Blaster"]);
+        if (pick !== 1) return;
+        cst.charges -= 1;
+        ctx.damage = 0; ctx.replaceWith = { kind: "blast", dir: ctx.shotDir, damage: 1, absorb: true };
+        if (cst.charges <= 0) ctx.discard();
+      }
+    }
+  },
+  /* "Nachdem die Befehlsfolge des Programms programmiert wurde, kann ein 6.
+   * Befehl auf diese Karte abgelegt werden und bei Bedarf einen Befehl aus
+   * dem laufenden Programm ersetzen." The swap is offered as each register's
+   * card is about to be revealed, so the card swapped in sets the priority.
+   * A locked register keeps its card; the reserve is discarded unused at the
+   * end of the turn. */
+  commandInReserve: {
+    botPrefers: 0,
+    hooks: {
+      onProgrammed(ctx) {
+        if (!ctx.hand.length || ctx.player.reserve !== null) return;
+        const pick = ctx.pick("commandInReserve", "Put a card in reserve? It can replace any register's card as it comes up.", ["None"].concat(ctx.hand));
+        if (pick > 0) ctx.reserve = pick - 1;
+      },
+      onReveal(ctx) {
+        if (ctx.player.reserve === null || ctx.locked || ctx.card === null || ctx.abort) return;
+        const pick = ctx.pick("commandInReserve", "Register " + (ctx.register + 1) + ": reveal your " + ctx.label + ", or swap in the " + ctx.reserveLabel + " in reserve?", ["Reveal " + ctx.label, "Swap in " + ctx.reserveLabel]);
+        if (pick === 1) ctx.swap = true;
+      }
+    }
+  },
+  /* "Jedes Mal wenn du am Ende einer Runde drei oder mehr Schadenspunkte
+   * besitzt, musst du deinen Roboter sofort für die folgende Runde
+   * abschalten." */
+  circuitBreaker: {
+    hooks: { onTurnEnd(ctx) { if (ctx.player.damage >= 3) ctx.powerDown = true; } }
+  },
+  /* "Statt eine Karte aus dem Programm aufzudecken, kannst du sie durch die
+   * oberste Karte vom Programmierkartenstapel ersetzen. Ist der Notschalter
+   * aktiviert, werden weitere Karten ersetzt." Locked registers keep their
+   * cards; the switch lasts the turn. */
+  emergencySwitch: {
+    botPrefers: 0,
+    hooks: {
+      onReveal(ctx) {
+        if (ctx.player.aborted) { ctx.abort = true; return; }
+        if (ctx.locked || ctx.card === null) return;
+        const pick = ctx.pick("emergencySwitch", "Register " + (ctx.register + 1) + ": reveal your " + ctx.label + ", or hit the emergency switch and replace it, and every card after it this turn, with the top of the deck?", ["Reveal " + ctx.label, "Emergency switch"]);
+        if (pick === 1) ctx.abort = true;
+      }
+    }
+  },
+  /* "Wenn du einem Roboter einen Schaden zufügst, musst du bestimmen, ob du
+   * dessen Besitzer eine bestimmte Programmierkarte blockierst, oder eine
+   * Optionskarte aus dessen Besitz zerstörst." p.36 lists it with the extra
+   * weapons that fire alongside the main laser, so it rides on a main-laser
+   * hit and lands with the damage. A blocked card stays in its register
+   * through the next turn, as a damage lock would hold it. */
+  fireControl: {
+    botPrefers: 0,
+    hooks: {
+      onLaserHit(ctx) {
+        if (ctx.damage <= 0 || ctx.replaceWith) return;
+        const t = ctx.target, st = ctx.st;
+        const choices = [], labels = [];
+        const open = openRegisters(t.damage);
+        for (let reg = 0; reg < open; reg++) {
+          if (t.registers[reg] === null || (t.locks && t.locks[reg] === st.turn)) continue;
+          choices.push({ lock: reg }); labels.push("Lock its register " + (reg + 1));
+        }
+        for (const o of t.options) { choices.push({ destroy: o.id }); labels.push("Destroy its " + OPTION_DEFS[o.id].name); }
+        if (!choices.length) return;
+        const pick = ctx.pick("fireControl", "Fire Control: your shot at " + ctx.targetName + " also locks one of its registers for next turn, or destroys one of its option cards. Which?", labels);
+        if (pick === null) return;
+        ctx.fireControl = choices[pick];
+      }
+    }
+  },
+  /* "Nach der Programmierung kannst du von den nicht benutzen Karten eine auf
+   * das Schwungrad legen. Sie kann in der nächsten Runde zusätzlich zur
+   * Programmierung verwendet werden." It skips the reshuffle and joins the
+   * hand dealt next turn. */
+  flywheel: {
+      botPrefers: 1,
+    hooks: {
+      onProgrammed(ctx) {
+        if (!ctx.hand.length || ctx.player.flywheel !== null) return;
+        const pick = ctx.pick("flywheel", "Spin a card onto the flywheel for next turn's hand?", ["None"].concat(ctx.hand));
+        if (pick > 0) ctx.flywheel = pick - 1;
+      }
+    }
+  },
+  /* "Die Drehscheibe erlaubt es deinem Roboter, Laser, Turbo-Blaster,
+   * Hochdruckstrahl, Fernsteuerung, Zufallsgenerator oder Traktorstrahl in
+   * alle vier Richtungen zu benutzen." The main shot, and so every optional
+   * weapon that rides on it, may be aimed any way: asked only when a robot is
+   * in line somewhere other than straight ahead. */
+  turret: {
+    botPrefers: 0,
+    hooks: {
+      laserShots(ctx) {
+        const main = ctx.shots.find(s => s.main);
+        if (!main || !ctx.sees) return;
+        const p = ctx.player;
+        const dirs = [0, 1, 2, 3].filter(d => d !== p.face && ctx.sees(d));
+        if (!dirs.length) return;
+        const opts = dirs.concat([p.face]);
+        const labels = opts.map(d => (d === p.face ? "Straight ahead" : "Turn " + DIR_NAMES[d]) + (ctx.sees(d) ? " at " + ctx.sees(d).name : ", at nothing"));
+        const pick = ctx.pick("turret", "Where does the turret aim this register?", labels);
+        if (pick === null) return;
+        main.dir = opts[pick];
+      }
+    }
   }
 };
 
@@ -254,6 +442,9 @@ export function dropOptionAt(st, p, i, how) {
   if (i < 0 || i >= p.options.length) i = p.options.length - 1;
   const gone = p.options.splice(i, 1)[0];
   st.optionDiscard.push(gone.id);
+  /* a program card lying on the option card goes back to the table with it */
+  if (gone.id === "commandInReserve" && Number.isInteger(p.reserve)) { st.discard.push(p.reserve); p.reserve = null; }
+  if (gone.id === "flywheel" && Number.isInteger(p.flywheel)) { st.discard.push(p.flywheel); p.flywheel = null; }
   st.events.push({ type: "option", player: p.id, card: gone.id, how: how || "lost" });
   log(st, p.name + " " + (how || "gives up") + " " + OPTION_DEFS[gone.id].name);
 }

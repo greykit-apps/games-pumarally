@@ -241,7 +241,9 @@ export function mountScreen(root, ctx) {
             '<span class="pips" title="' + p.damage + ' damage">' + Array.from({ length: 10 }, (_, i) => '<span class="pip' + (i < p.damage ? " on" : "") + '"></span>').join("") + "</span>") + "</div>";
       /* held option cards and fitted upgrades, as chips with the printed text on hover */
       const chips = p.options.map(o => '<span class="chip" title="' + esc(OPTION_DEFS[o.id].text) + '">' + esc(OPTION_DEFS[o.id].name) +
-          (o.st && o.st.charges !== undefined ? " \u00b7 " + o.st.charges : "") + "</span>")
+          (o.st && o.st.charges !== undefined ? " \u00b7 " + o.st.charges : "") +
+          (o.id === "commandInReserve" && Number.isInteger(p.reserve) ? " \u00b7 " + esc(KINDS[card(st, p.reserve).kind].label) : "") +
+          (o.id === "flywheel" && Number.isInteger(p.flywheel) ? " \u00b7 " + esc(KINDS[card(st, p.flywheel).kind].label) : "") + "</span>")
         .concat((p.installed || []).map(u => '<span class="chip up' + (UPGRADE_DEFS[u.id].built ? "" : " inert") + '" title="' + esc(UPGRADE_DEFS[u.id].text + (UPGRADE_DEFS[u.id].built ? "" : " (its effect is not built)")) + '">' + esc(UPGRADE_DEFS[u.id].name) + "</span>"));
       if (chips.length) html += '<div class="chips">' + chips.join("") + "</div>";
     }
