@@ -1,0 +1,95 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "provingGround",
+  "name": "Proving Ground",
+  "w": 12,
+  "h": 12,
+  "set": "authored",
+  "origin": "authored",
+  "notes": "The validator self-test's fixture. One of every element in the legend, all seven belt-arm shapes, one of every device kind, and two levels joined by a ramp.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... b>. b>l b>r b>L b>R b>x b>X B>. ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... o.. l.. r.. ... ... L.. t1. ... ~.. D.. ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... C>. z.. A.. ... @^. T1. ... T1. t1. ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... R^. ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "s1. s2. ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "levels": [
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000001000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000"
+    ],
+    "sites": [
+      { "at": [4, 3], "has": ["repair"] },
+      { "at": [5, 3], "has": ["upgrade"] },
+      { "at": [8, 3], "has": ["battery"] },
+      { "at": [4, 9], "has": ["flagspot"] },
+      { "at": [5, 9], "has": ["repair", "battery", "flagspot"] },
+      { "at": [6, 9], "has": ["upgrade", "battery"] },
+      { "at": [7, 9], "has": ["battery", "flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "     #      ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "   D        ",
+      "        #   ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "      D      ",
+      "             ",
+      "             ",
+      "  #          ",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "door", "edge": "h:3,7", "regs": [2, 4] },
+      { "kind": "laser", "edge": "h:5,0", "face": "S", "damage": 2 },
+      { "kind": "jet", "edge": "h:8,8", "face": "S", "reach": 2, "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:2,9", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "door", "edge": "v:6,6", "regs": [1, 3, 5] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [3, 10], "regs": [1, 5] },
+      { "kind": "flamer", "at": [4, 10] },
+      { "kind": "crusher", "at": [10, 10], "regs": [2, 4] }
+    ]
+  }
+}

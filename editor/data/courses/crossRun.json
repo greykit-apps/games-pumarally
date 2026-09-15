@@ -1,0 +1,44 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "crossRun",
+  "name": "Cross",
+  "kind": "quick",
+  "blurb": "Four belt lanes meet, and the junction is a hole.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "cross",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        0,
+        12
+      ]
+    }
+  ],
+  "flags": [
+    [
+      1,
+      2
+    ],
+    [
+      10,
+      7
+    ],
+    [
+      3,
+      10
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}

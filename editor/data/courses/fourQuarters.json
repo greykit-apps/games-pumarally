@@ -1,0 +1,75 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "fourQuarters",
+  "name": "Four Quarters",
+  "kind": "track",
+  "blurb": "Two by two, and the crossing is the hard part.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "exchange",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "board",
+      "board": "cross",
+      "rot": 1,
+      "at": [
+        12,
+        0
+      ]
+    },
+    {
+      "role": "board",
+      "board": "pitMaze",
+      "rot": 0,
+      "at": [
+        0,
+        12
+      ]
+    },
+    {
+      "role": "board",
+      "board": "island",
+      "rot": 3,
+      "at": [
+        12,
+        12
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        0,
+        24
+      ]
+    }
+  ],
+  "flags": [
+    [
+      8,
+      4
+    ],
+    [
+      19,
+      16
+    ],
+    [
+      7,
+      21
+    ],
+    [
+      19,
+      9
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}

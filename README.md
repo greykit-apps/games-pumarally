@@ -345,6 +345,34 @@ the rotation are both under test by a course that is actually played.
 A board is never reconstructed from memory: a plausible-looking wrong map is
 the one failure a game promising faithful layouts cannot survive.
 
+## The board workshop, and the format it writes
+
+`editor/` is a separate application: a rules-aware board and course workshop
+built on a new three-layer map format, **PRBoard v1**. It supersedes the format
+described below, and all seventeen transcribed boards and nineteen courses have
+been migrated to it -- each one proved identical in behaviour to the old data
+under all four rotations.
+
+See **[editor/README.md](editor/README.md)** for the format and the workshop.
+The short version:
+
+- a board is **ground / wall / ceiling**, because "is this the square, or is it
+  standing on the square" is the question the old format kept re-answering
+- **a board declares no edition.** It can carry a wrench and a battery at once;
+  which of its squares matter is the engine's business at play time, under
+  whichever ruleset is in force. A ruleset is a lens, not a filter
+- a conveyor's printed shape travels **in its own cell**, relative to its exit,
+  so rotation cannot mangle it and course assembly cannot drop it
+- elevation is first class: levels, derived ledges, and ramps
+- courses know **nothing about the number twelve** -- boards of any size
+  compose, including Master Builder's 6x6 and the 12x4 docking bay
+- **markup mode** draws the board as thin bright line work meant to be read over
+  a photograph of the printed one, which is how a board actually gets
+  transcribed
+
+The chapters below describe the format the *shipped game* still reads. Both are
+true at once until the engine moves across.
+
 ## The board format
 
 A board is one maze-style ASCII picture, tiles and walls interleaved — `2h+1`

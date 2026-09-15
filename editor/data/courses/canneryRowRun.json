@@ -1,0 +1,44 @@
+{
+  "format": "PRCourse",
+  "version": 1,
+  "id": "canneryRowRun",
+  "name": "Cannery Row",
+  "kind": "quick",
+  "blurb": "Two belt lanes run the whole length of it, with a crusher on every other square.",
+  "stamps": [
+    {
+      "role": "board",
+      "board": "canneryRow",
+      "rot": 0,
+      "at": [
+        0,
+        0
+      ]
+    },
+    {
+      "role": "dock",
+      "board": "dockingBay",
+      "rot": 0,
+      "at": [
+        0,
+        12
+      ]
+    }
+  ],
+  "flags": [
+    [
+      2,
+      9
+    ],
+    [
+      8,
+      3
+    ],
+    [
+      7,
+      7
+    ]
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 8
+}

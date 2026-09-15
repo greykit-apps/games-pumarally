@@ -1,0 +1,70 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "pitMaze",
+  "name": "Pit Maze",
+  "w": 12,
+  "h": 12,
+  "set": "base",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board.",
+  "ground": {
+    "rows": [
+      "o.. ... ... ... ... bv. b^r b<l ... ... b^. o..",
+      "... ... ... o.. ... bv. o.. b^. ... o.. b^R b<.",
+      "... ... ... ... bvl b<r ... b^. ... b>r b^l ...",
+      "... o.. ... o.. bv. o.. ... b^. ... b^. o.. ...",
+      "... ... ... bvl b<r ... ... b^. o.. b^r b<l ...",
+      "b<. b<. b<. b<r o.. ... ... b^r b<l o.. b^r b<.",
+      "... ... o.. ... ... ... o.. o.. b^. o.. ... b>.",
+      "... ... ... ... ... ... ... ... b^r b<l ... ...",
+      "... ... o.. ... o.. ... o.. ... o.. b^. o.. ...",
+      "... ... ... ... bvl b<. b<l ... ... b^. ... ...",
+      "b>. bvr o.. o.. bv. o.. b^. o.. ... b^r b<l ...",
+      "o.. bv. ... ... b>l bvr b^. ... ... ... b^. ..."
+    ],
+    "sites": [
+      { "at": [2, 2], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [8, 3], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [5, 5], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [5, 8], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [11, 11], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "         #  ",
+      "   #        ",
+      "   #  # #   ",
+      "            ",
+      "     #      ",
+      "      #     ",
+      " # # # # #  ",
+      "            ",
+      " ## # #     ",
+      "            ",
+      "   #     #  ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "  #          ",
+      "#       #   #",
+      " # #       # ",
+      "#        #  #",
+      "     #   #   ",
+      "      #      ",
+      "##          #",
+      "             ",
+      "##          #",
+      "    #  ##    ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:6,3", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:6,6", "face": "S", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

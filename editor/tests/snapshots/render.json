@@ -1,0 +1,182 @@
+{
+  "boardG": {
+    "art": {
+      "sha": "5046e04386db678f",
+      "bytes": 63871
+    },
+    "markup": {
+      "sha": "8984039b4b8ec38c",
+      "bytes": 45590
+    }
+  },
+  "boardH": {
+    "art": {
+      "sha": "a9aee80cdf473868",
+      "bytes": 82981
+    },
+    "markup": {
+      "sha": "9cdcbe41e1c9eff6",
+      "bytes": 65575
+    }
+  },
+  "cactus": {
+    "art": {
+      "sha": "3a5cb839f810abf3",
+      "bytes": 66127
+    },
+    "markup": {
+      "sha": "a24ad6112c8ca7d6",
+      "bytes": 56499
+    }
+  },
+  "canneryRow": {
+    "art": {
+      "sha": "e6198714cc16d2c3",
+      "bytes": 79896
+    },
+    "markup": {
+      "sha": "c3158bb6e6187950",
+      "bytes": 66556
+    }
+  },
+  "cross": {
+    "art": {
+      "sha": "7fdccc24ce0d9b68",
+      "bytes": 63889
+    },
+    "markup": {
+      "sha": "5b438fe31c926c42",
+      "bytes": 49398
+    }
+  },
+  "dockingBay": {
+    "art": {
+      "sha": "25cb497ae10502ab",
+      "bytes": 23360
+    },
+    "markup": {
+      "sha": "ca6d8108003a73d8",
+      "bytes": 14103
+    }
+  },
+  "energize": {
+    "art": {
+      "sha": "fd752ac62a8fa7a8",
+      "bytes": 69066
+    },
+    "markup": {
+      "sha": "f3d3603054b9a4c1",
+      "bytes": 33789
+    }
+  },
+  "exchange": {
+    "art": {
+      "sha": "391ae9fbc2b30d1c",
+      "bytes": 61271
+    },
+    "markup": {
+      "sha": "85e2e6aa4aa0ec32",
+      "bytes": 50188
+    }
+  },
+  "inAndOut": {
+    "art": {
+      "sha": "43730c24c66eaa50",
+      "bytes": 62012
+    },
+    "markup": {
+      "sha": "9bf2f211129a3d42",
+      "bytes": 53745
+    }
+  },
+  "island": {
+    "art": {
+      "sha": "8879d0bd702ee138",
+      "bytes": 59894
+    },
+    "markup": {
+      "sha": "b51daf0569d531cc",
+      "bytes": 47131
+    }
+  },
+  "maelstrom": {
+    "art": {
+      "sha": "b03baba057352d18",
+      "bytes": 76950
+    },
+    "markup": {
+      "sha": "50ed00425eb8b2dd",
+      "bytes": 78951
+    }
+  },
+  "misdirection": {
+    "art": {
+      "sha": "1c625db7066ffdff",
+      "bytes": 69339
+    },
+    "markup": {
+      "sha": "98ab11f48c22e654",
+      "bytes": 67488
+    }
+  },
+  "oRing": {
+    "art": {
+      "sha": "7b18595f1ae097c9",
+      "bytes": 71025
+    },
+    "markup": {
+      "sha": "653210c8bd19ef38",
+      "bytes": 54420
+    }
+  },
+  "pitMaze": {
+    "art": {
+      "sha": "845b2c509285d3a2",
+      "bytes": 64854
+    },
+    "markup": {
+      "sha": "a2fcb83cf56762fd",
+      "bytes": 52204
+    }
+  },
+  "steps": {
+    "art": {
+      "sha": "3ae927811114da3b",
+      "bytes": 63899
+    },
+    "markup": {
+      "sha": "5ebde556e5abfc3b",
+      "bytes": 54102
+    }
+  },
+  "tempest": {
+    "art": {
+      "sha": "1ead88846b918a88",
+      "bytes": 70260
+    },
+    "markup": {
+      "sha": "699c41a945790568",
+      "bytes": 64184
+    }
+  },
+  "theKeep": {
+    "art": {
+      "sha": "2639262ba1d6219a",
+      "bytes": 61027
+    },
+    "markup": {
+      "sha": "725afbc729c28478",
+      "bytes": 48306
+    }
+  },
+  "provingGround": {
+    "art": {
+      "sha": "40e2500c1c8204fa",
+      "bytes": 65372
+    },
+    "markup": {
+      "sha": "37589ff3fa3ec255",
+      "bytes": 37055
+    }
+  }
+}

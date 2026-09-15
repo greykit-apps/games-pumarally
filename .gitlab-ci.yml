@@ -35,6 +35,24 @@ validate:
     - test -s index.html
     - grep -q 'data-pumarally' index.html
 
+    # The board workshop and the PRBoard v1 format under editor/. Ordered so
+    # the thing that would make the others meaningless runs first: the format
+    # library, then the validator's own self-test, then the checks that lean on
+    # both. convert-boards.js --check has a lifespan -- it is the proof that the
+    # checked-in JSON still means what pumarally-boards.js means, and it goes
+    # when that file does.
+    - node editor/tools/check-imports.js
+    - node editor/tools/check-lib.js
+    - node editor/tools/check-app.js
+    - node editor/tools/validator-selftest.js
+    - node editor/tools/make-fixtures.js --check
+    - node editor/tools/convert-boards.js --check
+    - node editor/tools/check-format.js
+    - node editor/tools/render-snapshot.js --check
+    - node editor/tools/check-wiring.js
+    - node editor/tools/build-index.js --check
+    - node editor/tools/check-editor-assets.js
+
 deploy:
   stage: deploy
   image: debian:bookworm-slim

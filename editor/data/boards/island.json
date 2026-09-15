@@ -1,0 +1,65 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "island",
+  "name": "Island",
+  "w": 12,
+  "h": 12,
+  "set": "base",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... o.. o.. ... ... ... ... ... ... o.. o.. ...",
+      "... o.. r.. b>. b>. b>. b>. b>. b>. r.. o.. ...",
+      "... ... b^. l.. b<. b<. b<. b<. l.. bv. ... ...",
+      "... ... b^. bv. ... ... o.. o.. b^. bv. ... ...",
+      "... ... b^. bvL b<. b<. ... o.. b^. bv. ... ...",
+      "... ... b^. bv. o.. ... b>. b>. b^L bv. ... ...",
+      "... ... b^. bv. o.. o.. ... ... b^. bv. ... ...",
+      "... ... b^. l.. b>. b>. b>. b>. l.. bv. ... ...",
+      "... o.. b<. b<. b<. b<. b<. b<. b<. bv. o.. ...",
+      "... o.. o.. ... ... ... ... ... ... o.. o.. ...",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [11, 0], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [6, 5], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [0, 9], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "     #      ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "     #      ",
+      "            ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "#           #",
+      "             ",
+      "#           #",
+      "   #         ",
+      "         #   ",
+      "#           #",
+      "             ",
+      "#           #",
+      "             ",
+      "             "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

@@ -1,0 +1,77 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "energize",
+  "name": "Energize",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board. Which box it came from is not established.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... l.. ... ... ... ... ... ...",
+      "... ... ... r.. ... ... o.. ... ... ... ... ...",
+      "... ... r.. ... o.. ... ... ... ... r.. ... ...",
+      "... ... l.. ... ... ... ... o.. ... l.. ... ...",
+      "... ... ... l.. ... o.. ... ... ... ... ... ...",
+      "... ... ... ... ... ... r.. ... ... ... ... ...",
+      "... ... ... ... l.. ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... l.. r.. ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [1, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [3, 3], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [7, 5], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 6], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [8, 8], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 10], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 10], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "            ",
+      "#         # ",
+      "  # #  # #  ",
+      "   # #      ",
+      "            ",
+      " #      # ##",
+      "            ",
+      "   #  #     ",
+      "  # #       ",
+      "#       ## #",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "    #   #    ",
+      "      #      ",
+      "    #   #    ",
+      "   #     #   ",
+      "    #   #    ",
+      "         #   ",
+      "   #     #   ",
+      "    #   #    ",
+      "   #   #     ",
+      "     #   #   ",
+      "      #      ",
+      "   #    #    "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:0,10", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:2,9", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:10,2", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:11,10", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:4,2", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:8,7", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

@@ -1,0 +1,69 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "theKeep",
+  "name": "The Keep",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "notes": "Transcribed from the printed board. Which box it came from is not established.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... bv. b^. o.. ... ... ... ...",
+      "... bvl b<. b<. b<. b<r b^r b<. b<. b<. b<l ...",
+      "... bv. ... ... ... ... ... ... ... ... b^. ...",
+      "... bv. ... Bvl B<. B<. B<. B<. B<l ... b^. ...",
+      "... bv. ... Bv. l.. ... ... r.. B^. ... b^. ...",
+      "... bv. ... Bv. o.. ... ... ... B^. ... b^. ...",
+      "... bv. ... Bv. ... ... ... o.. B^. ... b^. ...",
+      "... bv. ... Bv. r.. ... ... l.. B^. ... b^. ...",
+      "... bv. ... B>l B>. B>. B>. B>. B^l ... b^. ...",
+      "... bv. ... ... ... ... ... ... ... ... b^. ...",
+      "... b>l b>. b>. b>. bvr b>r b>. b>. b>. b^l ...",
+      "... ... ... ... o.. bv. b^. ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [2, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [9, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [2, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [9, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "           #",
+      "  #      #  ",
+      "#           ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "  #   #      ",
+      "   #      #  ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "  #      #   ",
+      "      #      ",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "v:2,8", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:10,3", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

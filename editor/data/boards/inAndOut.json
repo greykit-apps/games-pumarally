@@ -1,0 +1,66 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "inAndOut",
+  "name": "In & Out",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "notes": "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the wall-mounted devices read at 300px per cell.",
+  "ground": {
+    "rows": [
+      "... Bv. ... B^. ... bv. ... ... ... ... ... ...",
+      "... Bv. ... B^. ... bv. Bvl B<. B<. B<. B<. B<.",
+      "... Bv. ... B^. ... bv. Bv. ... ... ... ... ...",
+      "... Bv. ... B^. ... bv. B>l B>. B>. B>. B>. B>.",
+      "... Bv. ... B^. ... bv. ... ... bvl b<. b<. b<l",
+      "b<l B>l B>. B^l bvl b<r ... bvl b<r ... ... b^r",
+      "b^r b<. b<l bvl b<r ... ... bv. Bvl B<. B<l ...",
+      "... ... b^r b<r ... ... ... bv. Bv. ... B^. ...",
+      "B<. B<. B<. B<. B<. B<l bvl b<r Bv. ... B^. ...",
+      "... ... ... ... ... B^. bv. ... Bv. ... B^. ...",
+      "B>. B>. B>. B>. B>. B^l bv. ... Bv. ... B^. ...",
+      "... ... ... ... ... bvl b<r ... Bv. ... B^. ..."
+    ],
+    "sites": [
+      { "at": [8, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [2, 3], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [9, 8], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [3, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "      #     ",
+      "            ",
+      "   #    #   ",
+      "            ",
+      "     #      ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "         #   ",
+      "      #      ",
+      "             ",
+      "    #        ",
+      "        #    ",
+      "             ",
+      "      #      ",
+      "             ",
+      "             ",
+      "             "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}
