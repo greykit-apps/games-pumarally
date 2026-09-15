@@ -46,6 +46,10 @@ export function cardArt(kind) {
   } else if (kind === "spam") {
     out.push('<path class="cshaft" d="M12 62L28 34L42 60L54 30L66 58L78 36L90 54"/>');
     out.push('<path class="cmark" d="M28 80h44"/>');
+  } else if (kind === "haywire") {
+    /* a jolt: the bolt with sparks off it */
+    out.push('<path class="cshaft" d="M58 8L30 50h20L38 92"/>');
+    out.push('<path class="cmark" d="M70 34l12-8M72 52l14 2M18 44l-10-6M20 62l-12 4"/>');
   } else if (/^move[123]$/.test(kind) || kind === "back") {
     const n = kind === "back" ? 1 : +kind.charAt(4);
     const dir = kind === "back" ? 1 : -1;      // -1 is up the card: forward
@@ -70,4 +74,4 @@ export function cardArt(kind) {
 }
 
 /** Every kind this module draws, for the check that walks the deck. */
-export const DRAWN_KINDS = ["move1", "move2", "move3", "back", "left", "right", "uturn", "powerUp", "again", "spam"];
+export const DRAWN_KINDS = ["move1", "move2", "move3", "back", "left", "right", "uturn", "powerUp", "again", "spam", "haywire"];

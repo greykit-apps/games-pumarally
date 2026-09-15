@@ -200,8 +200,14 @@ export function mountScreen(root, ctx) {
   function cardHtml(ci, extra) {
     const cd = card(st, ci);
     const k = KINDS[cd.kind];
-    return '<button class="card k-' + esc(cd.kind) + '" ' + (extra || "") + (k.note ? ' title="' + esc(k.note) + '"' : "") + '>' +
-      cardArt(cd.kind) + '<span class="l">' + esc(k.label) + '</span>' + (cd.pri ? '<span class="p">' + cd.pri + "</span>" : "") + "</button>";
+    const tip = cd.kind === "haywire" ? cd.text : k.note;
+    return '<button class="card k-' + esc(cd.kind) + '" ' + (extra || "") + (tip ? ' title="' + esc(tip) + '"' : "") + '>' +
+      cardArt(cd.kind) + '<span class="l">' + esc(k.label) + '</span>' + (cd.pri ? '<span class="p">' + cd.pri + "</span>" : "") +
+      (cd.kind === "haywire" ? '<span class="hw">' + esc(cd.text) + "</span>" : "") + "</button>";
+  }
+  /* a Haywire face down under a register: yours to look at, nobody else's */
+  function haywireBackHtml() {
+    return '<button class="card k-haywire back" disabled title="A Haywire card, face down. It resolves in this register instead of a programmed card."><span class="l">Haywire</span><span class="hw">face down</span></button>';
   }
 
   function renderPanel() {
@@ -261,9 +267,11 @@ export function mountScreen(root, ctx) {
         for (let i = 0; i < REGISTERS; i++) {
           const locked = i >= open;
           const held = me.registers[i];
-          const picked = !locked && held === null ? pick[i - countHeld(me, i)] : undefined;
-          html += '<div class="slot' + (locked ? " locked" : "") + '" data-slot="' + i + '"><span class="n">' + (i + 1) + "</span>";
-          if (held !== null) html += cardHtml(held, "disabled");
+          const hw = isModern(st) && me.haywire[i] !== null;
+          const picked = !locked && held === null && !hw ? pick[i - countHeld(me, i)] : undefined;
+          html += '<div class="slot' + (locked || hw ? " locked" : "") + '" data-slot="' + i + '"><span class="n">' + (i + 1) + "</span>";
+          if (hw) html += haywireBackHtml();
+          else if (held !== null) html += cardHtml(held, "disabled");
           else if (Array.isArray(picked)) html += cardHtml(me.hand[picked[0]], 'data-unpick="' + i + '"') + '<span class="crab">&#8646; ' + esc(KINDS[card(st, me.hand[picked[1]]).kind].label) + "</span>";
           else if (picked !== undefined) html += cardHtml(me.hand[picked], 'data-unpick="' + i + '"');
           html += "</div>";
@@ -347,7 +355,7 @@ export function mountScreen(root, ctx) {
     }
   }
   /* registers before `i` that already hold a locked card do not consume a pick */
-  function countHeld(me, i) { let n = 0; for (let k = 0; k < i; k++) if (me.registers[k] !== null) n++; return n; }
+  function countHeld(me, i) { let n = 0; for (let k = 0; k < i; k++) if (me.registers[k] !== null || (isModern(st) && me.haywire[k] !== null)) n++; return n; }
   /* a hand index already placed, alone or as half of a Crab Legs pair */
   function pickHas(i) { return pick.some(e => Array.isArray(e) ? e.includes(i) : e === i); }
 

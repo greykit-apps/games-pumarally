@@ -10,7 +10,7 @@ import { setWall, EDGE_WALL } from "../../../editor/lib/edges.js";
 import { N, E, S, W } from "../../../editor/lib/dir.js";
 import { newGame } from "../../engine/state.js";
 import { buildCourse } from "../../engine/course.js";
-import { CLASSIC_DECK } from "../../engine/cards.js";
+import { CLASSIC_DECK, MODERN_CARDS } from "../../engine/cards.js";
 import { step, tick } from "../../engine/machine.js";
 
 export { N, E, S, W };
@@ -49,6 +49,13 @@ export function game(course, places, opts = {}) {
     p.trail = [[p.c, p.r]];
   });
   st.phase = "exec"; st.step = "reveal"; st.register = 0;
+  /* a 2016 fixture deals SPAM first: the Haywires go to the bottom of the
+   * damage deck, so a test that counts damage in the discard is not surprised
+   * by a face-down card. A test about Haywire puts one on top itself. */
+  if (st.ruleset === "modern") {
+    const hw = st.damageDeck.filter(i => MODERN_CARDS[i].kind === "haywire"), sp = st.damageDeck.filter(i => MODERN_CARDS[i].kind !== "haywire");
+    st.damageDeck = hw.concat(sp);
+  }
   return st;
 }
 

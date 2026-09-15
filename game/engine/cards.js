@@ -32,9 +32,12 @@ export const MODERN_DECK = (() => {
 })();
 export const MODERN_DAMAGE = (() => {
   const out = [];
-  for (const [kind, n] of Object.entries(CARDS.modern.damageCounts)) for (let i = 0; i < n; i++) out.push({ kind, damage: true });
+  for (let i = 0; i < CARDS.modern.damageCounts.spam; i++) out.push({ kind: "spam", damage: true });
+  for (const h of CARDS.modern.haywire) out.push({ kind: "haywire", damage: true, face: h.id, text: h.text });
+  if (out.length !== CARDS.modern.damageSize) throw new Error("the damage deck is " + out.length + " cards, not " + CARDS.modern.damageSize);
   return out;
 })();
+export const HAYWIRE_FACES = CARDS.modern.haywire;
 export const MODERN_CARDS = MODERN_DECK.concat(MODERN_DAMAGE);
 export const MODERN_DECK_SIZE = CARDS.modern.deckSize;
 export const MODERN_DAMAGE_SIZE = CARDS.modern.damageSize;

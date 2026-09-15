@@ -69,6 +69,10 @@ h2:first-child{margin-top:0}
 .card.k-powerUp{--kind:var(--good)}
 .card.k-again{--kind:var(--steel)}
 .card.k-spam{--kind:var(--danger);border-color:var(--danger);background:linear-gradient(180deg,#1a0b0b,#120808)}
+.card.k-haywire{--kind:var(--violet);border-color:var(--violet);background:linear-gradient(180deg,#150c26,#0d0818)}
+.card.k-haywire .cart{width:34px;height:34px}
+.card .hw{font-size:8px;line-height:1.15;color:var(--text);text-align:center;padding:0 4px;max-height:44px;overflow:hidden}
+.card.k-haywire.back{background:repeating-linear-gradient(-45deg,#150c26 0 6px,#1d1236 6px 12px);opacity:.85}
 .chip.up{border-color:var(--warn);color:var(--warn)}
 .hand .pair{font-size:10px;padding:2px 6px;min-height:0;align-self:center;border-color:var(--warn);color:var(--warn)}
 .slot .crab{position:absolute;bottom:2px;font-size:9px;color:var(--warn)}

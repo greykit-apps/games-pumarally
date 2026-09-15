@@ -17,6 +17,7 @@ import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption } from "./options.js";
 import { gainEnergy, bindRuleHooks } from "./upgrades.js";
+import { receiveHaywire } from "./haywire.js";
 
 const DIR_NAMES = ["north", "east", "south", "west"];
 
@@ -245,6 +246,8 @@ export function playCard(st, C, p, cd, plan) {
     moved++;
   }
   p.hoverSteps = 0;
+  /* Hover Unit: "falls in if it ends its move on one" -- including a move a wall cut short over a pit */
+  if (hover && p.alive && isHole(C, p.c, p.r)) destroy(st, C, p, "into a pit");
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
   /* "If a robot stops on this virtual ramp space, the robot slides back to the
    * lower level, which will push a robot occupying that space." */
@@ -403,7 +406,8 @@ export function computeLaserHits(st, C) {
      * is named so a card that fires on a manoeuvre (Laser Kata) can see it */
     const ri = p.registers[st.register];
     const cardKind = ri === null || ri === undefined ? null : card(st, ri).kind;
-    const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: 1, pierce: 0 }], cardKind });
+    /* a Haywire can charge the main laser for the register it was revealed in */
+    const ctx = fire(st, p, "laserShots", { shots: [{ main: true, dir: p.face, damage: p.laserBonus === st.register ? 2 : 1, pierce: 0 }], cardKind });
     for (const sh of ctx.shots) {
       if (sh.damage <= 0) continue;
       /* a rail gun's beam goes on through every robot and wall to the edge */
@@ -602,7 +606,7 @@ export function drawOwn(st, p) {
 
 /** A card a robot is done with: its own discard, or -- for a damage card leaving it -- the table's. */
 export function putAway(st, p, i, toTable) {
-  if (isDamage(st, i) && toTable) st.damageDiscard.push(i);
+  if (isDamage(st, i) && (toTable || card(st, i).kind === "haywire")) st.damageDiscard.push(i);
   else p.pile.push(i);
 }
 
@@ -632,20 +636,24 @@ export function drawDamageCards(st, p, n, source) {
   for (let k = 0; k < n; k++) {
     const i = drawDamage(st);
     if (i === null) { log(st, "the table has no damage cards left, and " + p.name + " takes no more"); break; }
-    p.pile.push(i);
+    if (card(st, i).kind === "haywire") receiveHaywire(st, p, i);
+    else p.pile.push(i);
     got++;
   }
   if (got) st.events.push({ type: "damaged", player: p.id, amount: got, damage: 0, source, cards: true });
   return got;
 }
 
-/** Damage cards a robot is holding where a shutdown can reach them: hand and discard, not the deck. */
+/** Damage cards a robot is holding where a shutdown can reach them: hand, discard and the face-down Haywires, not the deck. */
 export function heldDamage(st, p) {
   let n = 0;
   for (const i of p.hand) if (isDamage(st, i)) n++;
   for (const i of p.pile) if (isDamage(st, i)) n++;
+  for (const i of p.haywire || []) if (i !== null) n++;
   return n;
 }
+export const oilAtCourse = oilAt;
+export const waterAtCourse = waterAt;
 
 /* --- damage and destruction --------------------------------------------- */
 
@@ -699,8 +707,10 @@ export function reboot(st, C, p, how) {
   p.alive = false;
   p.rebooting = true;
   for (let i = 0; i < REGISTERS; i++) {
-    if (p.registers[i] !== null) { p.pile.push(p.registers[i]); p.registers[i] = null; }
+    if (p.registers[i] !== null) { putAway(st, p, p.registers[i], false); p.registers[i] = null; }
     if (p.crab && p.crab[i] !== null) { p.pile.push(p.crab[i]); p.crab[i] = null; }
+    /* "Haywire cards in your registers are discarded to the damage discard pile" */
+    if (p.haywire && p.haywire[i] !== null) { st.damageDiscard.push(p.haywire[i]); p.haywire[i] = null; }
   }
   for (const i of p.hand) p.pile.push(i);
   p.hand = [];
@@ -818,4 +828,4 @@ export function beltsFor(st, C, p) {
   beltPass(st, C, 2, 2, p); beltPass(st, C, 2, 2, p); beltPass(st, C, 1, 1, p);
 }
 
-bindRuleHooks({ drawOwn, putAway, stepRobot, robotAt, beltsFor, arrived });
+bindRuleHooks({ drawOwn, putAway, stepRobot, robotAt, beltsFor, arrived, drawDamage });

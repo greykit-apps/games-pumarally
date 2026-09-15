@@ -26,6 +26,7 @@ import {
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived
 } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
+import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
 import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy } from "./upgrades.js";
 import { step as stepCell, rot } from "../../editor/lib/dir.js";
@@ -110,6 +111,8 @@ const REQUESTS = {
           if (!((k0 === "left" || k0 === "right") && k1 === "move1")) return false;
         } else if (!one(e)) return false;
       }
+      /* Rewire: "You must program all these Haywires this round" */
+      for (const i of req.must || []) if (!seen.has(i)) return false;
       return true;
     },
     apply: (st, req, a) => {
@@ -120,7 +123,7 @@ const REQUESTS = {
       p.hand = p.hand.filter((_, i) => !flat.includes(i));
       let k = 0;
       for (let reg = 0; reg < REGISTERS && k < chosen.length; reg++) {
-        if (p.registers[reg] !== null) continue;
+        if (p.registers[reg] !== null || (p.haywire && p.haywire[reg] !== null)) continue;
         const e = chosen[k++];
         if (Array.isArray(e)) { p.registers[reg] = e[0]; p.crab[reg] = e[1]; } else p.registers[reg] = e;
       }
@@ -249,9 +252,8 @@ export function shutdown(st, p) {
   let scrapped = 0;
   for (let i = 0; i < REGISTERS; i++) {
     const ci = p.registers[i];
-    if (ci === null) continue;
-    if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else p.pile.push(ci);
-    p.registers[i] = null;
+    if (ci !== null) { if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else p.pile.push(ci); p.registers[i] = null; }
+    if (p.haywire[i] !== null) { st.damageDiscard.push(p.haywire[i]); p.haywire[i] = null; scrapped++; }
   }
   for (const ci of p.hand) { if (isDamage(st, ci)) { st.damageDiscard.push(ci); scrapped++; } else p.pile.push(ci); }
   p.hand = [];
@@ -336,7 +338,7 @@ function replaceInRegister(st, p, reg, why) {
     const ci = p.registers[reg];
     if (ci === null) return null;
     const cd = card(st, ci);
-    const spam = isDamage(st, ci);
+    const spam = cd.kind === "spam";                   // a Haywire is damage too, and is resolved, not replaced
     const dud = !spam && cd.kind === "again" && reg === 0;
     if (!spam && !dud) return ci;
     putAway(st, p, ci, true);
@@ -493,10 +495,13 @@ const STEPS = {
         }
         const open = isModern(st) ? REGISTERS : openRegisters(p.damage);
         let count = 0;
-        for (let i = 0; i < open; i++) if (p.registers[i] === null) count++;
+        for (let i = 0; i < open; i++) if (p.registers[i] === null && !(isModern(st) && p.haywire[i] !== null)) count++;
         count = Math.min(count, p.hand.length);
         const crab = isModern(st) && p.installed.some(u => u.id === "crabLegs");
-        ask(st, p, "program", p.hand.map((_, i) => i), { count, open, crab });
+        /* the registers a face-down Haywire holds, and the Haywires a Rewire put in the hand */
+        const held = isModern(st) ? p.haywire.map((h, i) => h === null ? -1 : i).filter(i => i >= 0) : [];
+        const must = isModern(st) ? p.hand.map((ci, i) => isHaywire(st, ci) ? i : -1).filter(i => i >= 0) : [];
+        ask(st, p, "program", p.hand.map((_, i) => i), { count, open, crab, held, must });
         return;
       }
       go(st, "turn", isModern(st) ? "leftovers" : "announce");
@@ -595,7 +600,7 @@ const STEPS = {
     reveal(st) {
       let q;
       if (isModern(st)) {
-        q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && p.registers[st.register] !== null) || (p.rebooting && st.register === 0)).map(p => p.id);
+        q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0)).map(p => p.id);
       } else {
         const qq = [];
         for (const p of alive(st)) {
@@ -653,21 +658,39 @@ const STEPS = {
           /* Chaos and Carnage: "If your robot is on a randomizer when you would
            * reveal a programming card, discard all cards in the current register
            * and replace them with the top card of your programming deck." */
-          if (randomizerAt(C, p.c, p.r) && p.registers[st.register] !== null) {
+          /* "When your turn comes, reveal the Haywire" -- the face-down card comes up into the register */
+          if (p.haywire[st.register] !== null && st.act.hw === undefined && !st.act.flipped) {
+            if (p.registers[st.register] !== null) putAway(st, p, p.registers[st.register], true);   // nothing should be here; a Rewire could not put one on top
+            p.registers[st.register] = p.haywire[st.register];
+            p.haywire[st.register] = null;
+            st.act.flipped = true;
+          }
+          if (randomizerAt(C, p.c, p.r) && p.registers[st.register] !== null && st.act.hw === undefined) {
             putAway(st, p, p.registers[st.register], true);
             if (p.crab[st.register] !== null) { putAway(st, p, p.crab[st.register], true); p.crab[st.register] = null; }
             p.registers[st.register] = drawOwn(st, p);
             st.events.push({ type: "randomized", player: p.id, register: st.register });
             log(st, p.name + "'s card is randomized");
           }
-          let i = replaceInRegister(st, p, st.register);
+          let i = st.act.hw !== undefined ? p.registers[st.register] : replaceInRegister(st, p, st.register);
+          if (i !== null && card(st, i).kind === "haywire") {
+            const hask = resolveHaywire(st, C, p, i);
+            if (hask) { st.waiting = hask; return; }
+            st.act.cardKind = "haywire";
+            i = null;
+          }
           if (i !== null) {
             let cd = card(st, i), again = false;
             if (cd.kind === "again") {
               /* "Repeat the programming in your previous register, as if that
-               * card were in this register." */
+               * card were in this register." A Haywire there is resolved again. */
               const ti = againTarget(st, p, st.register);
               if (ti === null) { log(st, p.name + "'s Again repeats nothing"); i = null; }
+              else if (card(st, ti).kind === "haywire") {
+                const hask = resolveHaywire(st, C, p, ti);
+                if (hask) { st.waiting = hask; return; }
+                st.act.cardKind = "haywire"; i = null;
+              }
               else { cd = card(st, ti); again = true; }
             }
             /* Chaos and Carnage: a teleporter under a robot revealing a Move card
@@ -692,7 +715,7 @@ const STEPS = {
                 st.act.stage = "after";
               }
             }
-            if (st.act.stage === "card" && i !== null && p.crab[st.register] !== null && (cd.kind === "left" || cd.kind === "right") && !again) {
+            if (i !== null && st.act.stage === "card" && p.crab[st.register] !== null && (cd.kind === "left" || cd.kind === "right") && !again) {
               /* Crab Legs: the Move 1 paired with the rotate becomes a sidestep, and neither card's own effect happens */
               st.act.cardKind = cd.kind;
               p.pushed = []; p.lastMove = null;
@@ -867,9 +890,13 @@ const STEPS = {
         p.drilled = null; p.pushed = []; p.lastMove = null;
         p.poweredDown = false; p.announceDown = false;
         p.upgradeDone = false; p.bought = false; p.fitted = false; p.shutAsked = false;
+        p.laserBonus = -1;
+        /* the Haywire's free upgrade: "At end of round, place that card into the upgrade discard pile" */
+        if (p.hwInstalled) { uninstallUpgrade(st, p, p.hwInstalled, "loses the round's free"); p.hwInstalled = null; }
       }
-      st.priority = (st.priority + 1) % st.players.length;
-      log(st, "the Priority Token passes to " + st.players[st.priority].name);
+      /* face-down Haywires stay where they are; the token passes unless a Haywire held it */
+      if (st.priorityHeld) { st.priorityHeld = false; log(st, "the Priority Token stays with " + st.players[st.priority].name); }
+      else { st.priority = (st.priority + 1) % st.players.length; log(st, "the Priority Token passes to " + st.players[st.priority].name); }
       st.answers = {};
       st.events.push({ type: "turnEnd", turn: st.turn });
       st.turn++;

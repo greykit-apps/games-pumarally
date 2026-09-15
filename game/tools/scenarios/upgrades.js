@@ -56,22 +56,12 @@ export const TESTS = [
   ["every transcribed upgrade is bound: built, or inert and saying why", () => {
     eq(UPGRADE_IDS.length, 40, "forty");
     const inert = UPGRADE_IDS.filter(id => !UPGRADE_DEFS[id].built);
-    eq(inert, ["luckyBooster", "rewire"], "the two that need Haywire");
-    for (const id of inert) assert(/Haywire/.test(UPGRADE_DEFS[id].inert), id + " names the gap");
+    eq(inert, [], "none inert: Lucky Booster and Rewire came alive with the Haywire faces (manual1/IMG_1345-1348)");
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
       if (d.temp && d.built) assert(d.use || Object.keys(d.hooks).length, id + " is a temporary with a use or a hook");
     }
   }],
-  ["Lucky Booster and Rewire are declared inert until Haywire is photographed", () => {
-    const co = far();
-    const st = mgame(co, [{ c: 0, r: 7 }, { c: 1, r: 7 }]);
-    const p = st.players[0];
-    fit(st, p, "luckyBooster"); fit(st, p, "rewire");
-    for (const m of ["dealt", "before", "after"]) eq(temporaryOffers(st, co.C, p, m), [], "nothing on offer at " + m);
-    assertInvariants(st, co.library);
-  }],
-
   /* --- permanent -------------------------------------------------------------- */
   ["Chaos Theory turns a revealed SPAM into Energy in the first three registers, once", () => {
     const co = far();

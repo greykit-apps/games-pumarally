@@ -42,6 +42,11 @@ export default {
       "label": "SPAM",
       "damage": true,
       "note": "Damage. Programme it and it is thrown away, and the top card of your deck is played instead."
+    },
+    "haywire": {
+      "label": "Haywire",
+      "damage": true,
+      "note": "Damage. It slides face down under the register you took it in; next round that register is not programmed, and when it comes up the card is revealed and its text resolved, taking precedence over the rulebook."
     }
   },
   "classic": {
@@ -106,7 +111,7 @@ export default {
     "startLives": 3
   },
   "modern": {
-    "source": "A robot's own deck of twenty, counted off a photograph of one laid out (manual1/IMG_1308); the damage deck is forty, all SPAM because the Haywire faces are not photographed.",
+    "source": "A robot's own deck of twenty, counted off a photograph of one laid out (manual1/IMG_1308); the damage deck of forty counted off IMG_1343 -- twenty-three SPAM and seventeen Haywire, every Haywire face once -- with the faces read off IMG_1345 to IMG_1348.",
     "deckCounts": {
       "move1": 4,
       "move2": 3,
@@ -120,9 +125,29 @@ export default {
     },
     "deckSize": 20,
     "damageCounts": {
-      "spam": 40
+      "spam": 23,
+      "haywire": 17
     },
     "damageSize": 40,
+    "haywire": [
+      { "id": "hwMove2Left", "text": "Move 2, rotate left." },
+      { "id": "hwBack3", "text": "Move back 3." },
+      { "id": "hwMove1Token", "text": "Move 1, then take the Priority Token. Do not move the Priority Token at the end of this round." },
+      { "id": "hwMove5Wall", "text": "Move 5. If you hit a wall this register, take 1 damage." },
+      { "id": "hwMove3Uturn", "text": "Move 3, U-turn." },
+      { "id": "hwMove1RightMove1", "text": "Move 1, rotate right, move 1." },
+      { "id": "hwMove1LeftMove1", "text": "Move 1, rotate left, move 1." },
+      { "id": "hwMove2Right", "text": "Move 2, rotate right." },
+      { "id": "hwAnyFacingMove1", "text": "Rotate to any facing. Move 1." },
+      { "id": "hwPayEnergy", "text": "Pay 0-8 Energy, then move 2 spaces for each Energy you paid." },
+      { "id": "hwInstall", "text": "Install a permanent upgrade from your collection of uninstalled upgrades. At end of round, place that card into the upgrade discard pile." },
+      { "id": "hwBack1Remove", "text": "Move back 1. Remove a card in your discard pile from the game." },
+      { "id": "hwMove1Laser", "text": "Move 1. Your robot's main laser deals 1 additional damage this register." },
+      { "id": "hwRotateEither", "text": "Rotate right or rotate left." },
+      { "id": "hwDrawTwo", "text": "Draw and reveal the top 2 cards of your programming deck. Resolve both in the order of your choosing." },
+      { "id": "hwSidestep2", "text": "Move 2 left or right, without changing facing." },
+      { "id": "hwBack1Uturn", "text": "Move back 1. U-turn." }
+    ],
     "handSize": 9,
     "registers": 5,
     "startEnergy": 3,

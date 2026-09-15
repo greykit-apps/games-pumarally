@@ -19,9 +19,11 @@ ported. M5 began with the twenty-nine upgrade effects the rulebook's pages
 21-23 give in full; two stay inert for want of Haywire. The expansion floor
 followed from the three Factory Floor Guides: water, drains, ledges and
 ramps, currents, randomizers, teleporters, flamers, each with a scenario on
-an authored board. What is left of M5 waits on photographs: the ten
-untranscribed option cards, the Haywire faces, the thirteen expansion
-upgrade cards, and any 2016 board that prints the new floor.
+an authored board. The photographs arrived: Haywire is built from the
+deck laid out face by face. Still to transcribe from the same batch: the
+AMIGO option cards the English roster lacks, the fifteen expansion upgrade
+cards, the thirteen 2023 courses with their Reboot Tokens, the 2016 Docking
+Bay, and the Avalon Hill printing's own rules and courses.
 
 ## The verdict
 

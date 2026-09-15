@@ -383,7 +383,7 @@ export const TESTS = [
   /* --- upgrades ---------------------------------------------------------------- */
   ["the upgrade deck is forty cards, all of them written down", () => {
     eq(UPGRADE_IDS.length, 40, "forty upgrades");
-    eq(UPGRADE_ROSTER, { printed: 40, transcribed: 40, built: 38 }, "the roster");
+    eq(UPGRADE_ROSTER, { printed: 40, transcribed: 40, built: 40 }, "the roster: all forty, since the Haywire faces were photographed");
     let built = 0;
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
@@ -391,7 +391,7 @@ export const TESTS = [
       if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use, id + " is built and binds a hook or a use"); }
       else { eq(Object.keys(d.hooks), [], id + " is inert and binds nothing"); assert(d.inert, id + " says why"); }
     }
-    eq(built, 38, "thirty-eight built");
+    eq(built, 40, "forty built");
   }],
   ["three upgrades are dealt at setup, and the forty are conserved", () => {
     const co = plain();
@@ -452,19 +452,6 @@ export const TESTS = [
     eq(p.hand.length, HAND + 1, "and the real deal");
     uninstallUpgrade(st, p, "flashDrive");
     eq(fire(st, p, "modifyDealt", { count: 9 }).count, 9, "taken off the mat, it stops");
-  }],
-  ["an upgrade a robot has not built does nothing, and says so", () => {
-    const co = plain();
-    const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
-    const p = st.players[0];
-    for (const q of st.players) q.shelf = [];
-    st.upgradeDeck = UPGRADE_IDS.slice();
-    shelve(st, p, "luckyBooster"); p.energy = 5;
-    const lines = st.log.length;
-    assert(installUpgrade(st, p, "luckyBooster"), "it can be bought and fitted like any other");
-    assert(/not built/.test(st.log[st.log.length - 1].msg), "and the log says its effect is not built");
-    assert(lines < st.log.length, "said out loud");
-    for (const h of ["modifyMove", "onDamage", "laserShots", "onPush"]) { const ctx = fire(st, p, h, { amount: 1, shots: [], dist: 1, kind: "move", pushDamage: 0 }); assert(!ctx.pending, "it asks nothing"); }
   }],
   ["a person shops for themselves, and the phase waits while they do", () => {
     const co = far();
@@ -527,9 +514,12 @@ export const TESTS = [
 
   /* --- damage ------------------------------------------------------------------ */
   ["the damage deck is forty cards, and what is on them is a declared gap", () => {
+    /* the gap closed on 2026-09-15: the deck laid out (manual1/IMG_1343) is
+     * twenty-three SPAM and seventeen Haywire, every face once */
     eq(MODERN_DAMAGE.length, MODERN_DAMAGE_SIZE, "forty");
     eq(MODERN_DAMAGE_SIZE, 40, "the printed forty");
-    assert(!CARDS.modern.damageCounts.haywire, "Haywire is not in the deck: its faces are not transcribed, and this is the test that fails when they are");
+    eq(CARDS.modern.damageCounts, { spam: 23, haywire: 17 }, "counted off the photograph");
+    eq(new Set(MODERN_DAMAGE.filter(c => c.kind === "haywire").map(c => c.face)).size, 17, "seventeen different faces");
     for (const cd of MODERN_DAMAGE) assert(KINDS[cd.kind] && KINDS[cd.kind].damage, "every damage card is a damage kind");
     eq(MODERN_CARDS.length, MODERN_DECK_SIZE + MODERN_DAMAGE_SIZE, "one index space for both");
     const m = { ruleset: "modern" }, c = { ruleset: "classic" };
@@ -555,10 +545,13 @@ export const TESTS = [
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
     const p = st.players[0];
-    st.damageDiscard = st.damageDeck.splice(0);
+    /* the SPAM alone go through the reshuffle; the Haywires sit out of the game for this fixture */
+    const all = st.damageDeck.splice(0);
+    p.removed = all.filter(i => card(st, i).kind === "haywire");
+    st.damageDiscard = all.filter(i => card(st, i).kind !== "haywire");
     damage(st, co.C, p, 3, "laser");
     eq(p.pile.length, 3, "the reshuffle produced cards");
-    eq(st.damageDeck.length, 37, "the reshuffled deck");
+    eq(st.damageDeck.length, 20, "the reshuffled deck: twenty-three SPAM less three");
     eq(st.damageDiscard.length, 0, "the discard emptied into it");
     /* both empty is a printed outcome, not a fault */
     p.pile = p.pile.concat(st.damageDeck.splice(0));   // every card sits with a robot
