@@ -37,7 +37,16 @@ function own(st, p, kind) {
   return p.deck.splice(i, 1)[0];
 }
 const spam = st => { const i = st.damageDeck.pop(); if (i === undefined) throw new Error("no damage card left"); return i; };
-const shelve = (st, p, id) => { const i = st.upgradeDeck.indexOf(id); if (i < 0) throw new Error(id + " is not in the upgrade deck"); st.upgradeDeck.splice(i, 1); p.shelf.push(id); };
+const shelve = (st, p, id) => {
+  const i = st.upgradeDeck.indexOf(id);
+  if (i >= 0) st.upgradeDeck.splice(i, 1);
+  else {
+    const holder = st.players.find(q => q.shelf.includes(id));       // dealt to a shelf at setup
+    if (!holder) throw new Error(id + " is nowhere to be found");
+    holder.shelf.splice(holder.shelf.indexOf(id), 1);
+  }
+  p.shelf.push(id);
+};
 /** Drive until a given seat is asked something, answering everyone else as a bot; returns the request. */
 function until(st, library, who, kinds, answer) {
   let r = step(st, library, answer);
@@ -456,22 +465,22 @@ export const TESTS = [
 
   /* --- upgrades ---------------------------------------------------------------- */
   ["the upgrade deck is forty cards, all of them written down", () => {
-    eq(UPGRADE_IDS.length, 40, "forty upgrades");
-    eq(UPGRADE_ROSTER, { printed: 40, transcribed: 40, built: 40 }, "the roster: all forty, since the Haywire faces were photographed");
+    eq(UPGRADE_IDS.length, 58, "the base forty and eighteen more: thirteen expansion cards and Master Builder's five");
+    eq([UPGRADE_ROSTER.printed, UPGRADE_ROSTER.transcribed, UPGRADE_ROSTER.built], [58, 58, 58], "the roster: all of them, since the Haywire faces were photographed");
     let built = 0;
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
       assert(d.name && d.text && Number.isInteger(d.cost) && /^(permanent|temporary)$/.test(d.type), id + " has name, text, cost and type");
-      if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use, id + " is built and binds a hook or a use"); }
+      if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use || d.ruled, id + " is built and binds a hook or a use, or the rules read it by name"); }
       else { eq(Object.keys(d.hooks), [], id + " is inert and binds nothing"); assert(d.inert, id + " says why"); }
     }
-    eq(built, 40, "forty built");
+    eq(built, 58, "all built");
   }],
   ["three upgrades are dealt at setup, and the forty are conserved", () => {
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }, { c: 2, r: 3 }]);
     for (const p of st.players) eq(p.shelf.length, 3, p.name + " holds three, uninstalled");
-    eq(st.upgradeDeck.length, 40 - 9, "the rest are the deck");
+    eq(st.upgradeDeck.length, UPGRADE_IDS.length - 9, "the rest are the deck");
     assertInvariants(st, co.library);
   }],
   ["fitting an upgrade costs its printed Energy and takes a slot", () => {

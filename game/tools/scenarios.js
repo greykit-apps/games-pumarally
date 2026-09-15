@@ -1410,6 +1410,126 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "Indirect Fire pays an Energy to hit a robot within three squares, off the laser line",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Mirror sends the first robot damage of a round back to the shooter",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Controlled Chaos moves a face-down Haywire to the register of your choice",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Stun empties the target's next register instead of shooting it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Stun cannot be used in register 5",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Memory Transfer hands a damage card in hand to a neighbour's discard",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Phasing carries a robot through one wall on its own move",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Splash Damage hurts every robot beside the target",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "SPAM-Powered Rocket burns SPAM from the discard for squares",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Diffuser turns every damage after the first of a register into Energy",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Calculated Odds draws two and keeps the SPAM",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Repulsion Field throws the pusher back for an Energy",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Bunny Hop hops over the robot it would have pushed",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Turbo pays an Energy for one more square",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "The Oppositron does the opposite of the card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Master Builder's Overclocked runs an earlier register's card and takes a SPAM",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Moon Walk runs the belts backwards for the robot",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Top Heavy steps off the belt sideways instead of riding it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Anchor spends an Energy to refuse a push",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a card that costs X is priced by the table",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "Modular Chassis trades itself for one of the shoved robot's upgrades",
     "layer": "rules",
     "status": "ported"

@@ -74,12 +74,20 @@ function tread(p) {
  * next. A wall anywhere in the chain stops EVERYTHING, including the robot
  * that started the push. Returns false when nothing moved.
  */
+const has = (p, id) => !!(p.installed && p.installed.some(u => u.id === id));
+
 export function stepRobot(st, C, p, dir, cause) {
   const chain = [p];
   let c = p.c, r = p.r;
   let blocked = false;
   for (let guard = 0; guard < 10; guard++) {
-    if (blockedMove(st, C, c, r, dir)) { blocked = true; break; }
+    if (blockedMove(st, C, c, r, dir)) {
+      /* Phasing: "During your movement this register, you may pass through exactly 1 wall." Its own move, and a wall, not a ledge */
+      if (chain.length === 1 && cause === "card" && p.phasing > 0 && wallBlocks(C, c, r, dir, st.register) && !ledgeUp(C, c, r, dir) && !railed(st, C, c, r, dir)) {
+        p.phasing = 0;
+        log(st, p.name + " phases through the wall");
+      } else { blocked = true; break; }
+    }
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;                    // the head walks off the edge
     const occ = robotAt(st, nc, nr);
@@ -87,6 +95,44 @@ export function stepRobot(st, C, p, dir, cause) {
     chain.push(occ); c = nc; r = nr;
   }
   const hurt = [];
+  /* the robot about to be pushed has a say, and the pusher a way round */
+  if (!blocked && chain.length > 1) {
+    const first = chain[1];
+    /* Bunny Hop: "you may hop over it to the next adjacent empty space if possible instead" -- its own card, one robot, the square beyond free */
+    if (cause === "card" && chain.length === 2 && has(p, "bunnyHop")) {
+      const [hc, hr] = stepCell(first.c, first.r, dir);
+      if (inGrid(C, hc, hr) && !isHole(C, hc, hr) && !robotAt(st, hc, hr) && !blockedMove(st, C, first.c, first.r, dir)) {
+        const from = [p.c, p.r];
+        p.c = hc; p.r = hr;
+        tread(p);
+        st.events.push({ type: "moved", player: p.id, from, to: [hc, hr], dir, cause: "hop" });
+        log(st, p.name + " bunny-hops over " + first.name);
+        throughPortal(st, C, p);
+        if (jetFires(C, p.c, p.r, st.register)) damage(st, C, p, 1, "burner");
+        if (isModern(st) && flamerFires(C, p.c, p.r, st.register)) damage(st, C, p, 1, "flamer");
+        return true;
+      }
+    }
+    /* Anchor: "Spend 1 Energy when your robot would be pushed: Your robot is not pushed." */
+    if (has(first, "anchor") && first.energy >= 1) {
+      first.energy -= 1;
+      st.events.push({ type: "energy", player: first.id, amount: -1, energy: first.energy, why: "anchor" });
+      log(st, first.name + " drops anchor and is not pushed");
+      pushHooks(st, p, first, dir, cause, true, hurt);
+      for (const h of hurt) if (h.who.alive) { log(st, h.who.name + " takes " + h.n + " from " + h.why); damage(st, C, h.who, h.n, h.source); }
+      return false;
+    }
+    /* Repulsion Field: "Pay X Energy when a robot would push your robot: Push them X spaces away from your robot instead." X is 1 here */
+    if (has(first, "repulsionField") && first.energy >= 1) {
+      first.energy -= 1;
+      st.events.push({ type: "energy", player: first.id, amount: -1, energy: first.energy, why: "repulsion" });
+      log(st, first.name + "'s repulsion field throws " + p.name + " back");
+      pushHooks(st, p, first, dir, cause, true, hurt);
+      for (const h of hurt) if (h.who.alive) { log(st, h.who.name + " takes " + h.n + " from " + h.why); damage(st, C, h.who, h.n, h.source); }
+      if (p.alive) stepRobot(st, C, p, opposite(dir), "beam");
+      return false;
+    }
+  }
   /* "if your robot pushes (or attempts to push) an adjacent robot": a push
    * that a wall stops is still a push for Ramming Gear and for Spiky */
   if (blocked) {
@@ -214,6 +260,13 @@ export function oilSlide(st, C, p, dir) {
  */
 export function planCard(st, p, cd, again) {
   const plan = planOf(cd);
+  /* The Oppositron: "Do the opposite of what your programming card says" -- a Move n backs up n,
+   * Back Up moves 1, a rotate turns the other way, a U-Turn is no turn; Again and Power Up have no opposite */
+  if (p.opposite === st.register && !again) {
+    if (plan.kind === "move") plan.dist = plan.dist === -1 ? 1 : -plan.dist;
+    else if (plan.kind === "turn") plan.turn = plan.turn === 2 ? 0 : -plan.turn;
+    plan.opposite = true;
+  }
   plan.lateral = 0;
   plan.again = !!again;                                // Brakes does not apply to a repeated Move 1
   return fire(st, p, "modifyMove", plan);
@@ -224,6 +277,7 @@ function describePlan(cd, plan) {
   const label = (plan.again ? "again: " : "") + cd.kind.replace(/^(move1|move2|move3|back|left|right|uturn|powerUp|again)$/, m => ({
     move1: "move 1", move2: "move 2", move3: "move 3", back: "backs up", left: "rotates left", right: "rotates right", uturn: "u-turns",
     powerUp: "powers up", again: "again" })[m] || m);
+  if (plan.opposite) return label + ", through the Oppositron: " + (plan.kind === "turn" ? (plan.turn === 0 ? "no turn" : plan.turn > 0 ? "rotates right" : "rotates left") : plan.dist > 0 ? "move " + plan.dist : "back " + (-plan.dist));
   if (plan.kind !== "move") return label;
   if (plan.lateral) return label + ", sidestepping " + (plan.lateral < 0 ? "left" : "right");
   if (plan.dist === 0 && base.dist !== 0) return label + ", but brakes and holds still";
@@ -300,15 +354,33 @@ function stayedInFlame(st, C, p, start) {
  */
 export function beltPass(st, C, lo, hi, only, squares) {
   const movers = new Map();
+  const sidesteps = [];
   for (const p of alive(st)) {
     if (only && p.id !== only.id) continue;
     const sp = beltAt(C, p.c, p.r);
     if (!sp || sp < lo || sp > hi) continue;
     if (squares && !squares(C, p.c, p.r)) continue;
-    const d = beltExit(C, p.c, p.r);
+    /* Top Heavy took it off the belts for this register */
+    if (p.beltFree && p.beltFree.turn === st.turn && p.beltFree.register === st.register) continue;
+    let d = beltExit(C, p.c, p.r);
+    /* Moon Walk: the belts run backwards for it, "only if this would not stop/push another robot" */
+    if (p.moonwalk === st.turn) {
+      const rd = opposite(d);
+      const [rc, rr] = stepCell(p.c, p.r, rd);
+      if (!blockedMove(st, C, p.c, p.r, rd) && !(inGrid(C, rc, rr) && robotAt(st, rc, rr))) d = rd;
+    }
     if (blockedMove(st, C, p.c, p.r, d)) continue;
+    /* Top Heavy: "If your robot is about to be moved by a conveyor belt, it may ignore all conveyor
+     * belts this register and move 1 space to the left or right" -- asked before anything moves */
+    const bctx = fire(st, p, "onBoardElement", { kind: "belt", dir: d, veto: false, side: 0 });
+    if (bctx.pending) return bctx.ask;
+    if (bctx.veto) { p.beltFree = { turn: st.turn, register: st.register }; sidesteps.push({ p, side: bctx.side }); continue; }
     const [tc, tr] = stepCell(p.c, p.r, d);
     movers.set(p.id, { dir: d, to: [tc, tr] });
+  }
+  for (const s of sidesteps) {
+    log(st, s.p.name + " is top-heavy and steps off the belt " + (s.side < 0 ? "left" : "right"));
+    stepRobot(st, C, s.p, rot(s.p.face, s.side), "upgrade");
   }
   for (let changed = true; changed;) {
     changed = false;
@@ -345,6 +417,7 @@ export function beltPass(st, C, lo, hi, only, squares) {
     }
     if (rulesOf(st).oilSlideAfter.indexOf("belt") >= 0 && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
   }
+  return null;
 }
 
 export function gearPass(st, C) {
@@ -434,7 +507,9 @@ export function computeLaserHits(st, C, cache) {
     for (const sh of shots) {
       if (sh.damage <= 0) continue;
       /* a rail gun's beam goes on through every robot and wall to the edge */
-      const victims = sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0)].filter(Boolean);
+      /* a shot with a named target (Indirect Fire) hits it whatever lies between */
+      const victims = sh.target !== undefined ? [st.players[sh.target]].filter(v => v && v.alive)
+        : sh.through ? everyRobotAlong(st, C, p.c, p.r, sh.dir) : [firstRobotAlong(st, C, p.c, p.r, sh.dir, true, sh.pierce || 0)].filter(Boolean);
       for (const v of victims) {
         hits.push({ target: v, damage: sh.damage, from: p.name + "'s laser", shooter: p, dir: sh.dir, at: [p.c, p.r], main: sh.main,
           distance: Math.abs(v.c - p.c) + Math.abs(v.r - p.r) });
@@ -486,20 +561,23 @@ export function laserPass(st, C) {
       const k = h.shooter.id + ":" + h.target.id;
       const seen = st.laserSeen.hits[k];
       if (seen) { h.damage = seen.damage; h.replaceWith = seen.replaceWith; h.fireControl = seen.fireControl; continue; }
-      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null, fireControl: null,
+      const seenFirst = st.laserSeen.hits[k];
+      const hctx = fire(st, h.shooter, "onLaserHit", { targetName: h.target.name, target: h.target, damage: h.damage, shotDir: h.dir, replaceWith: null, fireControl: null, splash: false,
         distance: h.distance, lastRegister: st.register >= REGISTERS - 1 });
       if (hctx.pending) return hctx.ask;
-      h.damage = hctx.damage; h.replaceWith = hctx.replaceWith; h.fireControl = hctx.fireControl || null;
-      st.laserSeen.hits[k] = { damage: h.damage, replaceWith: h.replaceWith, fireControl: h.fireControl };
+      h.damage = hctx.damage; h.replaceWith = hctx.replaceWith; h.fireControl = hctx.fireControl || null; h.splash = !!hctx.splash;
+      st.laserSeen.hits[k] = { damage: h.damage, replaceWith: h.replaceWith, fireControl: h.fireControl, splash: h.splash };
+      void seenFirst;
     }
     st.laserSeen = null;
     for (const h of hits) {
       if (h.replaceWith || h.damage <= 0 || !h.target.alive) continue;
-      const ctx = fire(st, h.target, "onDamage", { amount: h.damage, source: "laser", absorbed: 0, dir: h.dir });
+      const ctx = fire(st, h.target, "onDamage", { amount: h.damage, source: "laser", absorbed: 0, dir: h.dir, by: h.shooter || null, reflect: 0 });
       if (ctx.absorbed > 0) log(st, h.target.name + " absorbs " + ctx.absorbed + " damage");
-      h.damage = ctx.amount;
+      h.damage = ctx.amount; h.reflect = ctx.reflect || 0;
     }
-    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith, distance: h.distance, fireControl: h.fireControl || null }));
+    st.laser = hits.map(h => ({ target: h.target.id, shooter: h.shooter ? h.shooter.id : null, damage: h.damage, dir: h.dir, at: h.at, from: h.from, replaceWith: h.replaceWith, distance: h.distance,
+      fireControl: h.fireControl || null, splash: !!h.splash, reflect: h.reflect || 0 }));
   }
   const hits = st.laser.map(h => ({ ...h, target: st.players[h.target], shooter: h.shooter === null ? null : st.players[h.shooter] }));
 
@@ -510,7 +588,7 @@ export function laserPass(st, C) {
    * go and the hits shrink BEFORE anything is applied, so a sacrifice can keep
    * a robot off its tenth point. */
   const incoming = new Map();
-  for (const h of hits) if (h.damage > 0 && !h.replaceWith && h.target.alive) incoming.set(h.target.id, (incoming.get(h.target.id) || 0) + h.damage);
+  for (const h of hits) { if (h.splash === undefined) h.splash = false; if (h.damage > 0 && !h.replaceWith && h.target.alive) incoming.set(h.target.id, (incoming.get(h.target.id) || 0) + h.damage); }
   const sacrifice = new Map();
   for (const [id, n] of incoming) {
     const t = st.players[id];
@@ -571,6 +649,8 @@ export function laserPass(st, C) {
         }
         /* Displacing Blast: to the reboot point of the board it stands on, facing unchanged */
         else if (rw.kind === "displace") displaceTo(st, C, h.target, h.shooter);
+        /* Stun: "the target discards all face-down cards in their next register" */
+        else if (rw.kind === "stun") stunRegister(st, h.target, h.shooter);
         continue;
       }
       if (h.damage <= 0) continue;
@@ -583,6 +663,16 @@ export function laserPass(st, C) {
         else if (fc.destroy) discardOption(st, h.target, fc.destroy, "loses to fire control");
       }
       landDamage(st, C, h.target, h.damage, "laser");
+      /* Mirror: the shooter takes the same back, the first time each round */
+      if (h.reflect > 0 && h.shooter && h.shooter.alive) { log(st, h.shooter.name + " takes " + h.reflect + " back off " + h.target.name + "'s mirror"); landDamage(st, C, h.shooter, h.reflect, "laser"); }
+      /* Splash Damage: one to each robot adjacent to the target */
+      if (h.splash && h.shooter) {
+        for (const q of alive(st)) {
+          if (q.id === h.target.id || q.id === h.shooter.id || Math.abs(q.c - h.target.c) + Math.abs(q.r - h.target.r) !== 1) continue;
+          log(st, q.name + " takes 1 from the splash");
+          damage(st, C, q, 1, "laser");
+        }
+      }
       if (!h.shooter && !boardHit.includes(h.target.id)) boardHit.push(h.target.id);
     }
     st.laserAfter = boardHit;
@@ -617,6 +707,18 @@ export function displaceTo(st, C, p, by) {
   tread(p);
   st.events.push({ type: "moved", player: p.id, from, to: [p.c, p.r], dir: p.face, cause: "displace" });
   log(st, p.name + " is blasted back to its reboot point by " + (by ? by.name : "a beam"));
+}
+
+/** Stun: the target's next register loses its face-down cards: the programmed card to its own discard, a Haywire to the damage discard. */
+export function stunRegister(st, t, by) {
+  const next = st.register + 1;
+  if (next >= REGISTERS) return;
+  let n = 0;
+  if (t.registers[next] !== null) { putAway(st, t, t.registers[next], true); t.registers[next] = null; n++; }
+  if (t.crab && t.crab[next] !== null) { putAway(st, t, t.crab[next], true); t.crab[next] = null; n++; }
+  if (t.haywire && t.haywire[next] !== null) { st.damageDiscard.push(t.haywire[next]); t.haywire[next] = null; n++; }
+  st.events.push({ type: "stunned", player: t.id, register: next, by: by ? by.id : null });
+  log(st, t.name + " is stunned: " + n + " card" + (n === 1 ? "" : "s") + " out of register " + (next + 1));
 }
 
 /** Scrambler: the target's next register is replaced with the top card of the deck (classic: the shared one; 2016: the target's own). */
@@ -664,6 +766,14 @@ export function putAway(st, p, i, toTable) {
 }
 
 /** The top of the damage deck, reshuffling its discard; null when the table has none left to give. */
+/** A SPAM out of the damage deck (or, failing that, the discard) for a card that says "gain 1 SPAM"; null when there is none. */
+export function drawSpam(st) {
+  for (const pile of [st.damageDeck, st.damageDiscard]) {
+    for (let k = pile.length - 1; k >= 0; k--) if (card(st, pile[k]).kind === "spam") return pile.splice(k, 1)[0];
+  }
+  return null;
+}
+
 export function drawDamage(st) {
   if (!st.damageDeck.length && st.damageDiscard.length) {
     st.damageDeck = st.damageDiscard.splice(0);
@@ -686,11 +796,30 @@ export function drawDamage(st) {
  */
 export function drawDamageCards(st, p, n, source) {
   let got = 0;
+  const diffuser = has(p, "diffuser"), odds = has(p, "calculatedOdds");
   for (let k = 0; k < n; k++) {
-    const i = drawDamage(st);
+    /* Diffuser: after the first damage of a register, each further card is an Energy instead */
+    if (diffuser && p.dmgReg && p.dmgReg.turn === st.turn && p.dmgReg.register === st.register) {
+      if (gainEnergy(st, p, 1, "diffuser")) log(st, p.name + "'s diffuser turns the damage into Energy");
+      else log(st, p.name + "'s diffuser has nowhere to put the Energy");
+      continue;
+    }
+    let i = drawDamage(st);
     if (i === null) { log(st, "the table has no damage cards left, and " + p.name + " takes no more"); break; }
+    /* Calculated Odds: two drawn, one kept -- the SPAM when they differ, declared */
+    if (odds) {
+      const j = drawDamage(st);
+      if (j !== null) {
+        const keepFirst = card(st, i).kind === "spam" || card(st, j).kind !== "spam";
+        const other = keepFirst ? j : i;
+        i = keepFirst ? i : j;
+        st.damageDiscard.push(other);
+        log(st, p.name + " draws two and keeps the " + (card(st, i).kind === "spam" ? "SPAM" : "Haywire"));
+      }
+    }
     if (card(st, i).kind === "haywire") receiveHaywire(st, p, i);
     else p.pile.push(i);
+    p.dmgReg = { turn: st.turn, register: st.register };
     got++;
   }
   if (got) st.events.push({ type: "damaged", player: p.id, amount: got, damage: 0, source, cards: true });
@@ -891,4 +1020,4 @@ export function beltsFor(st, C, p) {
   beltPass(st, C, 2, 2, p); beltPass(st, C, 2, 2, p); beltPass(st, C, 1, 1, p);
 }
 
-bindRuleHooks({ drawOwn, putAway, stepRobot, robotAt, beltsFor, arrived, drawDamage });
+bindRuleHooks({ drawOwn, putAway, stepRobot, robotAt, beltsFor, arrived, drawDamage, drawSpam });
