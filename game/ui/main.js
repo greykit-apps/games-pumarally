@@ -92,7 +92,14 @@ async function advance(answer) {
       await screen.update(st, r.events);
       const w = st.waiting;
       if (!w) break;
-      if (isHuman(st.players[w.player])) break;
+      if (isHuman(st.players[w.player])) {
+        /* the mat's standing answers first: shut down or not, pay a card or
+         * take the damage, use an optional card or not; only what they
+         * cannot settle reaches the player as a question */
+        a = screen.autoAnswer(w);
+        if (a === undefined) break;
+        continue;
+      }
       a = botAnswer(st, library, w);
     }
   } finally {

@@ -294,6 +294,28 @@ from the pending request and nothing else; a hot-seat curtain between human
 seats; autosave and resume. Verified in the browser through the draft, two
 full turns, a two-human hand-over and a reload mid-game.
 
+The panel's robot rows are mats. Each carries pip bars (lives in blue under
+the classic rules, flags in yellow, Energy in green under the 2016 rules,
+damage in red: the track, or the damage cards a robot carries), then the
+robot's option cards and fitted upgrades as card faces (`ui/kitart.js` draws
+the kind of thing each is: weapon, armour, drive, program, chassis, power)
+with a themed hover box giving the printed text, the German where there is
+one, charges, and the card's switch. A human's mat is live at every moment,
+the floor moving or not, and answers the routine questions so the player is
+not asked at every phase: a Shutdown button under the registers (Power down
+under the classic rules, waiting for a point of damage as the book requires)
+declares the shutdown for this turn and is otherwise taken as no; a damage
+button says whether the option exchange pays a card or takes the point; each
+card with a question has an on/off switch, off answering its first option
+without asking and on answering yes to a two-way question, with anything
+richer (which register, which way) still put to the player; a temporary
+upgrade switched on is used the first time it is offered. The cards on a mat
+can be dragged into an order, and the first card is the one paid for damage
+or lost to a wreck or the hand limit. The preferences live in the screen and
+localStorage, never in the state: `autoAnswer` is consulted by the loop
+before a human sees a request, and answers through the same door a click
+does. A robot already down is still asked whether to stay down.
+
 M1, the classic engine headless, is built: draft, deal, programming, the five
 registers in the printed order, damage and locking, destruction and return,
 power down as three moments, repair at cleanup, checkpoints and the win, the

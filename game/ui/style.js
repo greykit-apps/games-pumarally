@@ -8,7 +8,7 @@ const T = TOKENS;
 export const CSS = `
 :root{--bg:${T.bg};--panel:${T.panel};--panel2:${T.panelAlt};--line:${T.border};--lit:${T.borderLit};
   --text:${T.text};--ink:${T.ink};--dim:${T.dim};--accent:${T.accent};--warn:${T.warn};--danger:${T.danger};
-  --good:${T.good};--violet:${T.violet};--steel:${T.steel}}
+  --good:${T.good};--violet:${T.violet};--steel:${T.steel};--blue:#4c8dff}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
 button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:3px;
@@ -73,11 +73,9 @@ h2:first-child{margin-top:0}
 .card.k-haywire .cart{width:34px;height:34px}
 .card .hw{font-size:8px;line-height:1.15;color:var(--text);text-align:center;padding:0 4px;max-height:44px;overflow:hidden}
 .card.k-haywire.back{background:repeating-linear-gradient(-45deg,#150c26 0 6px,#1d1236 6px 12px);opacity:.85}
-.chip.up{border-color:var(--warn);color:var(--warn)}
 .hand .pair{font-size:10px;padding:2px 6px;min-height:0;align-self:center;border-color:var(--warn);color:var(--warn)}
 .slot .crab{position:absolute;bottom:2px;font-size:9px;color:var(--warn)}
 .card[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.chip.inert{opacity:.6;border-style:dashed}
 button[data-ruleset]{padding:8px 14px}
 .card.k{position:absolute;top:2px;right:4px}
 .card .hot{position:absolute;top:2px;right:5px;font-size:9px;color:var(--dim)}
@@ -86,16 +84,52 @@ button[data-ruleset]{padding:8px 14px}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ask{border:1px solid var(--accent);border-radius:4px;padding:10px;background:#0a1620}
 .ask p{margin:0 0 8px}
-.robots{display:flex;flex-direction:column;gap:4px}
-.robot{display:grid;grid-template-columns:14px 1fr auto auto;gap:8px;align-items:center;font-size:12px}
-.robot .sw{width:12px;height:12px;border-radius:2px}
+.robots{display:flex;flex-direction:column}
+.robot{display:flex;flex-direction:column;gap:5px;font-size:12px;padding:7px 0;border-top:1px solid var(--line)}
+.robot:first-child{border-top:0;padding-top:0}
+.robot .head{display:flex;align-items:center;gap:8px}
+.robot .head .name{color:var(--text)}
+.robot .sw{width:12px;height:12px;border-radius:2px;flex:none}
 .robot.dead{opacity:.5}
-.robot .pips{display:inline-flex;gap:2px}
-.robot .pip{width:6px;height:10px;background:var(--line);border-radius:1px}
-.robot .pip.on{background:var(--danger)}
 .robot .tag{font-size:10px;color:var(--dim)}
-.chips{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px 22px}
-.chip{font-size:10px;border:1px solid var(--violet);color:var(--violet);border-radius:3px;padding:1px 6px;cursor:help}
+.bars{display:flex;flex-wrap:wrap;gap:4px 12px;margin-left:20px}
+.bar{display:inline-flex;gap:2px;align-items:center;cursor:default}
+.bar i{display:block;width:6px;height:10px;border-radius:1px;background:var(--line)}
+.bar b{font-size:9px;color:var(--dim);font-weight:400;margin-left:2px}
+.bar.lives i.on{background:var(--blue)}
+.bar.flags i.on{background:var(--warn)}
+.bar.energy i.on{background:var(--good)}
+.bar.damage i.on{background:var(--danger)}
+.kit{display:flex;flex-wrap:wrap;gap:6px;margin-left:20px}
+.ucard{--k:var(--violet);position:relative;width:64px;height:86px;border:1px solid var(--lit);border-top:3px solid var(--k);border-radius:5px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));display:flex;flex-direction:column;align-items:center;padding:5px 3px 3px;gap:2px;color:var(--k);cursor:grab;user-select:none}
+.ucard[draggable=false]{cursor:default}
+.ucard.up{--k:var(--warn)}
+.ucard.temp{--k:var(--accent)}
+.ucard.inert{opacity:.6;border-style:dashed}
+.ucard.over{outline:2px solid var(--accent);outline-offset:1px}
+.ucard .kart{width:30px;height:30px;display:block;flex:none}
+.ucard .kart .kline{stroke:currentColor;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.ucard .kart .kfill{fill:currentColor}
+.ucard .kart .kback{fill:var(--panel)}
+.ucard .n{font-size:8.5px;line-height:1.15;text-align:center;color:var(--text);max-height:21px;overflow:hidden}
+.ucard .m{font-size:8px;color:var(--dim);text-align:center;line-height:1.1;margin-top:auto}
+.ucard .tog{position:absolute;top:-3px;right:-1px;min-height:0;padding:0 5px;font-size:8px;line-height:15px;border-radius:0 4px 0 4px;border-color:var(--line);color:var(--dim);background:var(--panel)}
+.ucard .tog[aria-pressed=true]{color:var(--good);border-color:var(--good)}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;margin-left:20px}
+.ask .ctl{margin:8px 0 0}
+.ctl button{font-size:11px;min-height:26px;padding:2px 8px}
+.ctl button[aria-pressed=true]{border-color:var(--warn);color:var(--warn)}
+.shop{margin-left:0}
+.shopcard{display:flex;flex-direction:column;align-items:center;gap:4px}
+.shopcard button{font-size:10px;min-height:24px;padding:2px 8px}
+.tip{position:fixed;z-index:20;width:280px;pointer-events:none;border:1px solid var(--accent);border-radius:5px;background:#0a1620;color:var(--text);
+  padding:8px 10px;font-size:11px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.65)}
+.tip b{color:var(--accent);font-size:12px}
+.tip .tt{display:block;font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.tip p{margin:5px 0 0}
+.tip .de{color:var(--dim);font-style:italic}
+.tip .st{color:var(--warn)}
 .log{font-size:11px;color:var(--dim);max-height:180px;overflow-y:auto;border-top:1px solid var(--line);padding-top:6px}
 .log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log .reg{color:var(--accent)}
