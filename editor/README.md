@@ -479,6 +479,14 @@ these are the rules that came out of it:
 - **The course workshop autosaves and undoes.** Plain `#course` reopens what
   was being built; Ctrl-Z steps back; the view refits when the first board is
   laid instead of showing one corner at 530%.
+- **Boards are dragged.** Off the rail onto the floor, or from where they lie
+  to where they should be, as a ghost snapped to the squares and drawn red
+  where it would overlap. Edges need not line up with another board's,
+  because Master Builder's 6x6 and 6x2 boards do not; the validator still
+  says when boards leave a gap nothing can drive across. A click on a rail
+  board still puts it in hand, riding the pointer until the next click. The
+  selected board carries its own turn and take-off buttons; Q and E turn a
+  board in hand or on the floor.
 - **The corner rule is the book's.** A flag in a corner formed by two or more
   walls warns (`course.flagWallCorner`), anywhere on the floor; the geometric
   corner of a board is still refused. A course laying an `unverified` board
