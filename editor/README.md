@@ -409,7 +409,6 @@ node editor/tools/check-lib.js              # the format library
 node editor/tools/check-app.js              # the tool model and the course model
 node editor/tools/validator-selftest.js     # every code proven able to fail, plus coverage
 node editor/tools/make-fixtures.js --check  # the fixtures carry every element and device
-node editor/tools/convert-boards.js --check # the JSON still means what the old data meant
 node editor/tools/check-format.js           # validate, round-trip, and the ASCII picture
 node editor/tools/render-snapshot.js --check
 node editor/tools/check-wiring.js           # no control the inspector draws is dead
@@ -427,9 +426,10 @@ so that most boards play under either ruleset. `swap-sites.js` applies it and
 marking, so each one the tool adds is **authored, not transcribed**, and the
 square's site note says so in a fixed form — `authored battery -- the swap
 rule …` — that `authoredOf()` in `rulesets/sites.js` reads back.
-`convert-boards.js --check` strips exactly those markings before comparing the
-JSON with the old data, so the proof that the printed content still means what
-it meant survives, and an authored marking that forgot to say so fails it.
+While the old board file existed, its conversion check stripped exactly those
+markings before comparing, so the proof that the printed content still meant
+what it meant survived the authoring; the notes remain the record of which
+markings are not printed.
 Board design is expected to revisit these square by square; the notes are how
 they will be found. Flag locations are **not** authored by any rule and no
 board marks one yet.
@@ -486,10 +486,9 @@ these are the rules that came out of it:
 - **Site notes round-trip**, and a `has` that is not a list is reported rather
   than crashing the first edit.
 
-`convert-boards.js` **has a lifespan.** It runs for as long as
-`pumarally-boards.js` is in the tree, because it is the proof that the
-checked-in JSON still means what the old data meant, and it goes when that file
-does. `check-format.js` carries on alone.
+`convert-boards.js` is gone, with the old board file it converted from: the
+proof that the JSON meant what the old data meant was kept green until the
+old data was deleted, and the JSON is the source now.
 
 `--emit <dir>` on `render-snapshot.js` dumps every board in both modes as SVG,
 for when a snapshot changes and you need to see what changed.

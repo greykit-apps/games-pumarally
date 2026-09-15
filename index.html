@@ -4,32 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>PumaRally</title>
-<meta name="description" content="A faithful port of the RoboRally rules in original pixel art. Program five registers, survive the factory floor, touch the flags in order.">
+<meta name="description" content="Program five registers, hand control to the factory floor, and hope you guessed right. A faithful port of the RoboRally rules in original vector art.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#05070f">
 <meta name="referrer" content="no-referrer">
-<link rel="icon" type="image/svg+xml" href="icon.svg?v=ffbf816c9f">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <meta property="og:type" content="website">
 <meta property="og:title" content="PumaRally">
-<meta property="og:description" content="A faithful port of the RoboRally rules in original pixel art.">
+<meta property="og:description" content="A faithful port of the RoboRally rules in original vector art.">
 <meta property="og:url" content="https://greykit.com/games/pumarally/">
-<!-- og:image and the Twitter card land with og.png, once there is a finished
-     game to screenshot. Referencing an image that is not in the repo 404s
-     quietly in production while every pipeline stays green, so the reference
-     waits for the asset rather than the other way round.
-     tools/check-assets.js enforces that. -->
 <style>
   html { color-scheme: dark; }
-  body {
-    margin: 0; min-height: 100dvh;
-    background: #05070f; color: #8b8fa8;
-    font: 14px/1.6 ui-monospace, Menlo, Consolas, monospace;
-  }
+  body { margin: 0; min-height: 100dvh; background: #05070f; color: #8b8fa8;
+         font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  .boot { padding: 24px; }
 </style>
 </head>
 <body>
-  <div data-pumarally></div>
-  <script src="pumarally-boards.js?v=0ca195f081"></script>
-  <script src="pumarally.js?v=f80171c7a3"></script>
+  <div data-pumarally-game><p class="boot">Starting the factory&hellip;</p></div>
+  <script type="module" src="game/ui/main.js"></script>
 </body>
 </html>

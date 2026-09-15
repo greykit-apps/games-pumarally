@@ -23,35 +23,33 @@ validate:
   stage: validate
   image: node:20-alpine
   script:
-    - node --check pumarally.js
-    - node --check pumarally-boards.js
     - node tools/check-no-photos.js
-    - node tools/check-boards.js
-    - node tools/validator-selftest.js
-    - node tools/check-rules.js 200
     - node tools/check-assets.js
-    - node tools/make-icon.js --check
-    - node tools/stamp-assets.js --check
     - test -s index.html
-    - grep -q 'data-pumarally' index.html
+    - grep -q 'data-pumarally-game' index.html
 
     # The board workshop and the PRBoard v1 format under editor/. Ordered so
     # the thing that would make the others meaningless runs first: the format
     # library, then the validator's own self-test, then the checks that lean on
-    # both. convert-boards.js --check has a lifespan -- it is the proof that the
-    # checked-in JSON still means what pumarally-boards.js means, and it goes
-    # when that file does.
+    # both.
     - node editor/tools/check-imports.js
     - node editor/tools/check-lib.js
     - node editor/tools/check-app.js
     - node editor/tools/validator-selftest.js
     - node editor/tools/make-fixtures.js --check
-    - node editor/tools/convert-boards.js --check
     - node editor/tools/check-format.js
     - node editor/tools/render-snapshot.js --check
     - node editor/tools/check-wiring.js
     - node editor/tools/build-index.js --check
     - node editor/tools/check-editor-assets.js
+
+    # The game under game/, built on the workshop's data and library. Its
+    # tables are lifted from the old game and its scenarios are the old
+    # suite's names; the run prints how many are still pending. sim.js seats
+    # bots and randomly-answered humans on every course and fails if any game
+    # crashes, a conservation law breaks, or no game is ever won.
+    - node game/tools/check-all.js
+    - node game/tools/sim.js 20
 
 deploy:
   stage: deploy

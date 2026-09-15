@@ -1,0 +1,57 @@
+/* Lifted from the old game verbatim; see game/README.md. A module rather than JSON so the browser and Node load it the same way. */
+export default {
+  "format": "PRCards",
+  "version": 1,
+  "kind": "liveries",
+  "maxSeats": 8,
+  "liveries": [
+    {
+      "id": "amber",
+      "name": "Hazard",
+      "a": "#ffb000",
+      "d": "#8a5c00"
+    },
+    {
+      "id": "cyan",
+      "name": "Coolant",
+      "a": "#54f2ff",
+      "d": "#1d6a7a"
+    },
+    {
+      "id": "red",
+      "name": "Rivet",
+      "a": "#ff4d4d",
+      "d": "#8a1f1f"
+    },
+    {
+      "id": "green",
+      "name": "Verdigris",
+      "a": "#4ade6a",
+      "d": "#1c6b31"
+    },
+    {
+      "id": "violet",
+      "name": "Solenoid",
+      "a": "#b47dff",
+      "d": "#54308f"
+    },
+    {
+      "id": "orange",
+      "name": "Ratchet",
+      "a": "#ff8a3d",
+      "d": "#8a3f10"
+    },
+    {
+      "id": "pink",
+      "name": "Gasket",
+      "a": "#ff6fc4",
+      "d": "#8a2f63"
+    },
+    {
+      "id": "white",
+      "name": "Chalkline",
+      "a": "#dfe6ff",
+      "d": "#6b7290"
+    }
+  ]
+};
