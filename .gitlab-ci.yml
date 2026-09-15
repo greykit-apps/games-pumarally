@@ -50,6 +50,7 @@ validate:
     - node editor/tools/check-format.js
     - node editor/tools/render-snapshot.js --check
     - node editor/tools/check-wiring.js
+    - node editor/tools/build-index.js --check
     - node editor/tools/check-editor-assets.js
 
 deploy:

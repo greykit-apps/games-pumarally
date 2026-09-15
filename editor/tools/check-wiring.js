@@ -134,7 +134,9 @@ for (const attr of [...drawnAttrs].sort()) {
 {
   const src = readFileSync(join(APP, "coursemode.js"), "utf8");
   const drawn = new Set();
-  for (const m of src.matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawn.add("data-" + m[1]);
+  /* `=` optional: data-flagmode, data-shipped and data-close are valueless and
+   * were invisible to a regex that demanded one */
+  for (const m of src.matchAll(/\bdata-([a-z][a-z0-9-]*)(?=[=\s>])/g)) drawn.add("data-" + m[1]);
   if (drawn.size < 10) {
     problems.push("only " + drawn.size + " control attributes found in coursemode.js; " +
       "this half of the check is passing vacuously.");

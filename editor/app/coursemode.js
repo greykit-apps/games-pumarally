@@ -46,6 +46,8 @@ const SHELL = `
     <span class="st-msg"></span>
     <span class="grow"></span>
     <span class="sep"></span>
+    <button data-act="undo" title="Ctrl-Z">Undo</button>
+    <span class="sep"></span>
     <button data-act="zoomout">&minus;</button>
     <span class="st-zoom"></span>
     <button data-act="zoomin">+</button>
@@ -54,6 +56,13 @@ const SHELL = `
 </div>
 <dialog class="modal"></dialog>
 `;
+
+/* The autosave slot and the undo depth. Board mode autosaves every edit; the
+ * course workshop saved only on the button, and every route out of it -- Open,
+ * the shipped picker, a hash change -- reloads the page, so a course being
+ * built was gone unless it had been saved by name. */
+const WORKING = "__working";
+const UNDO_DEPTH = 60;
 
 const EXTRA_CSS = `
 .overlay{position:absolute;left:0;top:0;pointer-events:none}
@@ -131,6 +140,30 @@ export async function mountCourse(root, wanted) {
       const c = courseFromDocument(doc, d, wanted);
       if (c) st.course = c;
     } catch (e) { /* a new course then */ }
+  } else if (!wanted) {
+    /* plain #course: whatever was being built last, if it still reads */
+    const saved = readCourses()[WORKING];
+    if (saved && saved.doc) {
+      const d = sink();
+      const c = courseFromDocument(saved.doc, d);
+      if (c && !d.items.some(x => x.severity === "error")) st.course = c;
+    }
+  }
+
+  /* --- undo ---------------------------------------------------------------- */
+  const history = [];
+  function snap() {
+    history.push(JSON.stringify(toDocument(st.course)));
+    if (history.length > UNDO_DEPTH) history.shift();
+  }
+  function undo() {
+    if (!history.length) { say("Nothing to undo.", ""); return; }
+    const d = sink();
+    const c = courseFromDocument(JSON.parse(history.pop()), d, st.course.id);
+    if (!c) return;
+    st.course = c; st.sel = -1; st.hand = null;
+    refresh();
+    say("Undone.", "");
   }
 
   function say(text, kind) {
@@ -149,6 +182,7 @@ export async function mountCourse(root, wanted) {
     const parsed = courseFromDocument(JSON.parse(JSON.stringify(doc)), d, st.course.id);
     if (parsed) validateCourse(parsed, library, d);
     st.diagnostics = d.items;
+    saveCourse(WORKING, doc);
 
     draw(view, st);
     drawOverlay();
@@ -156,6 +190,7 @@ export async function mountCourse(root, wanted) {
     renderInspector();
     renderDiagnostics(diagEl, st);
     zoomEl.textContent = Math.round(st.zoom * 100) + "%";
+    root.querySelector('[data-act="undo"]').disabled = !history.length;
     if (!keepView) fit(view, st);
   }
 
@@ -213,7 +248,7 @@ export async function mountCourse(root, wanted) {
     return '<button class="pb" data-place="' + esc(row.id) + '" data-role="' + (role || "board") +
       '" aria-pressed="' + (st.hand === row.id) + '" title="' + esc(row.name) + " " + b.w + "x" + b.h + '">' +
       boardSVG(rotated, { mode: "art", background: true }) +
-      "<span>" + esc(row.name) + "</span></button>";
+      "<span>" + esc(row.name) + (b.unverified ? " &middot; unverified" : "") + "</span></button>";
   }
 
   function renderInspector() {
@@ -295,7 +330,7 @@ export async function mountCourse(root, wanted) {
     html += '<div class="row"><button data-act="clear">Start again</button></div>';
 
     const mine = readCourses();
-    const ids = Object.keys(mine).sort();
+    const ids = Object.keys(mine).filter(k => k.charAt(0) !== "_").sort();
     html += "<h3>Library</h3>";
     if (!ids.length) html += '<p class="none">Nothing saved yet.</p>';
     else {
@@ -331,13 +366,17 @@ export async function mountCourse(root, wanted) {
 
     if (st.hand) {
       const role = st.handRole || "board";
-      const snap = nearestSnap(st.course, library, st.hand, st.handRot, abs.c, abs.r);
-      const at = snap ? snap.at : [abs.c, abs.r];
+      const target = nearestSnap(st.course, library, st.hand, st.handRot, abs.c, abs.r);
+      const at = target ? target.at : [abs.c, abs.r];
+      snap();
       const i = place(st.course, library, st.hand, st.handRot, at, role);
-      if (i < 0) { say("That would sit on top of a board already down.", "bad"); return; }
+      if (i < 0) { history.pop(); say("That would sit on top of a board already down.", "bad"); return; }
       st.sel = i;
       st.hand = null;
-      refresh();
+      /* the first board decides the scale: an empty course is a 1x1 grid
+       * fitted at maximum zoom, and keeping that view put one corner of a
+       * 12x12 on screen at 530% */
+      refresh({ keepView: st.course.stamps.length > 1 });
       say(library.get(st.course.stamps[i].board).name + " laid at " + at[0] + "," + at[1] + ".", "");
       return;
     }
@@ -345,17 +384,18 @@ export async function mountCourse(root, wanted) {
     if (st.flagMode) {
       if (ev.button === 2) {
         const i = flagAt(st.course, h.c, h.r);
-        if (i >= 0) { removeFlag(st.course, i); refresh(); say("Flag " + (i + 1) + " taken off; the rest moved up.", ""); }
+        if (i >= 0) { snap(); removeFlag(st.course, i); refresh(); say("Flag " + (i + 1) + " taken off; the rest moved up.", ""); }
         return;
       }
       if (!flagWouldFit(st.board, h.c, h.r)) {
         say("A flag stands on plain floor. Nothing else can be reliably stood on.", "bad");
         return;
       }
+      snap();
       if (addFlag(st.course, h.c, h.r)) {
         refresh();
         say("Flag " + st.course.flags.length + " at (" + h.c + "," + h.r + ").", "");
-      } else say("There is already a flag there.", "bad");
+      } else { history.pop(); say("There is already a flag there.", "bad"); }
       return;
     }
 
@@ -409,6 +449,7 @@ export async function mountCourse(root, wanted) {
       const opts = d.suggest === "each" ? { perBoard: true } : { count: +d.suggest };
       const offer = suggestFlags(st.course, library, { ...opts, asm });
       if (!offer.length) { say("Nothing here is marked as a flag location.", "bad"); return; }
+      snap();
       st.course.flags = offer;
       refresh();
       /* One per board means one from each board that MARKS any, so the count
@@ -427,10 +468,10 @@ export async function mountCourse(root, wanted) {
         " Move or replace any of them.", "ok");
       return;
     }
-    if (d.seats !== undefined) { st.course.maxPlayers = +d.seats; refresh(); return; }
-    if (d.flagup !== undefined) { moveFlag(st.course, +d.flagup, +d.flagup - 1); refresh(); return; }
-    if (d.flagdown !== undefined) { moveFlag(st.course, +d.flagdown, +d.flagdown + 1); refresh(); return; }
-    if (d.flagoff !== undefined) { removeFlag(st.course, +d.flagoff); refresh(); return; }
+    if (d.seats !== undefined) { snap(); st.course.maxPlayers = +d.seats; refresh(); return; }
+    if (d.flagup !== undefined) { snap(); moveFlag(st.course, +d.flagup, +d.flagup - 1); refresh(); return; }
+    if (d.flagdown !== undefined) { snap(); moveFlag(st.course, +d.flagdown, +d.flagdown + 1); refresh(); return; }
+    if (d.flagoff !== undefined) { snap(); removeFlag(st.course, +d.flagoff); refresh(); return; }
     if (d.open !== undefined) { location.hash = "#course=" + d.open; location.reload(); return; }
     if (d.forget !== undefined) {
       removeCourse(d.forget);
@@ -442,8 +483,8 @@ export async function mountCourse(root, wanted) {
   });
 
   root.addEventListener("change", ev => {
-    const sel = ev.target.closest("[data-shipped]");
-    if (sel && sel.value) { location.hash = "#course=" + sel.value; location.reload(); }
+    const sel = ev.target;
+    if (sel.dataset.shipped !== undefined && sel.value) { location.hash = "#course=" + sel.value; location.reload(); }
   });
 
   root.addEventListener("input", ev => {
@@ -457,6 +498,8 @@ export async function mountCourse(root, wanted) {
   window.addEventListener("keydown", ev => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;
     const k = ev.key.toLowerCase();
+    if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); undo(); return; }
+    if (ev.ctrlKey || ev.metaKey) return;
     if (k === "f") { st.flagMode = !st.flagMode; st.hand = null; refresh(); return; }
     if (k === "escape") { st.hand = null; st.sel = -1; st.flagMode = false; refresh(); return; }
     if (k === "q" && st.sel >= 0) { act("turn-left"); return; }
@@ -483,11 +526,12 @@ export async function mountCourse(root, wanted) {
       case "fit": fit(view, st); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;
       case "zoomin": zoomAbout(view, st, 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;
       case "zoomout": zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; break;
-      case "turn-left": if (turn(st.course, library, st.sel, -1)) refresh(); else say("Turning it there would run into another board.", "bad"); break;
-      case "turn-right": if (turn(st.course, library, st.sel, 1)) refresh(); else say("Turning it there would run into another board.", "bad"); break;
-      case "drop": remove(st.course, library, st.sel); st.sel = -1; refresh(); say("Board taken off.", ""); break;
-      case "clear": st.course = newCourse(st.course.id); st.sel = -1; st.hand = null; refresh({ keepView: false }); break;
-      case "export": showText("Course JSON", JSON.stringify(toDocument(st.course), null, 2) + "\n"); break;
+      case "undo": undo(); break;
+      case "turn-left": snap(); if (turn(st.course, library, st.sel, -1)) refresh(); else { history.pop(); say("Turning it there would run into another board.", "bad"); } break;
+      case "turn-right": snap(); if (turn(st.course, library, st.sel, 1)) refresh(); else { history.pop(); say("Turning it there would run into another board.", "bad"); } break;
+      case "drop": snap(); remove(st.course, library, st.sel); st.sel = -1; refresh(); say("Board taken off.", ""); break;
+      case "clear": snap(); st.course = newCourse(st.course.id); st.sel = -1; st.hand = null; refresh({ keepView: false }); break;
+      case "export": showText("Course JSON", JSON.stringify(toDocument(st.course), null, 2) + "\n", st.course.id + ".json"); break;
       case "save": {
         /* A COURSE THAT WILL NOT BUILD IS NEVER SAVED. The library is read back
          * without a validator in front of it in places, and a stored course
@@ -505,20 +549,34 @@ export async function mountCourse(root, wanted) {
     }
   }
 
-  function showText(title, text) {
+  function showText(title, text, filename) {
     const modal = root.querySelector(".modal");
     modal.innerHTML = "<h3>" + esc(title) + "</h3>" +
       '<textarea readonly style="width:min(80vw,760px);height:60vh;background:#11141d;color:#c8d4ea;' +
       'border:1px solid #1e2331;border-radius:3px;font:12px/1.45 ui-monospace,monospace;padding:8px">' +
       esc(text) + "</textarea>" +
-      '<div class="row" style="margin-top:8px"><button data-close>Close</button></div>';
+      '<div class="row" style="margin-top:8px">' +
+      (filename ? '<button data-download>Download ' + esc(filename) + "</button>" : "") +
+      '<button data-close>Close</button></div>';
     modal.showModal();
-    modal.onclick = ev => { if (ev.target.closest("button")) modal.close(); };
+    modal.onclick = ev => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      /* a file is what data/courses/ takes; drop it in and run build-index.js */
+      if (b.dataset.download !== undefined) {
+        const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return;
+      }
+      if (b.dataset.close !== undefined) modal.close();
+    };
   }
 
   window.addEventListener("resize", () => layout(view, st));
   refresh({ keepView: false });
   say("Pick a board, click where it goes. F for flags, Q E turn, ` swaps the drawing.", "");
-  window.__EDC = { st, view, refresh, act, library };
+  window.__EDC = { st, view, refresh, act, library, undo };
   return window.__EDC;
 }

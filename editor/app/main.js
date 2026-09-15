@@ -9,11 +9,12 @@ import { injectCSS } from "./style.js";
 import { newState, mark, keep, undo, redo, revalidate, saveLocal, readAll } from "./state.js";
 import {
   apply, erase, toolByKey, toolsFor, blankToolState, STEER_KEYS,
-  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe, newStroke
+  setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe, newStroke,
+  takeOffDoor, cellsBetween
 } from "./tools.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
 import { renderRail, renderInspector, renderDiagnostics } from "./panels.js";
-import { blankBoard, cloneBoard, boardFromDocument, levelAt, setLevel } from "../lib/board.js";
+import { blankBoard, cloneBoard, boardFromDocument, levelAt, setLevel, inBoard } from "../lib/board.js";
 import { boardJSON } from "../lib/canon.js";
 import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
@@ -52,7 +53,8 @@ const SHELL = `
       <button data-act="picture">Picture</button>
       <button data-act="import">Import&hellip;</button>
     </div>
-    <div class="row"><button data-act="new">New board&hellip;</button></div>
+    <div class="row"><button data-act="new">New board&hellip;</button>
+      <button data-act="recover" style="display:none" title="The board that was open before the last New, Import or shipped-board load">Recover previous</button></div>
   </aside>
   <footer class="status">
     <span class="st-msg"></span>
@@ -109,6 +111,7 @@ export function mount(root) {
     zoomEl.textContent = Math.round(st.zoom * 100) + "%";
     root.querySelector('[data-act="undo"]').disabled = !st.undo.length;
     root.querySelector('[data-act="redo"]').disabled = !st.redo.length;
+    root.querySelector('[data-act="recover"]').style.display = readAll().__previous ? "" : "none";
     autosave();
   }
 
@@ -148,9 +151,15 @@ export function mount(root) {
     if (!tool || tool.kind === "pan") return;
     const token = mark(st);
     const opts = { face: h.face === null ? undefined : h.face, erase: isErase };
+    /* the wall tool latches: the first edge of a stroke decides whether the
+     * stroke lays or clears, so retracing a run never inverts it */
+    if (painting && tool.kind === "wall" && painting.wallSet) opts.set = painting.wallSet;
     const res = isErase ? erase(st.board, st.hand, h.c, h.r, opts)
                         : apply(st.board, st.hand, h.c, h.r, opts);
     if (!res.ok) { say(res.why, "bad"); showGhost(view, st, h, true); return; }
+    if (painting && tool.kind === "wall" && !painting.wallSet && res.changed) {
+      painting.wallSet = /^No wall/.test(res.note || "") ? "none" : "wall";
+    }
     if (keep(st, token)) {
       say(res.note || "", "");
       refresh();
@@ -168,7 +177,7 @@ export function mount(root) {
       return;
     }
     const h = hit(view, st, ev);
-    painting = { erase: ev.button === 2, stroke: newStroke(isEdgeTool()) };
+    painting = { erase: ev.button === 2, stroke: newStroke(isEdgeTool()), last: h, wallSet: null };
     if (painting.stroke.wants(h)) edit(h, painting.erase);
   });
 
@@ -186,14 +195,36 @@ export function mount(root) {
     st.edgeTool = isEdgeTool();
     showGhost(view, st, h, false);
     if (changed) {
-      renderInspector(mainEl, st, hover, false);
+      /* not while somebody is typing in it: replacing the panel's HTML takes
+       * the caret with it, and the pointer drifting over a new square is not a
+       * reason to lose a half-typed name */
+      if (!mainEl.contains(document.activeElement)) renderInspector(mainEl, st, hover, false);
       if (h && h.inside) say("(" + h.c + "," + h.r + ")" +
         (h.face !== null && st.edgeTool ? " " + dirLetter(h.face) + " edge" : ""), "");
     }
     /* Once per square per stroke. A drag still lays a run, but a tool that
      * TOGGLES -- which is all of the site tools -- is not flipped back and
-     * forth by the pointer events a held button emits without moving. */
-    if (painting && painting.stroke.wants(h)) edit(h, painting.erase);
+     * forth by the pointer events a held button emits without moving.
+     *
+     * EVERY SQUARE THE POINTER CROSSED, not only the ones it was sampled in. A
+     * fast drag reports squares with gaps between them, and a belt run with a
+     * gap in it is a rules error; so the squares between the last sample and
+     * this one are painted first, in order, with the edge carried along only
+     * when both samples agree on it. */
+    if (painting && h) {
+      const last = painting.last;
+      if (last && (Math.abs(h.c - last.c) > 1 || Math.abs(h.r - last.r) > 1 ||
+                   (h.c !== last.c && h.r !== last.r))) {
+        const face = last.face === h.face ? h.face : null;
+        for (const [c, r] of cellsBetween(last.c, last.r, h.c, h.r)) {
+          if (c === h.c && r === h.r) break;
+          const mid = { c, r, face, inside: inBoard(st.board, c, r) };
+          if (painting.stroke.wants(mid)) edit(mid, painting.erase);
+        }
+      }
+      painting.last = h;
+      if (painting.stroke.wants(h)) edit(h, painting.erase);
+    }
   });
 
   const endPointer = () => { painting = null; panning = null; };
@@ -268,6 +299,11 @@ export function mount(root) {
       st.photo.solo = false; layout(view, st);
     }
   });
+  /* Cmd-Tab away while holding Ctrl never sends the keyup; the board would
+   * stay hidden until the next Ctrl press */
+  window.addEventListener("blur", () => {
+    if (st.photo && st.photo.solo) { st.photo.solo = false; layout(view, st); }
+  });
 
   /* --- clicks in the panels --------------------------------------------------- */
 
@@ -330,6 +366,7 @@ export function mount(root) {
       }
       if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
       if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
+      if (d.dooroff !== undefined) { change(() => takeOff("door", +d.dooroff)); return; }
 
       /* A placed device's rows, all on one attribute: slot, field and value.
        * Not a style choice -- `data-wd0-face` arrives here as `dataset.wd0Face`
@@ -337,7 +374,7 @@ export function mount(root) {
        * handler matching the dashes never fires and the click falls through in
        * silence. */
       if (d.devrow !== undefined) {
-        const m2 = /^(wd|cd)(\d+):([a-z]+):(-?\d+)$/.exec(d.devrow);
+        const m2 = /^(wd|cd|dr)(\d+):([a-z]+):(-?\d+)$/.exec(d.devrow);
         if (m2) { change(() => devRow(m2[1], +m2[2], m2[3], +m2[4])); return; }
       }
 
@@ -365,7 +402,9 @@ export function mount(root) {
   function devRow(layer, i, key, value) {
     const d = selected();
     if (!d) return { ok: false, why: "Nothing selected." };
-    const dev = layer === "wd" ? d.wallDevices[i] : d.ceiling[i];
+    const dev = layer === "wd" ? d.wallDevices[i]
+      : layer === "dr" ? (d.doorDevices[i] && d.doorDevices[i].dev)
+      : d.ceiling[i];
     if (!dev) return { ok: false, why: "Nothing there." };
     if (key === "face") {
       if (dev.face === +value) return { ok: true, changed: false };
@@ -430,6 +469,11 @@ export function mount(root) {
   function takeOff(layer, i) {
     const d = selected();
     if (!d) return { ok: false, why: "Nothing selected." };
+    if (layer === "door") {
+      const door = d.doorDevices[i];
+      if (!door) return { ok: false, why: "Nothing there." };
+      return takeOffDoor(st.board, door.dev, "Swing door taken off the " + dirLetter(door.dir) + " side of (" + st.sel.c + "," + st.sel.r + ").");
+    }
     const dev = layer === "wall" ? d.wallDevices[i] : d.ceiling[i];
     if (!dev) return { ok: false, why: "Nothing there." };
     const list = layer === "wall" ? st.board.wallDevices : st.board.ceilingDevices;
@@ -500,10 +544,11 @@ export function mount(root) {
       case "zoomout": zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); break;
       case "photo": fileIn.click(); break;
       case "photo-off": dropPhoto(); break;
-      case "export": showText("Board JSON", boardJSON(st.board)); break;
+      case "export": showText("Board JSON", boardJSON(st.board), st.board.id + ".json"); break;
       case "picture": showText("The board as a picture", toPicture(st.board)); break;
       case "import": jsonIn.click(); break;
       case "new": newBoard(); break;
+      case "recover": recoverPrevious(); break;
       case "deselect": st.sel = null; refresh({ board: false }); break;
     }
   }
@@ -536,11 +581,18 @@ export function mount(root) {
     const f = jsonIn.files && jsonIn.files[0];
     if (!f) return;
     f.text().then(text => {
-      let board = null, why = "";
+      let board = null, why = "", problems = [];
       try {
         const doc = JSON.parse(text);
         const d = sink();
         board = boardFromDocument(doc, d);
+        /* THE PARSER REPAIRS AS IT READS -- a short row is padded with floor, a
+         * lattice of the wrong height is left blank, an unknown key is dropped
+         * -- and reports each repair. Reading the report only when the board
+         * came back null meant every one of those loaded as a plausible board
+         * with the damage hidden, and was then autosaved. A document with
+         * errors in it is refused, and the errors are the message. */
+        problems = d.items.filter(x => x.severity === "error");
         if (!board) why = d.items.map(x => x.message).join(" ");
       } catch (e) {
         /* a pasted ASCII picture is still an accepted import */
@@ -548,21 +600,27 @@ export function mount(root) {
         catch (e2) { why = e2.message; }
       }
       if (!board) { say("Could not read that: " + why, "bad"); return; }
-      st.board = board;
-      st.undo.length = 0; st.redo.length = 0;
-      refresh();
+      if (problems.length) {
+        showText("That file has " + problems.length + " problem" + (problems.length === 1 ? "" : "s") +
+          ", so it was not loaded",
+          problems.map(x => (x.pointer ? x.pointer + ": " : "") + x.message).join("\n"));
+        say("Not loaded: " + problems[0].message, "bad");
+        return;
+      }
+      replaceBoard(board);
       fit(view, st);
       say("Loaded " + board.name + ".", "ok");
     });
     jsonIn.value = "";
   });
 
-  function showText(title, text) {
+  function showText(title, text, filename) {
     modal.innerHTML = "<h3>" + esc(title) + "</h3>" +
       '<textarea readonly style="width:min(80vw,760px);height:60vh;background:#11141d;color:#c8d4ea;' +
       'border:1px solid #1e2331;border-radius:3px;font:12px/1.45 ui-monospace,monospace;padding:8px">' +
       esc(text) + "</textarea>" +
       '<div class="row" style="margin-top:8px"><button data-act="copy">Copy</button>' +
+      (filename ? '<button data-act="download">Download ' + esc(filename) + "</button>" : "") +
       '<button data-act="close">Close</button></div>';
     modal.showModal();
     modal.onclick = ev => {
@@ -572,20 +630,76 @@ export function mount(root) {
         modal.querySelector("textarea").select();
         try { document.execCommand("copy"); } catch (e) { /* the button is a convenience */ }
       }
+      /* A FILE, because that is what data/ takes: drop it in data/boards/ and
+       * run build-index.js, and the board is shipped. */
+      if (b.dataset.act === "download") {
+        const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return;
+      }
       modal.close();
     };
   }
 
-  function newBoard() {
-    const w = +(prompt("How many squares across?", "12") || 0);
-    const h = +(prompt("How many squares down?", "12") || 0);
-    if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) {
-      say("A board needs whole positive dimensions.", "bad"); return;
-    }
-    st.board = blankBoard({ id: "untitled", name: "Untitled", w, h });
+  /* THE BOARD THAT WAS OPEN IS KEPT. New, Import and a shipped-board load all
+   * replace the working board, and the working board is what the autosave
+   * holds -- so each of them used to overwrite a transcription in progress
+   * with no way back. The outgoing board goes to a second slot and the
+   * inspector offers it back until something replaces it in turn. */
+  function replaceBoard(board) {
+    if (st.board) saveLocal("__previous", st.board);
+    st.board = board;
     st.undo.length = 0; st.redo.length = 0;
+    st.sel = null;
+    refresh();
+  }
+
+  function recoverPrevious() {
+    const saved = readAll().__previous;
+    if (!saved || !saved.json) { say("Nothing to recover.", "bad"); return; }
+    const d = sink();
+    let b = null;
+    try { b = boardFromDocument(JSON.parse(saved.json), d); } catch (e) { b = null; }
+    if (!b) { say("The previous board could not be read back.", "bad"); return; }
+    const outgoing = st.board;
+    st.board = b;
+    st.undo.length = 0; st.redo.length = 0; st.sel = null;
+    /* swap, so recovering twice gets you back where you were */
+    saveLocal("__previous", outgoing);
     refresh(); fit(view, st);
-    say("A new " + w + " by " + h + " board.", "");
+    say("Recovered " + b.name + ". The board you were on is now the previous one.", "ok");
+  }
+
+  /* A dialog, not window.prompt: prompt() is blocked outright in some embedded
+   * browsers, where the button silently did nothing, and two prompts could not
+   * ask for a name or a set anyway. */
+  function newBoard() {
+    modal.innerHTML = "<h3>New board</h3>" +
+      '<div class="row"><label>Name</label><input data-nb="name" type="text" value="Untitled"></div>' +
+      '<div class="row"><label>Id</label><input data-nb="id" type="text" value="untitled"></div>' +
+      '<div class="row"><label>Across</label><input data-nb="w" type="number" min="1" max="40" value="12">' +
+      '<label>Down</label><input data-nb="h" type="number" min="1" max="40" value="12"></div>' +
+      '<div class="row"><span class="none">The board that is open now stays recoverable from the inspector.</span></div>' +
+      '<div class="row" style="margin-top:8px"><button data-act="ok">Create</button><button data-act="close">Cancel</button></div>';
+    modal.showModal();
+    modal.onclick = ev => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      if (b.dataset.act === "ok") {
+        const v = k => modal.querySelector('[data-nb="' + k + '"]').value;
+        const w = +v("w"), h = +v("h"), id = v("id").trim(), name = v("name").trim();
+        if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) { say("A board needs whole positive dimensions.", "bad"); return; }
+        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(id)) { say("An id is letters, digits and underscores, starting with a letter.", "bad"); return; }
+        modal.close();
+        replaceBoard(blankBoard({ id, name: name || "Untitled", w, h }));
+        fit(view, st);
+        say("A new " + w + " by " + h + " board.", "");
+        return;
+      }
+      modal.close();
+    };
   }
 
   /* --- boot ------------------------------------------------------------------- */
@@ -596,7 +710,7 @@ export function mount(root) {
   say("Pick a tool, click the board. W A S D face it, Q E turn it, ` swaps the drawing.", "");
 
   /* a small handle for the browser console and for tests */
-  window.__ED = { st, view, refresh, act, edit, hitAt: ev => hit(view, st, ev) };
+  window.__ED = { st, view, refresh, act, edit, say, replaceBoard, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev) };
   return window.__ED;
 }
 
@@ -608,7 +722,7 @@ function startingBoard() {
     try {
       const d = sink();
       const b = boardFromDocument(JSON.parse(saved.json), d);
-      if (b) return b;
+      if (b && !d.items.some(x => x.severity === "error")) return b;
     } catch (e) { /* fall through to a blank one */ }
   }
   return blankBoard({ id: "untitled", name: "Untitled", w: 12, h: 12 });
@@ -633,12 +747,16 @@ if (host) {
 
 async function loadShipped(ed, id) {
   try {
-    const doc = await (await fetch("./data/boards/" + id + ".json")).json();
+    const res = await fetch("./data/boards/" + id + ".json");
+    if (!res.ok) { ed.say("No shipped board called " + id + ".", "bad"); return; }
     const d = sink();
-    const b = boardFromDocument(doc, d, id);
-    if (!b) return;
-    ed.st.board = b;
-    ed.st.undo.length = 0;
-    ed.refresh();
-  } catch (e) { /* the blank board stands */ }
+    const b = boardFromDocument(await res.json(), d, id);
+    const errors = d.items.filter(x => x.severity === "error");
+    if (!b || errors.length) {
+      ed.say("The shipped board " + id + " did not read cleanly: " + (errors[0] || d.items[0] || {}).message, "bad");
+      return;
+    }
+    ed.replaceBoard(b);
+    ed.fit();
+  } catch (e) { ed.say("Could not load " + id + ": " + e.message, "bad"); }
 }

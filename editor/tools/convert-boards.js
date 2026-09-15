@@ -450,10 +450,18 @@ for (const id of courseIds) {
   };
   const text = JSON.stringify(index, null, 2) + "\n";
   const path = join(HERE, "..", "data", "index.json");
+  /* build-index.js OWNS the index now, from the files on disk, so a course
+   * saved from the workshop can be shipped without this converter knowing
+   * about it. The check here is membership: everything converted is listed. */
   if (check) {
-    const have = existsSync(path) ? readFileSync(path, "utf8") : null;
-    if (have !== text) note("index", 0, "data/index.json differs from a fresh conversion");
-  } else writeFileSync(path, text);
+    let have = null;
+    try { have = JSON.parse(readFileSync(path, "utf8")); } catch (e) { have = null; }
+    if (!have) note("index", 0, "data/index.json is missing or unreadable");
+    else {
+      for (const row of index.boards) if (!have.boards.some(x => x.id === row.id)) note("index", 0, "data/index.json does not list board " + row.id);
+      for (const row of index.courses) if (!have.courses.some(x => x.id === row.id)) note("index", 0, "data/index.json does not list course " + row.id);
+    }
+  } else if (!existsSync(path)) writeFileSync(path, text);
 }
 
 if (problems.length) {

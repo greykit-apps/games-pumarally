@@ -281,6 +281,9 @@ const COURSE_CASES = [
     c.flags = [[4, 6], [20, 6]];
   }],
   ["course.flagDuplicate", c => { c.flags = [[4, 6], [4, 6]]; }],
+  /* the rulebook's corner is walls, not cardboard: (4,6) walled on two sides */
+  ["course.flagWallCorner", c => { c.stamps[0].board = "cornered"; }],
+  ["course.unverifiedBoard", c => { c.stamps[0].board = "unchecked"; }],
   /* The fixture marks three flag locations, so the base course -- which lays
    * two boards -- has six and clears the guideline. One board alone has three,
    * which does not. (noDock fires too; the case only needs its own code to be
@@ -301,6 +304,15 @@ const COURSE_CASES = [
   walled.wallV[11 * (walled.w + 1) + 0] = 1;
   walled.wallV[11 * (walled.w + 1) + 1] = 1;
   LIB.set("bayWalled", walled);
+
+  const cornered = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
+  cornered.wallH[6 * cornered.w + 4] = 1;            // N of (4,6)
+  cornered.wallV[6 * (cornered.w + 1) + 4] = 1;      // W of (4,6)
+  LIB.set("cornered", cornered);
+
+  const unchecked = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
+  unchecked.unverified = true;
+  LIB.set("unchecked", unchecked);
 }
 
 for (const [code, mutate] of COURSE_CASES) {

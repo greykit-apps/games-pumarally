@@ -23,7 +23,7 @@ import {
   elementAt, flagSpots, deviceCell
 } from "./board.js";
 import { rotateBoard, rotatedDims } from "./rotate.js";
-import { EDGE_NONE, EDGE_WALL, EDGE_DOOR } from "./edges.js";
+import { EDGE_NONE, EDGE_WALL, EDGE_DOOR, wallAt } from "./edges.js";
 import { DC, DR, N, E, S, W } from "./dir.js";
 
 export const COURSE_FORMAT = "PRCourse";
@@ -262,6 +262,18 @@ export function flagRefusal(course, library, asm, c, r) {
       why: "the very corner of " + (local ? JSON.stringify(local.boardId) : "its board") };
   }
   return null;
+}
+
+/**
+ * How many of a square's four edges carry a wall. The classic rulebook (p.9)
+ * says a checkpoint should not be placed "in a corner formed by two or more
+ * walls" -- a rule about walls, not about where the board's cardboard ends,
+ * and one that applies anywhere on the floor. `flagRefusal` keeps the
+ * geometric corner as a refusal; this is the guideline, reported as a warning
+ * because the book says "should not".
+ */
+export function wallsAround(grid, c, r) {
+  return [N, E, S, W].filter(d => wallAt(grid, c, r, d) === EDGE_WALL).length;
 }
 
 /** Every marked flag location on the assembled course that a flag could use. */

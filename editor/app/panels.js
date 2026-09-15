@@ -162,7 +162,7 @@ export function renderInspector(el, st, hover, isCourse) {
     ORIGINS.map(o => '<option value="' + o + '"' + (o === st.board.origin ? " selected" : "") + ">" + o + "</option>").join("") +
     "</select>" +
     '<button data-meta-toggle="unverified" aria-pressed="' + !!st.board.unverified +
-    '" title="Keeps the board out of course assembly until it has been checked square by square">unverified</button></div>';
+    '" title="Not yet checked square by square against its photograph; a course that lays it says so">unverified</button></div>';
   html += '<div class="row"><label>Notes</label><input type="text" data-meta="notes" value="' +
     esc(st.board.notes || "") + '" placeholder="where this came from"></div>';
 
@@ -281,6 +281,14 @@ export function renderInspector(el, st, hover, isCourse) {
         html += "<h3>" + esc(def.name) +
           '<button class="count" data-ceiloff="' + i + '" title="Take it off">&times;</button></h3>';
         html += deviceRows(def, dev, "cd" + i);
+      });
+      /* a door stands on an edge, not in the square, so it is listed by the
+       * side it is on; both squares beside it list it */
+      (d.doorDevices || []).forEach(({ dev, dir }, i) => {
+        const def = DEVICE_KINDS[dev.kind];
+        html += "<h3>" + esc(def.name) + ", " + dirLetter(dir) + " side" +
+          '<button class="count" data-dooroff="' + i + '" title="Take it off">&times;</button></h3>';
+        html += deviceRows(def, dev, "dr" + i);
       });
     }
   }

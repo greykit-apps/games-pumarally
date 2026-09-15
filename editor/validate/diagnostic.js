@@ -148,6 +148,8 @@ export const CODES = Object.freeze({
   "course.flagInDock":    "a flag inside the docking bay's footprint",
   "course.flagUnderDevice":"a flag on a square a wall device stands in",
   "course.flagInCorner":  "a flag in the very corner of the board that wrote it",
+  "course.flagWallCorner":"a flag in a corner formed by two or more walls, which the classic rulebook advises against",
+  "course.unverifiedBoard":"a board marked unverified is laid in this course",
   "course.flagGap":       "a flag further from the previous one than the ruleset allows",
   "course.flagDuplicate": "two flags on one square",
   "course.fewFlagSpots":  "a course marking fewer flag locations than a race wants to choose from"

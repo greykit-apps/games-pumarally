@@ -410,8 +410,13 @@ function checkCeiling(board, d) {
 
 function checkLevels(board, d) {
   const used = levelsUsed(board);
-  if (used.length <= 1) return;
-  for (let i = 0; i < used.length; i++) {
+  /* THE RAMPS ARE CHECKED WHATEVER THE LEVELS SAY. This used to return here on
+   * a flat board, before the ramps were looked at -- so a ramp with nothing
+   * uphill of it, or pointing off the board, passed clean precisely on the
+   * boards where it is most obviously wrong. Reachable from the tool: lay a
+   * ramp, then lower its uphill square, or turn the ramp toward the rim. */
+  const flat = used.length <= 1;
+  for (let i = 0; !flat && i < used.length; i++) {
     if (used[i] !== i) {
       d.error("level.notContiguous", "This board uses level " + used[i] +
         " with no level " + i + " on it. Levels count up from 0 with no gaps.", null, "/ground/levels");
@@ -440,6 +445,7 @@ function checkLevels(board, d) {
     }
     reached.add(ramp.top);
   }
+  if (flat) return;
   for (const lvl of used) {
     if (!reached.has(lvl)) {
       d.warn("level.unreachable", "Level " + lvl + " is on this board and no ramp reaches it. " +

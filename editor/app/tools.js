@@ -19,8 +19,7 @@ import { describeRegs } from "../lib/registers.js";
 import { dirChar, dirLetter, dirOfChar, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
 import {
   idx, inBoard, cellAt, setCell, isVoid, elementAt, propAt, levelAt, setLevel,
-  deviceCell, wallDevicesAt, ceilingAt, doorOn, sitesAt, setSites, toggleSite
-} from "../lib/board.js";
+  deviceCell, wallDevicesAt, ceilingAt, doorOn, sitesAt, setSites, toggleSite, doorsAt, deviceOnEdge } from "../lib/board.js";
 import {
   edgeOf, edgeId, setWall, wallAt, edgeCodeAt, setEdgeCode,
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, isNormalOf
@@ -157,7 +156,7 @@ export function apply(board, st, c, r, opts = {}) {
     case "level": return applyLevel(board, st, c, r, opts);
     case "site": return applySite(board, st, tool, c, r, opts);
     case "wall": return applyWall(board, st, c, r, opts);
-    case "device": return applyDevice(board, st, tool, c, r);
+    case "device": return applyDevice(board, st, tool, c, r, opts);
     case "ceiling": return applyCeiling(board, st, tool, c, r);
     default: return { ok: false, why: "That tool does not lay anything." };
   }
@@ -263,10 +262,21 @@ function applyLevel(board, st, c, r, opts) {
 }
 
 function applyWall(board, st, c, r, opts) {
-  const face = opts.face === undefined ? st.dir : opts.face;
+  const face = opts.face === undefined || opts.face === null ? st.dir : opts.face;
   const edge = edgeOf(c, r, face);
   const now = edgeCodeAt(board, edge);
+  /* A door on the edge is a device, and the wall tool does not write over a
+   * device: it used to turn the D into a #, leaving a door standing on a wall
+   * with no glyph, which the validator reports and nothing could then fix. */
+  if (now === EDGE_DOOR && !opts.erase) {
+    return { ok: false, why: "A swing door stands on that edge. Take it off first." };
+  }
+  /* `opts.set` is the stroke's LATCHED intent: a click toggles, but a drag
+   * that toggles inverts every segment it re-crosses, so a stroke decides on
+   * its first edge whether it is laying or clearing and keeps to it. */
   const want = opts.erase ? EDGE_NONE
+    : opts.set === "wall" ? EDGE_WALL
+    : opts.set === "none" ? EDGE_NONE
     : now === EDGE_WALL ? EDGE_NONE
     : EDGE_WALL;
 
@@ -289,18 +299,27 @@ export function whatNeedsEdge(board, edge) {
   return dev ? { ...dev, name: DEVICE_KINDS[dev.kind].name } : null;
 }
 
-function applyDevice(board, st, tool, c, r) {
+function applyDevice(board, st, tool, c, r, opts = {}) {
   const kind = tool.device;
   const def = DEVICE_KINDS[kind];
 
   if (kind === "door") {
-    /* A door IS the edge, so it goes on the face the hand is pointing at. */
-    const edge = edgeOf(c, r, st.dir);
+    /* A door IS the edge, so it goes on the edge under the pointer when the
+     * pointer is on one -- which is what the ghost highlights -- and on the face
+     * the hand is pointing at otherwise. It used to ignore the pointer's edge
+     * and go on the hand's facing every time, so the highlighted edge and the
+     * laid edge disagreed. */
+    const face = opts.face === undefined || opts.face === null ? st.dir : opts.face;
+    const edge = edgeOf(c, r, face);
     const already = whatNeedsEdge(board, edge);
     if (already) return { ok: false, why: already.name + " is already on that edge." };
+    const regs = st.regs.door;
+    if (!regs || !regs.length || regs.length >= 5) {
+      return { ok: false, why: "A door open in every register is not a door. Pick the registers it stands open in." };
+    }
     setEdgeCode(board, edge, EDGE_DOOR);
-    board.wallDevices.push({ kind, edge, face: null, regs: st.regs.door ? [...st.regs.door] : [1, 3, 5] });  // face null, not a direction: a door is symmetric
-    return { ok: true, changed: true, note: "Swing door on the " + dirLetter(st.dir) + " side of " + at(c, r) };
+    board.wallDevices.push({ kind, edge, face: null, regs: [...regs] });  // face null, not a direction: a door is symmetric
+    return { ok: true, changed: true, note: "Swing door on the " + dirLetter(face) + " side of " + at(c, r) };
   }
 
   const face = st.dir;
@@ -352,6 +371,16 @@ function applyCeiling(board, st, tool, c, r) {
 export function erase(board, st, c, r, opts = {}) {
   if (!inBoard(board, c, r)) return { ok: false, why: "Off the board." };
 
+  /* A door on the edge under the pointer comes off first, glyph and device
+   * together. Doors have no face and so no square, which is why the device
+   * pass below never found one -- and the wall pass then refused with advice
+   * nothing in the editor could follow. */
+  if (opts.face !== undefined && opts.face !== null) {
+    const edge = edgeOf(c, r, opts.face);
+    const door = doorOn(board, edge);
+    if (door) return takeOffDoor(board, door, "Took the swing door off the " + dirLetter(opts.face) + " side of " + at(c, r));
+  }
+
   const ceil = ceilingAt(board, c, r);
   if (ceil.length) {
     board.ceilingDevices.splice(board.ceilingDevices.indexOf(ceil[ceil.length - 1]), 1);
@@ -381,6 +410,38 @@ export function erase(board, st, c, r, opts = {}) {
     return { ok: true, changed: true, note: "Floor at " + at(c, r) };
   }
   return { ok: true, changed: false };
+}
+
+/** Remove a door device and the glyph that is the door. */
+export function takeOffDoor(board, door, note) {
+  const i = board.wallDevices.indexOf(door);
+  if (i < 0) return { ok: false, why: "That door is not on this board." };
+  board.wallDevices.splice(i, 1);
+  setEdgeCode(board, door.edge, EDGE_NONE);
+  return { ok: true, changed: true, note: note || "Swing door taken off." };
+}
+
+/**
+ * The squares a stroke crosses between two pointer samples, end included and
+ * start excluded, as [c, r] pairs. A pointer moved fast reports squares with
+ * gaps between them, and a belt run with a gap in it is a rules error -- so the
+ * stroke walks every square the segment passes through rather than only the
+ * ones the pointer happened to be sampled in. Supercover: a diagonal step
+ * visits the two squares it cuts between, so a run is 4-connected.
+ */
+export function cellsBetween(c0, r0, c1, r1) {
+  const out = [];
+  let c = c0, r = r0;
+  const dc = Math.sign(c1 - c0), dr = Math.sign(r1 - r0);
+  const nc = Math.abs(c1 - c0), nr = Math.abs(r1 - r0);
+  let ic = 0, ir = 0;
+  while (ic < nc || ir < nr) {
+    /* step along whichever axis is further behind its share of the segment */
+    if (ir >= nr || (ic < nc && (ic + 0.5) / nc < (ir + 0.5) / nr)) { c += dc; ic++; }
+    else { r += dr; ir++; }
+    out.push([c, r]);
+  }
+  return out;
 }
 
 /* --- editing what is already down -------------------------------------------
@@ -429,9 +490,11 @@ export function turnHere(board, c, r, quarters, which) {
     if (!def || !def.faced) return { ok: false, why: DEVICE_KINDS[which.kind].name + " faces nowhere." };
     const face = rot(which.face, quarters);
     const edge = mountEdge(c, r, face);
-    const blocking = whatNeedsEdge(board, edge);
+    /* the raw device, not whatNeedsEdge's copy -- a copy is never === which */
+    const blocking = deviceOnEdge(board, edge);
     if (blocking && blocking !== which) {
-      return { ok: false, why: blocking.name + " is already on the wall it would turn onto." };
+      const bdef = DEVICE_KINDS[blocking.kind];
+      return { ok: false, why: bdef.name + " is already on the wall it would turn onto." };
     }
     /* the mount moves with it, and raises the wall it lands on */
     which.edge = edge;
@@ -490,6 +553,9 @@ export function describe(board, c, r) {
     walls: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_WALL).map(dirLetter),
     doors: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_DOOR).map(dirLetter),
     wallDevices: wallDevicesAt(board, c, r),
+    /* the doors on this square's edges, each with the side it is on; a door
+     * belongs to both squares beside it and is listed by both */
+    doorDevices: doorsAt(board, c, r),
     ceiling: ceilingAt(board, c, r)
   };
   return out;

@@ -66,6 +66,19 @@ function same(a, b) {
   const al = a.levels, bl = b.levels;
   if (!!al !== !!bl) return false;
   if (al && bl) for (let i = 0; i < al.length; i++) if (al[i] !== bl[i]) return false;
+  /* SITES COUNT TOO. This compared everything but the markings, so a wrench, a
+   * battery or a flag location laid on a square was "no change": no undo step,
+   * no redraw, no revalidation, no autosave. The marking sat in the model with
+   * nothing on screen to show for it, which is exactly what the flag-location
+   * workflow looked like from the outside -- a tool that did nothing. */
+  if (a.sites.size !== b.sites.size) return false;
+  for (const [k, v] of a.sites) {
+    const w = b.sites.get(k);
+    if (!w || v.length !== w.length || v.some((x, i) => x !== w[i])) return false;
+  }
+  const an = a.siteNotes || new Map(), bn = b.siteNotes || new Map();
+  if (an.size !== bn.size) return false;
+  for (const [k, v] of an) if (bn.get(k) !== v) return false;
   if (a.wallDevices.length !== b.wallDevices.length) return false;
   if (a.ceilingDevices.length !== b.ceilingDevices.length) return false;
   return JSON.stringify(a.wallDevices) === JSON.stringify(b.wallDevices) &&

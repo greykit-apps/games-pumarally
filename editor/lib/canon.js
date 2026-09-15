@@ -149,7 +149,10 @@ export function stringifyBoard(board) {
     put('    "sites": [', "/ground/sites");
     sites.forEach((s2, i) =>
       put('      { "at": [' + s2.c + ", " + s2.r + '], "has": [' +
-        canonSites(s2.has).map(q).join(", ") + "] }" + (i < sites.length - 1 ? "," : ""),
+        canonSites(s2.has).map(q).join(", ") + "]" +
+        (board.siteNotes && board.siteNotes.get(s2.c + "," + s2.r)
+          ? ', "note": ' + q(board.siteNotes.get(s2.c + "," + s2.r)) : "") +
+        " }" + (i < sites.length - 1 ? "," : ""),
         "/ground/sites/" + i));
     put("    ]");
   }

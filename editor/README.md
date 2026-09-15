@@ -413,8 +413,61 @@ node editor/tools/convert-boards.js --check # the JSON still means what the old 
 node editor/tools/check-format.js           # validate, round-trip, and the ASCII picture
 node editor/tools/render-snapshot.js --check
 node editor/tools/check-wiring.js           # no control the inspector draws is dead
+node editor/tools/build-index.js --check    # data/index.json lists exactly what is in data/
 node editor/tools/check-editor-assets.js    # and the deploy will actually publish it all
 ```
+
+### Shipping a board or a course
+
+`data/index.json` is **derived, never edited**. Export from the workshop with
+**Download**, drop the file into `data/boards/` or `data/courses/`, run
+`node editor/tools/build-index.js`, and commit both. The tool refuses a file
+that does not validate and a course that lays a board not on disk, and CI runs
+it with `--check`, so a file on disk that is not on the shelf fails the
+pipeline rather than going unnoticed. Existing entries keep their order; new
+ones go on the end.
+
+### What the first real use found, and what changed
+
+The workshop was reviewed hands-on on 2026-09-15 (`EDITOR-REVIEW.md` at the
+repo root). The format and the library layer held. The app layer did not, and
+these are the rules that came out of it:
+
+- **A site edit is a change.** The undo comparison ignored the markings, so a
+  wrench, a battery or a flag location laid on a square was "nothing moved":
+  no redraw, no undo, no revalidation, no autosave. `check-app` now asserts
+  `keep()` sees a site edit.
+- **A flag is a square of a board, not a place in the grid.** Laying a board
+  to the left, taking the leftmost off, moving or turning a board all moved
+  the grid under the flags and left the numbers alone. `keepFlags()` in
+  `compose.js` tracks each flag by its stamp and board-local offset through
+  every such edit, rotation included.
+- **A door is a device.** It had no face and so no square, and nothing that
+  walked wall devices ever found one: the inspector did not list it, erase
+  could not remove it, the wall tool painted over it. Doors now lay on the
+  edge under the pointer, list on both squares beside them with their register
+  row, come off with their glyph, and refuse the wall tool.
+- **A stroke visits every square it crosses.** `cellsBetween()` fills the
+  squares between two pointer samples, so a fast drag lays an unbroken run.
+  The wall tool latches on its first edge, so retracing a run never inverts it.
+- **Import refuses a document that needed repair.** The parser pads a short
+  row and blanks a wrong-height lattice and says so; the workshop used to read
+  the report only when nothing came back at all. Now the errors are the
+  message and the board is not loaded.
+- **Ramps are checked on flat boards.** `checkLevels` returned before looking
+  at ramps whenever the board used one level.
+- **The board that was open is kept.** New, Import and `#board=` used to
+  overwrite the autosaved transcription in progress. The outgoing board goes
+  to a *previous* slot and the inspector offers **Recover previous**.
+- **The course workshop autosaves and undoes.** Plain `#course` reopens what
+  was being built; Ctrl-Z steps back; the view refits when the first board is
+  laid instead of showing one corner at 530%.
+- **The corner rule is the book's.** A flag in a corner formed by two or more
+  walls warns (`course.flagWallCorner`), anywhere on the floor; the geometric
+  corner of a board is still refused. A course laying an `unverified` board
+  warns too, which is what that flag now does instead of nothing.
+- **Site notes round-trip**, and a `has` that is not a list is reported rather
+  than crashing the first edit.
 
 `convert-boards.js` **has a lifespan.** It runs for as long as
 `pumarally-boards.js` is in the tree, because it is the proof that the

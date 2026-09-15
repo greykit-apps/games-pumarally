@@ -15,7 +15,7 @@
 
 import {
   COURSE_FORMAT, COURSE_VERSION, ROLES, assemble, courseBounds, stampFootprint,
-  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal
+  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal, wallsAround
 } from "../lib/course.js";
 import { checkBelts } from "./board.js";
 import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
@@ -121,6 +121,17 @@ export function validateCourse(course, library, d) {
     }
   }
   if (course.stamps.some(s => !library.has(s.board))) return d;
+
+  /* `unverified` is a claim about the board: nobody has checked it square by
+   * square against the photograph. It used to be a flag nothing read, under a
+   * tooltip saying it kept the board out of courses. It does not; it warns. */
+  for (const s of course.stamps) {
+    if (library.get(s.board).unverified) {
+      d.warn("course.unverifiedBoard", JSON.stringify(s.board) + " is marked unverified: it has " +
+        "not been checked square by square against its photograph, so this course may be " +
+        "faithful to a transcription error.", null, s._ptr);
+    }
+  }
 
   /* overlap */
   const boxes = course.stamps.map(s => ({ s, f: stampFootprint(s, library.get(s.board)) }));
@@ -250,6 +261,14 @@ function checkFlags(course, library, grid, from, bounds, d) {
      * a stricter one would refuse squares a person is allowed to use. */
     const bad = flagRefusal(course, library, { grid, from, bounds }, c, r);
     if (bad) d.error(bad.code, "Flag " + n + " at " + at(c, r) + " is " + bad.why + ".", at(c, r), ptr);
+    else {
+      const walls = wallsAround(grid, c, r);
+      if (walls >= 2) {
+        d.warn("course.flagWallCorner", "Flag " + n + " at " + at(c, r) + " is in a corner formed by " +
+          walls + " walls. The classic rulebook says checkpoints should not be placed in one; " +
+          "a robot has fewer ways to arrive and fewer to leave.", at(c, r), ptr);
+      }
+    }
 
     if (prev && FLAG_GAP_GUIDE !== null) {
       const gap = Math.max(Math.abs(c - prev[0]), Math.abs(r - prev[1]));

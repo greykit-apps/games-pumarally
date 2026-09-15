@@ -162,6 +162,28 @@ export function wallDevicesAt(board, c, r, kind) {
   });
 }
 
+/**
+ * The doors on a square's four edges, as { dev, dir }. A door has no face and
+ * so no `deviceCell`; it belongs to both squares beside its edge, and this is
+ * how either of them finds it. Without it a placed door was standing nowhere:
+ * the inspector never listed it, erase never found it, and the only way to
+ * take one off was undo.
+ */
+export function doorsAt(board, c, r) {
+  const out = [];
+  for (const dir of [N, E, S, W]) {
+    const dev = doorOn(board, edgeOf(c, r, dir));
+    if (dev) out.push({ dev, dir });
+  }
+  return out;
+}
+
+/** The raw device standing on an edge, or undefined. Identity, not a copy. */
+export function deviceOnEdge(board, edge) {
+  const id = edgeId(edge.kind, edge.c, edge.r);
+  return board.wallDevices.find(d => edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+}
+
 /** The door device on an edge, or undefined. */
 export function doorOn(board, edge) {
   const id = edgeId(edge.kind, edge.c, edge.r);
@@ -246,6 +268,9 @@ export function blankBoard(meta = {}) {
     /* key "c,r" -> canonical site list. Sparse: most squares carry none, and a
      * board has ten or twenty of these against a hundred and forty-four cells. */
     sites: new Map(),
+    /* key "c,r" -> a transcriber's note on that square's markings. Kept apart
+     * from the list so the list stays canonical; written back by canon.js. */
+    siteNotes: new Map(),
     levels: null,
     wallH: new Uint8Array(w * (h + 1)),
     wallV: new Uint8Array((w + 1) * h),
@@ -265,6 +290,7 @@ export function cloneBoard(board) {
     ...board,
     cells: board.cells.slice(),
     sites: new Map([...board.sites].map(([k, v]) => [k, v.slice()])),
+    siteNotes: new Map(board.siteNotes || []),
     levels: board.levels ? board.levels.slice() : null,
     wallH: board.wallH.slice(),
     wallV: board.wallV.slice(),
@@ -450,7 +476,11 @@ function readSites(list, board, d) {
     }
     /* stored as written; the validator judges it, so a bad list is reported
      * against the square rather than silently canonicalised away */
-    board.sites.set(key, Array.isArray(raw.has) ? raw.has.slice() : raw.has);
+    /* a `has` that is not a list is stored as an empty one, which the validator
+     * reports as site.empty -- rather than as written, which made cloneBoard
+     * throw on the first edit and took the editor down with it */
+    board.sites.set(key, Array.isArray(raw.has) ? raw.has.slice() : []);
+    if (typeof raw.note === "string" && raw.note) board.siteNotes.set(key, raw.note);
   });
 }
 

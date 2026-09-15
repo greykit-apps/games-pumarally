@@ -39,9 +39,67 @@ export function normalise(course, library) {
   }
   if (x0 === 0 && y0 === 0) return course;
   for (const s of course.stamps) { s.at[0] -= x0; s.at[1] -= y0; }
-  /* flags are in assembled-grid coordinates, which are relative to the same
-   * origin, so they do NOT move: the grid origin moved with them. */
+  /* Flags are in assembled-grid coordinates, relative to the bounding box,
+   * and the box moves with the stamps -- so a pure shift of every stamp leaves
+   * every flag on the same square of the same board. What DOES move a flag is
+   * the box changing shape, and that is `keepFlags`'s job below. */
   return course;
+}
+
+/**
+ * Run an edit that moves boards, and keep every flag on the square of the
+ * board it was on.
+ *
+ * FLAGS ARE STORED RELATIVE TO THE BOUNDING BOX, and the box is the top-left
+ * of the stamps. Laying a board to the left of or above the layout, taking off
+ * the board that WAS the leftmost or topmost, moving a board, or turning one:
+ * each changes where a flag's square is in the grid, and until this existed
+ * the flags stayed at their old numbers -- so flag 1 on Exchange at (2,2)
+ * became flag 1 on whatever board now covered (2,2). Silently, unless the new
+ * square happened not to be floor.
+ *
+ * The invariant is per flag: the same square of the same board, tracked by the
+ * stamp object and a board-local offset, measured before the edit and
+ * reapplied after it. A flag on a board that the edit took off keeps its
+ * absolute position. `rotate` names a stamp turned by `quarters` clockwise, so
+ * the offset turns with it.
+ */
+function keepFlags(course, library, fn, rotate) {
+  const b0 = courseBounds(course, library);
+  const owners = course.flags.map(f => {
+    const abs = [f[0] + b0.x0, f[1] + b0.y0];
+    for (let i = course.stamps.length - 1; i >= 0; i--) {   // same precedence as stampAt
+      const stamp = course.stamps[i];
+      const src = library.get(stamp.board);
+      if (!src) continue;
+      const fp = stampFootprint(stamp, src);
+      if (abs[0] >= fp.x0 && abs[0] <= fp.x1 && abs[1] >= fp.y0 && abs[1] <= fp.y1) {
+        return { abs, stamp, lc: abs[0] - fp.x0, lr: abs[1] - fp.y0, w: fp.x1 - fp.x0 + 1, h: fp.y1 - fp.y0 + 1 };
+      }
+    }
+    return { abs };
+  });
+
+  const result = fn();
+
+  const b1 = courseBounds(course, library);
+  course.flags.forEach((f, i) => {
+    const o = owners[i];
+    let abs = o.abs;
+    if (o.stamp && course.stamps.indexOf(o.stamp) >= 0) {
+      let { lc, lr, w, h } = o;
+      if (rotate && rotate.stamp === o.stamp) {
+        /* a quarter-turn clockwise sends (c,r) on a w x h board to (h-1-r, c) */
+        const n = (((rotate.quarters | 0) % 4) + 4) % 4;
+        for (let q = 0; q < n; q++) { [lc, lr] = [h - 1 - lr, lc]; [w, h] = [h, w]; }
+      }
+      abs = [o.stamp.at[0] + lc, o.stamp.at[1] + lr];
+    }
+    f[0] = abs[0] - b1.x0;
+    f[1] = abs[1] - b1.y0;
+  });
+  normalise(course, library);
+  return result;
 }
 
 /** Positions where `boardId` at `rot` would sit edge-adjacent to what is down. */
@@ -103,9 +161,10 @@ export function place(course, library, boardId, rot, at, role = "board") {
   const [w, h] = stampDims(b, rot);
   if (overlapsAny(course, library, at, w, h, -1)) return -1;
   if (role === "dock" && dockStamp(course)) return -1;
-  course.stamps.push({ role, board: boardId, rot, at: [at[0], at[1]] });
-  normalise(course, library);
-  return course.stamps.length - 1;
+  return keepFlags(course, library, () => {
+    course.stamps.push({ role, board: boardId, rot, at: [at[0], at[1]] });
+    return course.stamps.length - 1;
+  });
 }
 
 /** Which stamp covers a course square, or -1. */
@@ -129,15 +188,14 @@ export function turn(course, library, index, quarters = 1) {
   const next = (((s.rot + quarters) % 4) + 4) % 4;
   const [w, h] = stampDims(src, next);
   if (overlapsAny(course, library, s.at, w, h, index)) return false;
-  s.rot = next;
-  return true;
+  /* the flags on it turn with it: a flag is a square of a board, not a place
+   * in the grid the board happens to be covering */
+  return keepFlags(course, library, () => { s.rot = next; return true; }, { stamp: s, quarters });
 }
 
 export function remove(course, library, index) {
   if (index < 0 || index >= course.stamps.length) return false;
-  course.stamps.splice(index, 1);
-  normalise(course, library);
-  return true;
+  return keepFlags(course, library, () => { course.stamps.splice(index, 1); return true; });
 }
 
 /** Move a placed board. Refuses an overlap rather than shuffling things aside. */
@@ -147,9 +205,7 @@ export function moveStamp(course, library, index, at) {
   const src = library.get(s.board);
   const [w, h] = stampDims(src, s.rot);
   if (overlapsAny(course, library, at, w, h, index)) return false;
-  s.at = [at[0], at[1]];
-  normalise(course, library);
-  return true;
+  return keepFlags(course, library, () => { s.at = [at[0], at[1]]; return true; });
 }
 
 /* --- flags -------------------------------------------------------------------

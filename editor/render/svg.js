@@ -196,12 +196,17 @@ function deviceLayer(board, mode) {
        * glyph draws along its own southern edge, so a horizontal edge is the
        * square above it and a vertical edge is a quarter-turn. */
       const e = dev.edge;
+      /* A door on the top or left rim has no square above or left of it, so it
+       * is drawn in the square below or right, turned to sit on the far side;
+       * otherwise the glyph landed at row -1 and fell off the canvas. */
       if (e.kind === "h") {
         const c = e.c, r = e.r - 1;
-        out += g(at(c, r), glyph[mode](ctx));
+        out += r < 0 ? g(at(c, 0) + " rotate(180 50 50)", glyph[mode](ctx))
+                     : g(at(c, r), glyph[mode](ctx));
       } else {
         const c = e.c - 1, r = e.r;
-        out += g(at(c, r) + " rotate(-90 50 50)", glyph[mode](ctx));
+        out += c < 0 ? g(at(0, r) + " rotate(90 50 50)", glyph[mode](ctx))
+                     : g(at(c, r) + " rotate(-90 50 50)", glyph[mode](ctx));
       }
     }
   }
