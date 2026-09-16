@@ -17,18 +17,24 @@
       "... b^. ... Bv. B^. ... b>r b^l ... Bv. ... B^.",
       "... b^r b<l B>l B^l ... b^. ... o.. Bv. ... B^.",
       "... ... b^. ... ... ... b^. ... Bvl B<r B>r B^l",
-      "... ... b<. b<. ... ... ... ... Bv. ... l.. ...",
+      "... ... b^r b<. b<l ... b^. ... Bv. ... l.. ...",
       "B>r l.. bvr o.. b^. ... b^r l.. B<r ... b^. ...",
       "B^. ... b>l b>. b^l ... ... ... ... b>r b^l ...",
       "B^r B<l ... ... ... ... ... b>r b>. b^l ... ...",
-      "... B^r B<. B<l ... ... b^. b^l ... ... ... ..."
+      "... B^r B<. B<l ... ... b>r b^l ... ... ... ..."
     ],
     "sites": [
       { "at": [10, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [5, 2], "has": ["flagspot"] },
+      { "at": [10, 3], "has": ["flagspot"] },
       { "at": [2, 4], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [10, 4], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 6], "has": ["flagspot"] },
+      { "at": [7, 6], "has": ["flagspot"] },
       { "at": [1, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
-      { "at": [8, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+      { "at": [8, 9], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 10], "has": ["flagspot"] },
+      { "at": [10, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {
