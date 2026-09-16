@@ -301,6 +301,14 @@
       "h": 6,
       "set": "masterBuilder",
       "origin": "transcribed"
+    },
+    {
+      "id": "theX",
+      "name": "The X",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
     }
   ],
   "courses": [

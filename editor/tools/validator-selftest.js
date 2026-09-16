@@ -90,7 +90,6 @@ const CASES = [
 
   /* ground geometry */
   ["belt.intoWall", FIXTURE, d => { setEdgeGlyph(d, "v", 2, 1, "#"); }],
-  ["belt.headOn", FIXTURE, d => { setTok(d, 9, 1, "b<."); setTok(d, 8, 1, "b>."); }],
   ["belt.acrossLedge", FIXTURE, d => { setTok(d, 5, 8, "b^."); }],
 
   /* wall lattice */
@@ -116,6 +115,7 @@ const CASES = [
   ["device.unknownKey", FIXTURE, d => { wallDev(d, "laser").colour = "red"; }],
 
   /* lasers and jets */
+  ["laser.ownSquareOnly", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 1, "#"); }],
   ["jet.blockedReach", FIXTURE, d => { setEdgeGlyph(d, "h", 8, 9, "#"); }],
   ["jet.overlap", FIXTURE, d => {
     setEdgeGlyph(d, "h", 8, 10, "#");

@@ -51,7 +51,6 @@ export const CODES = Object.freeze({
 
   /* --- ground geometry -------------------------------------------------- */
   "belt.intoWall":        "a conveyor runs out into a wall",
-  "belt.headOn":          "two conveyors run into each other",
   "belt.acrossLedge":     "a conveyor runs across a level change",
 
   /* --- wall lattice ----------------------------------------------------- */
@@ -72,6 +71,7 @@ export const CODES = Object.freeze({
   "device.unknownKey":    "a key the device schema does not define",
 
   /* --- lasers ----------------------------------------------------------- */
+  "laser.ownSquareOnly":   "a laser walled in on its firing side, lighting only the square it stands in",
 
   /* --- flame jets ------------------------------------------------------- */
   "jet.blockedReach":     "a reach-two jet whose second square is off the board or behind a wall",
@@ -124,11 +124,11 @@ export const CODES = Object.freeze({
   "library.duplicateBoard":"two boards with identical ground and wall layers",
 
   /* --- course -------------------------------------------------------------
-   * There is deliberately NO code for conveyors meeting head-on across a seam.
-   * The belt geometry checks are run over the ASSEMBLED grid, so belt.headOn
-   * and belt.intoWall fire at a seam the same way they fire inside a board,
-   * from the same code. A second code for the same fault would be a check that
-   * can never be the one that fires. */
+   * The belt geometry checks are run over the ASSEMBLED grid, so belt.intoWall
+   * fires at a seam the same way it fires inside a board, from the same code. A
+   * second code for the same fault would be a check that can never be the one
+   * that fires. (Opposed belts meeting head-on are legal and unchecked, at a
+   * seam as anywhere else.) */
   "course.unknownBoard":  "a stamp naming a board that is not in the library",
   "course.badRotation":   "a stamp rotation that is not 0-3",
   "course.badPlacement":  "a stamp position that is missing or negative",
