@@ -116,7 +116,6 @@ const CASES = [
   ["device.unknownKey", FIXTURE, d => { wallDev(d, "laser").colour = "red"; }],
 
   /* lasers and jets */
-  ["laser.ownSquareOnly", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 1, "#"); }],
   ["jet.blockedReach", FIXTURE, d => { setEdgeGlyph(d, "h", 8, 9, "#"); }],
   ["jet.overlap", FIXTURE, d => {
     setEdgeGlyph(d, "h", 8, 10, "#");

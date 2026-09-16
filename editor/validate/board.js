@@ -335,15 +335,6 @@ function checkWallDevices(board, d) {
       pusherCells.set(key, dev);
     }
 
-    if (dev.kind === "laser" && cell) {
-      const path = laserPath(board, dev);
-      if (path.length <= 1) {
-        d.warn("laser.ownSquareOnly", "The laser at " + at(cell[0], cell[1]) + " faces " +
-          dirLetter(dev.face) + " into a wall, so its beam lights only the square it stands in.",
-          at(cell[0], cell[1]), ptr);
-      }
-    }
-
     if (dev.kind === "jet" && cell) {
       const reach = dev.reach === undefined ? 1 : dev.reach;
       const covered = [];
