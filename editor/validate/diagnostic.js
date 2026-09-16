@@ -72,7 +72,6 @@ export const CODES = Object.freeze({
   "device.unknownKey":    "a key the device schema does not define",
 
   /* --- lasers ----------------------------------------------------------- */
-  "laser.ownSquareOnly":   "a laser walled in on its firing side, lighting only the square it stands in",
 
   /* --- flame jets ------------------------------------------------------- */
   "jet.blockedReach":     "a reach-two jet whose second square is off the board or behind a wall",

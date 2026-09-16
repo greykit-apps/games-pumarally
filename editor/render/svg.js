@@ -21,7 +21,7 @@ import {
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
 import { isLedge } from "../lib/levels.js";
-import { dirOfChar, N, E, S, W } from "../lib/dir.js";
+import { dirOfChar, DC, DR, N, E, S, W } from "../lib/dir.js";
 import { ARG_DIR } from "../rulesets/elements.js";
 
 const DEFAULTS = { mode: "art", pad: 0, coords: false, background: true };
@@ -189,27 +189,32 @@ function wallLayer(board, mode) {
   return out;
 }
 
+/* A beam runs from the emitter on its wall to the far side of the last square
+ * it lights: the whole way across every square it covers, never centre to
+ * centre, and a laser walled in on its firing side still shows a beam across
+ * its own square. Lasers are always on, and the beam is what says so. */
 function beamLayer(board, mode) {
   let out = "";
   for (const dev of board.wallDevices) {
     if (dev.kind !== "laser") continue;
     const path = laserPath(board, dev);
-    if (path.length < 2) continue;
+    if (!path.length) continue;
     const a = path[0], b = path[path.length - 1];
-    const d = "M " + (a[0] * CELL + 50) + " " + (a[1] * CELL + 50) +
-              " L " + (b[0] * CELL + 50) + " " + (b[1] * CELL + 50);
+    const dx = DC[dev.face] * 50, dy = DR[dev.face] * 50;
+    const x0 = a[0] * CELL + 50 - dx, y0 = a[1] * CELL + 50 - dy;      // the emitter's wall
+    const x1 = b[0] * CELL + 50 + dx, y1 = b[1] * CELL + 50 + dy;      // the far side of the last square
+    const d = "M " + x0 + " " + y0 + " L " + x1 + " " + y1;
     if (mode === "art") {
       /* a soft glow under a thin bright core, one core per point of damage */
       out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (8 + dev.damage * 3) +
-        '" stroke-linecap="round" opacity="0.14"/>';
+        '" stroke-linecap="butt" opacity="0.14"/>';
       const n = Math.max(1, Math.min(3, dev.damage | 0));
       const dir = dev.face, across = (dir === N || dir === S) ? [1, 0] : [0, 1];
       for (let i = 0; i < n; i++) {
         const off = (i - (n - 1) / 2) * 5;
         const ox = across[0] * off, oy = across[1] * off;
-        out += '<path d="M ' + (a[0] * CELL + 50 + ox) + " " + (a[1] * CELL + 50 + oy) +
-          " L " + (b[0] * CELL + 50 + ox) + " " + (b[1] * CELL + 50 + oy) + '" stroke="' + ART.laser +
-          '" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>';
+        out += '<path d="M ' + (x0 + ox) + " " + (y0 + oy) + " L " + (x1 + ox) + " " + (y1 + oy) + '" stroke="' + ART.laser +
+          '" stroke-width="2.2" stroke-linecap="butt" opacity="0.8"/>';
       }
     } else {
       out += '<path d="' + d + '" ' + markStroke(MARK.device, 1.0) + ' stroke-dasharray="5 6" opacity="0.9"/>';
