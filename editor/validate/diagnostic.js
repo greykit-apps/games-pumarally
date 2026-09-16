@@ -121,7 +121,7 @@ export const CODES = Object.freeze({
 
   /* --- library ---------------------------------------------------------- */
   "library.duplicateId":  "two boards with the same id",
-  "library.duplicateBoard":"two boards with identical ground and wall layers",
+  "library.duplicateBoard":"two boards with identical ground, wall and site layers",
 
   /* --- course -------------------------------------------------------------
    * The belt geometry checks are run over the ASSEMBLED grid, so belt.intoWall

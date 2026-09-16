@@ -4,16 +4,25 @@
  * Crash and Burn's "board E" to be a reprint of Island, and its "board F" a
  * reprint of Maelstrom. Two ids for one layout is not a second board; it is the
  * same board transcribed twice, with two chances to be transcribed differently.
+ *
+ * A board's layout is its ground, its walls AND its sites. Two boards that are
+ * bare floor with no walls -- a Master Builder "Blueprint" and "Tabula Rasa" --
+ * are different boards when they mark different flag spots and repair/battery
+ * squares, so the sites are part of the key. A true reprint still matches: the
+ * same board transcribed twice carries the same sites too.
  */
 
 import { groundRows, latticeRows } from "../lib/canon.js";
+import { siteList } from "../lib/board.js";
+import { canonSites } from "../rulesets/sites.js";
 
 /** The bytes that decide whether two boards are the same board. */
 function layoutKey(board) {
   return [
     groundRows(board).join("\n"),
     latticeRows(board, "h").join("\n"),
-    latticeRows(board, "v").join("\n")
+    latticeRows(board, "v").join("\n"),
+    siteList(board).map(s => s.c + "," + s.r + ":" + canonSites(s.has).join("+")).join(";")
   ].join("\n--\n");
 }
 

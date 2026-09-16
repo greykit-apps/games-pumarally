@@ -309,6 +309,14 @@
       "h": 6,
       "set": "masterBuilder",
       "origin": "transcribed"
+    },
+    {
+      "id": "tabulaRasa",
+      "name": "Tabula Rasa",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
     }
   ],
   "courses": [
