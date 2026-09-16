@@ -107,6 +107,25 @@ through `propAt()`, which is how the workshop's inspector already answers
 "what would a robot standing here meet". Adding an element is a handler and a
 row, never an edit to the register loop.
 
+## Quick games, and what a race draws on a board
+
+A **quick game** is any shipped board with three marked flag locations
+(`editor/rulesets/sites.js`: the board says where a flag *may* go). The setup
+screen offers every such board; pressing Start draws the race
+(`game/engine/quick.js`): the board at a random facing over the docking bay,
+and three flags drawn at random, in a random order, from its marks. The draw
+is an ordinary PRCourse document and it is what the save carries, so a resumed
+game plays the layout it started on. There is no course file for a quick
+game; the shipped course files are the multi-board tracks. The simulator
+plays a seeded quick game on every board as well as every track.
+
+A race draws only the markings its edition reads: under the classic rules a
+square shows its wrench and not its battery, under the 2016 rules its
+battery and not its wrench, and neither draws the flag *locations*, since
+the course has already said where the flags *are*. That is the renderer's
+`sites` and `flagspots` options (`editor/render/svg.js`); the workshop passes
+neither and shows everything printed.
+
 ## What is lifted from the old game, verbatim
 
 `data/cards.json`, `data/options.json`, `data/upgrades.json`,

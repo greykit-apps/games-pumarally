@@ -160,6 +160,13 @@ dropping the marking, which is how a board ends up carrying data nothing can see
 *does this square repair* gets the same answer whichever way the wrench is
 spelled.
 
+The workshop draws every marking a square carries. A race does not: the
+renderer's `sites` option (`boardSVG(board, { sites: "classic" })`) draws only
+the markings that edition prints, so a classic race sees the wrench and no
+battery and a 2016 race the battery and no wrench, and `flagspots: false`
+leaves the flag *locations* off, since the course has by then said where the
+flags *are*. The default, `sites: "all"`, is the workshop's.
+
 ### Walls: one storage slot per edge
 
 `hRows[r][c]` is the horizontal edge between `(c, r−1)` and `(c, r)`; `vRows[r][c]`
