@@ -77,6 +77,14 @@ const SHELL = `
 const WORKING = "__working";
 const UNDO_DEPTH = 60;
 
+/* Pixels per cell for the palette thumbnails. A board button is this many pixels
+ * wide per column of the board (plus 8px of padding and border, since the box is
+ * border-box), so every board in the rail is drawn at the same scale: a 12x12 is
+ * twice the width of a 6x6. Kept in step with the 216px rail in EXTRA_CSS -- the
+ * widest board (12 cells) is 12*PALETTE_PC+8 = 164px, inside the ~200px the rail
+ * gives after its padding. */
+const PALETTE_PC = 13;
+
 const EXTRA_CSS = `
 .overlay{position:absolute;left:0;top:0;pointer-events:none}
 .stampbox{position:absolute;border:1px dashed rgba(200,212,234,.28);border-radius:2px}
@@ -90,7 +98,15 @@ const EXTRA_CSS = `
 .reboot{position:absolute;display:grid;place-items:center;border-radius:12px;
   background:rgba(57,255,136,.85);color:#0b0d14;border:2px solid #0b0d14;box-shadow:0 0 0 2px rgba(57,255,136,.35)}
 .reboot svg{width:70%;height:70%}
-.palette{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+/* The board rail is wider in course mode than in the board workshop: its palette
+ * shows whole boards, not tool icons, and a 12x12 wants the room. Every board is
+ * drawn at ONE scale -- PALETTE_PC pixels a cell -- so a 6x6 shows at half the
+ * size of a 12x12 instead of being blown up to match it. The buttons are sized
+ * to their board and flow with wrap, and the rail never scrolls sideways. */
+.ed{grid-template-columns:216px minmax(0,1fr) 260px}
+@media (max-width:900px){ .ed{grid-template-columns:216px minmax(0,1fr)} }
+.rail{overflow-x:hidden}
+.palette{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
 .pb{border:1px solid var(--line);border-radius:3px;padding:3px;cursor:pointer;background:none;
   color:var(--ink);font:inherit;text-align:center}
 .pb:hover{border-color:var(--dim)}
@@ -267,14 +283,15 @@ export async function mountCourse(root, wanted) {
       '<span class="sw"><svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" rx="14" fill="#39ff88"/><path d="M50 78V26M32 42L50 26L68 42" fill="none" stroke="#0b0d14" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
       "<span>Place tokens</span><span class='hot'>R</span></button>";
     html += "<h3>Boards</h3><div class='palette'>";
-    for (const row of index.boards) {
-      const b = library.get(row.id);
-      if (!b || b.origin === "course") continue;
-      /* the docking bay is offered under Start, not here: a course has one and
-       * it is not interchangeable with a floor */
-      if (isDock(b)) continue;
-      html += paletteButton(row, b);
-    }
+    /* Full-size boards first, the smaller ones grouped together below. Sort by
+     * cell count, descending; the sort is stable, so boards of one size keep
+     * their library order. The docking bay is offered under Start, not here: a
+     * course has one and it is not interchangeable with a floor. */
+    const boards = index.boards
+      .map(row => ({ row, b: library.get(row.id) }))
+      .filter(({ b }) => b && b.origin !== "course" && !isDock(b))
+      .sort((a, z) => (z.b.w * z.b.h) - (a.b.w * a.b.h));
+    for (const { row, b } of boards) html += paletteButton(row, b);
     html += "</div><h3>Start</h3><div class='palette'>";
     for (const row of index.boards) {
       const b = library.get(row.id);
@@ -290,7 +307,8 @@ export async function mountCourse(root, wanted) {
 
   function paletteButton(row, b, role) {
     const rotated = st.handRot ? rotateBoard(b, st.handRot) : b;
-    return '<button class="pb" data-place="' + esc(row.id) + '" data-role="' + (role || "board") +
+    const width = rotated.w * PALETTE_PC + 8;   // +8: 3px padding + 1px border each side
+    return '<button class="pb" style="width:' + width + 'px" data-place="' + esc(row.id) + '" data-role="' + (role || "board") +
       '" aria-pressed="' + (st.hand === row.id) + '" title="' + esc(row.name) + " " + b.w + "x" + b.h + '">' +
       boardSVG(rotated, { mode: "art", background: true }) +
       "<span>" + esc(row.name) + (b.unverified ? " &middot; unverified" : "") + "</span></button>";
