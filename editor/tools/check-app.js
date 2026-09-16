@@ -35,6 +35,7 @@ import { fileURLToPath } from "node:url";
 import { checkBoardDocument } from "../validate/index.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
+import { libraryHtml } from "../app/panels.js";
 
 let passed = 0, failed = 0;
 const eq = (a, b, m) => {
@@ -802,6 +803,39 @@ const fresh = (w = 8, h = 8) =>
   const bad = checkBoardDocument({ ...doc, ground: { ...doc.ground, sites: [{ at: [1, 1], has: 5 }] } }, "t");
   ok(bad.board && bad.diagnostics.some(x => x.code === "site.empty"), "sites: a `has` that is not a list is reported, not stored");
   ok(cloneBoard(bad.board), "sites: and the board can still be cloned for undo");
+}
+
+/* --- the board library ------------------------------------------------------
+ *
+ * The workshop's only way in to a shipped board, and the reason it exists: with
+ * no library the workshop shows whatever board was last in this browser's
+ * storage and nothing else, which from the outside looks like a site serving
+ * one map.
+ *
+ * THREE STATES, AND TELLING THEM APART IS THE POINT. Still loading, loaded, and
+ * could not be loaded are different things; a failure rendered as an empty
+ * shelf reads as "there are no boards", which is the same wrong conclusion the
+ * panel was written to prevent.
+ */
+{
+  const small = blankBoard({ id: "t", name: "T", w: 4, h: 4, set: "authored", origin: "authored" });
+  const rows = [{ id: "island", name: "Island", w: 12, h: 12, unverified: false, board: small },
+                { id: "sidewinder", name: "Sidewinder", w: 12, h: 12, unverified: true, board: small }];
+  ok(/Loading/.test(libraryHtml(null, "x")), "library: while it is loading it says so");
+  ok(/could not be loaded/.test(libraryHtml([], "x")), "library: and a failure is not rendered as an empty shelf");
+  const html = libraryHtml(rows, "sidewinder");
+  eq((html.match(/data-open-board=/g) || []).length, 2, "library: one button per board");
+  ok(html.indexOf('data-open-board="island"') >= 0, "library: each button names the board it opens");
+  ok(html.indexOf('data-open-board="sidewinder" aria-pressed="true"') >= 0, "library: the board that is open is marked");
+  ok(html.indexOf('data-open-board="island" aria-pressed="false"') >= 0, "library: and the others are not");
+  ok(html.indexOf("<svg") >= 0, "library: every row carries the board's own drawing");
+  ok(html.indexOf("Sidewinder 12\u00d712, unverified") >= 0, "library: an unverified board says so on the way in");
+  /* A BUTTON NOBODY ANSWERS IS A DEAD BUTTON, and looks exactly like a live
+   * one. check-wiring.js makes the same demand of every control the inspector
+   * draws; this one is drawn into the shell, which that check does not reach. */
+  const mainSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "app", "main.js"), "utf8");
+  ok(/d\.openBoard|dataset\.openBoard/.test(mainSrc), "library: main.js reads data-open-board off a dataset");
+  ok(mainSrc.indexOf('class="insp-lib"') >= 0, "library: and the shell has somewhere to draw it");
 }
 
 console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");

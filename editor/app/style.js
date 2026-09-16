@@ -75,6 +75,14 @@ input[type=text],input[type=number],select{background:#11141d;color:var(--ink);
   background:#170f12;border-radius:0 3px 3px 0;cursor:pointer}
 .diag li.warn{border-left-color:var(--warn);background:#191509}
 .diag li .code{color:var(--dim);font-size:10px;display:block}
+.lib{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.lb{border:1px solid var(--line);border-radius:3px;padding:3px;cursor:pointer;background:none;
+  display:flex;flex-direction:column;gap:3px;color:var(--ink);text-align:center}
+.lb:hover{border-color:var(--hot)}
+.lb[aria-pressed=true]{border-color:var(--hot)}
+.lb-thumb{display:block;line-height:0}
+.lb-thumb svg{width:100%;height:auto;display:block;background:var(--bg)}
+.lb-name{font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .none{color:var(--dim);font-style:italic}
 .count{margin-left:auto}
 .bad{color:var(--bad)} .warn{color:var(--warn)} .ok{color:var(--ok)}

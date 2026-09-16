@@ -18,6 +18,7 @@ import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn, playableIn } f
 import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
+import { boardSVG } from "../render/svg.js";
 
 const swatch = body =>
   '<span class="sw"><svg viewBox="-4 -4 108 108" xmlns="http://www.w3.org/2000/svg">' + body + "</svg></span>";
@@ -375,6 +376,39 @@ function orderFor(rules, d) {
   return rules.order
     .filter(s => has[s.step])
     .map(s => s.name + (s.settled === false ? " (where this falls is not settled by the sources)" : ""));
+}
+
+/* --- the board library -------------------------------------------------------
+ *
+ * THE WORKSHOP HAD NO WAY IN. It opened whatever board was last in hand, kept
+ * in this browser's own storage, and the only route to any other shipped board
+ * was typing `#board=<id>` in the address bar. From the outside that looks like
+ * a site serving one map: whatever you last had open is the whole world. The
+ * course workshop had a rail of every board all along, but it stamps them into
+ * a course rather than opening them to edit, so it was no way in either.
+ *
+ * The thumbnails are memoised by id. This markup is rebuilt whenever the
+ * library loads, and drawing eighteen boards is not something to do twice.
+ */
+const thumbs = new Map();
+
+/**
+ * Every shipped board as a thumbnail that opens it.
+ * `rows` is null while the library is still loading and empty when it could
+ * not be loaded -- two different things, and a reader has to be told which.
+ */
+export function libraryHtml(rows, currentId) {
+  if (!rows) return '<p class="none">Loading the shipped boards\u2026</p>';
+  if (!rows.length) return '<p class="none bad">The shipped boards could not be loaded.</p>';
+  let html = '<div class="lib">';
+  for (const row of rows) {
+    if (!thumbs.has(row.id)) thumbs.set(row.id, boardSVG(row.board, { mode: "art", background: true }));
+    html += '<button class="lb" data-open-board="' + esc(row.id) + '" aria-pressed="' + (row.id === currentId) +
+      '" title="' + esc(row.name) + " " + row.w + "\u00d7" + row.h + (row.unverified ? ", unverified" : "") + '">' +
+      '<span class="lb-thumb">' + thumbs.get(row.id) + "</span>" +
+      '<span class="lb-name">' + esc(row.name) + "</span></button>";
+  }
+  return html + "</div>";
 }
 
 export function renderDiagnostics(el, st) {

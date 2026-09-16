@@ -14,7 +14,7 @@ import {
   takeOffDoor, cellsBetween
 } from "./tools.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
-import { renderRail, renderInspector, renderDiagnostics } from "./panels.js";
+import { renderRail, renderInspector, renderDiagnostics, libraryHtml } from "./panels.js";
 import { blankBoard, cloneBoard, boardFromDocument, levelAt, setLevel, inBoard } from "../lib/board.js";
 import { boardJSON } from "../lib/canon.js";
 import { toPicture, fromPicture } from "../lib/picture.js";
@@ -62,6 +62,9 @@ const SHELL = `
     </div>
     <div class="row"><button data-act="new">New board&hellip;</button>
       <button data-act="recover" style="display:none" title="The board that was open before the last New, Import or shipped-board load">Recover previous</button></div>
+    <h3>Board library</h3>
+    <div class="insp-lib"></div>
+    <div class="row"><span class="none">Every shipped board. Opening one replaces the board you are on, which stays recoverable above.</span></div>
   </aside>
   <footer class="status">
     <span class="st-msg"></span>
@@ -95,6 +98,7 @@ export function mount(root) {
   const diagEl = root.querySelector(".insp-diag");
   const msgEl = root.querySelector(".st-msg");
   const zoomEl = root.querySelector(".st-zoom");
+  const libEl = root.querySelector(".insp-lib");
   const photoCtl = root.querySelector(".photo-ctl");
   const fileIn = root.querySelector(".filein");
   const jsonIn = root.querySelector(".jsonin");
@@ -107,6 +111,31 @@ export function mount(root) {
   function say(text, kind) {
     msgEl.textContent = text || "";
     msgEl.className = "st-msg " + (kind || "");
+  }
+
+  /* THE LIBRARY IS DRAWN ONCE. `refresh` runs on every hover and every edit,
+   * and eighteen board drawings is not something to rebuild at that rate --
+   * so the markup is built when the library arrives and `refresh` only moves
+   * the pressed mark from one button to another. */
+  let libRows = null;
+  function drawLibrary() {
+    libEl.innerHTML = libraryHtml(libRows, st.board.id);
+  }
+  function markLibrary() {
+    for (const b of libEl.querySelectorAll("[data-open-board]")) {
+      b.setAttribute("aria-pressed", String(b.dataset.openBoard === st.board.id));
+    }
+  }
+  /** Open a shipped board from the library. A CLONE: editing must not reach the copy the library keeps. */
+  function openFromLibrary(id) {
+    const row = (libRows || []).find(r => r.id === id);
+    if (!row) { say("That board is not in the library.", "bad"); return; }
+    replaceBoard(cloneBoard(row.board));
+    fit(view, st);
+    /* the address bar may still say #board=<something we arrived by>, and a
+     * reload would then reopen that one rather than this */
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    say("Opened " + row.name + ". The board you were on is recoverable.", "ok");
   }
 
   function refresh({ board = true, panels = true } = {}) {
@@ -122,6 +151,7 @@ export function mount(root) {
     root.querySelector('[data-act="undo"]').disabled = !st.undo.length;
     root.querySelector('[data-act="redo"]').disabled = !st.redo.length;
     root.querySelector('[data-act="recover"]').style.display = readAll().__previous ? "" : "none";
+    markLibrary();
     autosave();
   }
 
@@ -349,6 +379,7 @@ export function mount(root) {
       if (d.damage !== undefined) { st.hand.damage = +d.damage; refresh({ board: false }); return; }
       if (d.reach !== undefined) { st.hand.reach = +d.reach; refresh({ board: false }); return; }
       if (d.reg !== undefined) { toggleReg(+d.reg); return; }
+      if (d.openBoard) { openFromLibrary(d.openBoard); return; }
 
       /* THE SELECTED SQUARE, on the same rows. Every one of these writes to the
        * board at once -- the drawing is the feedback, so there is no apply step
@@ -758,12 +789,15 @@ export function mount(root) {
   /* --- boot ------------------------------------------------------------------- */
 
   window.addEventListener("resize", () => { layout(view, st); showMarks(view, st); });
+  drawLibrary();
   refresh();
   fit(view, st);
   say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D pan, ` swaps the drawing.", "");
 
   /* a small handle for the browser console and for tests */
-  window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev) };
+  window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev),
+    /** The board library has arrived (or failed, as []). Draw it. */
+    setLibrary(rows) { libRows = rows; drawLibrary(); } };
   return window.__ED;
 }
 
@@ -794,10 +828,33 @@ if (host) {
     import("./coursemode.js").then(m => m.mountCourse(host, course[1]));
   } else {
     const ed = mount(host);
+    loadLibrary(ed);
     if (board) loadShipped(ed, board[1]);
     else if (flat) ed.openCourse(flat[1]);
   }
   window.addEventListener("hashchange", () => location.reload());
+}
+
+/* The shipped boards, fetched AFTER the editor is up rather than before it.
+ * This is the workshop's landing page; blocking it on nineteen requests to
+ * draw a list nobody has looked at yet would be paying for the library with
+ * the thing the library is attached to. The panel says it is loading, and
+ * fills in. A failure leaves the editor working and says so in the panel. */
+async function loadLibrary(ed) {
+  try {
+    const index = await (await fetch("./data/index.json")).json();
+    const rows = await Promise.all((index.boards || []).map(async row => {
+      try {
+        const d = sink();
+        const b = boardFromDocument(await (await fetch("./data/boards/" + row.id + ".json")).json(), d, row.id);
+        if (!b || d.items.some(x => x.severity === "error")) return null;
+        return { id: row.id, name: b.name, w: b.w, h: b.h, unverified: !!b.unverified, board: b };
+      } catch (e) { return null; }
+    }));
+    ed.setLibrary(rows.filter(Boolean));
+  } catch (e) {
+    ed.setLibrary([]);
+  }
 }
 
 async function loadShipped(ed, id) {
