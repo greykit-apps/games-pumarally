@@ -92,24 +92,31 @@ export function siteProps(has) {
   return out;
 }
 
-/* --- every marking on a board is transcribed -------------------------------
+/* --- authored markings ---------------------------------------------------
  *
- * THE SWAP RULE IS GONE, and this note is here so nobody reinvents it. It put
- * a battery on every wrench square and a wrench on every battery square, so
- * that a board printed for one edition would still have something to offer
- * the other, and it wrote "authored <marking>" into the square's note so the
- * invention could be told from the print.
+ * A board's markings are transcribed from the print, with one exception, and
+ * the exception is now HISTORY RATHER THAN A PROCESS. The swap rule put a
+ * battery on every wrench square and a wrench on every battery square, so that
+ * a board printed for one edition still had something to offer the other, and
+ * it wrote "authored <marking>" into the square's note to say which of the two
+ * it had invented.
  *
- * It was a reasonable answer to boards that marked only one of the three. It
- * stopped being one when the boards came to mark batteries, repair sites and
- * upgrade sites separately, each read off the photograph: the rule then
- * doubled work that had already been done properly, and a 2016 board whose
- * eight energy spaces were all correctly marked came out with eight repair
- * sites nobody had ever printed. Far too many, and wrong in the specific way
- * this repository cares about -- data that looks transcribed and is not.
+ * THE TOOL THAT APPLIED IT IS GONE (2026-09-16) and nothing re-applies it. A
+ * square marked both is a square marked both, and that is fine: the engine
+ * takes whichever the ruleset in force reads, a wrench under the classic
+ * rules and a battery under the 2016 ones, because a marking is a property of
+ * the square and not a conversion anybody performs. Marking squares is done on
+ * the map now, by hand, in the workshop.
  *
- * The 69 markings it had added were stripped from the shipped boards by
- * reading back those same notes, so what is left on every square is what
- * somebody read off a photograph. A board that marks no repair site now has
- * none, and that is the honest answer rather than a generated one.
- */
+ * What stays is the READER below, because the notes are still in the data and
+ * they are still the record of which markings were invented rather than read
+ * off a photograph. The writer went with the tool: nothing should be minting
+ * these notes any more. */
+export const SWAP_RULE = "the swap rule: a battery on every wrench, a wrench on every battery; not printed";
+
+/** The markings a site note declares as authored, e.g. ["battery"]. */
+export function authoredOf(note) {
+  const out = [];
+  for (const m of String(note || "").matchAll(/\bauthored (repair|upgrade|battery|flagspot)\b/g)) out.push(m[1]);
+  return out;
+}
