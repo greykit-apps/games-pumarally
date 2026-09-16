@@ -181,6 +181,23 @@ export function crusherFires(C, c, r, register) {
   return ceilingAt(C.grid, c, r, "crusher").some(d => firesIn(d.regs || null, (register | 0) + 1));
 }
 
+/**
+ * Fire over a square this register, named, or null.
+ *
+ * ONE QUESTION, TWO PICTURES. A classic flame jet's plume and a 2016 flamer
+ * are the same thing happening to a robot, and each edition resolves whichever
+ * one the board prints -- see the substitute declared in
+ * editor/rulesets/devices.js. What differs is the TIMING, and that stays with
+ * the edition: the callers in rules.js gate on the book, never on the device.
+ * The name comes back so the log and the event still say which of the two
+ * burned you.
+ */
+export function fireAt(C, c, r, register) {
+  if (jetFires(C, c, r, register)) return "burner";
+  if (flamerFires(C, c, r, register)) return "flamer";
+  return null;
+}
+
 export function jetFires(C, c, r, register) {
   return C.jets.some(j => firesIn(j.regs, (register | 0) + 1) && j.squares.some(([sc, sr]) => sc === c && sr === r));
 }

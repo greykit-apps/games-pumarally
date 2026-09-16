@@ -19,6 +19,35 @@ const BOTH = ["classic", "modern"];
 const CLASSIC = ["classic"];
 const MODERN = ["modern"];
 
+/* WHAT IS PRINTED AND WHAT PLAYS ARE TWO QUESTIONS.
+ *
+ * `printedIn` is provenance and never moves: it says which box prints the
+ * thing, and it is transcription. `playsIn` says which editions' RULES can
+ * resolve it, and is the question the game asks when it decides whether a
+ * board is raceable. It defaults to `printedIn`, because normally a book can
+ * only resolve what it prints.
+ *
+ * It is wider in exactly one case, DECLARED HERE AND OURS, not either book's:
+ * the flame jet and the flamer. Both are fire over a square and both do one
+ * point of damage to a robot in it. They stay two device kinds because the
+ * pictures differ in a way a transcriber has to record -- the jet is bolted to
+ * a wall, faces, and reaches one square or two; the flamer hangs over a single
+ * square and faces nowhere -- but neither rulebook says anything about the
+ * other's, so three shipped boards would otherwise be refused to the edition
+ * that did not print their fire.
+ *
+ * So each edition resolves WHATEVER FIRE THE BOARD CARRIES, by its own timing:
+ * classic burns a robot that passes through, again for not leaving, and again
+ * at the burner's own step after the lasers; the 2016 game burns a robot that
+ * enters and once more at the end of the register. The engine asks one
+ * question, `fireAt` (game/engine/course.js); the timing stays each book's.
+ *
+ * This is the press and the crusher's conclusion one step further on. There
+ * two names turned out to be one device. Here two devices turn out to be one
+ * thing happening, which is a weaker claim and so is declared rather than
+ * merged -- the boards still print what they print. A device widened this way
+ * must say why in `substitute`, and check-lib.js asserts it. */
+
 /** How a kind may spell its register list. */
 export const REGS_NONE = "none";          // the field may not appear at all
 export const REGS_OPTIONAL = "optional";  // absent means every register
@@ -44,7 +73,9 @@ export const DEVICE_KINDS = {
   jet: {
     layer: "wall", name: "Flame jet", faced: true, needsWall: true,
     regs: REGS_OPTIONAL, fields: { reach: { min: 1, max: 2, default: 1 } },
-    printedIn: CLASSIC,
+    printedIn: CLASSIC, playsIn: BOTH,
+    substitute: "The 2016 game prints no flame jet and reads this one as a flamer: " +
+                "fire over a square, on the 2016 timing. Ours, not the book's.",
     source: "Crash and Burn. Board G prints one that reaches two squares."
   },
 
@@ -85,7 +116,9 @@ export const DEVICE_KINDS = {
   flamer: {
     layer: "ceiling", name: "Flamer", faced: false,
     regs: REGS_OPTIONAL, fields: {},
-    printedIn: MODERN,
+    printedIn: MODERN, playsIn: BOTH,
+    substitute: "The classic game prints no flamer and reads this one as a flame jet: " +
+                "fire over a square, on the classic timing. Ours, not the book's.",
     source: "Thrills and Spills. Damages rather than destroys, which is why it is not a crusher."
   }
 };

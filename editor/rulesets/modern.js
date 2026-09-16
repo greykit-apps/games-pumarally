@@ -63,7 +63,9 @@ export default {
       note: "Thrills and Spills (manual1/IMG_1250): active for the WHOLE register, so a robot takes one " +
             "each time it enters or is pushed through an active space during the register, and " +
             "'End of Register -- a robot in an active flamer space takes 1 damage'. That end-of-register " +
-            "point is this step; the movement points land as the robot moves." },
+            "point is this step; the movement points land as the robot moves. A classic flame jet stands " +
+            "in for a flamer and is resolved here, on this timing -- which has no point for merely " +
+            "STAYING in the flame, where the classic book has one. See devices.js." },
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 

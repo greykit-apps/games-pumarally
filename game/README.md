@@ -397,6 +397,19 @@ end of a turn, it becomes real. Every robot-to-robot question in the rules
 goes through one function, `solidAt`, which is where the exception lives.
 The start of the race stays on the docking bays, one robot to a bay.
 
+The fire substitute is the one place a board plays outside the box that printed
+it. Crash and Burn's flame jet and Thrills and Spills' flamer are fire over a
+square, one point of damage, and neither rulebook mentions the other's; rather
+than refuse Board G, Board H and The "O" Ring to the edition that did not print
+their fire, each edition resolves whatever fire the board carries. The engine
+asks one question, `fireAt`, and the callers gate on the BOOK rather than on the
+device, so the timings stay apart: classic burns a robot passing through, again
+for not leaving the flame, and again at the burner's step after the lasers; 2016
+burns it on the way in and once more at the end of the register, with no point
+at all for standing still. Declared in `editor/rulesets/devices.js` as `playsIn`
+against `printedIn`, and held by three scenarios, one of which is only there to
+fail if the widening ever spreads past fire.
+
 ## Open, and recorded here rather than solved in passing
 
 - **Deploy caching.** The host serves `.js` for thirty days without

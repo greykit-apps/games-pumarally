@@ -9,8 +9,8 @@ import { step as stepCell, rot, opposite, DC, DR, N, E, S, W } from "../../edito
 import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
-  pusherAt, crusherFires, jetFires, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampAt, flamerFires
+  pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
+  currentAt, levelStepAt, rampBetween, rampAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
@@ -124,8 +124,9 @@ export function stepRobot(st, C, p, dir, cause) {
         st.events.push({ type: "moved", player: p.id, from, to: [hc, hr], dir, cause: "hop" });
         log(st, p.name + " bunny-hops over " + first.name);
         throughPortal(st, C, p);
-        if (jetFires(C, p.c, p.r, st.register)) damage(st, C, p, 1, "burner");
-        if (isModern(st) && flamerFires(C, p.c, p.r, st.register)) damage(st, C, p, 1, "flamer");
+        /* a hop lands ON a square, and both books burn a robot for entering fire */
+        const hopped = fireAt(C, p.c, p.r, st.register);
+        if (hopped) damage(st, C, p, 1, hopped);
         return true;
       }
     }
@@ -176,7 +177,8 @@ export function stepRobot(st, C, p, dir, cause) {
     st.events.push({ type: i > 0 ? "pushed" : "moved", player: m.id, from, to: [tc, tr], dir, cause, by: i > 0 ? chain[i - 1].id : undefined });
     if (drop) { const n = waterAt(C, tc, tr) ? 1 : 2; hurt.push({ who: m, n, source: "ledge", why: "the drop off the ledge" }); }
     /* Thrills and Spills: "A robot takes 1 damage each time it enters, passes through, or is pushed into or through an active flamer space." */
-    if (isModern(st) && inGrid(C, tc, tr) && flamerFires(C, tc, tr, st.register)) hurt.push({ who: m, n: 1, source: "flamer", why: "the flamer" });
+    const entered = isModern(st) && inGrid(C, tc, tr) ? fireAt(C, tc, tr, st.register) : null;
+    if (entered) hurt.push({ who: m, n: 1, source: entered, why: entered === "flamer" ? "the flamer" : "the flame" });
     if (i > 0) {
       log(st, chain[i - 1].name + " shoves " + m.name + " " + DIR_NAMES[dir]);
       pushHooks(st, chain[i - 1], m, dir, cause, false, hurt);
@@ -188,8 +190,11 @@ export function stepRobot(st, C, p, dir, cause) {
       else { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
     }
     throughPortal(st, C, m);
-    /* a jet burns what passes through it, not only what stops in it */
-    if (jetFires(C, m.c, m.r, st.register)) hurt.push({ who: m, n: 1, source: "burner", why: "the flame" });
+    /* a jet burns what passes through it, not only what stops in it. The 2016
+     * book's own wording took its point above, before the pit; this is the
+     * classic one, which reads the square the robot came to rest on. */
+    const through = isModern(st) ? null : fireAt(C, m.c, m.r, st.register);
+    if (through) hurt.push({ who: m, n: 1, source: through, why: "the flame" });
   }
   /* damage lands after the whole chain has moved: applying it mid-loop can
    * destroy a robot the robots behind it are still being pushed into */
@@ -353,12 +358,18 @@ export function playCard(st, C, p, cd, plan) {
  * the start of a move costs nothing; ending the card where it began, in an
  * active flame, costs one. The burner's own turn later in the register is a
  * second point, which is the two-in-one-register the book warns about.
+ *
+ * CLASSIC ONLY, and now explicitly so. The 2016 book burns a robot for
+ * ENTERING fire and once more at the end of the register; a robot that turns
+ * on the spot in a flamer has entered nothing and takes the end-of-register
+ * point alone. Reading the square is shared, the timing is not.
  */
 function stayedInFlame(st, C, p, start) {
-  if (!p.alive || p.c !== start[0] || p.r !== start[1]) return;
-  if (!jetFires(C, p.c, p.r, st.register)) return;
+  if (!p.alive || isModern(st) || p.c !== start[0] || p.r !== start[1]) return;
+  const burn = fireAt(C, p.c, p.r, st.register);
+  if (!burn) return;
   log(st, p.name + " sits in the flame and takes 1");
-  damage(st, C, p, 1, "burner");
+  damage(st, C, p, 1, burn);
 }
 
 /* --- the floor --------------------------------------------------------------- */
@@ -467,11 +478,13 @@ export function crusherPass(st, C) {
   }
 }
 
+/** The classic order's burner step: after the lasers, whatever fire the board carries. */
 export function jetPass(st, C) {
   for (const p of alive(st)) {
-    if (!jetFires(C, p.c, p.r, st.register)) continue;
+    const burn = fireAt(C, p.c, p.r, st.register);
+    if (!burn) continue;
     log(st, p.name + " is scorched by a burner");
-    damage(st, C, p, 1, "burner");
+    damage(st, C, p, 1, burn);
   }
 }
 
@@ -935,11 +948,13 @@ export function reboot(st, C, p, how) {
 }
 
 /** Thrills and Spills: "End of Register -- A robot in an active flamer space takes 1 damage." */
+/** The 2016 order's end-of-register point, on whatever fire the board carries. */
 export function flamerPass(st, C) {
   for (const p of alive(st)) {
-    if (!flamerFires(C, p.c, p.r, st.register)) continue;
+    const burn = fireAt(C, p.c, p.r, st.register);
+    if (!burn) continue;
     log(st, p.name + " ends the register in the flames");
-    damage(st, C, p, 1, "flamer");
+    damage(st, C, p, 1, burn);
   }
 }
 

@@ -37,6 +37,7 @@ at play time beyond fetching the boards.
 | The game on screen: set-up, draft, programming by click, keys and drag, animated floor, hot seat, autosave and resume | done |
 | Option cards: all twenty-seven of the two printings, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 51 scenarios by name; the AMIGO eleven carry their German text and the reading each needed |
 | Oil, portals, swing doors, unnumbered presses, burners on the way through, lives by game size (Crash and Burn, from the AMIGO book) | done, 29 scenarios by name |
+| Fire under either book: a flame jet and a flamer stand in for each other, each resolved on its own edition's timing | done, 3 scenarios by name; a declared substitute, ours not the books' |
 | The 2016 expansions' floor: water, drains, ledges and ramps, currents, randomizers, teleporters, flamers (from the three Factory Floor Guides) | done, 11 scenarios by name; no shipped board prints them yet |
 | The 2016 rules: own decks, Priority Token, SPAM and Haywire, Energy, the upgrade shop with all forty cards' effects, shutdown, reboot, the reference card's floor order | done, 76 scenarios by name; two declared substitutes (reboot point, first priority) |
 | Flag locations marked on the boards, for the engine to choose among | not yet: board design |

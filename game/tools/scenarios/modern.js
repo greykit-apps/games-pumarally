@@ -19,7 +19,7 @@ import { assertInvariants, runGame } from "../../engine/sim.js";
 import { botWantsShutdown, bestFacing, botUpgrade, botAnswer, randomAnswer } from "../../engine/bots.js";
 import { rulesetsFor } from "../../engine/library.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
-import { setWall } from "../../../editor/lib/edges.js";
+import { setWall, EDGE_DOOR } from "../../../editor/lib/edges.js";
 import { blankBoard, setCell, docksOf } from "../../../editor/lib/board.js";
 import { buildCourse } from "../../engine/course.js";
 
@@ -851,23 +851,26 @@ export const TESTS = [
   ["a course's rulebooks come from its squares, not from its box", () => {
     const both = courseOn(board(6, 6));
     eq(rulesetsFor(both.doc, both.library), ["classic", "modern"], "plain floor plays under either");
-    const jet = courseOn(board(6, 6, b => { setWall(b, 2, 2, N, 1); b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 2, r: 2 }, face: S, reach: 1, regs: [1] }); }));
-    eq(rulesetsFor(jet.doc, jet.library), ["classic"], "a flame jet is printed only in the classic box");
+    const swing = courseOn(board(6, 6, b => { setWall(b, 2, 2, E, EDGE_DOOR); b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 3, r: 2 }, regs: [1, 3, 5] }); }));
+    eq(rulesetsFor(swing.doc, swing.library), ["classic"], "a swing door is printed only in the classic box, and the 2016 game has nothing that stands in for one");
     const water = courseOn(board(6, 6, (b, t) => t.setCell(2, 2, "~..")));
     eq(rulesetsFor(water.doc, water.library), ["modern"], "water is printed only in the 2016 boxes");
-    const mixed = courseOn(board(6, 6, (b, t) => { t.setCell(2, 2, "~.."); setWall(b, 4, 4, N, 1); b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 4, r: 4 }, face: S, reach: 1, regs: [1] }); }));
+    const mixed = courseOn(board(6, 6, (b, t) => { t.setCell(2, 2, "~.."); setWall(b, 4, 4, E, EDGE_DOOR); b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 5, r: 4 }, regs: [2] }); }));
     eq(rulesetsFor(mixed.doc, mixed.library), [], "and a board carrying both is readable by neither");
+    /* fire is the exception, and a declared one: scenarios/fire.js holds it */
+    const hot = courseOn(board(6, 6, b => { setWall(b, 2, 2, N, 1); b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 2, r: 2 }, face: S, reach: 1, regs: [1] }); }));
+    eq(rulesetsFor(hot.doc, hot.library), ["classic", "modern"], "a flame jet is printed in the classic box alone but stands in for a flamer, so both books play it");
   }],
   ["the docking bay belongs to both games, and a real mix is still refused", () => {
     const b = board(6, 4);
     const dock = courseOn(b);
     eq(rulesetsFor(dock.doc, dock.library), ["classic", "modern"], "the bays are printed in both boxes");
     const a = board(6, 6, (bb, t) => t.setCell(2, 2, "~..")); a.id = "wet";
-    const z = board(6, 6, bb => { setWall(bb, 2, 2, N, 1); bb.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 2, r: 2 }, face: S, reach: 1, regs: [1] }); }); z.id = "hot";
+    const z = board(6, 6, bb => { setWall(bb, 2, 2, E, EDGE_DOOR); bb.wallDevices.push({ kind: "door", edge: { kind: "v", c: 3, r: 2 }, regs: [1, 3, 5] }); }); z.id = "shut";
     const library = new Map([[a.id, a], [z.id, z]]);
     const doc = { format: "PRCourse", version: 1, id: "mix", name: "Mix", kind: "quick", flags: [[0, 0]], minPlayers: 1, maxPlayers: 8,
-      stamps: [{ role: "board", board: "wet", rot: 0, at: [0, 0] }, { role: "board", board: "hot", rot: 0, at: [6, 0] }] };
-    eq(rulesetsFor(doc, library), [], "a 2016 board beside a Crash and Burn board is a course nobody's book reads");
+      stamps: [{ role: "board", board: "wet", rot: 0, at: [0, 0] }, { role: "board", board: "shut", rot: 0, at: [6, 0] }] };
+    eq(rulesetsFor(doc, library), [], "a 2016 board beside a board with a swing door is a course nobody's book reads");
   }],
   ["destroying a robot returns all of its cards to the discard", () => {
     const co = plain();

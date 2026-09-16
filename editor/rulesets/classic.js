@@ -74,7 +74,9 @@ export default {
     { step: "boardLaser", name: "Board lasers fire", settled: true },
     { step: "robotLaser", name: "Robots fire", settled: true },
     { step: "jet", name: "Flame jets fire", settled: true,
-      note: "After the lasers, alone among elements -- Crash and Burn states this outright." },
+      note: "After the lasers, alone among elements -- Crash and Burn states this outright. " +
+            "It burns whatever fire the board carries: a 2016 flamer stands in for a jet and is " +
+            "resolved here, on this timing. See devices.js." },
     { step: "checkpoint", name: "Flags and repair sites are touched", settled: true }
   ],
 
