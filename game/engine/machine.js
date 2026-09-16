@@ -18,9 +18,9 @@
  * activation register by register in Priority Token order, end of round.
  */
 import { courseOf, isHole, inGrid, repairAt, optionSiteAt } from "./course.js";
-import { card, KINDS, openRegisters, cardsDealt, isDamage, isModern, REGISTERS, HAND, UPGRADE_DRAW_COST } from "./cards.js";
+import { card, KINDS, openRegisters, cardsDealt, isDamage, isModern, REGISTERS, HAND, MAX_ENERGY, UPGRADE_DRAW_COST } from "./cards.js";
 import { shuffle } from "./rng.js";
-import { isHuman, alive, racing, priorityOrder, log, LIVERIES } from "./state.js";
+import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint } from "./rules.js";
@@ -72,6 +72,40 @@ function ask(st, player, kind, options, extra) {
   st.waiting = { player: player.id, kind, options, ...(extra || {}) };
 }
 
+/* The Konami code, entered at the keyboard during a player's own programming.
+ * A cheat, applied here as a pure function of the state so a save reproduces it
+ * and the conservation laws hold:
+ *   - classic: a full stock of lives back, and the damage track wiped;
+ *   - modern: the Energy bar filled, and every damage card -- SPAM and Haywire
+ *     alike -- scrapped out of the robot's hand, deck, discard, parked cards
+ *     and registers, onto the damage discard where the count still finds them.
+ * Modern never touches lives (the 2016 game keeps them all equal); classic has
+ * no damage cards to scrap. The program step is re-run after, so the player
+ * goes on programming with the cleaned-up hand. */
+function konamiCheat(st, p) {
+  if (isModern(st)) {
+    gainEnergy(st, p, MAX_ENERGY, "konami");
+    let scrapped = 0;
+    const bin = i => { st.damageDiscard.push(i); scrapped++; };
+    for (const key of ["hand", "deck", "pile", "parked"]) {
+      p[key] = p[key].filter(i => { if (isDamage(st, i)) { bin(i); return false; } return true; });
+    }
+    for (const key of ["registers", "crab", "haywire"]) {
+      for (let k = 0; k < p[key].length; k++) {
+        const i = p[key][k];
+        if (i !== null && isDamage(st, i)) { bin(i); p[key][k] = null; }
+      }
+    }
+    log(st, p.name + " enters the code -- Energy filled, " + scrapped + " damage card(s) scrapped");
+  } else {
+    const boards = (st.course.stamps || []).filter(s => s.role === "board").length;
+    p.lives = livesFor(st.players.length, boards);
+    p.damage = 0;
+    log(st, p.name + " enters the code -- lives and health restored");
+  }
+  st.events.push({ type: "cheat", player: p.id, code: "konami" });
+}
+
 /* --- requests: what is legal, and how an answer lands ------------------------ */
 
 const REQUESTS = {
@@ -99,6 +133,8 @@ const REQUESTS = {
     /* an entry is a hand index, or -- with Crab Legs fitted -- a pair
      * [rotate, move1] of hand indices for one register */
     legal: (st, req, a) => {
+      /* the Konami code, entered mid-plan: a cheat, always allowed here */
+      if (a && typeof a === "object" && !Array.isArray(a) && a.cheat === "konami") return true;
       if (!Array.isArray(a) || a.length !== req.count) return false;
       const p = st.players[req.player];
       const seen = new Set();
@@ -116,6 +152,9 @@ const REQUESTS = {
     },
     apply: (st, req, a) => {
       const p = st.players[req.player];
+      /* the cheat: apply it and leave the player un-ready, so the program step
+       * re-runs and asks again with the tidied hand */
+      if (a && a.cheat === "konami") { konamiCheat(st, p); return; }
       const flat = [];
       for (const e of a) { if (Array.isArray(e)) flat.push(e[0], e[1]); else flat.push(e); }
       const chosen = a.map(e => Array.isArray(e) ? [p.hand[e[0]], p.hand[e[1]]] : p.hand[e]);

@@ -53,10 +53,15 @@ function flagSvg(n, c, r) {
 let current = null;
 let keysBound = false;
 
+/* up up down down left right left right B A: entered during your own
+ * programming, it triggers the cheat handled by the program request. */
+const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+
 export function mountScreen(root, ctx) {
   const { library, speedOf } = ctx;
   let st = null, C = null;
   let pick = [];                 // hand indices chosen for the open registers, in order
+  let konami = [];               // the last few keys, for the cheat code
   let curtainFor = null;         // a human seat that has not yet taken the keyboard
   let lastHuman = null;
   let animating = false;
@@ -831,6 +836,16 @@ export function mountScreen(root, ctx) {
     if (!w || animating || !isHuman(st.players[w.player])) return;
     if (w.kind === "program") {
       const me = st.players[w.player];
+      /* the Konami code: gather the last few keys and, on a match, fire the
+       * cheat. Arrow keys are otherwise unused here, so swallow them while the
+       * code is being entered rather than let the page scroll. */
+      const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+      konami.push(k);
+      if (konami.length > KONAMI.length) konami = konami.slice(-KONAMI.length);
+      if (/^Arrow/.test(ev.key)) ev.preventDefault();
+      if (konami.length === KONAMI.length && konami.every((x, i) => x === KONAMI[i])) {
+        konami = []; answer({ cheat: "konami" }); ev.preventDefault(); return;
+      }
       if (/^[1-9]$/.test(ev.key)) {
         /* the nth card still in hand, counting the ones not yet placed */
         const left = me.hand.map((_, i) => i).filter(i => !pick.includes(i));
