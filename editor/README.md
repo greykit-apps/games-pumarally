@@ -492,34 +492,30 @@ node editor/tools/build-index.js --check    # data/index.json lists exactly what
 node editor/tools/check-editor-assets.js    # and the deploy will actually publish it all
 ```
 
-### The swap rule, and why it was removed
+### The swap rule: retired as a process, kept as data
 
 There was a rule, from 2026-09-15, for every board with no better information:
 **a battery on every wrench square and a one-wrench repair site on every
 battery square**, so that a board printed for one edition still had something
 to offer the other. A tool applied it, and because neither printing carries the
 other's marking, each one it added was **authored, not transcribed** — recorded
-as such in the square's site note, in a fixed form a reader could strip back
-out.
+as such in the square's site note, in a fixed form `authoredOf()` in
+`rulesets/sites.js` still reads back.
 
-**It was removed on 2026-09-16, and the 69 markings it had added were stripped
-from the shipped boards**, by reading back those same notes. It was a
-reasonable answer to boards that marked only one of the three things a square
-can carry. It stopped being one the moment the boards marked batteries, repair
-sites and upgrade sites *separately*, each read off a photograph: the rule then
-doubled work already done properly, and a 2016 board whose eight energy spaces
-were all correctly marked came out of it with eight repair sites nobody ever
-printed. Far too many, and wrong in the way this repository minds most — data
-that looks transcribed and is not.
+**The tool was deleted on 2026-09-16 and nothing re-applies the rule.** Marking
+squares is map work now, done by hand in the workshop, where a transcriber can
+see the photograph. That is the only thing that changed.
 
-So every marking on a shipped board is now somebody's reading of a photograph.
-**A board that marks no repair site has none**, and that is the honest answer
-rather than a generated one: Energize prints eight energy spaces and no
-wrenches, so a classic race on it finds nowhere to repair. If a board should
-offer more, the way to give it more is to mark the squares, not to derive them.
+**The markings stay exactly as they are.** A square marked both a wrench and a
+battery is a square marked both, and there is nothing to resolve: the two are
+different properties of the same piece of floor, and each edition reads its own
+— `repair` under the classic rules, `energy` under the 2016 ones, merged by
+`siteProps()` and read through `propAt()`. *The engine converts nothing.* It
+never did; the conversion was only ever the tool, writing into the JSON.
 
-The one thing the removal did not touch is a marking with no such note. Those
-were placed by hand and are the board's own, whichever edition prints them.
+The distinction is worth holding on to, because "too many repair sites" sounds
+like an engine problem and is not one. If a board offers more repair than it
+should, the square list is where to look and the workshop is where to fix it.
 
 ### Shipping a board or a course
 
