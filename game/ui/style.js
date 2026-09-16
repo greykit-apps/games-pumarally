@@ -39,6 +39,9 @@ h2:first-child{margin-top:0}
 .overlay .piece.virtual{opacity:.5}
 .overlay .piece.virtual .pr-hull{stroke-dasharray:8 6}
 .overlay .piece.gone{opacity:0}
+.overlay .piece.ghost{opacity:.45}
+.overlay .piece.ghost .pr-hull{fill:none;stroke-dasharray:10 7}
+.overlay .piece.ghost .pr-nose{opacity:.5}
 .overlay .piece.hit .pr-hull{fill:var(--danger)}
 .overlay .beam{stroke:var(--danger);stroke-width:6;stroke-linecap:round;opacity:.9;filter:drop-shadow(0 0 6px var(--danger))}
 .overlay .bay-pick{fill:var(--accent);opacity:.18;cursor:pointer}

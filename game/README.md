@@ -319,6 +319,11 @@ game (issue #1): whatever throws inside it, or inside the engine loop, is
 caught, the pieces are put where the state says, and the panel comes back
 with the request that is waiting and a line saying what happened.
 
+A robot that is off the board is drawn as a ghost on the square it comes
+back to (the 2016 Reboot Token or archive, the classic archive), and the
+programming panel says so, so its player programs from the right square
+before the facing is chosen at register 1.
+
 The panel's robot rows are mats. Each carries pip bars (lives in blue under
 the classic rules, flags in yellow, Energy in green under the 2016 rules,
 damage in red: the track, or the damage cards a robot carries), then the
