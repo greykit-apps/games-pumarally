@@ -301,7 +301,7 @@ export const TESTS = [
     /* and the case the whole arrangement exists for: a press on a belt */
     const onBelt = board(4, 2, (b, t) => { t.setCell(0, 0, "b>."); press(b, 0, 0, [1, 5]); });
     eq(codes(onBelt), [], "a press over a conveyor is fine");
-    const co = courseOn(onBelt);
+    const co = courseOn(onBelt, [[3, 1]]);           // the flag off the belt: a flag switches off what is under it
     const st = game(co, [{ c: 0, r: 0 }]);
     st.register = 0; beltPass(st, co.C, 1, 2);
     eq(st.players[0].c, 1, "the conveyor under the press still carries");

@@ -272,10 +272,13 @@ export function flagRefusal(course, library, asm, c, r) {
   if (inBox(dockBox(course, library, bounds), c, r)) {
     return { code: "course.flagInDock", why: "inside the starting block" };
   }
+  /* 2016 p.15: "All other Board Elements under a Checkpoint are not active" -- so a
+   * flag may stand on a belt or a gear, which the course then switches off; a pit
+   * has nothing to stand on */
   const def = elementAt(grid, c, r);
-  if (!def || def.key !== "floor") {
+  if (!def || def.props.pit) {
     return { code: "course.flagNotFloor",
-      why: "on " + (def ? def.name.toLowerCase() : "nothing") + ", and a flag stands on plain floor" };
+      why: "on " + (def ? def.name.toLowerCase() : "nothing") + ", and a flag cannot stand in one" };
   }
   for (const dev of grid.wallDevices) {
     const cell = deviceCell(dev);

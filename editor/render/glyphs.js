@@ -13,6 +13,7 @@
  */
 
 import { ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
+import { bayNumberOf } from "../lib/token.js";
 import { ARM_CODES } from "../lib/token.js";
 import { beltPaths } from "./belt.js";
 import * as A from "./art.js";
@@ -123,9 +124,9 @@ export const GLYPHS = {
   },
 
   dockingBay: {
-    art: ctx => A.dockSvg(ctx.arg),
+    art: ctx => A.dockSvg(String(bayNumberOf(ctx.arg) || ctx.arg)),
     markup: ctx => mk("M 20 20 L 80 20 L 80 80 L 20 80 Z", MARK.ground, 1.4) +
-      mkText(ctx.arg, 50, 52, MARK.ground, 30)
+      mkText(String(bayNumberOf(ctx.arg) || ctx.arg), 50, 52, MARK.ground, 30)
   },
 
   oil: { art: () => A.oilSvg(), markup: () => oilMark() },

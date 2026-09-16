@@ -92,7 +92,7 @@ const REQUESTS = {
       const p = st.players[req.player];
       const C = req._course;
       const dock = C.docks.find(d => d.n === a);
-      takeBay(st, p, dock);
+      takeBay(st, p, dock, C);
     }
   },
   program: {
@@ -230,10 +230,25 @@ export function isLegal(st, req, answer) {
 
 /* --- the steps ----------------------------------------------------------------- */
 
-function takeBay(st, p, dock) {
+/** "Players place their robots with the arrow on their base pointing toward the adjacent board" (2016 p.3): the way off the docking bay onto the course. */
+function facingOff(C, dock) {
+  const own = C.from[dock.r * C.w + dock.c];
+  for (const d of [0, 1, 2, 3]) {
+    let c = dock.c, r = dock.r;
+    for (let k = 0; k < 16; k++) {
+      c += [0, 1, 0, -1][d]; r += [-1, 0, 1, 0][d];
+      if (!inGrid(C, c, r)) break;
+      if (C.from[r * C.w + c] !== own) return d;
+    }
+  }
+  return 0;
+}
+
+function takeBay(st, p, dock, C) {
+  const face = C ? facingOff(C, dock) : 0;
   p.c = dock.c; p.r = dock.r;
-  p.face = 0;                                       // the dock is stamped below the boards, so north is the course
-  p.archive = { c: dock.c, r: dock.r, face: 0 };
+  p.face = face;
+  p.archive = { c: dock.c, r: dock.r, face };
   p.placed = true;
   st.events.push({ type: "placed", player: p.id, at: [p.c, p.r], bay: dock.n });
   log(st, p.name + " takes bay " + dock.n);

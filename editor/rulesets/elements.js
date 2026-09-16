@@ -176,7 +176,7 @@ export function checkArg(def, ch) {
     case ARG_DIR:
       return dirOfChar(ch) === undefined ? "needs a direction, one of ^ > v <" : null;
     case ARG_DIGIT:
-      return ch >= "1" && ch <= "8" ? null : "needs a bay number 1-8";
+      return (ch >= "1" && ch <= "9") || (ch >= "a" && ch <= "c") ? null : "needs a bay number: 1-9, then a b c for 10-12";
     case ARG_PAIR:
       return ch >= "1" && ch <= "9" ? null : "needs a pair colour 1-9";
     default:

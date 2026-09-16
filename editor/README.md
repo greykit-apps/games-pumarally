@@ -231,9 +231,14 @@ yet.
 
 A course may also carry `reboots: [[c, r, facing], ...]`, the 2016 game's
 Reboot Tokens, placed like the flags (one per board, none on the docking bay,
-on plain floor; the facing is the arrow a robot standing on the token is
-moved along when somebody reboots onto it), and `rebootDamage`, the damage a
-reboot draws when the course says something other than two. The workshop's
+anywhere but a pit -- a flag or a token switches off whatever board element
+is under it, as the 2016 book says, walls and the lasers on them excepted;
+the facing is the arrow a robot standing on the token is moved along when
+somebody reboots onto it), `rebootDamage`, the damage a reboot draws when
+the course says something other than two, and `bays`, the numbers of the
+docking bays the course uses when the book covers the rest with Energy
+cubes. A docking bay's number is one character: 1-9, then a, b, c for 10
+to 12, since the 2016 Docking Bay prints twelve. The workshop's
 **Place tokens** tool (R) lays them; clicking a token turns it, right-click
 takes it off; Q and E set the arrow for the next one.
 

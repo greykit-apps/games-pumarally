@@ -38,7 +38,9 @@ const COURSE_KEYS = new Set([
   "format", "version", "id", "name", "kind", "blurb", "stamps", "flags", "minPlayers", "maxPlayers", "notes",
   /* the 2016 game's Reboot Tokens, placed per course like the flags ([c, r, facing]),
    * and a course's own reboot cost (Cry Havoc draws 3 damage instead of 2) */
-  "reboots", "rebootDamage"
+  "reboots", "rebootDamage",
+  /* the bays a course uses ("Robots should not start in the spaces covered by Energy cubes") */
+  "bays"
 ]);
 const STAMP_KEYS = new Set(["role", "board", "rot", "at", "note"]);
 const at = (c, r) => "(" + c + "," + r + ")";
@@ -75,10 +77,15 @@ export function courseFromDocument(doc, d, expectId) {
     format: COURSE_FORMAT, version: COURSE_VERSION,
     id: doc.id, name: doc.name || "", kind: doc.kind || "track", blurb: doc.blurb || "",
     stamps: [], flags: [], reboots: [], rebootDamage: doc.rebootDamage === undefined ? null : doc.rebootDamage,
+    bays: doc.bays === undefined ? null : doc.bays,
     minPlayers: doc.minPlayers, maxPlayers: doc.maxPlayers
   };
   if (doc.rebootDamage !== undefined && (!Number.isInteger(doc.rebootDamage) || doc.rebootDamage < 0 || doc.rebootDamage > 9)) {
     d.error("doc.meta", "`rebootDamage` is the damage a reboot draws: a small whole number.", null, "/rebootDamage");
+  }
+  if (doc.bays !== undefined && (!Array.isArray(doc.bays) || !doc.bays.length || doc.bays.some(n => !Number.isInteger(n) || n < 1))) {
+    d.error("course.bayCount", "`bays` lists the numbers of the docking bays this course uses.", null, "/bays");
+    course.bays = null;
   }
   if (doc.reboots !== undefined) {
     if (!Array.isArray(doc.reboots)) d.error("course.rebootOffCourse", "`reboots` must be an array.", null, "/reboots");
@@ -209,10 +216,17 @@ function checkDock(course, library, grid, bounds, d) {
       break;
     }
   }
+  /* a course may use fewer bays than the board prints: the rest are covered by Energy cubes */
+  let usable = seen.length;
+  if (course.bays) {
+    const missing = course.bays.filter(n => !seen.includes(n));
+    if (missing.length) d.error("course.bayCount", "This course uses bay" + (missing.length === 1 ? " " : "s ") + missing.join(", ") + ", which the docking bay does not have.", null, "/bays");
+    usable = course.bays.filter(n => seen.includes(n)).length;
+  }
   const seats = course.maxPlayers;
-  if (Number.isInteger(seats) && seen.length < seats) {
-    d.error("course.bayCount", "This course seats " + seats + " but has " + seen.length +
-      " docking bay(s).", null, "/maxPlayers");
+  if (Number.isInteger(seats) && usable < seats) {
+    d.error("course.bayCount", "This course seats " + seats + " but has " + usable +
+      " docking bay(s)" + (course.bays ? " in use" : "") + ".", null, "/maxPlayers");
   }
 
   /* Every bay must be able to get OUT of the dock. This replaces "the column
@@ -262,9 +276,9 @@ function checkReboots(course, library, grid, from, bounds, d) {
       return;
     }
     const def = elementAt(grid, c, r);
-    if (!def || def.key !== "floor") {
+    if (!def || def.props.pit) {
       d.error("course.rebootNotFloor", "Reboot token " + n + " at " + at(c, r) + " is on " + (def ? def.name.toLowerCase() : "nothing") +
-        "; a token stands on plain floor, since every element under it would be switched off.", at(c, r), ptr);
+        "; a token cannot stand in a pit. (Anything else under it is switched off, as the book says.)", at(c, r), ptr);
     }
     if (inBox(dockBox(course, library, bounds), c, r)) {
       d.error("course.rebootInDock", "Reboot token " + n + " at " + at(c, r) + " is on the docking bay, which has none: a robot that falls off the bay reboots at its own archive.", at(c, r), ptr);

@@ -37,7 +37,18 @@ export function courseOf(st, library) {
 export function buildCourse(doc, library) {
   const { grid, from, bounds } = assemble(doc, library);
   const flags = (doc.flags || []).map(([c, r], i) => ({ c, r, n: i + 1 }));
-  const docks = docksOf(grid).sort((a, b) => a.n - b.n);
+  /* "Board lasers that pass through a Checkpoint are active. All other Board Elements
+   * under a Checkpoint are not active" (2016 p.15), and the same for a Reboot Token:
+   * the square under either is plain floor to the rules, its walls and the lasers on
+   * them untouched */
+  const quiet = flags.map(f => [f.c, f.r]).concat((doc.reboots || []).map(([c, r]) => [c, r]));
+  for (const [c, r] of quiet) {
+    if (!inBoard(grid, c, r) || isVoid(grid, c, r)) continue;
+    const def = tokenElement(cellAt(grid, c, r));
+    if (def && def.key !== "floor" && !def.props.pit && !def.props.dock) grid.cells[r * grid.w + c] = "...";
+  }
+  /* the bays a course uses: the rest are covered by Energy cubes and nobody starts there */
+  const docks = docksOf(grid).filter(d => !doc.bays || doc.bays.includes(d.n)).sort((a, b) => a.n - b.n);
   const lasers = grid.wallDevices.filter(d => d.kind === "laser").map(d => {
     const cell = deviceCell(d);
     return { c: cell[0], r: cell[1], dir: d.face, damage: d.damage || 1, dev: d };

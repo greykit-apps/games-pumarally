@@ -29,6 +29,18 @@
 import { rot, opposite, turnBetween } from "./dir.js";
 import { ELEMENTS, VOID_TOKEN } from "../rulesets/elements.js";
 
+/* A docking bay's number lives in one character: 1-9, then a, b, c for 10, 11
+ * and 12. The 2016 Docking Bay has twelve bays in a row; the token has one
+ * character for its argument. */
+export function bayNumberOf(ch) {
+  if (ch >= "1" && ch <= "9") return ch.charCodeAt(0) - 48;
+  if (ch >= "a" && ch <= "c") return ch.charCodeAt(0) - 96 + 9;
+  return NaN;
+}
+export function bayCharOf(n) {
+  return n <= 9 ? String(n) : String.fromCharCode(96 + n - 9);
+}
+
 export const TOKEN_WIDTH = 3;
 
 /**
