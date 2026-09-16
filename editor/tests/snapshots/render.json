@@ -39,6 +39,16 @@
       "bytes": 70215
     }
   },
+  "circuitTrap": {
+    "art": {
+      "sha": "a6764ab902d3b57f",
+      "bytes": 108212
+    },
+    "markup": {
+      "sha": "606ed5e2b654b904",
+      "bytes": 80404
+    }
+  },
   "cross": {
     "art": {
       "sha": "e27407f81ed97650",

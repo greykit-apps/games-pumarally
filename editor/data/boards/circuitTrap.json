@@ -1,0 +1,93 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "circuitTrap",
+  "name": "Circuit Trap",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "DRAFT, unverified. Belt squares and directions drafted by maps/boardscan.py + propagation, seeded from hand-read arrows; walls and laser beams measured; batteries, pits, crushers, push-panel and laser mounts read at magnification. Belt arms, the four ring conveyors' spin, the col-3 laser cluster and the push-panel faces are to be confirmed in the workshop against the photograph.",
+  "ground": {
+    "rows": [
+      "... bv. o.. ... ... bv. b^. ... ... o.. b^. ...",
+      "b<. b>x b>. b>. b>. b>L b>. b>. b>. bvr b^. o..",
+      "o.. b^. o.. o.. ... o.. o.. ... o.. o.. b^. ...",
+      "... b^r b<. b<. b<. b<. b<. b<. bvl b<l ... ...",
+      "... bvl b<. b<l b>r b>. b>. bvr b>l b^l o.. ...",
+      "b<. b>l b>. b^l b^. ... ... bv. ... bvl b<L b<.",
+      "b>. bvx b<. b<l b^. ... ... bv. o.. bv. b^. b>.",
+      "... b>l b>. b^l b^r b<. b<. b<r ... b>l b^l o..",
+      "... b>r b>. bvr o.. o.. ... b>r bvr bvl b<l ...",
+      "... b^r b<. b<r ... bvl b<l b^r b<r bv. b^. ...",
+      "... bvl b<. b<l ... b>l b^L bvl b<l b>l b^L b>.",
+      "... bv. b>. b^L ... bv. b^. b>l b^l ... b^. ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [7, 2], "has": ["flagspot"] },
+      { "at": [11, 2], "has": ["flagspot"] },
+      { "at": [0, 3], "has": ["flagspot"] },
+      { "at": [6, 5], "has": ["flagspot"] },
+      { "at": [6, 6], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [0, 8], "has": ["repair"] },
+      { "at": [6, 8], "has": ["flagspot"] },
+      { "at": [11, 8], "has": ["flagspot"] },
+      { "at": [0, 9], "has": ["flagspot"] },
+      { "at": [11, 11], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "   #    #   ",
+      "            ",
+      "            ",
+      "# # #  #   #",
+      "  #  #      ",
+      "  ##        ",
+      "#     #     ",
+      " ##       # ",
+      "  # # #    #",
+      "  ##    #   ",
+      "  #         ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "# # #   #   #",
+      "             ",
+      "#   #   #   #",
+      "     #   #   ",
+      "    # ##  #  ",
+      "#           #",
+      "             ",
+      "#         # #",
+      "     #   #   ",
+      "       #     "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:2,6", "face": "N", "damage": 2 },
+      { "kind": "laser", "edge": "h:2,8", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:2,9", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:2,10", "face": "S", "damage": 1 },
+      { "kind": "pusher", "edge": "h:4,0", "face": "S", "regs": [2, 4] },
+      { "kind": "laser", "edge": "h:4,9", "face": "S", "damage": 1 },
+      { "kind": "pusher", "edge": "h:7,0", "face": "S", "regs": [2, 4] },
+      { "kind": "laser", "edge": "v:0,2", "face": "E", "damage": 1 },
+      { "kind": "pusher", "edge": "v:0,4", "face": "E", "regs": [2, 4] },
+      { "kind": "laser", "edge": "v:7,6", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:10,9", "face": "E", "damage": 1 },
+      { "kind": "pusher", "edge": "v:10,9", "face": "W", "regs": [3] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [5, 5], "regs": [3] },
+      { "kind": "crusher", "at": [8, 7], "regs": [2, 4] }
+    ]
+  }
+}
