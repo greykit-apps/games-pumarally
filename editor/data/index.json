@@ -146,6 +146,15 @@
       "set": "modernUnfiled",
       "origin": "transcribed",
       "unverified": true
+    },
+    {
+      "id": "circuitTrap",
+      "name": "Circuit Trap",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
     }
   ],
   "courses": [
