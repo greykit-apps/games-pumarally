@@ -137,6 +137,15 @@
       "h": 4,
       "set": "authored",
       "origin": "authored"
+    },
+    {
+      "id": "sidewinder",
+      "name": "Sidewinder",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
     }
   ],
   "courses": [

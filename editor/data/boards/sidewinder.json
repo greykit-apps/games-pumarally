@@ -1,0 +1,78 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "sidewinder",
+  "name": "Sidewinder",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "DRAFT, unverified. Squares and belt directions drafted by maps/boardscan.py and re-oriented by propagation from three hand-read straight arrows; walls and laser beams measured; batteries, pit and laser mounts/damage read at magnification. Belt arms (curves) are derived and to be checked in the workshop against the photograph.",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... ... ... ... ... ... ... ...",
+      "... Bv. B>r Bvr ... ... ... ... ... ... ... ...",
+      "... Bv. B^. Bv. B>r Bvr ... ... ... ... ... ...",
+      "... Bv. B^. Bv. B^. Bv. b>r bvr ... ... ... ...",
+      "... Bv. B^. Bv. B^. Bv. b^. bv. b>r bvr ... ...",
+      "... Bv. B^. Bv. B^. Bv. b^. bv. b^. bv. b>r o..",
+      "... Bv. B^. Bv. B^. Bv. b^. bv. b^. b>l b^l ...",
+      "... Bv. B^. Bv. B^. Bv. b^. b>l b^l ... ... ...",
+      "... Bv. B^. Bv. B^. B>l b^l ... ... ... ... ...",
+      "... Bv. B^. B>l B^l ... ... ... ... ... ... ...",
+      "... B>l B^l ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [0, 1], "has": ["flagspot"] },
+      { "at": [4, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [6, 1], "has": ["flagspot"] },
+      { "at": [9, 3], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 4], "has": ["flagspot"] },
+      { "at": [0, 6], "has": ["flagspot"] },
+      { "at": [5, 9], "has": ["flagspot"] },
+      { "at": [10, 9], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [3, 10], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 10], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "   #        ",
+      "     #      ",
+      "      #     ",
+      "          # ",
+      "#           ",
+      "            ",
+      "            ",
+      "        #   ",
+      "       # #  ",
+      "    #      #",
+      " ##         ",
+      "            "
+    ],
+    "vRows": [
+      "      #  #   ",
+      "    #      # ",
+      " #       #   ",
+      "      #      ",
+      "   #         ",
+      "    #        ",
+      "     #       ",
+      "      #  #   ",
+      " #         # ",
+      "     #   #   ",
+      " # #    #    ",
+      "     #   #   "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "v:5,11", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:6,0", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:9,2", "face": "W", "damage": 1 },
+      { "kind": "laser", "edge": "v:11,8", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
