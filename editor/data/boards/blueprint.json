@@ -1,0 +1,52 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "blueprint",
+  "name": "Blueprint",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'Blueprint' (IMG_1443). Built by hand in the workshop against the photograph and verified. A blank template board -- open floor with eight flag spots and no other elements.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [0, 3], "has": ["flagspot"] },
+      { "at": [2, 3], "has": ["flagspot"] },
+      { "at": [4, 3], "has": ["flagspot"] },
+      { "at": [1, 4], "has": ["flagspot"] },
+      { "at": [3, 4], "has": ["flagspot"] },
+      { "at": [5, 4], "has": ["flagspot"] },
+      { "at": [2, 5], "has": ["flagspot"] },
+      { "at": [4, 5], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

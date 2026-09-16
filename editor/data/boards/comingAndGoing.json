@@ -1,0 +1,48 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "comingAndGoing",
+  "name": "Coming & Going",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 'Coming & Going'. Transcribed by eye (6x6, no scanner). Independent straight up/down green conveyor lanes, 2 batteries at (1,2) and (6,5), several interior walls, two flag spots at (2,2) and (5,5). Verified in the workshop against the photograph.",
+  "ground": {
+    "rows": [
+      "... ... b^. ... ... bv.",
+      "... ... b^. ... bv. ...",
+      "... b^. ... bv. ... ...",
+      "... ... bv. ... b^. ...",
+      "... bv. ... bv. ... ...",
+      "bv. ... ... bv. ... ..."
+    ],
+    "sites": [
+      { "at": [0, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 1], "has": ["flagspot"] },
+      { "at": [4, 4], "has": ["flagspot"] },
+      { "at": [5, 4], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "#    #",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "  #    ",
+      "   #   ",
+      "       ",
+      "       ",
+      "   #   ",
+      "    #  "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

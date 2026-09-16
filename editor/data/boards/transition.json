@@ -1,0 +1,101 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "transition",
+  "name": "Transition",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "DRAFT, unverified. Belt squares/directions drafted by maps/boardscan.py + propagation from hand-read seeds; walls and laser beams measured; gears, crushers, push-panels, batteries and pits read at magnification. Push-panel faces (esp. the interior ones at (9,2),(2,4),(12,3)), laser damage, and belt arms are to be confirmed in the workshop against the photograph.",
+  "ground": {
+    "rows": [
+      "o.. Bv. ... b^. ... Bv. b^. ... Bv. ... ... Bv.",
+      "b^. Bv. ... b^. ... Bv. b^. ... Bv. ... ... Bv.",
+      "b^. Bv. ... b^. ... Bv. b^. ... Bv. o.. ... Bv.",
+      "b^. Bv. ... b^. ... Bv. b^. ... r.. b>. b>. Bv.",
+      "b^. o.. ... b^. ... Bv. b^. o.. ... ... ... Bv.",
+      "b^. ... ... b^. ... Bv. l.. B<. B<. B<. ... Bv.",
+      "b^. o.. ... b^. ... r.. b>. b>. b>. b>. b>. Bv.",
+      "b^. Bv. ... b^. o.. ... ... ... ... ... ... Bv.",
+      "b^. Bv. ... l.. B<. B<. B<. B<. B<. B<. ... Bv.",
+      "b^. Bv. o.. ... ... ... ... ... ... ... ... Bv.",
+      "b^. r.. b>. b>. b>. b>. b>. b>. b>. b>. b>. l..",
+      "... B<. B<. B<. B<. B<. B<. B<. B<. B<. B<. o.."
+    ],
+    "sites": [
+      { "at": [4, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [7, 1], "has": ["flagspot"] },
+      { "at": [10, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 2], "has": ["flagspot"] },
+      { "at": [10, 2], "has": ["flagspot"] },
+      { "at": [2, 7], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [6, 7], "has": ["flagspot"] },
+      { "at": [2, 8], "has": ["flagspot"] },
+      { "at": [4, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [9, 9], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "            ",
+      "        #   ",
+      "            ",
+      "      #     ",
+      "     #      ",
+      "         #  ",
+      "   #  # #   ",
+      "            ",
+      "     #      ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "  #   #  #   ",
+      "#           #",
+      "  #     #    ",
+      "#           #",
+      "  #   #    # ",
+      "     #       ",
+      "#           #",
+      "   #         ",
+      "#           #",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:4,12", "face": "N", "regs": [2, 4] },
+      { "kind": "laser", "edge": "h:5,7", "face": "S", "damage": 1 },
+      { "kind": "pusher", "edge": "h:6,9", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:7,12", "face": "N", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "h:8,4", "face": "S", "damage": 1 },
+      { "kind": "pusher", "edge": "h:8,9", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:0,2", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:0,4", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:0,7", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:0,9", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:2,3", "face": "W", "regs": [2, 4] },
+      { "kind": "laser", "edge": "v:2,5", "face": "E", "damage": 1 },
+      { "kind": "pusher", "edge": "v:6,1", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "v:8,3", "face": "W", "damage": 1 },
+      { "kind": "pusher", "edge": "v:9,1", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:12,2", "face": "W", "regs": [2, 4] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [3, 2], "regs": [1, 5] },
+      { "kind": "crusher", "at": [3, 4], "regs": [2, 4] },
+      { "kind": "crusher", "at": [11, 5], "regs": [3] },
+      { "kind": "crusher", "at": [3, 6], "regs": [1, 3] },
+      { "kind": "crusher", "at": [11, 8], "regs": [4] },
+      { "kind": "crusher", "at": [4, 10], "regs": [1, 3] },
+      { "kind": "crusher", "at": [6, 10], "regs": [2, 4] },
+      { "kind": "crusher", "at": [8, 10], "regs": [1, 5] }
+    ]
+  }
+}

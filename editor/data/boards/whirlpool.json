@@ -1,0 +1,52 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "whirlpool",
+  "name": "Whirlpool",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'Whirlpool' (IMG_1442). Built by hand in the workshop against the photograph and verified. A green express border loop around a blue express inner spiral, a pit, two pushers, one laser, two battery sites.",
+  "ground": {
+    "rows": [
+      "b>r b>. b>. Bvr ... Bv.",
+      "b^. ... o.. Bv. ... Bv.",
+      "b^. ... B^. Bv. ... Bv.",
+      "b^. ... B^r B<r ... Bv.",
+      "b^. ... ... ... ... Bv.",
+      "b^r b<. b<. b<. b<. B<r"
+    ],
+    "sites": [
+      { "at": [1, 2], "has": ["battery"] },
+      { "at": [4, 2], "has": ["flagspot"] },
+      { "at": [2, 4], "has": ["flagspot"] },
+      { "at": [4, 4], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      " #   # ",
+      "       ",
+      " #   # ",
+      "   #   ",
+      "       "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "v:1,1", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:5,1", "face": "W", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "v:5,3", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

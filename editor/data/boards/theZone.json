@@ -1,0 +1,51 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "theZone",
+  "name": "The Zone",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'The Zone' (IMG_1435). Built by hand in the workshop against the photograph and verified. Two express conveyor rows, two red gears, two walled laser channels, two battery sites.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ...",
+      "... ... l.. B<. B<. B<.",
+      "B>. B>. B>. l.. ... ...",
+      "... ... ... ... ... ...",
+      "... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [2, 1], "has": ["repair", "battery"] },
+      { "at": [3, 1], "has": ["flagspot"] },
+      { "at": [2, 4], "has": ["flagspot"] },
+      { "at": [3, 4], "has": ["upgrade", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      " #  # ",
+      "      ",
+      "#    #",
+      "      ",
+      " #  # ",
+      "      "
+    ],
+    "vRows": [
+      "   #   ",
+      " #   # ",
+      "       ",
+      "       ",
+      " #   # ",
+      "   #   "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:1,1", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:4,5", "face": "N", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

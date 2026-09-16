@@ -1,0 +1,48 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "circles",
+  "name": "Circles",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'Circles' (IMG_1434). Built by hand in the workshop against the photograph and verified. A blue express border loop around a central green rotating-conveyor ring, two gears (green CW / red CCW), two battery sites.",
+  "ground": {
+    "rows": [
+      "B>r B>. B>. B>. B>. Bvr",
+      "B^. r.. ... ... ... Bv.",
+      "B^. ... bvl b<l ... Bv.",
+      "B^. ... b>l b^l ... Bv.",
+      "B^. ... ... ... l.. Bv.",
+      "B^r B<. B<. B<. B<. B<r"
+    ],
+    "sites": [
+      { "at": [4, 1], "has": ["upgrade", "battery"] },
+      { "at": [1, 2], "has": ["flagspot"] },
+      { "at": [4, 3], "has": ["flagspot"] },
+      { "at": [1, 4], "has": ["repair", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}
