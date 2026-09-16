@@ -412,12 +412,24 @@ fail if the widening ever spreads past fire.
 
 ## Open, and recorded here rather than solved in passing
 
-- **Deploy caching.** The host serves `.js` for thirty days without
-  revalidation, and this is thirty modules. The repo root's `.htaccess` sets
-  every script and data file to revalidate like the page. Not yet verified
-  against the live host: after the first deploy, `curl -I` a module under
-  `game/` and check the `Cache-Control` header. If the host ignores it, the
-  fallback is a hashed directory per release.
+- **Deploy caching — verified, with one trap left behind.** The host serves
+  `.js` for thirty days without revalidation, and this is thirty modules. The
+  repo root's `.htaccess` sets every script and data file to revalidate like
+  the page, and the host **does** honour it: every `.js`, `.json` and `.svg`
+  under `games/pumarally/` came back `Cache-Control: max-age=60,
+  must-revalidate` on 2026-09-16, the page and the modules and the board data
+  alike. The hashed-directory fallback is not needed.
+
+  **But it only protects caches filled after the `.htaccess` landed**, which
+  was the cutover on 2026-09-15. A browser that visited before that stored
+  the modules under the host's old default — thirty days, no revalidation —
+  and will go on running them from disk into mid-October **without ever asking
+  the server**, so no amount of deploying reaches it and an ordinary reload
+  does not either. It needs a hard reload, or a private window to prove it.
+  This is not hypothetical: it is what "the site only shows one board" turned
+  out to be, and the tell is that a brand-new file (a board added since) loads
+  correctly while everything older is a month stale — which reads exactly like
+  a broken deploy, and is not one.
 - **Reboot tokens and the priority antenna** are placed at setup, so they are
   course-level data like flags, and the modern engine will want them on the
   `PRCourse` document. Not before M4.
