@@ -11,22 +11,30 @@
   "ground": {
     "rows": [
       "o.. bv. ... ... ... ... b^. ... Bv. ... b>r ...",
-      "b^r b<r b<. b<. b<l ... b^r b<l B>l Bvr b^. b<.",
+      "b^r b<R b<. b<. b<l ... b^r b<l B>l Bvr b^R b<.",
       "... ... r.. ... b^. r.. ... b^r b<l B>l B^l ...",
-      "b>. bvr ... ... b<. b<l ... ... b^r b<l ... ...",
+      "b>. bvr ... ... b^r b<l ... ... b^r b<l ... ...",
       "... b>l b>. bvr ... b^. ... o.. ... b^r b<l ...",
       "... ... ... b>l bvr b^r b<. b<l r.. ... b^r b<.",
       "b>. bvr ... l.. b>l b>. bvr b^r b<l ... ... ...",
       "... b>l bvr ... ... ... bv. ... b^r b<l ... ...",
       "... ... b>l bvr ... ... b>l bvr ... b^r b<. b<.",
       "... Bvl B<l b>l bvr ... l.. bv. ... l.. ... ...",
-      "b>. bv. B^r B<l b>l bvr ... b>l b>. b>. b>R bvr",
+      "b>. bvR B^r B<l b>l bvr ... b>l b>. b>. b>R bvr",
       "... b<r ... B^. ... bv. ... ... ... ... b^. o.."
     ],
     "sites": [
+      { "at": [5, 0], "has": ["flagspot"] },
       { "at": [11, 0], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [1, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 3], "has": ["flagspot"] },
+      { "at": [6, 4], "has": ["flagspot"] },
+      { "at": [2, 5], "has": ["flagspot"] },
+      { "at": [9, 6], "has": ["flagspot"] },
       { "at": [3, 7], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 8], "has": ["flagspot"] },
+      { "at": [5, 9], "has": ["flagspot"] },
+      { "at": [10, 9], "has": ["flagspot"] },
       { "at": [0, 11], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [8, 11], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
     ]
@@ -51,7 +59,7 @@
       "             ",
       "     #       ",
       "             ",
-      "# #       #  ",
+      "  #       #  ",
       "             ",
       "             ",
       "             ",
