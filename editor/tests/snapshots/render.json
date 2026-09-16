@@ -139,6 +139,16 @@
       "bytes": 52204
     }
   },
+  "sidewinder": {
+    "art": {
+      "sha": "f7543313d92f6026",
+      "bytes": 88460
+    },
+    "markup": {
+      "sha": "6a1ca3189cbd90ac",
+      "bytes": 52041
+    }
+  },
   "steps": {
     "art": {
       "sha": "554492c6be61f19f",
