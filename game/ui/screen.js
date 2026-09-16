@@ -20,6 +20,7 @@
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { courseOf } from "../engine/course.js";
+import { rebootPoint } from "../engine/rules.js";
 import { card, KINDS, openRegisters, REGISTERS, isDamage, isModern, MAX_ENERGY } from "../engine/cards.js";
 import { LIVERIES, isHuman, livesFor } from "../engine/state.js";
 import { OPTION_DEFS, PLAN_HOOKS } from "../engine/options.js";
@@ -219,21 +220,40 @@ export function mountScreen(root, ctx) {
     }
   }
 
+  /* where a robot that is off the board comes back: the 2016 Reboot Token or
+   * archive, or the classic archive. Drawn as a ghost so its player programs
+   * from the right square, not from wherever the wreck happened. */
+  function returnPoint(p) {
+    if (p.alive || p.out || !p.placed) return null;
+    if (isModern(st)) { if (!p.rebooting) return null; const at = rebootPoint(C, p); return { c: at.c, r: at.r, face: p.face, token: at.token }; }
+    return p.archive ? { c: p.archive.c, r: p.archive.r, face: p.archive.face, token: false } : null;
+  }
+
   function placePiece(p, c, r, face, animate) {
     const g = pieces.get(p.id);
     if (!g) return;
     const liv = LIVERIES[p.livery];
     g.style.setProperty("--a", liv.a); g.style.setProperty("--d", liv.d);
+    const back = returnPoint(p);
+    if (back) { c = back.c; r = back.r; face = back.face; }
     if (!animate) g.style.transition = "none";
     g.style.transform = "translate(" + (c * CELL) + "px," + (r * CELL) + "px)";
     g.querySelector(".spin").style.transform = "rotate(" + (face * 90) + "deg)";
     if (!animate) { void g.getBoundingClientRect(); g.style.transition = ""; }
-    g.classList.toggle("gone", !p.alive || !p.placed);
+    g.classList.toggle("gone", (!p.alive || !p.placed) && !back);
+    g.classList.toggle("ghost", !!back);
     g.classList.toggle("down", !!p.poweredDown);
     g.classList.toggle("virtual", !!p.virtual);
   }
 
   function syncPieces() { for (const p of st.players) placePiece(p, p.c, p.r, p.face, false); }
+  /* the square a returning robot comes back on, in words */
+  function returnText(p) {
+    const back = returnPoint(p);
+    if (!back) return "";
+    return " Your robot is off the board and comes back at (" + back.c + "," + back.r + ")" + (back.token ? " on the Reboot Token" : " at its archive") +
+      (isModern(st) ? ", facing the way you choose when register 1 comes up; it is shown there as a ghost." : ".");
+  }
 
   /* the board takes the stage: as wide as the column allows, no taller than
    * the window, keeping its own proportions */
@@ -331,6 +351,8 @@ export function mountScreen(root, ctx) {
         case "destroyed":
           if (pieces.get(p.id)) pieces.get(p.id).classList.add("gone");
           await wait(300);
+          /* then the ghost, where it will come back */
+          placePiece(p, p.c, p.r, p.face, false);
           break;
         case "respawned": case "placed": case "rebooted":
           placePiece(p, e.at[0], e.at[1], e.face === undefined ? p.face : e.face, false);
@@ -548,7 +570,7 @@ export function mountScreen(root, ctx) {
       case "program": {
         const open = w.open;
         let html = '<div class="ask"><p>' + esc(me.name) + ", program your registers." +
-          (w.count === 0 ? " Every register is locked; there is nothing to arrange." : "") + "</p>";
+          (w.count === 0 ? " Every register is locked; there is nothing to arrange." : "") + esc(returnText(me)) + "</p>";
         html += '<div class="regs">';
         for (let i = 0; i < REGISTERS; i++) {
           const locked = i >= open;
@@ -619,9 +641,11 @@ export function mountScreen(root, ctx) {
         return '<div class="ask"><p>' + esc(me.name) + ", shut down for this round? Your robot resolves no cards and stays on the floor, and every damage card you are holding (" + w.held +
           " in hand and discard) goes back to the table.</p><div class='row'>" +
           '<button data-answer="false">Keep running</button><button class="primary" data-answer="true">Shut down this round</button></div></div>';
-      case "rebootFacing":
-        return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
+      case "rebootFacing": {
+        const back = returnPoint(me);
+        return '<div class="ask"><p>' + esc(w.prompt) + (back ? " It comes back at (" + back.c + "," + back.r + ")" + (back.token ? " on the Reboot Token" : " at its archive") + ", where its ghost stands." : "") + "</p><div class='row'>" +
           w.options.map(d => '<button data-pick="' + d + '">' + DIRS[d] + "</button>").join("") + "</div></div>";
+      }
       /* a temporary upgrade at this moment: each legal use is a button, and "none" */
       case "useTemp":
         return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
@@ -864,6 +888,7 @@ export function mountScreen(root, ctx) {
   function render() {
     els.turn.textContent = (isModern(st) ? "2016 rules · " : "Classic rules · ") + (st.over ? "Race over" : (isModern(st) ? "Round " : "Turn ") + st.turn + (st.phase === "exec" ? " · register " + (st.register + 1) : ""));
     els.speed.textContent = "Speed: " + ctx.speedName();
+    if (!animating) syncPieces();                       // a state change with no events still moves a ghost
     if (needsCurtain(st.waiting)) { showCurtain(st.waiting.player); return; }
     if (st.waiting && isHuman(st.players[st.waiting.player])) lastHuman = st.waiting.player;
     renderPanel();
