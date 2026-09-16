@@ -414,6 +414,33 @@ striping wall to wall — the mark vanished into the thing it was marking, and a
 wall is what you most want to be sure you have transcribed. Nothing on these
 boards is green.
 
+### The board library, and the way in
+
+The inspector ends with **Board library**: every shipped board as a thumbnail,
+and a click opens it. Clicking one replaces the board you are on, which goes to
+the **Recover previous** slot rather than into the bin, and it opens a *clone* —
+editing what you opened must not reach the copy the library is drawing.
+
+**This did not exist, and its absence looked like a broken site.** The workshop
+opened whatever board was last in hand, which is kept in that browser's own
+storage, and the only route to any other shipped board was typing `#board=<id>`
+in the address bar. So a browser that had last been used on one board showed
+that board and no other, with nothing on screen suggesting there were seventeen
+more — and because the storage is per-origin, the live site and a local server
+would sit on different boards, which reads as a deploy that only published one
+map. The course workshop had a rail of every board the whole time, but it
+*stamps* them into a course rather than opening them to edit, so it was no way
+in either.
+
+The thumbnails are memoised by id and the markup is built once, when the library
+arrives: the inspector redraws on every hover, and eighteen board drawings is not
+something to rebuild at that rate. `refresh` only moves the pressed mark. The
+library is fetched **after** the editor is up, because this is the landing page
+and blocking it on nineteen requests would pay for the library with the thing the
+library is attached to; the panel says it is loading, and a failure says *that*
+rather than rendering an empty shelf, which would read as "there are no boards" —
+the same wrong conclusion the panel exists to prevent.
+
 Drop a photograph behind the grid with **Open…**, fade between them, and hold
 **Ctrl** to see the photograph alone — a flip rather than a fade, because a 50/50
 blend is the hardest way to compare two pictures. The photograph goes through

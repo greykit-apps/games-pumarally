@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderInspector, renderRail, renderDiagnostics } from "../app/panels.js";
+import { renderInspector, renderRail, renderDiagnostics, libraryHtml } from "../app/panels.js";
 import { newState } from "../app/state.js";
 import { apply, blankToolState, toolsFor, describe } from "../app/tools.js";
 import { blankBoard, setCell, setSites } from "../lib/board.js";
@@ -57,6 +57,13 @@ function loadedBoard() {
   return b;
 }
 
+/* AN SVG IS A DRAWING, NOT A CONTROL. `boardSVG` stamps `data-board` and
+ * `data-mode` on the root of every board it draws, and a scan that took those
+ * for buttons accused the handler of ignoring two controls that do not exist
+ * -- while the library panel that introduced them was wired correctly. A
+ * drawing has no click handler to be missing, so drawings come out first. */
+const controls = html => html.replace(/<svg\b[\s\S]*?<\/svg>/g, "");
+
 const board = loadedBoard();
 const handled = readFileSync(join(APP, "main.js"), "utf8");
 const drawnAttrs = new Set();
@@ -67,7 +74,7 @@ for (const tool of toolsFor(false)) {
   st.hand.tool = tool.key;
   const el = stub();
   renderInspector(el, st, null, false);
-  for (const m of el.html.matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
+  for (const m of controls(el.html).matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
 }
 for (let r = 0; r < board.h; r++) {
   for (let c = 0; c < board.w; c++) {
@@ -77,14 +84,23 @@ for (let r = 0; r < board.h; r++) {
     const el = stub();
     try { renderInspector(el, st, { c, r, inside: true }, false); }
     catch (e) { problems.push("renderInspector threw on (" + c + "," + r + "): " + e.message); continue; }
-    for (const m of el.html.matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
+    for (const m of controls(el.html).matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
   }
 }
 {
   const st = newState(board);
   const el = stub();
   renderRail(el, st, false);
-  for (const m of el.html.matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
+  for (const m of controls(el.html).matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
+}
+
+/* The board library is drawn into the shell rather than into a panel, so it
+ * would sit outside this check entirely -- and it is a panel of buttons like
+ * any other. */
+{
+  const el = stub();
+  el.innerHTML = libraryHtml([{ id: "island", name: "Island", w: 12, h: 12, unverified: false, board }], "island");
+  for (const m of controls(el.html).matchAll(/\bdata-([a-z][a-z0-9-]*)=/g)) drawnAttrs.add("data-" + m[1]);
 }
 
 if (drawnAttrs.size < 8) {
