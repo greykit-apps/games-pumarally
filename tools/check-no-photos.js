@@ -64,6 +64,13 @@ function refuse(what, paths) {
 
 const tracked = git(["ls-files"]);
 if (tracked === null) {
+  /* A check that checks nothing must never read as a pass. A git checkout
+   * with no git on the PATH is the CI image missing a package, not a tarball;
+   * it went green that way for a day once. */
+  if (require("fs").existsSync(path.join(ROOT, ".git"))) {
+    console.error("no-photo check: this is a git checkout but git could not be run; install git (the CI image needs it) -- refusing to pass vacuously");
+    process.exit(1);
+  }
   console.log("no-photo check: not a git checkout, nothing to check");
   process.exit(0);
 }
