@@ -279,6 +279,16 @@
       "bytes": 57252
     }
   },
+  "tabulaRasa": {
+    "art": {
+      "sha": "bed45683b1bf16e4",
+      "bytes": 28460
+    },
+    "markup": {
+      "sha": "6e65a23c280d7260",
+      "bytes": 24850
+    }
+  },
   "tempest": {
     "art": {
       "sha": "02fba7611c06bc84",
