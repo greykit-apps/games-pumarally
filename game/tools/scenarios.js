@@ -876,6 +876,30 @@ export const SCENARIOS = [
     "status": "ported"
   },
   {
+    "name": "a checkpoint switches off the belt under it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a course uses the bays it lists, and no others",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "bays are numbered to twelve: 1-9, then a b c",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot placed in a bay faces off the docking bay toward the course",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "a robot reboots on the Reboot Token of the board it fell from",
     "layer": "rules",
     "status": "ported",

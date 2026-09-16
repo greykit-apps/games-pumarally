@@ -72,7 +72,8 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
      "elements: a conveyor needs a direction");
   ok(checkArg(elemOf("b"), "^") === null, "elements: a conveyor accepts an arrow");
   ok(checkArg(elemOf("."), "^") !== null, "elements: floor takes no argument");
-  ok(checkArg(elemOf("s"), "9") !== null, "elements: there is no bay 9");
+  ok(checkArg(elemOf("s"), "9") === null && checkArg(elemOf("s"), "c") === null, "elements: bays run to twelve, 1-9 then a b c");
+  ok(checkArg(elemOf("s"), "d") !== null && checkArg(elemOf("s"), "0") !== null, "elements: there is no bay 13, and no bay 0");
   /* `printedIn` is PROVENANCE and nothing in the format may treat it as a
    * constraint: a board is just a board, and which of its squares matter is the
    * engine's business at play time. */

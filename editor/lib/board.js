@@ -18,7 +18,7 @@ import { VOID_TOKEN } from "../rulesets/elements.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { canonSites, siteProps, SITES } from "../rulesets/sites.js";
-import { TOKEN_WIDTH, isVoidToken, tokenElement, tokenBeltSpeed } from "./token.js";
+import { TOKEN_WIDTH, isVoidToken, tokenElement, tokenBeltSpeed, bayNumberOf } from "./token.js";
 import { dirOfLetter, dirLetter, dirOfChar, N, E, S, W, DC, DR } from "./dir.js";
 import {
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeCodeOf, edgeGlyph,
@@ -244,7 +244,7 @@ export function docksOf(board) {
     for (let c = 0; c < board.w; c++) {
       const tok = cellAt(board, c, r);
       const def = tokenElement(tok);
-      if (def && def.props.dock) out.push({ c, r, n: +tok.charAt(1) });
+      if (def && def.props.dock) out.push({ c, r, n: bayNumberOf(tok.charAt(1)) });
     }
   }
   return out.sort((a, b) => a.n - b.n);

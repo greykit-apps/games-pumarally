@@ -561,7 +561,7 @@ export async function mountCourse(root, wanted) {
         return;
       }
       if (i >= 0) { snap(); turnReboot(st.course, i, 1); refresh(); say("Token turned to face " + ["north", "east", "south", "west"][st.course.reboots[i][2]] + ".", ""); return; }
-      if (!flagWouldFit(st.board, h.c, h.r)) { say("A reboot token stands on plain floor: everything under it would be switched off.", "bad"); return; }
+      if (!flagWouldFit(st.board, h.c, h.r)) { say("A reboot token cannot stand in a pit.", "bad"); return; }
       snap();
       if (addReboot(st.course, h.c, h.r, st.tokenFace)) { refresh(); say("Reboot token at (" + h.c + "," + h.r + ") facing " + ["north", "east", "south", "west"][st.tokenFace] + ".", ""); }
       else { history.pop(); say("There is already a token there.", "bad"); }
@@ -575,7 +575,7 @@ export async function mountCourse(root, wanted) {
         return;
       }
       if (!flagWouldFit(st.board, h.c, h.r)) {
-        say("A flag stands on plain floor. Nothing else can be reliably stood on.", "bad");
+        say("A flag cannot stand in a pit.", "bad");
         return;
       }
       snap();

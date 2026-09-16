@@ -20,6 +20,8 @@ import { botWantsShutdown, bestFacing, botUpgrade, botAnswer, randomAnswer } fro
 import { rulesetsFor } from "../../engine/library.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { setWall } from "../../../editor/lib/edges.js";
+import { blankBoard, setCell, docksOf } from "../../../editor/lib/board.js";
+import { buildCourse } from "../../engine/course.js";
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(msg + ": got " + JSON.stringify(a) + ", expected " + JSON.stringify(b)); };
@@ -300,6 +302,38 @@ export const TESTS = [
     assert(r.events.some(e => e.type === "rebooted"), "the return is an event");
   }],
   /* --- reboot tokens (pp.15, 20, 30) -------------------------------------------- */
+  /* --- the docking bay, 2016 (pp.3, 15, 24) ----------------------------------- */
+  ["a checkpoint switches off the belt under it", () => {
+    const co = courseOn(board(8, 8, (b, t) => { t.setCell(3, 3, "b>."); t.setCell(3, 5, "b>."); }), [[3, 3]]);
+    const st = mgame(co, [{ c: 3, r: 3 }, { c: 3, r: 5 }]);
+    beltPass(st, co.C, 1, 1);
+    eq([st.players[0].c, st.players[1].c], [3, 4], "the belt under the checkpoint carries nobody; the other belt still runs");
+  }],
+  ["a course uses the bays it lists, and no others", () => {
+    const co = courseOn(board(8, 8), [[3, 3]]);
+    co.doc.bays = [2, 4, 7];
+    rebuild(co);
+    eq(co.C.docks.map(d => d.n), [2, 4, 7], "three bays in use of the eight printed");
+  }],
+  ["bays are numbered to twelve: 1-9, then a b c", () => {
+    const b = blankBoard({ id: "d", name: "D", w: 12, h: 1 });
+    for (let c = 0; c < 12; c++) setCell(b, c, 0, "s" + "123456789abc".charAt(c) + ".");
+    eq(docksOf(b).map(d => d.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "twelve bays read back in order");
+  }],
+  ["a robot placed in a bay faces off the docking bay toward the course", () => {
+    /* a 4x4 floor with a 1x4 dock laid along its east edge: the way onto the course is west */
+    const floor = blankBoard({ id: "f", name: "F", w: 4, h: 4 });
+    const dock = blankBoard({ id: "d", name: "D", w: 1, h: 4 });
+    for (let r = 0; r < 4; r++) setCell(dock, 0, r, "s" + (r + 1) + ".");
+    const library = new Map([[floor.id, floor], [dock.id, dock]]);
+    const doc = { format: "PRCourse", version: 1, id: "tc", name: "T", kind: "quick",
+      stamps: [{ role: "board", board: "f", rot: 0, at: [0, 0] }, { role: "dock", board: "d", rot: 0, at: [4, 0] }], flags: [[1, 1]], minPlayers: 1, maxPlayers: 4 };
+    const st = newGame({ seed: 3, course: doc, seats: [{ seat: "bot" }], ruleset: "modern" });
+    const r = step(st, library);
+    assert(r.waiting && r.waiting.kind === "bay", "a bot is coloured without asking, so the first question is the bay");
+    step(st, library, r.waiting.options[0]);
+    eq([st.players[0].placed, st.players[0].face], [true, W], "placed, facing west onto the floor");
+  }],
   ["a robot reboots on the Reboot Token of the board it fell from", () => {
     const co = plain();
     co.doc.reboots = [[6, 6, N]];

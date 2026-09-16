@@ -14,7 +14,7 @@
 import { ELEMENTS, CHAR_OF_KEY, ARG_DIR, ARG_DIGIT, ARG_PAIR, ARG_NONE } from "../rulesets/elements.js";
 import { SITES, SITE_ORDER, EXCLUSIVE } from "../rulesets/sites.js";
 import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS } from "../rulesets/devices.js";
-import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken } from "../lib/token.js";
+import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken, bayCharOf } from "../lib/token.js";
 import { describeRegs } from "../lib/registers.js";
 import { dirChar, dirLetter, dirOfChar, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
 import {
@@ -167,7 +167,7 @@ function applyGround(board, st, tool, c, r) {
   const def = ELEMENTS[ch];
   let arg = ".";
   if (def.arg === ARG_DIR) arg = dirChar(st.dir);
-  else if (def.arg === ARG_DIGIT) arg = String(st.digit);
+  else if (def.arg === ARG_DIGIT) arg = bayCharOf(st.digit);
   else if (def.arg === ARG_PAIR) arg = String(st.pair);
 
   /* A ceiling device has to have something to come down ON. */

@@ -349,6 +349,13 @@ registers in the printed order, damage and locking, destruction and return,
 power down as three moments, repair at cleanup, checkpoints and the win, the
 bots ported, and the bumpers and flag-touch house rules.
 
+The 2016 docking rules (pp.3, 15, 24) are built ahead of the courses that
+need them: a course may list the `bays` it uses (the rest are covered by
+Energy cubes and nobody starts there), a robot placed in a bay faces off the
+docking bay toward the course, a bay is numbered to twelve, and a checkpoint
+or Reboot Token switches off the board element under it, walls and lasers
+excepted, so it may stand on a belt as the printed courses have it.
+
 Virtual robots (classic pp.8 and 15, IMG_1199 and IMG_1202) are built: a
 robot returning to its archive square while another robot stands there
 comes back on the square, virtual. It meets no robot: it pushes none and is

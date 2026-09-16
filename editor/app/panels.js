@@ -11,6 +11,7 @@ import { ELEMENTS, ARG_DIR, ARG_DIGIT, ARG_PAIR } from "../rulesets/elements.js"
 import { DEVICE_KINDS, REGS_NONE } from "../rulesets/devices.js";
 import { ARM_CHARS, ARM_NAMES, ARM_CODES } from "../lib/token.js";
 import { cellAt } from "../lib/board.js";
+import { bayNumberOf } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
 import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
@@ -101,7 +102,7 @@ function propRows(t, p) {
     html += '<div class="row"><span class="none">' + esc(ARM_NAMES[t.arms] || "") +
       " &mdash; printed data, never guessed from the neighbours</span></div>";
   }
-  if (t.digit !== undefined) html += btnRow("Bay", nOpts(1, 8), p + "digit", v => v === t.digit);
+  if (t.digit !== undefined) html += btnRow("Bay", nOpts(1, 12), p + "digit", v => v === t.digit);
   if (t.pair !== undefined) html += btnRow("Colour", nOpts(1, 4), p + "pair", v => v === t.pair);
   if (t.level !== undefined) html += btnRow("Level", nOpts(0, 3), p + "level", v => v === t.level);
   return html;
@@ -253,7 +254,7 @@ export function renderInspector(el, st, hover, isCourse) {
       const t = {};
       if (edef && edef.arg === ARG_DIR) t.dir = "^>v<".indexOf(d.dir);
       if (edef && edef.props.belt) t.arms = cellAt(st.board, d.c, d.r).charAt(2);
-      if (edef && edef.arg === ARG_DIGIT) t.digit = +d.dir || +cellAt(st.board, d.c, d.r).charAt(1);
+      if (edef && edef.arg === ARG_DIGIT) t.digit = +d.dir || bayNumberOf(cellAt(st.board, d.c, d.r).charAt(1));
       if (edef && edef.arg === ARG_PAIR) t.pair = +cellAt(st.board, d.c, d.r).charAt(1);
       t.level = d.level;
       html += propRows(t, "sel");

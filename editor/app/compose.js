@@ -272,7 +272,7 @@ export function moveFlag(course, index, to) {
 export function flagWouldFit(grid, c, r) {
   if (!inBoard(grid, c, r) || isVoid(grid, c, r)) return false;
   const def = elementAt(grid, c, r);
-  return !!def && def.key === "floor";
+  return !!def && !def.props.pit;
 }
 
 /** The course as a document, ready to validate or save. */
