@@ -24,15 +24,15 @@
       "o.. bv. ... ... ... bv. b^. ... ... ... b^. ..."
     ],
     "sites": [
-      { "at": [11, 0], "has": ["repair"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [11, 0], "has": ["repair"] },
       { "at": [9, 1], "has": ["flagspot"] },
       { "at": [1, 2], "has": ["flagspot"] },
-      { "at": [3, 3], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [3, 3], "has": ["upgrade"] },
       { "at": [10, 3], "has": ["battery"] },
       { "at": [10, 4], "has": ["flagspot"] },
       { "at": [1, 7], "has": ["flagspot"] },
       { "at": [8, 7], "has": ["flagspot"] },
-      { "at": [0, 9], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [0, 9], "has": ["repair"] },
       { "at": [8, 9], "has": ["battery"] },
       { "at": [10, 9], "has": ["flagspot"] },
       { "at": [3, 10], "has": ["flagspot"] }
