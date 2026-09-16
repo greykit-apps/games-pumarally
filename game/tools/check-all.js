@@ -24,6 +24,10 @@ import cardsData from "../data/cards.js";
 import optionsData from "../data/options.js";
 import upgradesData from "../data/upgrades.js";
 import liveriesData from "../data/liveries.js";
+import { board, courseOn, game, drive } from "./scenarios/harness.js";
+import { assertInvariants } from "../engine/sim.js";
+import { MODERN_CARDS, MODERN_DAMAGE_FIRST, MAX_ENERGY } from "../engine/cards.js";
+import { livesFor } from "../engine/state.js";
 
 const TABLES = { "cards.json": cardsData, "options.json": optionsData, "upgrades.json": upgradesData, "liveries.json": liveriesData };
 let failed = 0, passed = 0;
@@ -76,6 +80,53 @@ const json = f => TABLES[f];
   for (const n of names) ok(ported.has(n), "scenario list: the test \"" + n + "\" is marked ported");
   for (const n of ported) ok(names.has(n), "scenario list: the ported scenario \"" + n + "\" has a test");
   console.log("rule tests: " + names.size + " ran");
+}
+
+/* --- the Konami cheat --------------------------------------------------------
+ * A new feature, not one of the old suite's rules, so it is tested here rather
+ * than in the ported-scenario ledger. Reach a player's programming, enter the
+ * code (the { cheat: "konami" } answer the UI sends), and check the effect and
+ * that the conservation laws still hold. */
+{
+  const hasDamage = p => [...p.hand, ...p.deck, ...p.pile, ...p.parked,
+    ...p.registers, ...p.crab, ...p.haywire].some(i => i !== null && i >= MODERN_DAMAGE_FIRST);
+
+  /* modern: fills the Energy bar and scraps every damage card */
+  {
+    const co = courseOn(board());
+    const st = game(co, [{ c: 0, r: 7 }], { ruleset: "modern" });
+    const p = st.players[0];
+    const take = kind => { const k = st.damageDeck.findIndex(i => MODERN_CARDS[i].kind === kind); return st.damageDeck.splice(k, 1)[0]; };
+    p.energy = 1;
+    p.hand = [p.deck.pop(), take("spam")];
+    p.pile = [take("spam")];
+    p.haywire[0] = take("haywire");
+    assertInvariants(st, co.library);                 // the staged position is legal
+    st.phase = "turn"; st.step = "program"; p.ready = false; st.waiting = null;
+    const asked = drive(st, co.library);
+    ok(asked.waiting && asked.waiting.kind === "program", "cheat: modern reaches programming");
+    drive(st, co.library, { cheat: "konami" });
+    ok(p.energy === MAX_ENERGY, "cheat: the Konami code fills the Energy bar");
+    ok(!hasDamage(p), "cheat: the Konami code scraps every damage card from the robot");
+    ok(st.waiting && st.waiting.kind === "program", "cheat: the player goes on programming after the code");
+    assertInvariants(st, co.library);                 // conservation survives the purge
+  }
+
+  /* classic: restores lives and clears the damage track */
+  {
+    const co = courseOn(board());
+    const st = game(co, [{ c: 0, r: 7, lives: 1, damage: 5 }], { ruleset: "classic" });
+    const p = st.players[0];
+    p.hand = [st.deck.pop(), st.deck.pop(), st.deck.pop()];
+    st.phase = "turn"; st.step = "program"; p.ready = false; st.waiting = null;
+    const asked = drive(st, co.library);
+    ok(asked.waiting && asked.waiting.kind === "program", "cheat: classic reaches programming");
+    drive(st, co.library, { cheat: "konami" });
+    ok(p.lives === livesFor(1, 1), "cheat: the Konami code restores a classic robot's lives");
+    ok(p.damage === 0, "cheat: the Konami code clears the classic damage track");
+    assertInvariants(st, co.library);
+  }
+  console.log("cheat: the Konami code, both rulesets");
 }
 
 /* --- the scenarios ----------------------------------------------------------- */
