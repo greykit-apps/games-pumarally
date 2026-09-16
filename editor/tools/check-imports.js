@@ -61,6 +61,10 @@ try {
   ignored = out.split("\n").filter(Boolean);
 } catch (e) {
   /* git check-ignore exits 1 when nothing matches, which is the good case. */
+  if (e.code === "ENOENT") {
+    console.error("check-imports: git could not be run, and the ignore check needs it; install git (the CI image needs it)");
+    process.exit(1);
+  }
   if (e.status !== 1) throw e;
 }
 for (const p of ignored) {
