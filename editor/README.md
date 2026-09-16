@@ -489,26 +489,37 @@ node editor/tools/check-format.js           # validate, round-trip, and the ASCI
 node editor/tools/render-snapshot.js --check
 node editor/tools/check-wiring.js           # no control the inspector draws is dead
 node editor/tools/build-index.js --check    # data/index.json lists exactly what is in data/
-node editor/tools/swap-sites.js --check     # every wrench square has a battery, and the reverse
 node editor/tools/check-editor-assets.js    # and the deploy will actually publish it all
 ```
 
-### The swap rule: authored markings, and how they are told apart
+### The swap rule, and why it was removed
 
-Decided 2026-09-15, for every board with no better information: **a battery
-on every wrench square and a one-wrench repair site on every battery square**,
-so that most boards play under either ruleset. `swap-sites.js` applies it and
-`--check` reports any board that breaks it. Neither printing has the other's
-marking, so each one the tool adds is **authored, not transcribed**, and the
-square's site note says so in a fixed form — `authored battery -- the swap
-rule …` — that `authoredOf()` in `rulesets/sites.js` reads back.
-While the old board file existed, its conversion check stripped exactly those
-markings before comparing, so the proof that the printed content still meant
-what it meant survived the authoring; the notes remain the record of which
-markings are not printed.
-Board design is expected to revisit these square by square; the notes are how
-they will be found. Flag locations are **not** authored by any rule and no
-board marks one yet.
+There was a rule, from 2026-09-15, for every board with no better information:
+**a battery on every wrench square and a one-wrench repair site on every
+battery square**, so that a board printed for one edition still had something
+to offer the other. A tool applied it, and because neither printing carries the
+other's marking, each one it added was **authored, not transcribed** — recorded
+as such in the square's site note, in a fixed form a reader could strip back
+out.
+
+**It was removed on 2026-09-16, and the 69 markings it had added were stripped
+from the shipped boards**, by reading back those same notes. It was a
+reasonable answer to boards that marked only one of the three things a square
+can carry. It stopped being one the moment the boards marked batteries, repair
+sites and upgrade sites *separately*, each read off a photograph: the rule then
+doubled work already done properly, and a 2016 board whose eight energy spaces
+were all correctly marked came out of it with eight repair sites nobody ever
+printed. Far too many, and wrong in the way this repository minds most — data
+that looks transcribed and is not.
+
+So every marking on a shipped board is now somebody's reading of a photograph.
+**A board that marks no repair site has none**, and that is the honest answer
+rather than a generated one: Energize prints eight energy spaces and no
+wrenches, so a classic race on it finds nowhere to repair. If a board should
+offer more, the way to give it more is to mark the squares, not to derive them.
+
+The one thing the removal did not touch is a marking with no such note. Those
+were placed by hand and are the board's own, whichever edition prints them.
 
 ### Shipping a board or a course
 
