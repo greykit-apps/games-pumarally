@@ -59,6 +59,7 @@ export function mountScreen(root, ctx) {
   let curtainFor = null;         // a human seat that has not yet taken the keyboard
   let lastHuman = null;
   let animating = false;
+  let lastError = null;          // what stopped the last replay or step, shown once in the panel
   let dragging = null;
   let draggingKit = null;        // an option or upgrade card being reordered on its mat
   let prefs = {};                // per robot: the standing answers, see the header
@@ -272,15 +273,38 @@ export function mountScreen(root, ctx) {
 
   const wait = ms => new Promise(res => setTimeout(res, ms * speedOf()));
 
+  /* THE REPLAY KEEPS TIME WITH ITS OWN TRANSITIONS (issue #2). A slide is a
+   * CSS transition and a turn another; the wait after each event is longer
+   * than the transition it started, and both scale with the speed setting,
+   * so a belt's curve turns the robot AFTER it has arrived rather than while
+   * it is still sliding, which read as a robot moving sideways. And the
+   * replay cannot wedge the game (issue #1): whatever throws inside it is
+   * caught, the pieces are put where the state says, and the panel comes
+   * back with the request that is waiting. */
   async function play(events) {
     animating = true;
+    lastError = null;
+    els.overlay.style.setProperty("--anim", String(speedOf()));
     renderPanel();
+    try {
+      await replay(events);
+    } catch (e) {
+      console.error("the replay stopped:", e);
+      lastError = "The replay stopped early (" + (e && e.message ? e.message : String(e)) + "). The race itself is fine; the pieces are shown where they stand.";
+    } finally {
+      animating = false;
+      syncPieces();
+      render();
+    }
+  }
+
+  async function replay(events) {
     for (const e of events) {
       const p = e.player !== undefined ? st.players[e.player] : null;
       switch (e.type) {
         case "moved": case "pushed": case "conveyed": case "shoved":
           placePiece(p, e.to[0], e.to[1], pieceFace(p.id), true);
-          await wait(e.type === "conveyed" ? 200 : 260);
+          await wait(300);
           break;
         case "portal":
           /* in one end and out of the other: no glide across the floor between */
@@ -292,24 +316,25 @@ export function mountScreen(root, ctx) {
           break;
         case "turned":
           setFace(p.id, e.face);
-          await wait(200);
+          await wait(240);
           break;
         case "shot": {
           const target = st.players[e.target];
+          const g = pieces.get(e.target);
           const l = beam(e.from, pieceCell(e.target) || [target.c, target.r]);
-          pieces.get(e.target).classList.add("hit");
+          if (g) g.classList.add("hit");
           await wait(240);
           l.remove();
-          pieces.get(e.target).classList.remove("hit");
+          if (g) g.classList.remove("hit");
           break;
         }
         case "destroyed":
-          pieces.get(p.id).classList.add("gone");
+          if (pieces.get(p.id)) pieces.get(p.id).classList.add("gone");
           await wait(300);
           break;
         case "respawned": case "placed": case "rebooted":
           placePiece(p, e.at[0], e.at[1], e.face === undefined ? p.face : e.face, false);
-          pieces.get(p.id).classList.remove("gone");
+          if (pieces.get(p.id)) pieces.get(p.id).classList.remove("gone");
           await wait(200);
           break;
         case "flag":
@@ -325,9 +350,6 @@ export function mountScreen(root, ctx) {
           break;
       }
     }
-    animating = false;
-    syncPieces();
-    render();
   }
   /* where a piece is drawn now, in cells, so a beam ends where the robot is shown */
   function pieceCell(id) {
@@ -339,7 +361,8 @@ export function mountScreen(root, ctx) {
   function pieceFace(id) { return faces.has(id) ? faces.get(id) : st.players[id].face; }
   function setFace(id, face) {
     faces.set(id, face);
-    pieces.get(id).querySelector(".spin").style.transform = "rotate(" + (face * 90) + "deg)";
+    const g = pieces.get(id);
+    if (g) g.querySelector(".spin").style.transform = "rotate(" + (face * 90) + "deg)";
   }
 
   /* --- the panel --------------------------------------------------------------- */
@@ -473,6 +496,7 @@ export function mountScreen(root, ctx) {
     const me = w ? st.players[w.player] : null;
     let html = "";
 
+    if (lastError) html += '<div class="banner"><b>Something went wrong.</b> ' + esc(lastError) + "</div>";
     if (st.over) {
       html += '<div class="banner"><b>' + (st.winner !== null ? esc(st.players[st.winner].name) + " wins the race." : st.unfinished ? "The race was called with no winner." : "Every robot is scrap. Nobody wins.") + "</b></div>";
     } else if (animating || (w && !isHuman(me))) {
@@ -857,6 +881,14 @@ export function mountScreen(root, ctx) {
     },
     /** The mat's answer to a human's pending request, or undefined to ask. */
     autoAnswer(w) { return autoAnswer(w); },
+    /** The loop hit an error: say so in the panel and hand the controls back. */
+    fail(e) {
+      console.error("the step failed:", e);
+      lastError = "The engine refused a step (" + (e && e.message ? e.message : String(e)) + "). Try the request again, or start a new game.";
+      animating = false;
+      syncPieces();
+      render();
+    },
     async update(state, events) {
       st = state;
       if (events && events.length) await play(events); else render();

@@ -311,6 +311,14 @@ from the pending request and nothing else; a hot-seat curtain between human
 seats; autosave and resume. Verified in the browser through the draft, two
 full turns, a two-human hand-over and a reload mid-game.
 
+The replay keeps time with its own transitions (issue #2): a slide and a
+turn are CSS transitions whose durations scale with the speed setting, and
+the wait after each event outlasts the transition it started, so a belt's
+curve turns the robot after it has arrived. And the replay cannot wedge the
+game (issue #1): whatever throws inside it, or inside the engine loop, is
+caught, the pieces are put where the state says, and the panel comes back
+with the request that is waiting and a line saying what happened.
+
 The panel's robot rows are mats. Each carries pip bars (lives in blue under
 the classic rules, flags in yellow, Energy in green under the 2016 rules,
 damage in red: the track, or the damage cards a robot carries), then the

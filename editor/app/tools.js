@@ -199,7 +199,7 @@ function applyGround(board, st, tool, c, r) {
     const uc = c + DC[st.dir], ur = r + DR[st.dir];
     if (!inBoard(board, uc, ur)) {
       return { ok: false, why: "A ramp at " + at(c, r) + " facing " + dirLetter(st.dir) +
-        " points off the board. Turn it with W A S D." };
+        " points off the board. Turn it with the arrow keys." };
     }
     const foot = levelAt(board, c, r), top = levelAt(board, uc, ur);
     if (top === foot) raised = [uc, ur, foot + 1];
