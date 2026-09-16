@@ -316,6 +316,35 @@ Conveyors are deliberately **not** split that way. The difference there is one o
 resolution *order*, which belongs entirely to the ruleset reading the board, so
 splitting them would double the legend and record no extra fact.
 
+### What is printed and what plays: `printedIn`, `playsIn`
+
+Every element and device records `printedIn` — which box prints the thing. That
+is **provenance and never moves**, because it is transcription. The question the
+*game* asks is a different one: is there anything on this board the edition in
+force has no rule for? That is `playsIn`, which defaults to `printedIn` and is
+read by `playableIn(board)`. The inspector shows the first; the setup screen
+offers a board on the second.
+
+The two answers part company in exactly one place, **declared in `devices.js`
+and ours rather than either book's**: a Crash and Burn flame jet and a Thrills
+and Spills flamer stand in for each other. Both are fire over a square doing one
+point of damage, and neither rulebook says a word about the other's, so three
+shipped boards would otherwise be refused to the edition that did not print
+their fire. They stay **two device kinds**, because the pictures differ in a way
+a transcriber has to record — a jet is bolted to a wall, faces, and reaches one
+square or two; a flamer hangs over a single square and faces nowhere — and only
+the *reading* is shared. **The timing is not.** Each edition burns by its own
+book: classic on the way through, again for not leaving, and again at the
+burner's own step after the lasers; 2016 on the way in, and once more at the end
+of the register.
+
+That is the press and the crusher's conclusion one step further on. There, two
+names turned out to be one device and merged. Here, two devices turn out to be
+one thing *happening*, which is a weaker claim, so it is declared instead of
+merged and `check-lib.js` asserts both halves: that fire is widened, and that
+**nothing else is** — a substitute that quietly spread would make every board
+play under every book and pass every test written about fire.
+
 **View** switches how the board is *drawn* — board art, or markup line work — and
 is the only view control there is. Backtick does the same.
 

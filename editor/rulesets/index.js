@@ -49,6 +49,24 @@ export function printingsOn(board) {
 }
 
 /**
+ * The editions whose RULES can resolve everything on this board, ascending.
+ *
+ * NOT `printingsOn`. That one is provenance -- which box printed the things on
+ * the board -- and is shown to a transcriber. This is the question the game
+ * asks before it offers a board: is there anything here the edition in force
+ * has no rule for? The two answers differ wherever a device declares a
+ * `playsIn` wider than its `printedIn`, which today is the fire substitute
+ * (see devices.js). Empty means no book can play it.
+ */
+export function playableIn(board) {
+  let out = rulesetIds();
+  const narrow = def => { if (def) out = out.filter(id => (def.playsIn || def.printedIn).indexOf(id) >= 0); };
+  for (const tok of board.cells) narrow(ELEMENTS[tok.charAt(0)]);
+  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) narrow(DEVICE_KINDS[dev.kind]);
+  return out.sort();
+}
+
+/**
  * The first thing on the board that only the OTHER printing prints, as a short
  * phrase, or null. Used to name an example in the inspector's note, never to
  * refuse anything.

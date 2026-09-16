@@ -255,7 +255,10 @@ export const TESTS = [
       const co = courseOn(board(6, 6, (b, t) => t.setCell(2, 2, tok)));
       eq(rulesetsFor(co.doc, co.library), ["modern"], tok + " is read by the 2016 book alone");
     }
+    /* the FLAMER is the exception, and not because it is expansion floor: it
+     * stands in for a classic flame jet, so both books play a board with one.
+     * scenarios/fire.js holds that substitute to what it claims. */
     const fl = courseOn(board(6, 6, b => b.ceilingDevices.push({ kind: "flamer", c: 2, r: 2, regs: [1] })));
-    eq(rulesetsFor(fl.doc, fl.library), ["modern"], "and so is a flamer");
+    eq(rulesetsFor(fl.doc, fl.library), ["classic", "modern"], "a flamer is the one piece of expansion floor both books play");
   }]
 ];

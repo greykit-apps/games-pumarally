@@ -2153,6 +2153,24 @@ export const SCENARIOS = [
     "layer": "screen",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "a flame jet burns under the 2016 rules, on the 2016 timing",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a flamer burns under the classic rules, on the classic timing",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "fire does not decide which book a board belongs to, and nothing else is widened",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 
