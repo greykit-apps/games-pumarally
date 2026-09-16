@@ -155,6 +155,152 @@
       "set": "modernUnfiled",
       "origin": "transcribed",
       "unverified": true
+    },
+    {
+      "id": "allRoads",
+      "name": "All Roads",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "assembly",
+      "name": "Assembly",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "blueprint",
+      "name": "Blueprint",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "circles",
+      "name": "Circles",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "coliseum",
+      "name": "Coliseum",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "comingAndGoing",
+      "name": "Coming & Going",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "convergence",
+      "name": "Convergence",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "dockingBayB",
+      "name": "Docking Bay B",
+      "w": 6,
+      "h": 2,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "doubles",
+      "name": "Doubles",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "laserMaze",
+      "name": "Laser Maze",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "mergers",
+      "name": "Mergers",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "theH",
+      "name": "The H",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "theOval",
+      "name": "The Oval",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "theWave",
+      "name": "The Wave",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "theZone",
+      "name": "The Zone",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "transition",
+      "name": "Transition",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "whirlpool",
+      "name": "Whirlpool",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
+    },
+    {
+      "id": "winding",
+      "name": "Winding",
+      "w": 6,
+      "h": 6,
+      "set": "masterBuilder",
+      "origin": "transcribed"
     }
   ],
   "courses": [

@@ -1,0 +1,50 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "theWave",
+  "name": "The Wave",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'The Wave'. Transcribed by eye (the boardscan/wallscan tools are hardcoded 12x12 and do not run on a 6x6). A clockwise green conveyor loop with left/right wave-bumps, 2 batteries, one westward laser at (5,1), a pit at (3,6), two flag spots at (3,3) and (5,6). Verified in the workshop against the photograph.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ...",
+      "... b>r b>. b>. bvr ...",
+      "b>r b^l ... ... b>l bvr",
+      "b^r b<l ... ... bvl b<r",
+      "... b^r b<. b<. b<r ...",
+      "... ... o.. ... ... ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [2, 2], "has": ["flagspot"] },
+      { "at": [4, 5], "has": ["flagspot"] },
+      { "at": [5, 5], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      " #  # ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "  #  # ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "v:5,0", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

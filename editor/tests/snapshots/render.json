@@ -1,4 +1,34 @@
 {
+  "allRoads": {
+    "art": {
+      "sha": "076d67ad1b6aedd2",
+      "bytes": 27645
+    },
+    "markup": {
+      "sha": "1364cf32ad80ed89",
+      "bytes": 19117
+    }
+  },
+  "assembly": {
+    "art": {
+      "sha": "a66fd03569580460",
+      "bytes": 27671
+    },
+    "markup": {
+      "sha": "164c88d20d20285d",
+      "bytes": 18652
+    }
+  },
+  "blueprint": {
+    "art": {
+      "sha": "f30abb8078a959fd",
+      "bytes": 22371
+    },
+    "markup": {
+      "sha": "ba30193a03d2ef6b",
+      "bytes": 12691
+    }
+  },
   "boardG": {
     "art": {
       "sha": "d070d965d738fe4d",
@@ -39,6 +69,16 @@
       "bytes": 72500
     }
   },
+  "circles": {
+    "art": {
+      "sha": "9a8dbb5f3755ecd8",
+      "bytes": 32337
+    },
+    "markup": {
+      "sha": "bb453373039bd4bb",
+      "bytes": 25633
+    }
+  },
   "circuitTrap": {
     "art": {
       "sha": "a6764ab902d3b57f",
@@ -47,6 +87,36 @@
     "markup": {
       "sha": "606ed5e2b654b904",
       "bytes": 80404
+    }
+  },
+  "coliseum": {
+    "art": {
+      "sha": "4b6f6a7028871216",
+      "bytes": 91388
+    },
+    "markup": {
+      "sha": "64db88deb03b246b",
+      "bytes": 60781
+    }
+  },
+  "comingAndGoing": {
+    "art": {
+      "sha": "e96ab887b92698f5",
+      "bytes": 26532
+    },
+    "markup": {
+      "sha": "32ea301ea5aadcf2",
+      "bytes": 17666
+    }
+  },
+  "convergence": {
+    "art": {
+      "sha": "d3aefbecbb4ff11e",
+      "bytes": 26688
+    },
+    "markup": {
+      "sha": "f9ea8cb73e240794",
+      "bytes": 18107
     }
   },
   "cross": {
@@ -67,6 +137,26 @@
     "markup": {
       "sha": "ca6d8108003a73d8",
       "bytes": 14103
+    }
+  },
+  "dockingBayB": {
+    "art": {
+      "sha": "9c848050608d2068",
+      "bytes": 14403
+    },
+    "markup": {
+      "sha": "337a669bccf590fd",
+      "bytes": 13253
+    }
+  },
+  "doubles": {
+    "art": {
+      "sha": "af6b4eb2335a9cb7",
+      "bytes": 31459
+    },
+    "markup": {
+      "sha": "0d39fabbc6f90610",
+      "bytes": 23315
     }
   },
   "energize": {
@@ -109,6 +199,16 @@
       "bytes": 50801
     }
   },
+  "laserMaze": {
+    "art": {
+      "sha": "66d66ecdffc295aa",
+      "bytes": 102103
+    },
+    "markup": {
+      "sha": "b59baff2bb2f2ce6",
+      "bytes": 64709
+    }
+  },
   "maelstrom": {
     "art": {
       "sha": "c8b4a57e074d4fb5",
@@ -117,6 +217,16 @@
     "markup": {
       "sha": "d1f161b3b9b230ff",
       "bytes": 83521
+    }
+  },
+  "mergers": {
+    "art": {
+      "sha": "76c7079547cb2a3f",
+      "bytes": 30396
+    },
+    "markup": {
+      "sha": "c5816950a2ae8ec9",
+      "bytes": 21695
     }
   },
   "misdirection": {
@@ -179,6 +289,16 @@
       "bytes": 67952
     }
   },
+  "theH": {
+    "art": {
+      "sha": "1325017f8ee68329",
+      "bytes": 31529
+    },
+    "markup": {
+      "sha": "0b8533453b2d1597",
+      "bytes": 23462
+    }
+  },
   "theKeep": {
     "art": {
       "sha": "4db614254c9e2913",
@@ -187,6 +307,66 @@
     "markup": {
       "sha": "993b25932f3f1acf",
       "bytes": 51902
+    }
+  },
+  "theOval": {
+    "art": {
+      "sha": "2345791ad376b527",
+      "bytes": 30927
+    },
+    "markup": {
+      "sha": "5d6c58875ad27d51",
+      "bytes": 22804
+    }
+  },
+  "theWave": {
+    "art": {
+      "sha": "10c8549132020367",
+      "bytes": 29256
+    },
+    "markup": {
+      "sha": "b1c235fa02b7e85e",
+      "bytes": 21074
+    }
+  },
+  "theZone": {
+    "art": {
+      "sha": "72dd42e10b007727",
+      "bytes": 28213
+    },
+    "markup": {
+      "sha": "a508d45b678714f0",
+      "bytes": 18808
+    }
+  },
+  "transition": {
+    "art": {
+      "sha": "45d7a1f95042c6d5",
+      "bytes": 109647
+    },
+    "markup": {
+      "sha": "2f90b589f7b70f13",
+      "bytes": 82419
+    }
+  },
+  "whirlpool": {
+    "art": {
+      "sha": "538770d02bda3d6f",
+      "bytes": 32957
+    },
+    "markup": {
+      "sha": "c5fb0c2f3b35630e",
+      "bytes": 25284
+    }
+  },
+  "winding": {
+    "art": {
+      "sha": "5b553875c4a02f25",
+      "bytes": 29573
+    },
+    "markup": {
+      "sha": "630cd4263b592e1d",
+      "bytes": 20429
     }
   },
   "provingGround": {

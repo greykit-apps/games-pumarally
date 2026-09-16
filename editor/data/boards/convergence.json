@@ -1,0 +1,49 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "convergence",
+  "name": "Convergence",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'Convergence' (IMG_1441). Built by hand in the workshop against the photograph and verified. A green conveyor column feeding a horizontal express row, a pit, two battery sites.",
+  "ground": {
+    "rows": [
+      "... ... b^. ... ... ...",
+      "... ... b^. ... ... ...",
+      "... ... b^. ... ... ...",
+      "... ... b^. ... ... ...",
+      "B>. B>. b^x B<. B<. B<.",
+      "... ... o.. ... ... ..."
+    ],
+    "sites": [
+      { "at": [1, 1], "has": ["flagspot"] },
+      { "at": [0, 2], "has": ["repair", "battery"] },
+      { "at": [3, 2], "has": ["flagspot"] },
+      { "at": [5, 2], "has": ["upgrade", "battery"] },
+      { "at": [3, 5], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "  #    ",
+      "       ",
+      "   #   ",
+      "#     #",
+      "       ",
+      "       "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

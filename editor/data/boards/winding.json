@@ -1,0 +1,50 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "winding",
+  "name": "Winding",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'Winding' (IMG_1437). Built by hand in the workshop against the photograph and verified. A blue express serpentine path with a green conveyor row, one laser, two battery sites.",
+  "ground": {
+    "rows": [
+      "... ... ... ... Bvl B<r",
+      "... ... ... Bvl B<r ...",
+      "... ... Bvl B<r ... ...",
+      "... Bvl B<r ... ... ...",
+      "Bvl B<R b<. b<. b<. b<.",
+      "B<r ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [2, 1], "has": ["flagspot"] },
+      { "at": [4, 2], "has": ["upgrade", "battery"] },
+      { "at": [0, 3], "has": ["repair", "battery"] },
+      { "at": [3, 3], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      " # # #",
+      "#     ",
+      "      ",
+      "      ",
+      " #    ",
+      "      "
+    ],
+    "vRows": [
+      "    #  ",
+      "     # ",
+      "       ",
+      "       ",
+      "       ",
+      "     # "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:1,1", "face": "S", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

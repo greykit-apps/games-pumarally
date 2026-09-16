@@ -1,0 +1,51 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "allRoads",
+  "name": "All Roads",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'All Roads' (IMG_1436). Built by hand in the workshop against the photograph and verified. Green conveyor roads with curves and pits, two pushers, two battery sites.",
+  "ground": {
+    "rows": [
+      "... bv. ... ... o.. ...",
+      "... bv. ... ... b<l ...",
+      "... bv. ... ... b^. ...",
+      "... bv. ... ... b^. ...",
+      "... b>l ... ... b^. ...",
+      "... o.. ... ... b^. ..."
+    ],
+    "sites": [
+      { "at": [2, 1], "has": ["repair", "battery"] },
+      { "at": [3, 2], "has": ["flagspot"] },
+      { "at": [2, 3], "has": ["flagspot"] },
+      { "at": [3, 4], "has": ["upgrade", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "#    #",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      "       ",
+      "   #   ",
+      "   #   ",
+      "       ",
+      "       "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "v:3,2", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:3,3", "face": "E", "regs": [1, 3, 5] }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

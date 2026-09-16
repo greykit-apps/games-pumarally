@@ -1,0 +1,51 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "theH",
+  "name": "The H",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'The H' (IMG_1433). Built by hand in the workshop against the photograph and verified. Green conveyor rows top and bottom feeding a central express H, two lasers, two battery sites.",
+  "ground": {
+    "rows": [
+      "b>. b>. bvx b<L b<. b<.",
+      "... ... Bv. B^. ... ...",
+      "... ... Bv. B^. ... ...",
+      "... ... Bv. B^. ... ...",
+      "... ... Bv. B^. ... ...",
+      "b>. b>. b>L b^x b<. b<."
+    ],
+    "sites": [
+      { "at": [1, 2], "has": ["flagspot"] },
+      { "at": [4, 2], "has": ["flagspot"] },
+      { "at": [5, 2], "has": ["upgrade", "battery"] },
+      { "at": [0, 3], "has": ["repair", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      " #   # ",
+      "       ",
+      "       ",
+      " #   # ",
+      "       "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "v:1,1", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:5,4", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
