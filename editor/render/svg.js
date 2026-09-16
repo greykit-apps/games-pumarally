@@ -15,6 +15,7 @@ import { ART_DEFS, PALETTE_CSS, ART_CSS, STAMP_CSS, SPOT_CSS, TOKENS } from "./p
 import { GLYPHS, DEVICE_GLYPHS, siteOverlay, floorArt, stampArt } from "./glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
+import { SITES } from "../rulesets/sites.js";
 import { ARM_CODES } from "../lib/token.js";
 import {
   idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList
@@ -24,7 +25,12 @@ import { isLedge } from "../lib/levels.js";
 import { dirOfChar, DC, DR, N, E, S, W } from "../lib/dir.js";
 import { ARG_DIR } from "../rulesets/elements.js";
 
-const DEFAULTS = { mode: "art", pad: 0, coords: false, background: true };
+/* `sites`: which edition's markings to draw -- "all" for the workshop, where
+ * a square shows everything printed on it, or a ruleset id for play, where
+ * the wrench a 2016 game never reads and the battery a classic one never
+ * reads are left off. `flagspots`: whether to draw where a flag MAY go; the
+ * game hides them, since the course has already said where the flags ARE. */
+const DEFAULTS = { mode: "art", pad: 0, coords: false, background: true, sites: "all", flagspots: true };
 
 const g = (transform, body) => '<g transform="' + transform + '">' + body + "</g>";
 const at = (c, r) => "translate(" + c * CELL + "," + r * CELL + ")";
@@ -92,14 +98,23 @@ function pitLayer(board) {
  * part of the ground glyph, because a square's markings are not what the square
  * IS -- and because more than one can sit on a square, which a single glyph
  * lookup has nowhere to put. */
-function siteLayer(board, mode) {
+function siteLayer(board, mode, o) {
   let out = "";
   for (const s of siteList(board)) {
     if (!inBoard(board, s.c, s.r)) continue;
-    const body = siteOverlay(s.has, mode);
+    const body = siteOverlay(sitesShown(s.has, o), mode);
     if (body) out += g(at(s.c, s.r), body);
   }
   return out;
+}
+
+/** The markings of a square that the drawing's options let through. */
+export function sitesShown(has, o) {
+  return (has || []).filter(k => {
+    if (k === "flagspot") return o.flagspots !== false;
+    const def = SITES[k];
+    return !o.sites || o.sites === "all" || !def || def.printedIn.includes(o.sites);
+  });
 }
 
 /** Levels: a digit in the corner of every raised square, and a line on every
@@ -301,7 +316,7 @@ export function boardSVG(board, opts = {}) {
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
     (o.mode === "art" ? pitLayer(board) : "") +
-    siteLayer(board, o.mode) +
+    siteLayer(board, o.mode, o) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +
     deviceLayer(board, o.mode) +

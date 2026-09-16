@@ -4,6 +4,9 @@
  * solo human with no opponents, all humans passing the keyboard, bots only,
  * or anything between. The course shelf is the workshop's: every shipped
  * course, and every course saved from the course workshop in this browser.
+ * Before the shelf comes the quick game: any one board, laid at a random
+ * facing with three flags drawn from the locations it marks, fresh at every
+ * start (game/engine/quick.js).
  */
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
@@ -13,6 +16,7 @@ import { LIVERIES } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
+import { quickCourse, quickSpots, QUICK_FLAGS, DOCK_BOARD } from "../engine/quick.js";
 
 const SETUP_KEY = "pumarally_setup_v2";
 const WORKSHOP_KEY = "pumarally_courses_v1";
@@ -53,13 +57,28 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     try { const d = readCourse(doc, library, row.id); shelf.push({ id: row.id, doc: d, kind: row.kind, blurb: row.blurb, reads: rulesetsFor(d, library) }); } catch (e) { /* skip a course that will not build */ }
   }
   for (const c of workshopCourses(library)) shelf.push({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop.", reads: rulesetsFor(c.doc, library) });
-  const playable = () => shelf.filter(c => c.reads.includes(prefs.ruleset));
+  /* the quick games: every board with enough marked flag locations, in the palette's order */
+  const quick = [];
+  for (const row of index.boards) {
+    const b = library.get(row.id);
+    if (!b) continue;
+    const spots = quickSpots(b, library).length;
+    if (spots < QUICK_FLAGS) continue;
+    quick.push({ id: "quick:" + row.id, board: b, spots, unverified: !!row.unverified,
+      reads: rulesetsFor({ stamps: [{ board: row.id }, { board: DOCK_BOARD }] }, library) });
+  }
+  const playable = () => quick.concat(shelf).filter(c => c.reads.includes(prefs.ruleset));
   if (!playable().some(c => c.id === prefs.course)) prefs.course = playable().length ? playable()[0].id : null;
 
-  function thumb(doc) {
-    const { grid } = assemble(doc, library);
-    return boardSVG(grid, { mode: "art", background: true });
+  /* thumbnails are drawn once per ruleset: the markings shown are the ones that edition reads */
+  const thumbs = new Map();
+  function thumb(key, grid) {
+    const k = key + ":" + prefs.ruleset;
+    if (!thumbs.has(k)) thumbs.set(k, boardSVG(grid, { mode: "art", background: true, sites: prefs.ruleset, flagspots: false }));
+    return thumbs.get(k);
   }
+  const notRead = reads => ' disabled title="' + esc("Its boards print things only the " + (reads[0] ? rulesetFor(reads[0]).name : "other") + " book reads.") + '"';
+  const onlyRead = reads => " &middot; " + esc(reads.length ? rulesetFor(reads[0]).name + " only" : "no book reads it");
 
   function render() {
     let html = '<div class="setup"><div class="row"><h1>PumaRally</h1><span class="grow"></span>' +
@@ -73,15 +92,25 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
         '">' + esc(r.name) + " <span class='keys'>" + esc(r.years) + "</span></button>";
     }
     html += "</div>";
+    const flagWord = prefs.ruleset === "modern" ? "checkpoints" : "flags";
+    html += "<h2>Quick game</h2><p class='keys'>One board over the docking bay, laid at a random facing, with " + QUICK_FLAGS + " " + flagWord +
+      " drawn in a random order from the locations it marks. A fresh draw every start.</p><div class='courses'>";
+    for (const q of quick) {
+      const ok = q.reads.includes(prefs.ruleset);
+      html += '<button class="course" data-course="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + (prefs.course === q.id) + '"' +
+        (ok ? "" : notRead(q.reads)) + ">" + thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span>" +
+        '<span class="meta">' + q.board.w + "&times;" + q.board.h + " &middot; " + q.spots + " flag locations" +
+        (q.unverified ? " &middot; unverified" : "") + (ok ? "" : onlyRead(q.reads)) + "</span></button>";
+    }
+    html += "</div>";
     html += "<h2>Course</h2><div class='courses'>";
     for (const c of shelf) {
       const ok = c.reads.includes(prefs.ruleset);
+      const boards = c.doc.stamps.filter(s => s.role !== "dock").length;
       html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
-        (ok ? "" : ' disabled title="' + esc("Its boards print things only the " + (c.reads[0] ? rulesetFor(c.reads[0]).name : "other") + " book reads.") + '"') + ">" +
-        thumb(c.doc) + '<span class="name">' + esc(c.doc.name) + "</span>" +
-        '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + c.doc.stamps.filter(s => s.role !== "dock").length +
-        " board" + (c.doc.stamps.filter(s => s.role !== "dock").length === 1 ? "" : "s") + " &middot; " + (c.doc.flags || []).length +
-        (prefs.ruleset === "modern" ? " checkpoints" : " flags") + (ok ? "" : " &middot; " + esc(c.reads.length ? rulesetFor(c.reads[0]).name + " only" : "no book reads it")) + "</span></button>";
+        (ok ? "" : notRead(c.reads)) + ">" + thumb(c.id, assemble(c.doc, library).grid) + '<span class="name">' + esc(c.doc.name) + "</span>" +
+        '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + boards + " board" + (boards === 1 ? "" : "s") +
+        " &middot; " + (c.doc.flags || []).length + " " + flagWord + (ok ? "" : onlyRead(c.reads)) + "</span></button>";
     }
     html += "</div>";
 
@@ -124,10 +153,13 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
     if (d.act === "start") {
-      const c = shelf.find(x => x.id === prefs.course);
-      if (!c) return;
+      const q = quick.find(x => x.id === prefs.course);
+      const c = q ? null : shelf.find(x => x.id === prefs.course);
+      if (!q && !c) return;
       store(SETUP_KEY, prefs);
-      onStart({ course: c.doc, seats: prefs.seats.map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset });
+      /* a quick game is drawn now, and the draw is the course the save carries */
+      const course = q ? readCourse(quickCourse(q.board, library), library) : c.doc;
+      onStart({ course, seats: prefs.seats.map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset });
     }
   };
   root.onchange = ev => {

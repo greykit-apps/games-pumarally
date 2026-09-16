@@ -494,6 +494,7 @@ const BEHAVIOUR = {
         p.energy -= 1;
         st.events.push({ type: "energy", player: p.id, amount: -1, energy: p.energy, why: "turbo" });
         ctx.dist += ctx.dist > 0 ? 1 : -1;
+        ctx.turbo = true;                                 // named in the log as Turbo, not as a gear
       }
     }
   },

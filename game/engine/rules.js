@@ -297,6 +297,7 @@ function describePlan(cd, plan) {
   if (plan.kind !== "move") return label;
   if (plan.lateral) return label + ", sidestepping " + (plan.lateral < 0 ? "left" : "right");
   if (plan.dist === 0 && base.dist !== 0) return label + ", but brakes and holds still";
+  if (plan.turbo) return label + ", one more with Turbo: " + Math.abs(plan.dist);
   if (Math.abs(plan.dist) > Math.abs(base.dist)) return label + ", in " + (plan.dist < 0 ? "reverse" : "fourth") + " gear: " + Math.abs(plan.dist);
   return label;
 }

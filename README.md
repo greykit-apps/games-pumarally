@@ -22,8 +22,9 @@ at play time beyond fetching the boards.
 > why and how, `EDITOR-REVIEW.md` records what the workshop needed first, and
 > the tag `classic-monolith` holds the old game. What plays today is the
 > classic game and the 2016 game, chosen at set-up: any mix of one to eight
-> human and bot seats, seventeen transcribed boards on nineteen courses, hot
-> seat, autosave. The expansions are the plan's next milestone.
+> human and bot seats, seventeen transcribed boards (any one of them as a quick
+> game: a random facing, three flags drawn from where it marks) and three
+> multi-board courses, hot seat, autosave. The expansions are the plan's next milestone.
 
 ## What works today
 

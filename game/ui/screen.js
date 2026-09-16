@@ -87,6 +87,11 @@ export function mountScreen(root, ctx) {
   /* the register plan: a card that asks about a register is armed for the
    * registers its player picked under the slots; a single-use card for one */
   function armed(pid, id, reg) { const pl = prefsFor(pid).plan[id]; return !!(pl && pl[reg]); }
+  /* a card by id, whichever table it is in: an option card, an upgrade, or
+   * the Haywire a 2016 damage card asks as. A request's `card` can be any of
+   * them, and a lookup in one table alone is how Turbo's question, an
+   * upgrade's, threw on its name and wedged the panel. */
+  function defOf(id) { return OPTION_DEFS[id] || UPGRADE_DEFS[id] || (id === "haywire" ? { name: "Haywire", text: "" } : null); }
   function toggleArm(pid, id, reg) {
     const pf = prefsFor(pid);
     const def = OPTION_DEFS[id] || UPGRADE_DEFS[id];
@@ -164,7 +169,7 @@ export function mountScreen(root, ctx) {
          * knows the question is about the programmed card). Otherwise the
          * card's switch: on, the player is asked each time it comes up; off,
          * its first option is taken without asking. */
-        const def = w.card && w.card !== "haywire" ? OPTION_DEFS[w.card] || UPGRADE_DEFS[w.card] : null;
+        const def = w.card && w.card !== "haywire" ? defOf(w.card) : null;
         if (def) {
           const hook = (w.key || "").split(":")[2];
           if (PLAN_HOOKS.includes(hook) && armed(me.id, w.card, st.register)) return w.options.length === 2 ? w.options[1] : undefined;
@@ -200,7 +205,10 @@ export function mountScreen(root, ctx) {
   /* --- the board ------------------------------------------------------------ */
 
   function drawBoard() {
-    els.art.innerHTML = boardSVG(C.grid, { mode: "art", background: true });
+    /* the markings this edition reads, and not the other's: a classic race
+     * sees wrenches and no batteries, a 2016 one batteries and no wrenches;
+     * the flag LOCATIONS stay in the workshop, the flags themselves are drawn below */
+    els.art.innerHTML = boardSVG(C.grid, { mode: "art", background: true, sites: st.ruleset, flagspots: false });
     els.overlay.setAttribute("viewBox", "0 0 " + (C.w * CELL) + " " + (C.h * CELL));
     let html = "";
     for (const T of C.reboots || []) html += rebootSvg(T);
@@ -305,7 +313,7 @@ export function mountScreen(root, ctx) {
     animating = true;
     lastError = null;
     els.overlay.style.setProperty("--anim", String(speedOf()));
-    renderPanel();
+    safely(renderPanel);
     try {
       await replay(events);
     } catch (e) {
@@ -314,7 +322,27 @@ export function mountScreen(root, ctx) {
     } finally {
       animating = false;
       syncPieces();
-      render();
+      safely(render);
+    }
+  }
+  /* Draw, and if the drawing itself throws, say so and still hand the player
+   * a way to answer. The panel is the only thing on the page with buttons in
+   * it, so a renderer that throws half-way leaves whatever it drew last --
+   * "the floor is moving", a bot "thinking" -- with nothing to click, which
+   * is the wedge issue #1 was about, arriving by another road. */
+  function safely(draw) {
+    try { draw(); return true; }
+    catch (e) {
+      console.error("the panel failed to draw:", e);
+      const w = st.waiting;
+      let html = '<div class="banner"><b>The panel could not be drawn.</b> ' + esc(e && e.message ? e.message : String(e)) +
+        (w ? " The " + esc(w.kind) + " request from " + esc(st.players[w.player].name) + " is still waiting." : "") + "</div>";
+      if (w && Array.isArray(w.options) && w.options.every(o => Number.isInteger(o) || typeof o === "boolean")) {
+        html += "<div class='ask'><div class='row'>" + w.options.map((o, i) =>
+          '<button data-' + (typeof o === "boolean" ? "answer" : "pick") + '="' + o + '">' + esc(w.labels && w.labels[i] !== undefined ? w.labels[i] : String(o)) + "</button>").join("") + "</div></div>";
+      }
+      els.side.innerHTML = html;
+      return false;
     }
   }
 
@@ -609,7 +637,7 @@ export function mountScreen(root, ctx) {
           '<button data-answer="false">Power up</button><button class="primary" data-answer="true">Stay down</button></div></div>';
       /* a card's own question, or the option exchange: the labels are the card's words */
       case "cardChoice":
-        return '<div class="ask"><p>' + (w.card ? "<b>" + esc(OPTION_DEFS[w.card].name) + "</b>: " : "") + esc(w.prompt) + "</p><div class='row'>" +
+        return '<div class="ask"><p>' + (w.card && defOf(w.card) ? "<b>" + esc(defOf(w.card).name) + "</b>: " : "") + esc(w.prompt) + "</p><div class='row'>" +
           w.options.map((o, i) => '<button data-pick="' + o + '"' + (i === 0 ? "" : ' class="primary"') + ">" + esc(w.labels[i]) + "</button>").join("") + "</div></div>";
       case "siteChoice":
         return '<div class="ask"><p>' + esc(w.prompt) + "</p><div class='row'>" +
@@ -912,7 +940,7 @@ export function mountScreen(root, ctx) {
       lastError = "The engine refused a step (" + (e && e.message ? e.message : String(e)) + "). Try the request again, or start a new game.";
       animating = false;
       syncPieces();
-      render();
+      safely(render);
     },
     async update(state, events) {
       st = state;

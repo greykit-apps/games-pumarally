@@ -1,7 +1,11 @@
 #!/usr/bin/env node
-/* Bot-vs-bot and mixed games on every shipped course.
+/* Bot-vs-bot and mixed games on every shipped course, and on a quick game
+ * over every board that makes one.
  *
  *   node game/tools/sim.js [games] [courseId]
+ *
+ * A quick game's id is quick_<boardId>; its facing and flags are drawn from a
+ * seed fixed per board, so a run repeats.
  *
  * Half the seats are bots and half are "humans" answered at random through
  * the same request door, so every run exercises the path a person's clicks
@@ -11,10 +15,18 @@
  */
 import { loadLibraryFromDisk, readCourse, rulesetsFor } from "../engine/library.js";
 import { runSim } from "../engine/sim.js";
+import { quickCourse, canQuick, seeded } from "../engine/quick.js";
 
 const games = parseInt(process.argv[2], 10) || 20;
 const only = process.argv[3] || null;
 const { library, courses } = await loadLibraryFromDisk();
+/* the quick games: the setup screen offers every board that makes one, and
+ * a board nobody has raced on is a board nobody has seen crash */
+[...library.values()].sort((a, b) => a.id.localeCompare(b.id)).forEach((b, k) => {
+  if (!canQuick(b, library)) return;
+  const q = quickCourse(b, library, { rnd: seeded(1000 + k) });
+  courses.set(q.id, q);
+});
 let failed = 0, totalDecided = 0;
 const decidedBy = { classic: 0, modern: 0 };
 for (const [id, doc] of courses) {

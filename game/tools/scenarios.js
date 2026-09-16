@@ -2129,6 +2129,30 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "a quick game lays the board at the facing drawn, over the docking bay",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a quick game draws three flags from the marked locations, in the order drawn",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a board without three marked locations is no quick game",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the race draws the markings its edition reads and no others",
+    "layer": "screen",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 
