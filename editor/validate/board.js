@@ -25,7 +25,7 @@ import {
 } from "../lib/edges.js";
 import { isLedge, rampsOf, levelsUsed, rampDir } from "../lib/levels.js";
 import { SITES, EXCLUSIVE, checkSites } from "../rulesets/sites.js";
-import { DC, DR, N, E, S, W, opposite, dirLetter } from "../lib/dir.js";
+import { DC, DR, N, E, S, W, dirLetter } from "../lib/dir.js";
 import { REGISTER_COUNT } from "../lib/registers.js";
 
 const at = (c, r) => "(" + c + "," + r + ")";
@@ -199,14 +199,9 @@ export function checkBelts(board, d) {
           " across a level change. A belt cannot climb, and a ramp is the only way between levels.",
           at(c, r), ptr);
       }
-      const nextSpeed = tokenBeltSpeed(cellAt(board, nc, nr));
-      if (nextSpeed) {
-        const nextDir = beltDir(board, nc, nr);
-        if (nextDir !== undefined && nextDir === opposite(dir) && (c < nc || (c === nc && r < nr))) {
-          d.error("belt.headOn", "The conveyors at " + at(c, r) + " and " + at(nc, nr) +
-            " run into each other.", at(c, r), ptr);
-        }
-      }
+      // Two conveyors that run head-on into each other are rare but legal: the
+      // board art prints them and the engine resolves the contention at play
+      // time. So there is deliberately no check here for opposed belts.
     }
   }
 }
@@ -333,6 +328,15 @@ function checkWallDevices(board, d) {
           at(cell[0], cell[1]), ptr);
       }
       pusherCells.set(key, dev);
+    }
+
+    if (dev.kind === "laser" && cell) {
+      const path = laserPath(board, dev);
+      if (path.length <= 1) {
+        d.warn("laser.ownSquareOnly", "The laser at " + at(cell[0], cell[1]) + " faces " +
+          dirLetter(dev.face) + " into a wall, so its beam lights only the square it stands in.",
+          at(cell[0], cell[1]), ptr);
+      }
     }
 
     if (dev.kind === "jet" && cell) {

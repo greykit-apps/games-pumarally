@@ -1,0 +1,48 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "theX",
+  "name": "The X",
+  "w": 6,
+  "h": 6,
+  "set": "masterBuilder",
+  "origin": "transcribed",
+  "notes": "Master Builder 6x6 board 'The X' (IMG_1439). Built by hand in the workshop against the photograph and verified. Diagonal green conveyors forming an X (with two legal head-on belts in the centre), red/green gears, two battery sites. HELD: cannot canonicalize/ship until the belt.headOn validator false-positive is removed.",
+  "ground": {
+    "rows": [
+      "b>. r.. ... ... l.. b<.",
+      "... b>. r.. l.. b<. ...",
+      "... ... b>. b<. ... ...",
+      "... l.. b<. b>. r.. ...",
+      "l.. b<. ... ... b>. r..",
+      "b<. ... ... ... ... b>."
+    ],
+    "sites": [
+      { "at": [1, 2], "has": ["flagspot"] },
+      { "at": [0, 3], "has": ["repair", "battery"] },
+      { "at": [5, 3], "has": ["upgrade", "battery"] },
+      { "at": [3, 4], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    "vRows": [
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}
