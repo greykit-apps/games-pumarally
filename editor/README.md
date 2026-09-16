@@ -505,6 +505,9 @@ these are the rules that came out of it:
   stay with the course: the course workshop opens a flat course as one
   stamp with the flag tool, and the game's shelf reads the board out of the
   library entry.
+- **W A S D pan the view** in both workshops (issue #3); in the board workshop
+  the arrow keys face the thing in hand and Q and E turn it. WASDQE stay
+  reserved from the tools.
 - **Boards are dragged.** Off the rail onto the floor, or from where they lie
   to where they should be, as a ghost snapped to the squares and drawn red
   where it would overlap. Edges need not line up with another board's,

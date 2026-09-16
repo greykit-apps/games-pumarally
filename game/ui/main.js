@@ -109,6 +109,11 @@ async function advance(answer) {
       }
       a = botAnswer(st, library, w);
     }
+  } catch (e) {
+    /* issue #1: a throw anywhere in here used to leave the panel saying "the
+     * floor is moving" with nothing to click. The screen says what happened
+     * and shows the request that is waiting. */
+    if (screen && screen.fail) screen.fail(e); else throw e;
   } finally {
     /* an exception must not wedge the loop: the next click still steps */
     busy = false;

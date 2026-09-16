@@ -729,6 +729,9 @@ export async function mountCourse(root, wanted) {
     if ((k === "delete" || k === "backspace") && st.sel >= 0) { act("drop"); return; }
     if (k === "`") { st.mode = st.mode === "art" ? "markup" : "art"; refresh(); return; }
     if (k === "0") { fit(view, st); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; return; }
+    /* WASD pan the view (issue #3) */
+    const pan = { w: [0, 1], s: [0, -1], a: [1, 0], d: [-1, 0] }[k];
+    if (pan) { st.offX += pan[0] * 120; st.offY += pan[1] * 120; layout(view, st); if (drag && drag.last) dragTo(drag.last); ev.preventDefault(); return; }
   });
 
   function goTo(where) {
@@ -824,7 +827,7 @@ export async function mountCourse(root, wanted) {
 
   window.addEventListener("resize", () => layout(view, st));
   refresh({ keepView: false });
-  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, ` swaps the drawing.", "");
+  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, R tokens, W A S D pan, ` swaps the drawing.", "");
   window.__EDC = { st, view, refresh, act, library, undo };
   return window.__EDC;
 }

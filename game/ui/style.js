@@ -30,8 +30,8 @@ h2:first-child{margin-top:0}
 .stage .board{position:relative;max-width:100%}
 .stage .board svg{display:block;width:100%;height:auto}
 .stage .board .overlay{position:absolute;inset:0}
-.overlay .piece{transition:transform .28s cubic-bezier(.3,.7,.3,1)}
-.overlay .spin{transition:transform .22s ease;transform-origin:50px 50px}
+.overlay .piece{transition:transform calc(.26s * var(--anim,1)) cubic-bezier(.3,.7,.3,1)}
+.overlay .spin{transition:transform calc(.2s * var(--anim,1)) ease;transform-origin:50px 50px}
 .overlay .pr-hull{stroke:var(--a);stroke-width:5;fill:var(--d)}
 .overlay .pr-nose{fill:var(--a)}
 .overlay .pr-eye{fill:var(--bg);stroke:var(--a);stroke-width:3}

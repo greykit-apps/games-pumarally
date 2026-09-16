@@ -81,6 +81,9 @@ const SHELL = `
 <dialog class="modal"></dialog>
 `;
 
+/* one press of W A S D moves the view this many pixels */
+const PAN_STEP = 120;
+
 export function mount(root) {
   injectCSS(document);
   root.innerHTML = SHELL;
@@ -277,10 +280,13 @@ export function mount(root) {
     if (k === "-") { zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
     if (k === "0") { fit(view, st); refresh({ board: false }); return; }
 
-    /* WASD face the thing in hand, QE turn it a quarter. Reserved, so no tool
-     * may claim them -- check-app asserts that. */
-    const face = { w: N, d: E, s: S, a: W }[k];
-    if (face !== undefined) { st.hand.dir = face; refresh({ board: false }); return; }
+    /* WASD pan the view (issue #3); the arrow keys face the thing in hand, QE
+     * turn it a quarter. WASDQE stay reserved, so no tool may claim them --
+     * check-app asserts that. */
+    const pan = { w: [0, 1], s: [0, -1], a: [1, 0], d: [-1, 0] }[k];
+    if (pan) { st.offX += pan[0] * PAN_STEP; st.offY += pan[1] * PAN_STEP; layout(view, st); showMarks(view, st); ev.preventDefault(); return; }
+    const face = { ArrowUp: N, ArrowRight: E, ArrowDown: S, ArrowLeft: W }[ev.key];
+    if (face !== undefined) { st.hand.dir = face; refresh({ board: false }); ev.preventDefault(); return; }
     if (k === "q") { st.hand.dir = rot(st.hand.dir, -1); refresh({ board: false }); return; }
     if (k === "e") { st.hand.dir = rot(st.hand.dir, 1); refresh({ board: false }); return; }
 
@@ -754,7 +760,7 @@ export function mount(root) {
   window.addEventListener("resize", () => { layout(view, st); showMarks(view, st); });
   refresh();
   fit(view, st);
-  say("Pick a tool, click the board. W A S D face it, Q E turn it, ` swaps the drawing.", "");
+  say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D pan, ` swaps the drawing.", "");
 
   /* a small handle for the browser console and for tests */
   window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev) };
