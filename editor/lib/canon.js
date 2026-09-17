@@ -15,7 +15,7 @@
  * `/ground/rows/3` maps to a line number exactly rather than by searching.
  */
 
-import { hasLevels, idx, siteList, BOARD_FORMAT, BOARD_VERSION } from "./board.js";
+import { hasLevels, idx, siteList, BOARD_FORMAT, BOARD_VERSION, levelChar } from "./board.js";
 import { edgeId } from "./edges.js";
 import { dirLetter } from "./dir.js";
 import { edgeGlyph } from "./edges.js";
@@ -42,7 +42,13 @@ export function levelRows(board) {
   const rows = [];
   for (let r = 0; r < board.h; r++) {
     let s = "";
-    for (let c = 0; c < board.w; c++) s += String(board.levels[idx(board, c, r)]);
+    for (let c = 0; c < board.w; c++) {
+      /* `?? "0"` cannot fire: readLevels refuses an unspellable character and
+       * setLevel refuses an unspellable number, so nothing can put one in the
+       * array. It is here so that if either guard is ever loosened this writes
+       * a file that still parses rather than the text "undefined". */
+      s += levelChar(board.levels[idx(board, c, r)]) ?? "0";
+    }
     rows.push(s);
   }
   return rows;

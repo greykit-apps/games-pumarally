@@ -72,9 +72,17 @@ function build() {
   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T..");
   setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 
-  /* two levels, joined by the only thing that may join them */
+  /* THREE levels, one of them BELOW the floor you walk in on, joined by the
+   * only thing that may join them. The board's base is 0, so a fixture with
+   * levels 0 and 1 alone exercises only half the format -- and the half it
+   * left out is the half Water Park needs. Two ramps: one climbing out of the
+   * channel to the base, one climbing from the base to the shelf. */
   setCell(b, 5, 8, "R^.");
   setLevel(b, 5, 7, 1);
+
+  setCell(b, 2, 8, "R>.");
+  setLevel(b, 1, 8, -1);
+  setLevel(b, 2, 8, -1);
 
   setCell(b, 0, 11, "s1.");  setCell(b, 1, 11, "s2.");
 

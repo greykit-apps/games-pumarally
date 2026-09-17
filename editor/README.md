@@ -192,9 +192,34 @@ register is not a door, and one open in none is a wall.
 
 ### Elevation
 
-`ground.levels` is an optional block of digits, omitted entirely when the board
-is flat — so a flat board is byte-identical to one written before levels
-existed.
+`ground.levels` is an optional block, omitted entirely when the board is flat —
+so a flat board is byte-identical to one written before levels existed.
+
+**A level is a signed offset from the board's base floor, not a height.** One
+character per square, so a level row is `w` characters exactly as a ground row
+is `4w − 1`:
+
+| | |
+|---|---|
+| `0` | the base floor — the level you walk in on |
+| `1` … `9` | one to nine levels **up** |
+| `A` … `I` | one to nine levels **down** |
+
+Uppercase rather than the `a b c` a docking bay uses for bays 10–12, where the
+letters go on counting *up*; one alphabet meaning two opposite things in one
+format is how a transcription goes quietly wrong.
+
+**There is no contiguity rule, and the one that used to be here was invented.**
+"Levels count up from 0 with no gaps" is in no rulebook. A printed ledge says
+only that two squares are on *different* levels — never how far apart, and never
+which of them is the ground. The rule refused Water Park, whose floor drops
+below the level you walk in on, and could only be satisfied by re-describing the
+board: call the channel 0 and lift everything else to 1.
+
+**The base floor is 0 on every board, and that is what makes boards compose.**
+`assemble()` copies each board's levels straight into the shared course grid, so
+the zeros have to mean the same height on all of them. A signed offset makes
+that true by construction.
 
 **Ledges are derived, not stored.** Any edge whose two squares differ in level
 *is* a ledge. A **ramp** is the only element that spans one; its own square is

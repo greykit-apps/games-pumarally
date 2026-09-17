@@ -148,7 +148,6 @@ const CASES = [
   ["ceiling.duplicate", FIXTURE, d => { d.ceiling.devices.push({ ...d.ceiling.devices[0] }); }],
 
   /* elevation */
-  ["level.notContiguous", FIXTURE, d => { d.ground.levels[9] = setCh(d.ground.levels[9], 0, "3"); }],
   ["level.rampGradient", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "2"); }],
   ["level.rampFoot", FIXTURE, d => { d.ground.levels[9] = setCh(d.ground.levels[9], 5, "1"); }],
   ["level.unreachable", FIXTURE, d => { setTok(d, 5, 8, "..."); }],

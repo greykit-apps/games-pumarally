@@ -106,7 +106,6 @@ export const CODES = Object.freeze({
   "ceiling.duplicate":    "two ceiling devices of one kind on one square",
 
   /* --- elevation -------------------------------------------------------- */
-  "level.notContiguous":  "a board using a level with no level below it in use",
   "level.rampGradient":   "a ramp whose uphill square is not exactly one level up",
   "level.rampFoot":       "a ramp whose downhill square is not level with it",
   "level.unreachable":    "a level no ramp reaches",

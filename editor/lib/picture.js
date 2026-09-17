@@ -19,7 +19,9 @@
  * levels, ceiling devices and the register sets of wall devices.
  */
 
-import { blankBoard, idx, cellAt, setCell, levelAt, setLevel, hasLevels, siteList, setSites } from "./board.js";
+import {
+  blankBoard, idx, cellAt, setCell, levelAt, setLevel, hasLevels, siteList, setSites,
+  levelChar, levelOfChar, LEVEL_RANGE } from "./board.js";
 import { edgeGlyph, edgeCodeOf, EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, parseEdge } from "./edges.js";
 import { dirLetter, dirOfLetter } from "./dir.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
@@ -56,7 +58,7 @@ export function toPicture(board) {
     tail.push("levels:");
     for (let r = 0; r < board.h; r++) {
       let s = "";
-      for (let c = 0; c < board.w; c++) s += String(levelAt(board, c, r));
+      for (let c = 0; c < board.w; c++) s += levelChar(levelAt(board, c, r)) ?? "0";
       tail.push("  " + s);
     }
   }
@@ -140,12 +142,19 @@ export function fromPicture(text, meta = {}) {
     const line = all[i];
     if (!line.trim()) continue;
     const head = /^(levels|sites|wall|ceiling):\s*$/.exec(line);
-    if (head) { section = head[1]; if (section === "levels") board.levels = new Uint8Array(w * h); continue; }
+    if (head) { section = head[1]; if (section === "levels") board.levels = new Int8Array(w * h); continue; }
     const body = line.trim();
     if (section === "levels") {
       const r = countLevelRows(board, w, h);
       if (body.length !== w) throw new Error("level row " + r + " is " + body.length + " characters, expected " + w);
-      for (let c = 0; c < w; c++) setLevel(board, c, r, +body.charAt(c));
+      for (let c = 0; c < w; c++) {
+        const lvl = levelOfChar(body.charAt(c));
+        if (lvl === undefined) {
+          throw new Error("level " + JSON.stringify(body.charAt(c)) + " at column " + c +
+            " of level row " + r + " is not a level character (" + LEVEL_RANGE + ")");
+        }
+        setLevel(board, c, r, lvl);
+      }
     } else if (section === "sites") {
       const m = /^(\d+),(\d+)\s+(.+?)(?:\s+--\s+(.*))?$/.exec(body);
       if (!m) throw new Error("not a site line: " + JSON.stringify(body));

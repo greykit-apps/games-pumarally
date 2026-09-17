@@ -128,10 +128,15 @@ function levelLayer(board, mode) {
       if (isVoid(board, c, r)) continue;
       const lvl = levelAt(board, c, r);
       if (lvl) {
-        const x = c * CELL + 12, y = r * CELL + 14;
+        /* SIGNED, and always with its sign. A bare "1" cannot say whether the
+         * square is a level up or a level down, and a board may now be both --
+         * the base floor is 0 and a sunken channel is negative. Two characters
+         * wide either way, so the corner does not jump about. */
+        const label = (lvl > 0 ? "+" : "\u2212") + Math.abs(lvl);
+        const x = c * CELL + 17, y = r * CELL + 14;
         marks += '<text x="' + x + '" y="' + y + '" font-size="20" font-family="ui-monospace,monospace"' +
           ' text-anchor="middle" dominant-baseline="central" stroke="' + MARK.halo +
-          '" stroke-width="3.5" paint-order="stroke" fill="' + MARK.level + '">' + lvl + "</text>";
+          '" stroke-width="3.5" paint-order="stroke" fill="' + MARK.level + '">' + label + "</text>";
       }
       /* Only the north and west edges, so each ledge is drawn once. */
       if (isLedge(board, c, r, N)) ledges.push("M " + c * CELL + " " + r * CELL + " l " + CELL + " 0");

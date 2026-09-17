@@ -407,14 +407,24 @@ function checkLevels(board, d) {
    * boards where it is most obviously wrong. Reachable from the tool: lay a
    * ramp, then lower its uphill square, or turn the ramp toward the rim. */
   const flat = used.length <= 1;
-  for (let i = 0; !flat && i < used.length; i++) {
-    if (used[i] !== i) {
-      d.error("level.notContiguous", "This board uses level " + used[i] +
-        " with no level " + i + " on it. Levels count up from 0 with no gaps.", null, "/ground/levels");
-      break;
-    }
-  }
-  const reached = new Set([used[0]]);
+
+  /* THERE IS NO CONTIGUITY RULE, and the one that used to be here was invented.
+   * "Levels count up from 0 with no gaps" appears in no rulebook. Wet and Wild
+   * prints ledges, and a ledge says only that two squares are on different
+   * levels -- never how far apart, and never which of them is the ground. The
+   * rule refused Water Park, whose floor drops below the level you walk in on,
+   * and it could only be satisfied by re-describing the board: call the channel
+   * 0 and lift everything else to 1. A level is now a signed offset from the
+   * base floor, so a board says what it is instead. */
+
+  /* Reachability is still worth a warning, and the seed is the BASE FLOOR
+   * rather than the lowest level on the board -- 0 is where a robot walks in.
+   * A ledge may always be crossed downward, at two damage, so anything below
+   * the base is reachable; upward needs a ramp, and a ramp is only usable if
+   * its own foot can be got to, which is why this runs to a fixpoint. */
+  const reached = new Set([0]);
+  for (const lvl of used) if (lvl < 0) reached.add(lvl);
+  const climbs = [];
   for (const ramp of rampsOf(board)) {
     const ptr = "/ground/rows/" + ramp.r;
     if (ramp.top === null) {
@@ -434,7 +444,13 @@ function checkLevels(board, d) {
         ". A ramp's foot is level with the floor it is approached from.", at(ramp.c, ramp.r), ptr);
       continue;
     }
-    reached.add(ramp.top);
+    climbs.push(ramp);
+  }
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const ramp of climbs) {
+      if (reached.has(ramp.foot) && !reached.has(ramp.top)) { reached.add(ramp.top); grew = true; }
+    }
   }
   if (flat) return;
   for (const lvl of used) {

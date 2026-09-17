@@ -126,6 +126,58 @@ export function flagSpots(board) {
   return siteList(board).filter(s => s.has.indexOf("flagspot") >= 0);
 }
 
+/* --- levels ----------------------------------------------------------------
+ *
+ * A LEVEL IS A SIGNED OFFSET FROM THE BOARD'S BASE FLOOR, and it was wrong to
+ * store it as a height counting up from zero. The board prints ledges, which
+ * say only that two squares are on DIFFERENT levels; nothing on a printed
+ * board says which of them is "the ground". A board whose main floor has a
+ * sunken channel through it is the ordinary case, and under the old model it
+ * could only be written by calling the channel 0 and lifting the entire rest
+ * of the board to 1 -- a re-description of the board to satisfy the format.
+ *
+ * THE BASE FLOOR IS 0 ON EVERY BOARD, and that is what makes boards compose.
+ * `assemble()` copies each board's levels straight into the shared course
+ * grid, so the zeros have to mean the same height on all of them. With a
+ * signed offset they do by construction: 0 is "the floor you walk in on",
+ * which is the one thing every printed board agrees about.
+ *
+ * ONE CHARACTER PER SQUARE, so a level row is `w` characters exactly like a
+ * ground row is 4w-1, and a row that loses a character fails at a named
+ * column rather than merely being the wrong length.
+ *
+ *     0        the base floor
+ *     1 .. 9   one to nine levels UP
+ *     A .. I   one to nine levels DOWN
+ *
+ * Uppercase rather than the `a b c` the docking bay uses for 10-12: there the
+ * letters go on counting UP, and reusing them here for down would make one
+ * alphabet mean two opposite things in one format.
+ */
+
+const LEVEL_UP = "0123456789";
+const LEVEL_DOWN = "ABCDEFGHI";
+
+/** The character a level is spelled with, or undefined when out of range. */
+export function levelChar(n) {
+  if (!Number.isInteger(n)) return undefined;
+  if (n >= 0 && n <= 9) return LEVEL_UP.charAt(n);
+  if (n < 0 && n >= -9) return LEVEL_DOWN.charAt(-n - 1);
+  return undefined;
+}
+
+/** The level a character spells, or undefined when it spells none. */
+export function levelOfChar(ch) {
+  const up = LEVEL_UP.indexOf(ch);
+  if (up >= 0) return up;
+  const down = LEVEL_DOWN.indexOf(ch);
+  if (down >= 0) return -(down + 1);
+  return undefined;
+}
+
+/** The levels a board may hold, as a readable list for a diagnostic. */
+export const LEVEL_RANGE = "-9 to 9, written 0 for the base floor, 1-9 up and A-I down";
+
 /** The level of a square; 0 everywhere on a board that declares none. */
 export function levelAt(board, c, r) {
   if (!board.levels || !inBoard(board, c, r)) return 0;
@@ -134,7 +186,10 @@ export function levelAt(board, c, r) {
 
 export function setLevel(board, c, r, n) {
   if (!inBoard(board, c, r)) return false;
-  if (!board.levels) board.levels = new Uint8Array(board.w * board.h);
+  /* Refused rather than clamped. An Int8Array would silently take 300 as 44,
+   * and a level nobody asked for is worse than a level that would not go in. */
+  if (levelChar(n) === undefined) return false;
+  if (!board.levels) board.levels = new Int8Array(board.w * board.h);
   board.levels[idx(board, c, r)] = n;
   return true;
 }
@@ -428,7 +483,7 @@ function readLevels(rows, board, d) {
     d.error("shape.levelRows", "`ground.levels` must be " + board.h + " rows.", null, "/ground/levels");
     return;
   }
-  board.levels = new Uint8Array(board.w * board.h);
+  board.levels = new Int8Array(board.w * board.h);
   for (let r = 0; r < board.h; r++) {
     const row = rows[r];
     const ptr = "/ground/levels/" + r;
@@ -438,12 +493,13 @@ function readLevels(rows, board, d) {
     }
     for (let c = 0; c < board.w; c++) {
       const ch = row.charAt(c);
-      if (ch < "0" || ch > "9") {
-        d.error("shape.levelChar", "Level " + JSON.stringify(ch) + " is not a digit.",
-          "(" + c + "," + r + ")", ptr);
+      const lvl = levelOfChar(ch);
+      if (lvl === undefined) {
+        d.error("shape.levelChar", "Level " + JSON.stringify(ch) + " is not a level character (" +
+          LEVEL_RANGE + ").", "(" + c + "," + r + ")", ptr);
         continue;
       }
-      board.levels[idx(board, c, r)] = +ch;
+      board.levels[idx(board, c, r)] = lvl;
     }
   }
 }
