@@ -132,9 +132,16 @@ export const ELEMENTS = {
          props: { randomize: true },
          source: "Chaos and Carnage. Replaces the register with the top card of your deck." },
 
-  "T": { key: "teleporter", name: "Teleporter", arg: ARG_PAIR, printedIn: MODERN,
+  /* THE TELEPORTER DOES NOT PAIR, and modelling it as a pair was wrong. The
+   * portal (`t`) steps you to a matching colour and therefore needs a twin;
+   * the teleporter has no destination at all. It MODIFIES the card you just
+   * revealed -- a Move throws you two squares further forward than it says --
+   * so there is nothing for a second one to be the other end of. A board may
+   * print one of them or nine, and Labyrinth prints nine identical ones. */
+  "T": { key: "teleporter", name: "Teleporter", arg: ARG_NONE, printedIn: MODERN,
          props: { teleport: true },
-         source: "Chaos and Carnage. Adds two forward to a revealed Move card." },
+         source: "Chaos and Carnage. Adds two forward to a revealed Move card. " +
+                 "Unpaired: it has no destination, so it is not a portal and takes no colour." },
 
   "A": { key: "priorityAntenna", name: "Priority antenna", arg: ARG_NONE, printedIn: MODERN,
          props: { antenna: true },

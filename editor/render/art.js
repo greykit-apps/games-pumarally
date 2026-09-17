@@ -32,6 +32,12 @@ function svg(inner, cls) {
 const PORTAL_HUES = ["#a06cff", "#3fd67a", "#4aa8ff", "#ff7ad1", "#ffd166",
                      "#ff8a5c", "#7ce0d3", "#c0c6e0", "#ff5f6d"];
 
+/* The teleporter's one hue. It is not drawn from PORTAL_HUES because it is not
+ * a member of a pair -- and what actually separates the two on the board is the
+ * SHAPE, a hexagon against the portal's concentric rings, which holds even when
+ * a portal's colour happens to land near this one. */
+const TELEPORT_HUE = "#e07ad8";
+
 function polar(a, rad) {
   return (50 + Math.cos(a) * rad).toFixed(1) + " " + (50 + Math.sin(a) * rad).toFixed(1);
 }
@@ -152,8 +158,12 @@ export function randomizerSvg() {
   return svg(out, "pr-rand");
 }
 
-export function teleporterSvg(n) {
-  const hue = portalHue(n);
+/* ONE HUE, because a teleporter has no colour to match. The portal below takes
+ * its hue from the pair it belongs to; this one belongs to nothing, so a
+ * per-instance colour would be inventing a distinction the print does not make.
+ * Nine identical rings on Labyrinth are nine identical rings. */
+export function teleporterSvg() {
+  const hue = TELEPORT_HUE;
   return svg('<path d="M50 14l31 18v36L50 86 19 68V32z" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
              '<path d="M50 30l17 10v20L50 70 33 60V40z" fill="' + hue + '" opacity=".55"/>' +
              '<circle cx="50" cy="50" r="7" fill="var(--pr-bg)"/>', "pr-teleport");

@@ -132,7 +132,16 @@ export const GLYPHS = {
   oil: { art: () => A.oilSvg(), markup: () => oilMark() },
 
   portal: { art: ctx => A.portalSvg(ctx.arg), markup: ctx => ringMark(ctx) },
-  teleporter: { art: ctx => A.teleporterSvg(ctx.arg), markup: ctx => ringMark(ctx) },
+  /* Its own markup, not the portal's. Both used to draw ringMark, telling each
+   * other apart only by the pair digit printed inside -- and the teleporter no
+   * longer has one, so sharing would now leave the two identical over a
+   * photograph. The hexagon matches its art and the chevron says what it does:
+   * it throws you forward along the way you are already facing. */
+  teleporter: {
+    art: () => A.teleporterSvg(),
+    markup: () => mk("M 50 14 L 81 32 L 81 68 L 50 86 L 19 68 L 19 32 Z", MARK.ground, 1.5) +
+      mk("M 36 58 L 50 40 L 64 58", MARK.ground, 1.5)
+  },
 
   water: { art: () => A.waterSvg(), markup: () => waterMark() },
 
