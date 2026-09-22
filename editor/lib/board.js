@@ -21,7 +21,7 @@ import { canonSites, siteProps, SITES } from "../rulesets/sites.js";
 import { TOKEN_WIDTH, isVoidToken, tokenElement, tokenBeltSpeed, bayNumberOf } from "./token.js";
 import { dirOfLetter, dirLetter, dirOfChar, N, E, S, W, DC, DR } from "./dir.js";
 import {
-  EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeCodeOf, edgeGlyph,
+  EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeCodeOf, edgeGlyph, rampCodeOf,
   edgeId, parseEdge, edgeOf, edgeIdOf, wallAt, isNormalOf, faceCell, edgeCodeAt
 } from "./edges.js";
 
@@ -201,6 +201,13 @@ export function hasLevels(board) {
   return false;
 }
 
+/** Does this board carry a ramp anywhere? Decides whether `rampH`/`rampV` are written. */
+export function hasRamps(board) {
+  for (let i = 0; i < board.rampH.length; i++) if (board.rampH[i]) return true;
+  for (let i = 0; i < board.rampV.length; i++) if (board.rampV[i]) return true;
+  return false;
+}
+
 /* --- devices -------------------------------------------------------------- */
 
 /** The square a wall device stands in. */
@@ -327,6 +334,10 @@ export function blankBoard(meta = {}) {
      * from the list so the list stays canonical; written back by canon.js. */
     siteNotes: new Map(),
     levels: null,
+    /* the ramp lattice: the wall lattice's shape, one byte per edge, 1 where a
+     * ramp crosses that edge. Which way it climbs is read off the levels. */
+    rampH: new Uint8Array(w * (h + 1)),
+    rampV: new Uint8Array((w + 1) * h),
     wallH: new Uint8Array(w * (h + 1)),
     wallV: new Uint8Array((w + 1) * h),
     wallDevices: [],
@@ -347,6 +358,8 @@ export function cloneBoard(board) {
     sites: new Map([...board.sites].map(([k, v]) => [k, v.slice()])),
     siteNotes: new Map(board.siteNotes || []),
     levels: board.levels ? board.levels.slice() : null,
+    rampH: board.rampH.slice(),
+    rampV: board.rampV.slice(),
     wallH: board.wallH.slice(),
     wallV: board.wallV.slice(),
     wallDevices: board.wallDevices.map(d => ({ ...d, edge: { ...d.edge } })),
@@ -470,9 +483,10 @@ function readGround(doc, board, d) {
     }
   }
   if (g.levels !== undefined && g.levels !== null) readLevels(g.levels, board, d);
+  if (g.rampH !== undefined || g.rampV !== undefined) readRamps(g, board, d);
   if (g.sites !== undefined && g.sites !== null) readSites(g.sites, board, d);
   for (const k of Object.keys(g)) {
-    if (k !== "rows" && k !== "levels" && k !== "sites") {
+    if (k !== "rows" && k !== "levels" && k !== "sites" && k !== "rampH" && k !== "rampV") {
       d.error("doc.unknownKey", "`ground." + k + "` is not part of the ground layer.", null, "/ground/" + k);
     }
   }
@@ -500,6 +514,43 @@ function readLevels(rows, board, d) {
         continue;
       }
       board.levels[idx(board, c, r)] = lvl;
+    }
+  }
+}
+
+/* The two ramp lattices come together or not at all: one without the other is
+ * a file that lost half its ramps, and the loud answer beats reading the half
+ * that survived. */
+function readRamps(g, board, d) {
+  if (g.rampH === undefined || g.rampV === undefined) {
+    d.error("shape.rampRows", "`ground.rampH` and `ground.rampV` go together; one is missing.", null, "/ground");
+    return;
+  }
+  readRampLattice(g.rampH, board.h + 1, board.w, board.rampH, "rampH", d);
+  readRampLattice(g.rampV, board.h, board.w + 1, board.rampV, "rampV", d);
+}
+
+function readRampLattice(rows, expectRows, expectWidth, arr, label, d) {
+  const ptrBase = "/ground/" + label;
+  if (!Array.isArray(rows) || rows.length !== expectRows) {
+    d.error("shape.rampRows", "`ground." + label + "` must be " + expectRows + " rows.", null, ptrBase);
+    return;
+  }
+  for (let r = 0; r < expectRows; r++) {
+    const row = rows[r];
+    const ptr = ptrBase + "/" + r;
+    if (typeof row !== "string" || row.length !== expectWidth) {
+      d.error("shape.rampRows", label + " row " + r + " must be " + expectWidth + " characters.", null, ptr);
+      continue;
+    }
+    for (let c = 0; c < expectWidth; c++) {
+      const code = rampCodeOf(row.charAt(c));
+      if (code === undefined) {
+        d.error("shape.rampGlyph", "Ramp lattice character " + JSON.stringify(row.charAt(c)) +
+          " is not one of ' ' or 'R'.", label + " " + c + "," + r, ptr);
+        continue;
+      }
+      arr[r * expectWidth + c] = code;
     }
   }
 }

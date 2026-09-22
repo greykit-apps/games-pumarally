@@ -16,8 +16,7 @@ import {
 } from "../lib/token.js";
 import {
   edgeOf, edgeId, parseEdge, faceCell, isNormalOf, rotateEdge, rotateFace,
-  edgeInBounds, setWall, wallAt, EDGE_WALL, EDGE_DOOR
-} from "../lib/edges.js";
+  edgeInBounds, setWall, wallAt, EDGE_WALL, EDGE_DOOR, setRamp, rampOn } from "../lib/edges.js";
 import {
   blankBoard, setCell, setLevel, levelAt, boardFromDocument, idx, deviceCell, laserPath,
   docksOf, setSites, sitesAt, siteList
@@ -285,7 +284,7 @@ function fixture() {
   const b = blankBoard({ id: "fixture", name: "Fixture", w: 6, h: 4, notes: 'A "quoted" name and a \\ backslash.' });
   setCell(b, 1, 0, "b>."); setCell(b, 2, 0, "bvr"); setCell(b, 3, 1, "B<L");
   setCell(b, 4, 2, "bvX"); setCell(b, 5, 3, "o.."); setCell(b, 0, 3, "s1.");
-  setCell(b, 2, 2, "R^."); setLevel(b, 3, 2, 1); setLevel(b, 3, 3, 1);
+  setRamp(b, 2, 2, E, true); setLevel(b, 3, 2, 1); setLevel(b, 3, 3, 1);
   setSites(b, 0, 1, ["repair", "battery", "flagspot"]);
   setSites(b, 1, 1, ["upgrade"]);
   setWall(b, 3, 0, N, EDGE_WALL); setWall(b, 2, 1, E, EDGE_WALL); setWall(b, 5, 3, S, EDGE_WALL);
@@ -326,6 +325,7 @@ eq(rotatedDims(6, 4, 1), [4, 6], "rotate: an odd turn swaps the dimensions");
   };
   const pic = toPicture(b);
   ok(/\n +[0-9]{6}/.test(pic) || pic.includes("levels:"), "picture: a board with levels writes a levels section");
+  ok(/R/.test(pic.split("\n")[5] || ""), "picture: a ramp edge is drawn in the lattice");
   ok(pic.includes("door "), "picture: a door is written with its registers");
   ok(pic.includes("reach2"), "picture: a reach-two jet says so");
   ok(pic.includes("crusher "), "picture: a ceiling device is written");
@@ -351,6 +351,7 @@ for (let q = 1; q <= 3; q++) {
     if (levelAt(rr, cc, rr2) !== levelAt(b, c, r)) bad.push("level " + c + "," + r);
     for (const dd of [N, E, S, W]) {
       if (wallAt(rr, cc, rr2, rot(dd, q)) !== wallAt(b, c, r, dd)) bad.push("wall " + c + "," + r + " side " + dd);
+      if (rampOn(rr, cc, rr2, rot(dd, q)) !== rampOn(b, c, r, dd)) bad.push("ramp " + c + "," + r + " side " + dd);
     }
   }
   eq(bad.slice(0, 3), [], "rotate q" + q + ": cells, facings, levels and walls land where the mapping says");

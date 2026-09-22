@@ -156,12 +156,6 @@ export const GLYPHS = {
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
-  ramp: {
-    /* Drawn pointing north, which is uphill. The wedge is thickest at the top. */
-    art: () => A.rampSvg(0),
-    markup: () => mk("M 20 86 L 80 86 L 50 14 Z M 36 70 L 50 54 L 64 70", MARK.level, 1.5)
-  },
-
   randomizer: {
     art: () => A.randomizerSvg(),
     markup: () => mk("M 24 26 L 76 26 L 76 78 L 24 78 Z", MARK.ground, 1.4) +

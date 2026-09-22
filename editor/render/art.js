@@ -140,6 +140,16 @@ export function drainSvg() {
              '<path class="pr-wave" d="M14 76q9-8 18 0t18 0 18 0 18 0"/>', "pr-drain");
 }
 
+/* A ramp is drawn on the FOOT square, filling its half nearest the edge it
+ * climbs: a deck widening toward the ledge with the treads across it, so the
+ * eye reads "up" toward the edge without an arrow the belts already own.
+ * `dir` is the uphill side of the square; the drawing is authored for north. */
+export function rampEdgeSvg(dir) {
+  let out = '<path class="pr-ramp-deck" d="M20 54h60V8H20z"/>';
+  for (let i = 0; i < 3; i++) out += '<path class="pr-ramp-step" d="M28 ' + (44 - i * 12) + 'h44"/>';
+  return svg('<g transform="rotate(' + (dir * 90) + ' 50 50)">' + out + "</g>", "pr-ramp");
+}
+
 export function rampSvg(dir) {
   let out = '<path class="pr-ramp-deck" d="M16 78h68l-14-56H30z"/>';
   for (let i = 0; i < 3; i++) {

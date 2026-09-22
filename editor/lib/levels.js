@@ -6,21 +6,18 @@
  * squares at the same level, or a level change with no ledge drawn across it,
  * and no reading of the photograph could say which of the two was meant.
  *
- * A RAMP is the one element that spans a level change -- Wet and Wild's rule is
- * that ramps are the only way between levels, and that you cannot cross a ledge
- * upward at all. Its stored level is the LOWER one and its direction points
- * UPHILL, so a ramp at level 0 facing north has level 1 to its north.
+ * A RAMP IS AN EDGE that may be crossed either way -- Wet and Wild's rule is
+ * that ramps are the only way between levels, and that you cannot cross a
+ * ledge upward at all. It lives on its own lattice beside the walls
+ * (edges.js), and WHICH WAY IS UP IS DERIVED FROM THE LEVELS exactly as a
+ * ledge is: the higher of the two squares is the top, the lower is the foot,
+ * and the foot is the square the board prints the ramp on. A square may carry
+ * ramps on more than one side; that is two marked edges and nothing more.
  */
 
-import { levelAt, inBoard, isVoid, cellAt, propAt, idx } from "./board.js";
-import { DC, DR, opposite, dirOfChar } from "./dir.js";
-import { edgeOf } from "./edges.js";
-
-/** The direction a ramp at (c,r) points uphill, or undefined when it is not a ramp. */
-export function rampDir(board, c, r) {
-  if (!propAt(board, c, r, "ramp")) return undefined;
-  return dirOfChar(cellAt(board, c, r).charAt(1));
-}
+import { levelAt, inBoard, isVoid } from "./board.js";
+import { DC, DR, N, E, S, W, opposite } from "./dir.js";
+import { rampOn, hIndex, vIndex } from "./edges.js";
 
 /**
  * Is the edge on side `d` of (c,r) a ledge? True when the two squares differ in
@@ -42,16 +39,26 @@ export function levelStep(board, c, r, d) {
 }
 
 /**
- * Is this level change crossed by a ramp? True when either square is a ramp
- * whose uphill direction runs along this edge. This is the exemption that makes
- * a ramp legal where every other element spanning a level change is not.
+ * Is this level change crossed by a ramp? This is the exemption that makes a
+ * ramp legal where every other way across a level change is not.
  */
 export function rampCrosses(board, c, r, d) {
-  const here = rampDir(board, c, r);
-  if (here === d) return true;
-  const nc = c + DC[d], nr = r + DR[d];
-  const there = rampDir(board, nc, nr);
-  return there === opposite(d);
+  return rampOn(board, c, r, d);
+}
+
+/** Does a robot on (c,r) stepping `d` climb a ramp across that edge? */
+export function rampUp(board, c, r, d) {
+  return rampOn(board, c, r, d) && levelStep(board, c, r, d) > 0;
+}
+
+/** Does a robot on (c,r) stepping `d` come down a ramp across that edge? */
+export function rampDown(board, c, r, d) {
+  return rampOn(board, c, r, d) && levelStep(board, c, r, d) < 0;
+}
+
+/** The sides of (c,r) that carry a ramp, each with the level change across it. */
+export function rampsAt(board, c, r) {
+  return [N, E, S, W].filter(d => rampOn(board, c, r, d)).map(d => ({ dir: d, step: levelStep(board, c, r, d) }));
 }
 
 /** Every level the board actually uses, ascending. */
@@ -65,21 +72,39 @@ export function levelsUsed(board) {
   return [...seen].sort((a, b) => a - b);
 }
 
-/** Every ramp on the board, with the level it climbs from and to. */
+/**
+ * Every ramp edge on the board, each once, with the two squares it joins.
+ * `foot` and `top` are set when both squares are floor at different levels,
+ * with `dir` the way up from the foot and `behind` the level of the square the
+ * foot is approached from (null off the board). `off` marks an edge with no
+ * floor on one side; `flat` one whose squares are level.
+ */
 export function rampsOf(board) {
   const out = [];
-  for (let r = 0; r < board.h; r++) {
+  const one = (edge, ac, ar, bc, br, dAtoB) => {
+    const on = (c, r) => inBoard(board, c, r) && !isVoid(board, c, r);
+    const a = { c: ac, r: ar, level: levelAt(board, ac, ar) };
+    const b = { c: bc, r: br, level: levelAt(board, bc, br) };
+    const rec = { edge, a, b, off: !on(ac, ar) || !on(bc, br), flat: false, foot: null, top: null, dir: undefined, behind: null };
+    if (!rec.off) {
+      if (a.level < b.level) { rec.foot = a; rec.top = b; rec.dir = dAtoB; }
+      else if (b.level < a.level) { rec.foot = b; rec.top = a; rec.dir = opposite(dAtoB); }
+      else rec.flat = true;
+      if (rec.foot) {
+        const bc2 = rec.foot.c - DC[rec.dir], br2 = rec.foot.r - DR[rec.dir];
+        rec.behind = on(bc2, br2) ? levelAt(board, bc2, br2) : null;
+      }
+    }
+    out.push(rec);
+  };
+  for (let r = 0; r <= board.h; r++) {
     for (let c = 0; c < board.w; c++) {
-      const d = rampDir(board, c, r);
-      if (d === undefined) continue;
-      const uc = c + DC[d], ur = r + DR[d];
-      const bc = c - DC[d], br = r - DR[d];
-      out.push({
-        c, r, dir: d,
-        foot: levelAt(board, c, r),
-        top: inBoard(board, uc, ur) ? levelAt(board, uc, ur) : null,
-        behind: inBoard(board, bc, br) ? levelAt(board, bc, br) : null
-      });
+      if (board.rampH[hIndex(board, c, r)]) one({ kind: "h", c, r }, c, r - 1, c, r, S);
+    }
+  }
+  for (let r = 0; r < board.h; r++) {
+    for (let c = 0; c <= board.w; c++) {
+      if (board.rampV[vIndex(board, c, r)]) one({ kind: "v", c, r }, c - 1, r, c, r, E);
     }
   }
   return out;

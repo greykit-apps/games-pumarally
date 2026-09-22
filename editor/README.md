@@ -222,9 +222,40 @@ the zeros have to mean the same height on all of them. A signed offset makes
 that true by construction.
 
 **Ledges are derived, not stored.** Any edge whose two squares differ in level
-*is* a ledge. A **ramp** is the only element that spans one; its own square is
-the lower level and its arrow points uphill. Board lasers stop at a level
-change.
+*is* a ledge. Board lasers stop at a level change.
+
+**A ramp is an edge, not a square.** Wet and Wild calls it "an extra space of
+floor" on the way up and the board prints it on the lower square, but what it
+*is* is a way across one level change: the boundary between a square and the
+square uphill of it. It lives on its own lattice beside the walls' —
+`ground.rampH` and `ground.rampV`, shaped exactly like `wall.hRows` and
+`wall.vRows`, glyphs `' '` and `'R'`, omitted together when the board has no
+ramp — so `h:3,0` names the same edge whichever lattice is asked, and a square
+with ramps on two sides (which the printed boards have) is two marked edges and
+nothing more. It was a ground element once, `R` with an uphill arrow, and that
+could not spell that square at all.
+
+**Which way is up is derived from the levels**, exactly as a ledge is. The
+higher of the two squares is the top, the lower is the foot — the square the
+board prints the ramp on — and a ramp cannot disagree with the elevation under
+it because it does not say. The foot stays a real square: climbing costs a step
+onto it and another across the edge; coming down, the engine passes over it, as
+the sheet says the ramp "does not act as an extra space". In the ASCII picture a
+ramp takes the lattice slot a wall would, `RRR` or `R`, since an edge is a wall,
+a door, a ramp or nothing.
+
+The validator refuses a ramp with floor on one side only, one under a wall, and
+one between two squares at the same level: each is the data contradicting
+itself, not a claim about the game. Two rules about ramps that *look* right —
+that a ramp climbs exactly one level, and that its foot is level with the square
+it is approached from — are **warnings**, because no rulebook sentence has been
+found that states either; see `no-invented-validator-rules` in the project
+memory for why an uncited rule enforced as an error is worse than none.
+
+The **Ramp** tool is an edge tool like the wall: click an edge to lay one, click
+again to take it off. Between two squares at one level it raises the far square
+a level as the ramp goes down, since a ramp joins levels and laying one flat is
+always half an edit; between squares that already differ it touches nothing.
 
 ---
 

@@ -14,7 +14,7 @@ import {
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
-import { rampDir, rampCrosses } from "../../editor/lib/levels.js";
+import { rampCrosses, rampUp, rampDown } from "../../editor/lib/levels.js";
 import { DC, DR, opposite, dirOfChar } from "../../editor/lib/dir.js";
 
 /* keyed on the LIBRARY as well as the document: two courses with the same
@@ -152,8 +152,10 @@ export function levelStepAt(C, c, r, dir) {
 }
 /** Is this level change crossed by a ramp, so it is a slope and not a cliff? */
 export function rampBetween(C, c, r, dir) { return rampCrosses(C.grid, c, r, dir); }
-/** The uphill direction of the ramp at (c,r), or undefined. */
-export function rampAt(C, c, r) { return rampDir(C.grid, c, r); }
+/** Does a robot on (c,r) heading `dir` climb a ramp across that edge? */
+export function rampUpAt(C, c, r, dir) { return rampUp(C.grid, c, r, dir); }
+/** Does a robot on (c,r) heading `dir` come down a ramp across that edge? */
+export function rampDownAt(C, c, r, dir) { return rampDown(C.grid, c, r, dir); }
 
 /** A Thrills and Spills flamer over (c,r), active this 0-based register. */
 export function flamerFires(C, c, r, register) {

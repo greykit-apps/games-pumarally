@@ -147,10 +147,15 @@ const CASES = [
   ["ceiling.overPit", FIXTURE, d => { d.ceiling.devices[0].at = [1, 3]; }],
   ["ceiling.duplicate", FIXTURE, d => { d.ceiling.devices.push({ ...d.ceiling.devices[0] }); }],
 
-  /* elevation */
+  /* elevation. The fixture's ramps: h:5,8 climbs from (5,8) at 0 up to (5,7)
+   * at 1, and v:3,8 climbs from (2,8) in the channel at -1 up to (3,8) at 0. */
+  ["shape.rampRows", FIXTURE, d => { d.ground.rampH.pop(); }],
+  ["shape.rampGlyph", FIXTURE, d => { d.ground.rampH[8] = setCh(d.ground.rampH[8], 5, "Z"); }],
+  ["ramp.walled", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 8, "#"); }],
+  ["ramp.flat", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "0"); }],
   ["level.rampGradient", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "2"); }],
   ["level.rampFoot", FIXTURE, d => { d.ground.levels[9] = setCh(d.ground.levels[9], 5, "1"); }],
-  ["level.unreachable", FIXTURE, d => { setTok(d, 5, 8, "..."); }],
+  ["level.unreachable", FIXTURE, d => { d.ground.rampH[8] = setCh(d.ground.rampH[8], 5, " "); }],
 
   /* provenance */
   ["meta.unknownSet", FIXTURE, d => { d.set = "noSuchBox"; }],

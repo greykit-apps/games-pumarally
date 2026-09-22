@@ -7,7 +7,7 @@
   "h": 12,
   "set": "authored",
   "origin": "authored",
-  "notes": "The validator self-test's fixture. One of every element in the legend, all seven belt-arm shapes, one of every device kind, and two levels joined by a ramp.",
+  "notes": "The validator self-test's fixture. One of every element in the legend, all seven belt-arm shapes, one of every device kind, and three levels joined by two ramps.",
   "ground": {
     "rows": [
       "... ... ... ... ... ... ... ... ... ... ... ...",
@@ -18,7 +18,7 @@
       "... C>. z.. A.. ... @^. T.. ... T.. t1. ... ...",
       "... ... ... ... ... ... ... ... ... ... ... ...",
       "... ... ... ... ... ... ... ... ... ... ... ...",
-      "... ... R>. ... ... R^. ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
       "... ... ... ... ... ... ... ... ... ... ... ...",
       "... ... ... ... ... ... ... ... ... ... ... ...",
       "s1. s2. ... ... ... ... ... ... ... ... ... ..."
@@ -36,6 +36,35 @@
       "000000000000",
       "000000000000",
       "000000000000"
+    ],
+    "rampH": [
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "     R      ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "rampV": [
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "   R         ",
+      "             ",
+      "             ",
+      "             "
     ],
     "sites": [
       { "at": [4, 3], "has": ["repair"] },

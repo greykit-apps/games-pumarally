@@ -23,7 +23,7 @@ import {
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, edgeCodeAt, edgeInBounds,
   wallAt, isNormalOf, edgeOf
 } from "../lib/edges.js";
-import { isLedge, rampsOf, levelsUsed, rampDir } from "../lib/levels.js";
+import { isLedge, rampsOf, levelsUsed } from "../lib/levels.js";
 import { SITES, EXCLUSIVE, checkSites } from "../rulesets/sites.js";
 import { DC, DR, N, E, S, W, dirLetter } from "../lib/dir.js";
 import { REGISTER_COUNT } from "../lib/registers.js";
@@ -401,12 +401,6 @@ function checkCeiling(board, d) {
 
 function checkLevels(board, d) {
   const used = levelsUsed(board);
-  /* THE RAMPS ARE CHECKED WHATEVER THE LEVELS SAY. This used to return here on
-   * a flat board, before the ramps were looked at -- so a ramp with nothing
-   * uphill of it, or pointing off the board, passed clean precisely on the
-   * boards where it is most obviously wrong. Reachable from the tool: lay a
-   * ramp, then lower its uphill square, or turn the ramp toward the rim. */
-  const flat = used.length <= 1;
 
   /* THERE IS NO CONTIGUITY RULE, and the one that used to be here was invented.
    * "Levels count up from 0 with no gaps" appears in no rulebook. Wet and Wild
@@ -414,45 +408,68 @@ function checkLevels(board, d) {
    * levels -- never how far apart, and never which of them is the ground. The
    * rule refused Water Park, whose floor drops below the level you walk in on,
    * and it could only be satisfied by re-describing the board: call the channel
-   * 0 and lift everything else to 1. A level is now a signed offset from the
-   * base floor, so a board says what it is instead. */
+   * 0 and lift everything else to 1. A level is a signed offset from the base
+   * floor, so a board says what it is instead. */
 
-  /* Reachability is still worth a warning, and the seed is the BASE FLOOR
-   * rather than the lowest level on the board -- 0 is where a robot walks in.
-   * A ledge may always be crossed downward, at two damage, so anything below
-   * the base is reachable; upward needs a ramp, and a ramp is only usable if
-   * its own foot can be got to, which is why this runs to a fixpoint. */
+  /* Reachability is worth a warning, and the seed is the BASE FLOOR rather than
+   * the lowest level on the board -- 0 is where a robot walks in. A ledge may
+   * always be crossed downward, at two damage, so anything below the base is
+   * reachable; upward needs a ramp, and a ramp is only usable if its own foot
+   * can be got to, which is why this runs to a fixpoint. */
   const reached = new Set([0]);
   for (const lvl of used) if (lvl < 0) reached.add(lvl);
   const climbs = [];
   for (const ramp of rampsOf(board)) {
-    const ptr = "/ground/rows/" + ramp.r;
-    if (ramp.top === null) {
-      d.error("level.rampGradient", "The ramp at " + at(ramp.c, ramp.r) + " points off the board.",
-        at(ramp.c, ramp.r), ptr);
+    const e = ramp.edge;
+    const ptr = "/ground/" + (e.kind === "h" ? "rampH" : "rampV") + "/" + e.r;
+    const where = edgeId(e.kind, e.c, e.r);
+    const between = "between " + at(ramp.a.c, ramp.a.r) + " and " + at(ramp.b.c, ramp.b.r);
+    /* These three are ERRORS, and they are not claims about the game: each says
+     * the data contradicts itself. A ramp with floor on one side only has
+     * nothing to climb to; a ramp under a wall could never be crossed; a ramp
+     * between two squares at one level joins nothing, and a ramp is the way
+     * between levels. */
+    if (ramp.off) {
+      d.error("level.rampGradient", "The ramp on edge " + where + " has floor on one side only; there is nothing to climb to.", where, ptr);
       continue;
     }
-    if (ramp.top !== ramp.foot + 1) {
-      d.error("level.rampGradient", "The ramp at " + at(ramp.c, ramp.r) + " stands at level " +
-        ramp.foot + " and points uphill at level " + ramp.top +
-        ". A ramp climbs exactly one level; its own square is the lower one.", at(ramp.c, ramp.r), ptr);
+    if (edgeCodeAt(board, e) !== EDGE_NONE) {
+      d.error("ramp.walled", "The ramp " + between + " lies under a wall, so nothing could ever cross it.", where, ptr);
       continue;
     }
-    if (ramp.behind !== null && ramp.behind !== ramp.foot) {
-      d.error("level.rampFoot", "The ramp at " + at(ramp.c, ramp.r) + " stands at level " +
-        ramp.foot + " but the square behind it is at level " + ramp.behind +
-        ". A ramp's foot is level with the floor it is approached from.", at(ramp.c, ramp.r), ptr);
+    if (ramp.flat) {
+      d.error("ramp.flat", "The ramp " + between + " joins two squares at level " + ramp.a.level +
+        ". A ramp is the way between levels; raise one side, or take the ramp off.", where, ptr);
       continue;
+    }
+    /* THE NEXT TWO ARE WARNINGS BECAUSE NOTHING HAS BEEN FOUND THAT STATES THEM.
+     * `rules/MANIFEST.md` quotes Wet and Wild on ramps -- "the only way between
+     * levels", an extra space of floor going up, slide back if you stop on one,
+     * ignored entirely going down -- and says nothing about how far one climbs
+     * or what is behind it. Both look right for a printed ramp tile and both
+     * may well be; neither is quoted, and an unquoted rule enforced as an error
+     * is exactly what `level.notContiguous` was. They stay, because a ramp that
+     * breaks one is worth looking at, and they warn, because being worth
+     * looking at is not the same as being wrong. Promote either the moment the
+     * sentence behind it is found. */
+    if (ramp.top.level !== ramp.foot.level + 1) {
+      d.warn("level.rampGradient", "The ramp " + between + " climbs from level " + ramp.foot.level + " to level " + ramp.top.level +
+        ". A ramp is expected to climb exactly one level -- though no rulebook text has been found saying so.", where, ptr);
+    }
+    if (ramp.behind !== null && ramp.behind !== ramp.foot.level) {
+      d.warn("level.rampFoot", "The ramp " + between + " has its foot at level " + ramp.foot.level +
+        " but the square it is approached from, " + at(ramp.foot.c - DC[ramp.dir], ramp.foot.r - DR[ramp.dir]) + ", is at level " + ramp.behind +
+        ". A ramp's foot is expected to be level with the floor it is approached from -- though no rulebook text has been found saying so.", where, ptr);
     }
     climbs.push(ramp);
   }
   for (let grew = true; grew; ) {
     grew = false;
     for (const ramp of climbs) {
-      if (reached.has(ramp.foot) && !reached.has(ramp.top)) { reached.add(ramp.top); grew = true; }
+      if (reached.has(ramp.foot.level) && !reached.has(ramp.top.level)) { reached.add(ramp.top.level); grew = true; }
     }
   }
-  if (flat) return;
+  if (used.length <= 1) return;
   for (const lvl of used) {
     if (!reached.has(lvl)) {
       d.warn("level.unreachable", "Level " + lvl + " is on this board and no ramp reaches it. " +

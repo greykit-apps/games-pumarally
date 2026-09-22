@@ -42,6 +42,11 @@ function toolSwatch(tool) {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
       '<path d="M 10 70 L 50 70 L 50 30 L 90 30" fill="none" stroke="#ffe14d" stroke-width="9" stroke-linejoin="round"/>');
   }
+  if (tool.kind === "ramp") {
+    return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
+      '<path d="M 12 74 L 88 26 L 88 74 Z" fill="#ffe14d" opacity=".9"/>' +
+      '<path d="M 40 74 L 40 56 M 60 74 L 60 44" stroke="#2a2f3d" stroke-width="5"/>');
+  }
   if (tool.kind === "flag") {
     return swatch('<path d="M 32 88 L 32 14 L 74 28 L 32 44" fill="#ff5f56" stroke="#ff5f56" stroke-width="6" stroke-linejoin="round"/>');
   }
@@ -78,6 +83,9 @@ export function renderRail(el, st, isCourse) {
  * about to lay a belt or fix one. These rows are built once and pointed at
  * either target, so learning the control once is enough.
  */
+const LEVEL_OPTS = [-3, -2, -1, 0, 1, 2, 3].map(n => ({ v: n, label: n > 0 ? "+" + n : String(n),
+  title: n === 0 ? "the base floor" : Math.abs(n) + (n > 0 ? " up" : " down") }));
+
 function btnRow(label, opts, attr, isOn) {
   return '<div class="row"><label>' + esc(label) + "</label>" +
     opts.map(o => '<button data-' + attr + '="' + esc(String(o.v)) + '"' +
@@ -105,7 +113,9 @@ function propRows(t, p) {
   }
   if (t.digit !== undefined) html += btnRow("Bay", nOpts(1, 12), p + "digit", v => v === t.digit);
   if (t.pair !== undefined) html += btnRow("Colour", nOpts(1, 4), p + "pair", v => v === t.pair);
-  if (t.level !== undefined) html += btnRow("Level", nOpts(0, 3), p + "level", v => v === t.level);
+  /* signed: the base floor, up to three up, down to three down -- a channel
+   * below the floor you walk in on is the ordinary case (Water Park) */
+  if (t.level !== undefined) html += btnRow("Level", LEVEL_OPTS, p + "level", v => v === t.level);
   return html;
 }
 
@@ -229,6 +239,10 @@ export function renderInspector(el, st, hover, isCourse) {
       if (tool.kind === "ground" && tool.arg === ARG_PAIR) t.pair = st.hand.pair;
       if (tool.kind === "level") t.level = st.hand.level;
       html += propRows(t, "");
+      if (tool.kind === "ramp") {
+        html += '<div class="row"><span class="none">Click an edge to lay a ramp across it; click again to take it off. ' +
+          "The higher square is the top, read off the levels. Between two squares at one level, the far square is raised a level as the ramp goes down.</span></div>";
+      }
       if (tool.kind === "site") {
         html += '<div class="row"><span class="none">' + esc(SITES[tool.site].source) +
           " Click a floor square to add it, click again to take it off; it sits alongside whatever else is marked there.</span></div>";
@@ -253,7 +267,8 @@ export function renderInspector(el, st, hover, isCourse) {
       html += "<h3>This square &mdash; (" + d.c + "," + d.r + ")" +
         '<button class="count" data-act="deselect" title="Back to the rail">done</button></h3>';
       html += '<div class="row"><span class="pill">' + esc(d.element) + "</span>" +
-        (d.level ? '<span class="pill">level ' + d.level + "</span>" : "") + "</div>";
+        (d.level ? '<span class="pill">level ' + (d.level > 0 ? "+" : "") + d.level + "</span>" : "") +
+        d.ramps.map(rp => '<span class="pill">ramp ' + dirLetter(rp.dir) + (rp.step > 0 ? " up" : rp.step < 0 ? " down" : ", level") + "</span>").join("") + "</div>";
 
       const edef = d.key && Object.values(ELEMENTS).find(x => x.key === d.key);
       const t = {};
@@ -313,7 +328,8 @@ export function renderInspector(el, st, hover, isCourse) {
       }
     }
     if (d.arms) html += "<dt>Shape</dt><dd>" + esc(d.arms) + "</dd>";
-    if (d.level) html += "<dt>Level</dt><dd>" + d.level + "</dd>";
+    if (d.level) html += "<dt>Level</dt><dd>" + (d.level > 0 ? "+" : "") + d.level + "</dd>";
+    if (d.ramps.length) html += "<dt>Ramps</dt><dd>" + d.ramps.map(rp => dirLetter(rp.dir) + (rp.step > 0 ? " (up)" : rp.step < 0 ? " (down)" : " (level)")).join(", ") + "</dd>";
     if (d.walls.length) html += "<dt>Walls</dt><dd>" + d.walls.join(" ") + "</dd>";
     if (d.doors.length) html += "<dt>Doors</dt><dd>" + d.doors.join(" ") + "</dd>";
     for (const dev of d.wallDevices) {

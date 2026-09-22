@@ -22,7 +22,7 @@
 import {
   blankBoard, idx, cellAt, setCell, levelAt, setLevel, hasLevels, siteList, setSites,
   levelChar, levelOfChar, LEVEL_RANGE } from "./board.js";
-import { edgeGlyph, edgeCodeOf, EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, parseEdge } from "./edges.js";
+import { edgeGlyph, edgeCodeOf, EDGE_NONE, EDGE_WALL, EDGE_DOOR, RAMP, RAMP_NONE, edgeId, parseEdge } from "./edges.js";
 import { dirLetter, dirOfLetter } from "./dir.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { canonRegs } from "./registers.js";
@@ -38,7 +38,9 @@ export function toPicture(board) {
     let lat = "";
     for (let c = 0; c < board.w; c++) {
       const code = board.wallH[r * board.w + c];
-      lat += CORNER + (code === EDGE_WALL ? "---" : code === EDGE_DOOR ? "DDD" : "   ");
+      /* a ramp shares the lattice slot: an edge is a wall, a door, a ramp or
+       * nothing, and a ramp under a wall is a board the validator refuses */
+      lat += CORNER + (code === EDGE_WALL ? "---" : code === EDGE_DOOR ? "DDD" : board.rampH[r * board.w + c] ? "RRR" : "   ");
     }
     lines.push(lat + CORNER);
     if (r === board.h) break;
@@ -46,11 +48,11 @@ export function toPicture(board) {
     let row = "";
     for (let c = 0; c < board.w; c++) {
       const v = board.wallV[r * (board.w + 1) + c];
-      row += v === EDGE_WALL ? "|" : v === EDGE_DOOR ? "D" : " ";
+      row += v === EDGE_WALL ? "|" : v === EDGE_DOOR ? "D" : board.rampV[r * (board.w + 1) + c] ? "R" : " ";
       row += cellAt(board, c, r);
     }
     const last = board.wallV[r * (board.w + 1) + board.w];
-    lines.push(row + (last === EDGE_WALL ? "|" : last === EDGE_DOOR ? "D" : " "));
+    lines.push(row + (last === EDGE_WALL ? "|" : last === EDGE_DOOR ? "D" : board.rampV[r * (board.w + 1) + board.w] ? "R" : " "));
   }
 
   const tail = [];
@@ -126,6 +128,7 @@ export function fromPicture(text, meta = {}) {
       if (lat.charAt(c * 4) !== CORNER) throw new Error("lattice row " + r + " has no corner at column " + c);
       const seg = lat.substr(c * 4 + 1, 3);
       board.wallH[r * w + c] = seg === "---" ? EDGE_WALL : seg === "DDD" ? EDGE_DOOR : EDGE_NONE;
+      board.rampH[r * w + c] = seg === "RRR" ? RAMP : RAMP_NONE;
     }
     if (r === h) break;
     const row = grid[r * 2 + 1];
@@ -133,6 +136,7 @@ export function fromPicture(text, meta = {}) {
     for (let c = 0; c <= w; c++) {
       const ch = row.charAt(c * 4);
       board.wallV[r * (w + 1) + c] = ch === "|" ? EDGE_WALL : ch === "D" ? EDGE_DOOR : EDGE_NONE;
+      board.rampV[r * (w + 1) + c] = ch === "R" ? RAMP : RAMP_NONE;
     }
     for (let c = 0; c < w; c++) setCell(board, c, r, row.substr(c * 4 + 1, 3));
   }

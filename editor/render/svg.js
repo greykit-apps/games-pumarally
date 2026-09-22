@@ -21,7 +21,9 @@ import {
   idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
-import { isLedge } from "../lib/levels.js";
+import { isLedge, rampsOf } from "../lib/levels.js";
+import { rampOn } from "../lib/edges.js";
+import { rampEdgeSvg } from "./art.js";
 import { dirOfChar, DC, DR, N, E, S, W } from "../lib/dir.js";
 import { ARG_DIR } from "../rulesets/elements.js";
 
@@ -138,15 +140,37 @@ function levelLayer(board, mode) {
           ' text-anchor="middle" dominant-baseline="central" stroke="' + MARK.halo +
           '" stroke-width="3.5" paint-order="stroke" fill="' + MARK.level + '">' + label + "</text>";
       }
-      /* Only the north and west edges, so each ledge is drawn once. */
-      if (isLedge(board, c, r, N)) ledges.push("M " + c * CELL + " " + r * CELL + " l " + CELL + " 0");
-      if (isLedge(board, c, r, W)) ledges.push("M " + c * CELL + " " + r * CELL + " l 0 " + CELL);
+      /* Only the north and west edges, so each ledge is drawn once. A ramp
+       * across the edge is drawn as a ramp instead, below. */
+      if (isLedge(board, c, r, N) && !rampOn(board, c, r, N)) ledges.push("M " + c * CELL + " " + r * CELL + " l " + CELL + " 0");
+      if (isLedge(board, c, r, W) && !rampOn(board, c, r, W)) ledges.push("M " + c * CELL + " " + r * CELL + " l 0 " + CELL);
     }
   }
   if (!ledges.length) return marks;
   const d = ledges.join(" ");
   return '<path d="' + d + '" ' + haloStroke() + "/>" +
          '<path d="' + d + '" ' + markStroke(MARK.level, 2.4) + ' stroke-dasharray="9 5"/>' + marks;
+}
+
+/** Ramps: drawn on the foot square of each ramp edge, climbing toward the
+ *  edge. A ramp between two squares at one level has no foot and is left to
+ *  the validator, which refuses it. */
+function rampLayer(board, mode) {
+  let out = "";
+  for (const ramp of rampsOf(board)) {
+    if (!ramp.foot) continue;
+    const { c, r } = ramp.foot;
+    if (mode === "art") { out += g(at(c, r), rampEdgeSvg(ramp.dir)); continue; }
+    /* markup: a chevron on the foot square pointing up the ramp, and a bar
+     * along the edge it climbs -- the ledge's dash is left off that edge */
+    const body = '<g transform="rotate(' + (ramp.dir * 90) + ' 50 50)">' +
+      '<path d="M 30 46 L 50 20 L 70 46 M 50 20 L 50 60" ' + haloStroke() + "/>" +
+      '<path d="M 30 46 L 50 20 L 70 46 M 50 20 L 50 60" ' + markStroke(MARK.level, 2) + "/>" +
+      '<path d="M 14 3 L 86 3" ' + haloStroke() + "/>" +
+      '<path d="M 14 3 L 86 3" ' + markStroke(MARK.level, 3) + "/></g>";
+    out += g(at(c, r), body);
+  }
+  return out;
 }
 
 /* WALLS ARE CONCRETE, and the thickness is the game's: 0.19 of a tile, centred
@@ -326,6 +350,7 @@ export function boardSVG(board, opts = {}) {
     beamLayer(board, o.mode) +
     deviceLayer(board, o.mode) +
     levelLayer(board, o.mode) +
+    rampLayer(board, o.mode) +
     (o.coords ? coordLayer(board) : "");
 
   /* The palette and the art's stylesheet travel WITH the drawing. The art is

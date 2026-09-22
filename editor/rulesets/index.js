@@ -13,6 +13,7 @@
 import classic from "./classic.js";
 import modern from "./modern.js";
 import { EDITIONS } from "./sets.js";
+import { hasLevels, hasRamps } from "../lib/board.js";
 import { ELEMENTS } from "./elements.js";
 import { DEVICE_KINDS } from "./devices.js";
 
@@ -63,6 +64,11 @@ export function playableIn(board) {
   const narrow = def => { if (def) out = out.filter(id => (def.playsIn || def.printedIn).indexOf(id) >= 0); };
   for (const tok of board.cells) narrow(ELEMENTS[tok.charAt(0)]);
   for (const dev of [...board.wallDevices, ...board.ceilingDevices]) narrow(DEVICE_KINDS[dev.kind]);
+  /* Levels and ramps are Wet and Wild's, and neither is an element: a level is
+   * a property of the floor and a ramp is an edge. A board that steps up or
+   * down anywhere, or climbs anywhere, is floor the classic book has no rule
+   * for, exactly as its water is. */
+  if (hasLevels(board) || hasRamps(board)) out = out.filter(id => id === "modern");
   return out.sort();
 }
 

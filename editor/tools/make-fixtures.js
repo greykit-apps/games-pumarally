@@ -20,7 +20,7 @@ import { writeFileSync, readFileSync, existsSync, readdirSync, unlinkSync } from
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { blankBoard, setCell, setLevel, setSites } from "../lib/board.js";
-import { setWall, EDGE_WALL, EDGE_DOOR } from "../lib/edges.js";
+import { setWall, setRamp, EDGE_WALL, EDGE_DOOR } from "../lib/edges.js";
 import { boardJSON } from "../lib/canon.js";
 import { N, E, S, W } from "../lib/dir.js";
 import { ARM_CHARS } from "../lib/token.js";
@@ -37,7 +37,7 @@ function build() {
     id: ID, name: "Proving Ground", w: 12, h: 12,
     set: "authored", origin: "authored",
     notes: "The validator self-test's fixture. One of every element in the legend, " +
-           "all seven belt-arm shapes, one of every device kind, and two levels joined by a ramp."
+           "all seven belt-arm shapes, one of every device kind, and three levels joined by two ramps."
   });
 
   /* row 1: a belt per arm shape, then an express for the two-speed case */
@@ -73,14 +73,14 @@ function build() {
   setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 
   /* THREE levels, one of them BELOW the floor you walk in on, joined by the
-   * only thing that may join them. The board's base is 0, so a fixture with
+   * only thing that may join them -- a ramp, which is an EDGE. The board's base is 0, so a fixture with
    * levels 0 and 1 alone exercises only half the format -- and the half it
    * left out is the half Water Park needs. Two ramps: one climbing out of the
    * channel to the base, one climbing from the base to the shelf. */
-  setCell(b, 5, 8, "R^.");
+  setRamp(b, 5, 8, N, true);
   setLevel(b, 5, 7, 1);
 
-  setCell(b, 2, 8, "R>.");
+  setRamp(b, 2, 8, E, true);
   setLevel(b, 1, 8, -1);
   setLevel(b, 2, 8, -1);
 

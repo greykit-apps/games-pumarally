@@ -120,9 +120,11 @@ export const ELEMENTS = {
          props: { pit: true, water: true },
          source: "Wet and Wild. A pit that sits in water, and a pit in every respect." },
 
-  "R": { key: "ramp", name: "Ramp", arg: ARG_DIR, printedIn: MODERN,
-         props: { ramp: true },
-         source: "Wet and Wild. The only way between levels; the arrow points uphill." },
+  /* NO RAMP HERE. A ramp is an EDGE -- the way across one level change -- and
+   * lives on its own lattice beside the walls (`ground.rampH`/`rampV`, see
+   * lib/edges.js). It was a ground element once, `R` with an uphill arrow, and
+   * that could not spell a square with ramps on two sides, which the printed
+   * boards have. Which way is up is read off the levels, as a ledge is. */
 
   "C": { key: "current", name: "Current", arg: ARG_DIR, printedIn: MODERN,
          props: { belt: 1, water: true, current: true },

@@ -122,6 +122,20 @@ export function assemble(course, library) {
         }
       }
     }
+    /* a ramp is a board's own: laid where the board lays it, and a ramp from
+     * either side of a seam is a ramp on the course */
+    for (let r = 0; r <= b.h; r++) {
+      for (let c = 0; c < b.w; c++) {
+        if (!b.rampH[r * b.w + c]) continue;
+        if (r + dy >= 0 && r + dy <= grid.h && c + dx >= 0 && c + dx < grid.w) grid.rampH[(r + dy) * grid.w + (c + dx)] = 1;
+      }
+    }
+    for (let r = 0; r < b.h; r++) {
+      for (let c = 0; c <= b.w; c++) {
+        if (!b.rampV[r * (b.w + 1) + c]) continue;
+        if (r + dy >= 0 && r + dy < grid.h && c + dx >= 0 && c + dx <= grid.w) grid.rampV[(r + dy) * (grid.w + 1) + (c + dx)] = 1;
+      }
+    }
     for (const dev of b.wallDevices) {
       grid.wallDevices.push({ ...dev, edge: { kind: dev.edge.kind, c: dev.edge.c + dx, r: dev.edge.r + dy } });
     }

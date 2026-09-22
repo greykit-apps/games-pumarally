@@ -193,12 +193,12 @@ export function mount(root) {
     const opts = { face: h.face === null ? undefined : h.face, erase: isErase };
     /* the wall tool latches: the first edge of a stroke decides whether the
      * stroke lays or clears, so retracing a run never inverts it */
-    if (painting && tool.kind === "wall" && painting.wallSet) opts.set = painting.wallSet;
+    if (painting && (tool.kind === "wall" || tool.kind === "ramp") && painting.wallSet) opts.set = painting.wallSet;
     const res = isErase ? erase(st.board, st.hand, h.c, h.r, opts)
                         : apply(st.board, st.hand, h.c, h.r, opts);
     if (!res.ok) { say(res.why, "bad"); showGhost(view, st, h, true); return; }
-    if (painting && tool.kind === "wall" && !painting.wallSet && res.changed) {
-      painting.wallSet = /^No wall/.test(res.note || "") ? "none" : "wall";
+    if (painting && (tool.kind === "wall" || tool.kind === "ramp") && !painting.wallSet && res.changed) {
+      painting.wallSet = /^No (wall|ramp)/.test(res.note || "") ? "none" : tool.kind;
     }
     if (keep(st, token)) {
       say(res.note || "", "");
@@ -285,7 +285,7 @@ export function mount(root) {
 
   function isEdgeTool() {
     const t = toolByKey(st.hand.tool);
-    return !!t && (t.kind === "wall" || (t.kind === "device" && t.device === "door"));
+    return !!t && (t.kind === "wall" || t.kind === "ramp" || (t.kind === "device" && t.device === "door"));
   }
 
   /* --- keyboard -------------------------------------------------------------- */

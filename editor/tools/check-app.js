@@ -9,7 +9,7 @@ import {
   blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell,
   sitesAt, setSites, flagSpots, propAt, cloneBoard
 } from "../lib/board.js";
-import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE } from "../lib/edges.js";
+import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE, setRamp, rampOn } from "../lib/edges.js";
 import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
   apply, erase, describe, blankToolState, toolsFor, TOOLS, RESERVED, mountEdge, whatNeedsEdge,
@@ -84,7 +84,7 @@ const fresh = (w = 8, h = 8) =>
       ...SITE_ORDER.filter(k => !offered.has("site:" + k)).map(k => "site " + k)
     ];
     eq(stranded, [], "rail: every element and every device is on the rail");
-    for (const key of ["el:water", "el:ramp", "site:repair", "site:battery", "site:flagspot",
+    for (const key of ["el:water", "ramp", "site:repair", "site:battery", "site:flagspot",
                        "dev:crusher", "dev:jet"]) {
       ok(offered.has(key), "rail: " + key + " is offered, whatever printing it comes from");
     }
@@ -343,6 +343,34 @@ const fresh = (w = 8, h = 8) =>
   eq(levelAt(b, 2, 2), 1, "level: it took");
   ok(erase(b, st, 2, 2).changed, "level: erasing lowers it");
   eq(levelAt(b, 2, 2), 0, "level: back to zero");
+  st.level = -1;
+  ok(apply(b, st, 2, 2).changed && levelAt(b, 2, 2) === -1, "level: a square can go below the base floor");
+}
+
+/* --- ramps: an edge tool, and the levels say which way is up ------------------- */
+{
+  const b = fresh();
+  const st = blankToolState();
+  st.tool = "ramp";
+  const laid = apply(b, st, 2, 2, { face: E });
+  ok(laid.ok && laid.changed, "ramp: laid on the edge under the pointer");
+  ok(rampOn(b, 2, 2, E) && rampOn(b, 3, 2, W), "ramp: one edge, seen from both squares");
+  eq(levelAt(b, 3, 2), 1, "ramp: between two level squares, the far square is raised a level");
+  eq(levelAt(b, 2, 2), 0, "ramp: and the near one is the foot");
+  eq(describe(b, 2, 2).ramps, [{ dir: E, step: 1 }], "ramp: the square describes it as climbing east");
+  eq(describe(b, 3, 2).ramps, [{ dir: W, step: -1 }], "ramp: and the top square as descending west");
+  ok(!checkBoard(b).diagnostics.some(x => x.severity === "error"), "ramp: the board is clean");
+  ok(!apply(b, st, 2, 2, { face: E }).changed || !rampOn(b, 2, 2, E), "ramp: clicking again takes it off");
+  ok(!rampOn(b, 2, 2, E), "ramp: gone");
+  eq(levelAt(b, 3, 2), 1, "ramp: the level it raised stays -- that is data now");
+  ok(apply(b, st, 2, 2, { face: E }).changed && rampOn(b, 2, 2, E), "ramp: laid again across squares that already differ");
+  eq(levelAt(b, 3, 2), 1, "ramp: without touching the levels");
+  ok(erase(b, st, 2, 2, { face: E }).changed && !rampOn(b, 2, 2, E), "ramp: right-click on the edge takes it off");
+  apply(b, { ...blankToolState(), tool: "wall" }, 2, 2, { face: E });
+  refused(apply(b, st, 2, 2, { face: E }), "ramp: refused under a wall");
+  refused(apply(b, st, 0, 0, { face: N }), "ramp: refused on the rim, with nothing to climb to");
+  ok(apply(b, st, 4, 4, { face: S }).changed && apply(b, st, 4, 4, { face: W }).changed, "ramp: a square may carry ramps on two sides");
+  eq(describe(b, 4, 4).ramps.length, 2, "ramp: and lists both");
 }
 
 /* --- one control, whichever end you are at ------------------------------------
@@ -755,11 +783,11 @@ const fresh = (w = 8, h = 8) =>
 {
   /* 4. a ramp on a flat board is checked */
   const b = fresh(4, 4);
-  setCell(b, 1, 1, "R^.");
-  ok(checkBoard(b).diagnostics.some(x => x.code === "level.rampGradient"), "levels: a ramp with nothing uphill is reported on a flat board");
+  setRamp(b, 1, 1, N, true);
+  ok(checkBoard(b).diagnostics.some(x => x.code === "ramp.flat"), "levels: a ramp between two level squares is reported on a flat board");
   const b2 = fresh(4, 4);
-  setCell(b2, 0, 0, "R^.");
-  ok(checkBoard(b2).diagnostics.some(x => x.code === "level.rampGradient"), "levels: a ramp pointing off a flat board is reported");
+  setRamp(b2, 0, 0, N, true);
+  ok(checkBoard(b2).diagnostics.some(x => x.code === "level.rampGradient"), "levels: a ramp on the rim, with nothing to climb to, is reported");
 }
 {
   /* 5. a stroke visits every square between two pointer samples */
