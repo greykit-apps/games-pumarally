@@ -552,7 +552,7 @@ export async function mountCourse(root, wanted) {
   view.viewport.addEventListener("pointerdown", ev => {
     if (ev.target.closest(".stamptools")) return;       // the selected board's own buttons
     view.viewport.setPointerCapture(ev.pointerId);
-    if (ev.button === 1 || ev.shiftKey) {
+    if (ev.button === 1 || ev.button === 2 || ev.shiftKey) {
       panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY };
       return;
     }
@@ -747,6 +747,8 @@ export async function mountCourse(root, wanted) {
     if ((k === "delete" || k === "backspace") && st.sel >= 0) { act("drop"); return; }
     if (k === "`") { st.mode = st.mode === "art" ? "markup" : "art"; refresh(); return; }
     if (k === "0") { fit(view, st); zoomEl.textContent = Math.round(st.zoom * 100) + "%"; return; }
+    if (k === "z" || k === "+" || k === "=") { act("zoomin"); return; }
+    if (k === "c" || k === "-") { act("zoomout"); return; }
     /* WASD pan the view (issue #3) */
     const pan = { w: [0, 1], s: [0, -1], a: [1, 0], d: [-1, 0] }[k];
     if (pan) { st.offX += pan[0] * 120; st.offY += pan[1] * 120; layout(view, st); if (drag && drag.last) dragTo(drag.last); ev.preventDefault(); return; }
