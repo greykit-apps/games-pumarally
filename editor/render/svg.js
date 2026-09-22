@@ -21,8 +21,8 @@ import {
   idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
-import { isLedge, rampsOf } from "../lib/levels.js";
-import { rampOn } from "../lib/edges.js";
+import { isLedge, levelStep, rampsOf } from "../lib/levels.js";
+import { rampOn, wallAt, EDGE_NONE } from "../lib/edges.js";
 import { rampEdgeSvg } from "./art.js";
 import { dirOfChar, DC, DR, N, E, S, W } from "../lib/dir.js";
 import { ARG_DIR } from "../rulesets/elements.js";
@@ -146,10 +146,45 @@ function levelLayer(board, mode) {
       if (isLedge(board, c, r, W) && !rampOn(board, c, r, W)) ledges.push("M " + c * CELL + " " + r * CELL + " l 0 " + CELL);
     }
   }
+  if (mode === "art") return ledgeArt(board) + marks;
   if (!ledges.length) return marks;
   const d = ledges.join(" ");
   return '<path d="' + d + '" ' + haloStroke() + "/>" +
          '<path d="' + d + '" ' + markStroke(MARK.level, 2.4) + ' stroke-dasharray="9 5"/>' + marks;
+}
+
+/* THE PLAY ART DRAWS A LEDGE AS A WALL WITH A FACE UNDER IT. The rim of a
+ * block of squares at one level is a lip of the same concrete the walls are
+ * made of, a little thinner, and on the LOWER side of it a shaded trapezoid
+ * runs along the edge: the face of the step, its ends cut at the diagonals so
+ * the faces round a block meet at the corners. Drawing the face on the lower
+ * side is what makes the same rule read both ways -- a raised block wears its
+ * faces outside itself and stands up off the floor, a sunken one wears them
+ * inside and drops into it. A ramp edge and a walled edge are left to the ramp
+ * and the wall; the markup view keeps its dashed line, which sits better over
+ * a photograph. */
+const LIP = CELL * 0.12;
+function ledgeArt(board) {
+  let lips = "", faces = "";
+  for (let r = 0; r < board.h; r++) {
+    for (let c = 0; c < board.w; c++) {
+      if (isVoid(board, c, r)) continue;
+      for (const d of [N, E, S, W]) {
+        /* once per edge, from its lower square */
+        const step = levelStep(board, c, r, d);
+        if (step <= 0 || !isLedge(board, c, r, d) || rampOn(board, c, r, d) || wallAt(board, c, r, d) !== EDGE_NONE) continue;
+        const depth = Math.min(26, 14 + 6 * (step - 1));
+        /* lit concrete fading into the floor: a face catching the light,
+         * which on this dark floor reads better than a shadow would */
+        faces += g(at(c, r) + spin(d), '<path d="M 0 0 H ' + CELL + " L " + (CELL - depth) + " " + depth + " H " + depth + ' Z" fill="url(#pr-ledgeface)"/>');
+        const x = c * CELL + (d === E ? CELL : 0), y = r * CELL + (d === S ? CELL : 0);
+        lips += d === N || d === S
+          ? '<rect class="pr-ledge" x="' + c * CELL + '" y="' + (y - LIP / 2) + '" width="' + CELL + '" height="' + LIP + '" fill="url(#pr-concrete-h)" filter="url(#pr-wallshadow)"/>'
+          : '<rect class="pr-ledge" x="' + (x - LIP / 2) + '" y="' + r * CELL + '" width="' + LIP + '" height="' + CELL + '" fill="url(#pr-concrete-v)" filter="url(#pr-wallshadow)"/>';
+      }
+    }
+  }
+  return faces + lips;
 }
 
 /** Ramps: drawn on the foot square of each ramp edge, climbing toward the
