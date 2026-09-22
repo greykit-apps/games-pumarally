@@ -79,6 +79,16 @@
       "bytes": 73520
     }
   },
+  "chasm": {
+    "art": {
+      "sha": "ae67aff4e82eba80",
+      "bytes": 61073
+    },
+    "markup": {
+      "sha": "0b57dbcb0e91d38d",
+      "bytes": 78305
+    }
+  },
   "circles": {
     "art": {
       "sha": "3e92286730ea1b7e",

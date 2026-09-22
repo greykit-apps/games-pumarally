@@ -1,0 +1,71 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "chasm",
+  "name": "Chasm",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "o.. o.. o.. o.. ... b>l b^l ... T.. o.. o.. ...",
+      "o.. ... T.. o.. T.. ... ... o.. ... o.. o.. T..",
+      "o.. T.. ... o.. o.. o.. o.. o.. o.. o.. o.. o..",
+      "o.. ... o.. o.. ... ... ... T.. o.. T.. ... T..",
+      "o.. bvl b<l o.. T.. ... ... ... o.. o.. o.. ...",
+      "b<. b<r b^. o.. o.. o.. o.. o.. o.. ... bvl b<.",
+      "b>l b>l b^l T.. o.. T.. ... T.. o.. T.. b<l b>.",
+      "o.. T.. ... ... o.. o.. o.. o.. o.. ... o.. o..",
+      "o.. o.. o.. o.. ... T.. o.. o.. ... o.. o.. ...",
+      "T.. o.. o.. o.. o.. bvl b<l o.. T.. o.. o.. T..",
+      "b^l ... o.. o.. T.. bv. b^. o.. o.. o.. b>r b>.",
+      "... bv. o.. o.. o.. bv. b^. o.. T.. ... b^. ..."
+    ],
+    "sites": [
+      { "at": [11, 0], "has": ["battery"] },
+      { "at": [1, 1], "has": ["battery"] },
+      { "at": [6, 1], "has": ["flagspot"] },
+      { "at": [5, 3], "has": ["flagspot"] },
+      { "at": [6, 4], "has": ["repair", "battery"] },
+      { "at": [9, 5], "has": ["flagspot"] },
+      { "at": [3, 7], "has": ["flagspot"] },
+      { "at": [9, 7], "has": ["battery"] },
+      { "at": [8, 8], "has": ["battery"] },
+      { "at": [1, 10], "has": ["upgrade", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "#            ",
+      "             ",
+      "#           #",
+      "             ",
+      "             ",
+      "#            ",
+      "             ",
+      "#           #",
+      "             ",
+      "             "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}
