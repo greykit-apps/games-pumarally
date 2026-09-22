@@ -221,11 +221,14 @@ function applyRamp(board, st, c, r, opts) {
     setRamp(board, c, r, face, false);
     return { ok: true, changed: true, note: "No ramp on the " + dirLetter(face) + " side of " + at(c, r) };
   }
-  if (!inBoard(board, nc, nr) || isVoid(board, nc, nr)) {
-    return { ok: false, why: "A ramp on the " + dirLetter(face) + " side of " + at(c, r) + " has no floor to climb to." };
-  }
   if (edgeCodeAt(board, edge) !== EDGE_NONE) {
     return { ok: false, why: "A wall stands on that edge. A ramp is the way across a level change, not through a wall; take the wall off first." };
+  }
+  /* on the rim there is no square across the edge to raise: the ramp climbs
+   * onto whatever board is laid beside this one, which is the course's business */
+  if (!inBoard(board, nc, nr) || isVoid(board, nc, nr)) {
+    setRamp(board, c, r, face, true);
+    return { ok: true, changed: true, note: "Ramp on the " + dirLetter(face) + " side of " + at(c, r) + ", at the board's edge: it meets whatever board is laid beside this one." };
   }
   let raised = null;
   if (levelAt(board, c, r) === levelAt(board, nc, nr)) raised = [nc, nr, levelAt(board, c, r) + 1];

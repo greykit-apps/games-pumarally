@@ -85,7 +85,15 @@ export function rampsOf(board) {
     const on = (c, r) => inBoard(board, c, r) && !isVoid(board, c, r);
     const a = { c: ac, r: ar, level: levelAt(board, ac, ar) };
     const b = { c: bc, r: br, level: levelAt(board, bc, br) };
-    const rec = { edge, a, b, off: !on(ac, ar) || !on(bc, br), flat: false, foot: null, top: null, dir: undefined, behind: null };
+    const rec = { edge, a, b, off: !on(ac, ar) || !on(bc, br), flat: false, foot: null, top: null, dir: undefined, behind: null, rim: null };
+    /* A RAMP MAY STAND ON THE BOARD'S RIM. Boards compose, and a ramp at the
+     * edge climbs onto (or down from) whatever board is laid beside it, which
+     * this board cannot know -- exactly as a belt at the rim runs onto the
+     * next board. On the board alone it has one square and no gradient;
+     * `rim` records that square and the way off the board, for drawing. */
+    if (rec.off && (on(ac, ar) || on(bc, br))) {
+      rec.rim = on(ac, ar) ? { c: ac, r: ar, dir: dAtoB } : { c: bc, r: br, dir: opposite(dAtoB) };
+    }
     if (!rec.off) {
       if (a.level < b.level) { rec.foot = a; rec.top = b; rec.dir = dAtoB; }
       else if (b.level < a.level) { rec.foot = b; rec.top = a; rec.dir = opposite(dAtoB); }

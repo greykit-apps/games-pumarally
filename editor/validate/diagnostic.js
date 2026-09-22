@@ -111,7 +111,7 @@ export const CODES = Object.freeze({
   "shape.rampGlyph":      "a ramp lattice character that is not ' ' or 'R'",
   "ramp.walled":          "a ramp on an edge that also carries a wall or a door",
   "ramp.flat":            "a ramp between two squares at the same level",
-  "level.rampGradient":   "a ramp with floor on one side only (error), or not climbing exactly one level (warning -- uncited)",
+  "level.rampGradient":   "a ramp not climbing exactly one level (warning -- uncited)",
   "level.rampFoot":       "a ramp whose foot is not level with the square it is approached from (warning -- uncited)",
   "level.unreachable":    "a level no ramp reaches",
 

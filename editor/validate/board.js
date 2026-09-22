@@ -437,15 +437,14 @@ function checkLevels(board, d) {
     const ptr = "/ground/" + (e.kind === "h" ? "rampH" : "rampV") + "/" + e.r;
     const where = edgeId(e.kind, e.c, e.r);
     const between = "between " + at(ramp.a.c, ramp.a.r) + " and " + at(ramp.b.c, ramp.b.r);
-    /* These three are ERRORS, and they are not claims about the game: each says
-     * the data contradicts itself. A ramp with floor on one side only has
-     * nothing to climb to; a ramp under a wall could never be crossed; a ramp
-     * between two squares at one level joins nothing, and a ramp is the way
-     * between levels. */
-    if (ramp.off) {
-      d.error("level.rampGradient", "The ramp on edge " + where + " has floor on one side only; there is nothing to climb to.", where, ptr);
-      continue;
-    }
+    /* A ramp on the RIM is left alone: boards compose, and it climbs onto or
+     * down from whatever board is laid beside this one, which this board
+     * cannot know -- as a belt at the rim runs onto the next board. What it
+     * does is settled on the course. The two below are ERRORS, and they are
+     * not claims about the game: each says the data contradicts itself. A
+     * ramp under a wall could never be crossed; a ramp between two squares at
+     * one level joins nothing, and a ramp is the way between levels. */
+    if (ramp.off) continue;
     if (edgeCodeAt(board, e) !== EDGE_NONE) {
       d.error("ramp.walled", "The ramp " + between + " lies under a wall, so nothing could ever cross it.", where, ptr);
       continue;

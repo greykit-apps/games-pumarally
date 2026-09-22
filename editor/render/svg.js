@@ -201,14 +201,18 @@ function ledgeArt(board) {
 function rampLayer(board, mode) {
   let out = "";
   for (const ramp of rampsOf(board)) {
-    if (!ramp.foot) continue;
-    const { c, r } = ramp.foot;
-    if (mode === "art") { out += g(at(c, r), A.rampEdgeSvg(ramp.dir)); continue; }
+    /* a ramp on the rim is drawn on its one square, climbing off the board:
+     * which way it really goes is settled when a board is laid beside it */
+    const spot = ramp.foot || ramp.rim;
+    if (!spot) continue;
+    const { c, r } = spot;
+    const dir = ramp.dir !== undefined ? ramp.dir : spot.dir;
+    if (mode === "art") { out += g(at(c, r), A.rampEdgeSvg(dir)); continue; }
     /* markup: the same trapezoid as the art, outlined, with a chevron in it
      * pointing up the ramp -- the ledge's dash is left off that edge, and
      * two ramps on neighbouring sides meet along the diagonal as a corner */
     const d = "M 1 1 L 99 1 L 72 28 L 28 28 Z M 41 22 L 50 8 L 59 22";
-    const body = '<g transform="rotate(' + (ramp.dir * 90) + ' 50 50)">' +
+    const body = '<g transform="rotate(' + (dir * 90) + ' 50 50)">' +
       '<path d="' + d + '" ' + haloStroke() + "/>" +
       '<path d="' + d + '" ' + markStroke(MARK.level, 2) + "/></g>";
     out += g(at(c, r), body);
