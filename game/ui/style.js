@@ -36,16 +36,21 @@ h2:first-child{margin-top:0}
 .stage .caption span:empty{display:none}
 .overlay .piece{transition:transform calc(.26s * var(--anim,1)) cubic-bezier(.3,.7,.3,1)}
 .overlay .spin{transition:transform calc(.2s * var(--anim,1)) ease;transform-origin:50px 50px}
-.overlay .pr-hull{stroke:var(--a);stroke-width:5;fill:var(--d)}
-.overlay .pr-nose{fill:var(--a)}
-.overlay .pr-eye{fill:var(--bg);stroke:var(--a);stroke-width:3}
+.overlay .pr-hull{stroke:var(--a);stroke-width:4;stroke-linejoin:round;fill:var(--d)}
+.overlay .pr-nose{fill:#fff6dc}
+.overlay .pr-eye{fill:var(--bg);opacity:.85}
+.overlay .pr-bot-visor{fill:var(--a)}
+.overlay .pr-bot-lamp{fill:#fff;opacity:.55}
+.overlay .pr-bot-tread{fill:#05070f;opacity:.6}
+.overlay .pr-bot-cab{fill:url(#pr-steel-g);stroke:#0b0d14;stroke-width:1.5}
+.overlay .pr-bot-lip{fill:none;stroke:#fff;stroke-opacity:.22;stroke-width:2;stroke-linecap:round}
 .overlay .piece.down{opacity:.55}
 .overlay .piece.virtual{opacity:.5}
 .overlay .piece.virtual .pr-hull{stroke-dasharray:8 6}
 .overlay .piece.gone{opacity:0}
 .overlay .piece.ghost{opacity:.45}
 .overlay .piece.ghost .pr-hull{fill:none;stroke-dasharray:10 7}
-.overlay .piece.ghost .pr-nose{opacity:.5}
+.overlay .piece.ghost .pr-nose,.overlay .piece.ghost .pr-bot-visor,.overlay .piece.ghost .pr-bot-cab,.overlay .piece.ghost .pr-bot-tread,.overlay .piece.ghost .pr-bot-lamp,.overlay .piece.ghost .pr-bot-lip{opacity:.3}
 .overlay .piece.hit .pr-hull{fill:var(--danger)}
 .overlay .piece .tag{font:600 26px ui-monospace,Menlo,Consolas,monospace;fill:var(--text);stroke:var(--bg);stroke-width:5;paint-order:stroke;letter-spacing:.04em;pointer-events:none}
 .overlay .piece.gone .tag,.overlay .piece.ghost .tag{display:none}

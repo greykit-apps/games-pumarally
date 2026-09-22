@@ -38,8 +38,25 @@ const CELL = 100;
 const DIRS = ["North", "East", "South", "West"];
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
-const ROBOT = '<g class="spin"><path class="pr-hull" d="M24 30h52a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8V38a8 8 0 0 1 8-8z"/>' +
-  '<path class="pr-nose" d="M50 8L66 30H34Z"/><rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/></g>' +
+/* THE ROBOT IS A WEDGE, so the whole body says which way it faces. The old
+ * piece was a rounded square with a small triangle on one side, and at the
+ * size a square is drawn during play the triangle was the only cue -- which
+ * way a robot faces decides what every Move card does to it, and that has to
+ * be readable from across the table. So: a hull that tapers to a prow, a
+ * chevron visor across the face that points the same way again, a headlamp
+ * lit at the prow, dark treads at the rear, and a cast shadow so it sits ON
+ * the deck rather than being printed on it. The hull, nose and eye keep the
+ * names the ghost, virtual and hit states style; the new parts are named so
+ * as not to answer to anything the board art already draws. */
+const ROBOT = '<g class="spin" filter="url(#pr-wallshadow)">' +
+  '<path class="pr-hull" d="M50 8L80 32q3 3 3 7v38q0 9-9 9H26q-9 0-9-9V39q0-4 3-7Z"/>' +
+  '<path class="pr-bot-tread" d="M21 58h10v22H21zM69 58h10v22H69z"/>' +
+  '<rect class="pr-bot-cab" x="36" y="54" width="28" height="20" rx="4"/>' +
+  '<path class="pr-bot-visor" d="M27 40L50 20L73 40V48H27Z"/>' +
+  '<rect class="pr-eye" x="34" y="40" width="32" height="6" rx="3"/>' +
+  '<path class="pr-nose" d="M50 8L59 17H41Z"/>' +
+  '<ellipse class="pr-bot-lamp" cx="50" cy="14" rx="8" ry="4.5" filter="url(#pr-beamglow)"/>' +
+  '<path class="pr-bot-lip" d="M20 76V40q0-4 3-7L50 9"/></g>' +
   '<text class="tag" x="50" y="-6" text-anchor="middle"></text>';
 
 function rebootSvg(t) {
