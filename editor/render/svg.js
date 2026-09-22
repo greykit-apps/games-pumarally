@@ -203,24 +203,24 @@ function levelLayer(board, mode) {
          '<path d="' + d + '" ' + markStroke(MARK.level, 2.4) + ' stroke-dasharray="9 5"/>' + marks;
 }
 
-/* A LEDGE IS A STEP, NOT A WALL. It was drawn as a thinner bar of the same
- * concrete with the same shadow, so a step and a barrier differed only in
- * width -- and a wall standing on a level edge was drawn as the wall alone,
- * so the drop beneath it was invisible. Now the two are made of different
- * things. A level edge gets a FACE on its lower side: a shaded trapezoid
- * running along the edge, its ends cut at the diagonals so the faces round a
- * block meet at the corners, lit concrete fading into the floor. Drawing it
- * on the lower side is what makes the rule read both ways -- a raised block
- * wears its faces outside itself and stands up off the floor, a sunken one
- * wears them inside and drops into it. An unwalled edge gets, on top of that,
- * a thin lit RIM along the edge itself: the lip of the platform catching the
- * light, a line and not a bar, nothing you could mistake for something that
- * stops a robot. A walled edge gets the face too, with the wall drawn over
- * it: a wall on a step, impassable and a drop. A ramp edge is left to the
- * ramp; the markup view keeps its dashed line, which sits better over a
- * photograph. */
+/* A LEDGE IS PAINTED, AND A WALL IS NOT. A level edge was first a thinner
+ * bar of the same concrete as a wall, and then a hairline rim, which was
+ * honest and too subtle to read at play scale. Now it is what a factory floor
+ * does about a drop: a band of dimmed yellow paint along the lip, on the
+ * lower side, brightest at the edge and darkening as it falls away -- the
+ * gradient is the step's face -- with its ends cut at the diagonals so the
+ * bands round a block meet at the corners. Painting the lower side is what
+ * makes the rule read both ways: a raised block wears its paint outside
+ * itself and stands up off the floor, a sunken one wears it inside and drops
+ * into it. A wall on a level edge is still a wall -- bare concrete, nothing
+ * yellow about it -- and the paint shows beside its foot on the lower side,
+ * so a wall on a step is visibly both: impassable, and a drop. A ramp edge is
+ * left to the ramp; the markup view keeps its dashed line, which sits better
+ * over a photograph. Plain paint, not stripes: in this art stripes mean
+ * "this will move or swallow you", and a step does neither. */
+const WALL_HALF = CELL * 0.19 / 2;
 function ledgeArt(board) {
-  let rims = "", faces = "";
+  let paint = "";
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       if (isVoid(board, c, r)) continue;
@@ -228,16 +228,18 @@ function ledgeArt(board) {
         /* once per edge, from its lower square */
         const step = levelStep(board, c, r, d);
         if (step <= 0 || !isLedge(board, c, r, d) || rampOn(board, c, r, d)) continue;
-        const depth = Math.min(26, 14 + 6 * (step - 1));
-        faces += g(at(c, r) + spin(d), '<path d="M 0 0 H ' + CELL + " L " + (CELL - depth) + " " + depth + " H " + depth + ' Z" fill="url(#pr-ledgeface)"/>');
-        /* the wall itself marks a walled edge; the face beneath it says it is also a step */
-        if (wallAt(board, c, r, d) !== EDGE_NONE) continue;
-        rims += g(at(c, r) + spin(d), '<path class="pr-ledge-rim" d="M 3 0 H ' + (CELL - 3) + '"/>' +
-          '<path class="pr-ledge-rim-dark" d="M 2 2.6 H ' + (CELL - 2) + '"/>');
+        const walled = wallAt(board, c, r, d) !== EDGE_NONE;
+        /* a taller step gets a deeper band; behind a wall the band starts
+           where the wall's foot ends, so what shows is the whole gradient */
+        const from = walled ? WALL_HALF : 0;
+        const to = from + Math.min(22, 13 + 5 * (step - 1));
+        paint += g(at(c, r) + spin(d),
+          '<path class="pr-paint" d="M ' + from + " " + from + " H " + (CELL - from) + " L " + (CELL - to) + " " + to + " H " + to + ' Z"/>' +
+          (walled ? "" : '<path class="pr-paint-lip" d="M 2 0.8 H ' + (CELL - 2) + '"/>'));
       }
     }
   }
-  return faces + rims;
+  return paint;
 }
 
 /** Ramps: drawn on the foot square of each ramp edge, climbing toward the
