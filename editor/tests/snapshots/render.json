@@ -251,12 +251,12 @@
   },
   "labyrinth": {
     "art": {
-      "sha": "c2a42e8f2e319dd3",
-      "bytes": 98152
+      "sha": "d8b1a8c887bf17b1",
+      "bytes": 99232
     },
     "markup": {
-      "sha": "6122b14cc07b895e",
-      "bytes": 76980
+      "sha": "b9b20d7c491e7cff",
+      "bytes": 79230
     }
   },
   "laserMaze": {
