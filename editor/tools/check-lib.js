@@ -188,7 +188,7 @@ for (const [id, s] of Object.entries(SETS)) {
   /* Placement is a fact about the marking, not about the layer: the four
    * collection markings need floor to come to rest on, the randomizer fires on
    * the card reveal and so needs only somewhere a robot can be standing. */
-  eq(SITE_ORDER.filter(k => SITES[k].place === "floor"),
+  eq(SITE_ORDER.filter(k => SITES[k].place === "rest"),
      ["repair", "upgrade", "battery", "flagspot"], "sites: the collection markings are floor-only");
   eq(SITE_ORDER.filter(k => SITES[k].place === "standable"), ["randomizer"],
      "sites: the randomizer is the one marking that may share a square with a belt");

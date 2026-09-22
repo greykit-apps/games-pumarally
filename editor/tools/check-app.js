@@ -326,6 +326,20 @@ const fresh = (w = 8, h = 8) =>
   st.tool = "site:battery";
   refused(apply(b, st, 4, 4), "site: a battery on a pit");
 
+  /* WATER TAKES A MARKING: a robot comes to rest in it. The printed boards put
+   * batteries on water, and refusing them was the validator inventing a rule.
+   * A belt does not, and a drain is a pit. */
+  setCell(b, 5, 5, "~..");
+  ok(apply(b, st, 5, 5).changed, "site: a battery goes on water");
+  eq(checkBoard(b).ok, true, "site: and the validator accepts it");
+  st.tool = "site:repair";
+  ok(apply(b, st, 5, 5).changed, "site: a wrench goes on water too");
+  setCell(b, 6, 6, "bN.");
+  st.tool = "site:battery";
+  refused(apply(b, st, 6, 6), "site: a battery on a conveyor");
+  setCell(b, 7, 7, "D..");
+  refused(apply(b, st, 7, 7), "site: a battery on a drain");
+
   /* flag locations are countable, which is what the engine chooses from */
   const m = fresh(10, 10);
   for (const [c, r] of [[1, 1], [3, 3], [5, 5], [7, 7], [9, 9]]) setSites(m, c, r, ["flagspot"]);
