@@ -191,12 +191,12 @@
   },
   "fireballFactory": {
     "art": {
-      "sha": "023995fcbb05ad55",
-      "bytes": 145729
+      "sha": "369f935c32095e5f",
+      "bytes": 145650
     },
     "markup": {
-      "sha": "06a99495135bff23",
-      "bytes": 57841
+      "sha": "2f0644e333789db3",
+      "bytes": 60613
     }
   },
   "floodZone": {
