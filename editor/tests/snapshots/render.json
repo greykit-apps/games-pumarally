@@ -199,6 +199,16 @@
       "bytes": 53495
     }
   },
+  "labyrinth": {
+    "art": {
+      "sha": "cfb10243d9b29434",
+      "bytes": 105008
+    },
+    "markup": {
+      "sha": "0ce3f4221d0d503a",
+      "bytes": 74863
+    }
+  },
   "laserMaze": {
     "art": {
       "sha": "81ae0c60ca5b2861",

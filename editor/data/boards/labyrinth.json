@@ -1,0 +1,90 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "labyrinth",
+  "name": "Labyrinth",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "o.. bv. ... b^. ... T.. B<. B<. B<R B<. B<. B<l",
+      "b<. b<x ... b^r b<. b<. b<. b<. b<. b<. b<l B^R",
+      "... b^r b<. ... r.. b>r b>. b>. b>. b>. b^l B^.",
+      "... ... T.. ... b^. B^. ... ... ... ... ... B^.",
+      "... b>r b>. b>. b^l B^r B<l ... ... T.. T.. b^.",
+      "... b^. ... ... ... ... B^R b<. b<. b<l ... b^r",
+      "bvr b^r b<. b<l ... ... B^. ... ... b^. T.. b>.",
+      "b>l b>. bvr b^. ... B>r B^l ... ... b^. ... ...",
+      "... T.. bv. b^. ... B^r B<l ... ... b^r b<. b<.",
+      "... ... bv. b^. T.. ... B^. ... ... ... ... ...",
+      "b>. bvx b<r b^. ... ... B^. ... T.. ... ... ...",
+      "... bv. ... b^. o.. T.. B^. ... ... o.. ... ..."
+    ],
+    "sites": [
+      { "at": [3, 2], "has": ["battery"] },
+      { "at": [8, 4], "has": ["upgrade", "battery"] },
+      { "at": [3, 5], "has": ["battery"] },
+      { "at": [4, 7], "has": ["repair", "battery"] },
+      { "at": [10, 9], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "##     # #  ",
+      "            ",
+      "    ######  ",
+      "            ",
+      "####  ####  ",
+      "            ",
+      "  ####      ",
+      "            ",
+      "##    ##  ##",
+      "            ",
+      "    ##  ##  ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "  #          ",
+      "  #          ",
+      "    #       #",
+      "    #        ",
+      "          # #",
+      "          #  ",
+      "    #   # #  ",
+      "#   #   # # #",
+      "  # #   #    ",
+      "# # #   #   #",
+      "      # #    ",
+      "      # #    "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:6,4", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:7,0", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:7,4", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:9,0", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "v:0,9", "face": "E", "damage": 2 },
+      { "kind": "laser", "edge": "v:2,8", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:8,10", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [5, 1], "regs": [5] },
+      { "kind": "crusher", "at": [6, 1], "regs": [4] },
+      { "kind": "crusher", "at": [7, 1], "regs": [3] },
+      { "kind": "crusher", "at": [8, 1], "regs": [2] },
+      { "kind": "crusher", "at": [9, 1], "regs": [1] },
+      { "kind": "crusher", "at": [5, 2], "regs": [5] },
+      { "kind": "crusher", "at": [6, 2], "regs": [4] },
+      { "kind": "crusher", "at": [7, 2], "regs": [3] },
+      { "kind": "crusher", "at": [8, 2], "regs": [2] },
+      { "kind": "crusher", "at": [9, 2], "regs": [1] },
+      { "kind": "crusher", "at": [5, 5], "regs": [1, 3] },
+      { "kind": "crusher", "at": [5, 6], "regs": [2, 4] },
+      { "kind": "crusher", "at": [2, 9], "regs": [3, 5] }
+    ]
+  }
+}

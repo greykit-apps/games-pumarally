@@ -333,6 +333,14 @@
       "h": 12,
       "set": "modernUnfiled",
       "origin": "transcribed"
+    },
+    {
+      "id": "labyrinth",
+      "name": "Labyrinth",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
     }
   ],
   "courses": [
