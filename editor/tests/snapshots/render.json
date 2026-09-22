@@ -259,6 +259,16 @@
       "bytes": 58837
     }
   },
+  "pushy": {
+    "art": {
+      "sha": "6e5d622ae1926bf7",
+      "bytes": 107948
+    },
+    "markup": {
+      "sha": "2082bd71e45f0cdb",
+      "bytes": 72847
+    }
+  },
   "sidewinder": {
     "art": {
       "sha": "bfe13bdae29ffeeb",
