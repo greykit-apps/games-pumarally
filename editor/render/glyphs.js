@@ -100,8 +100,11 @@ function beltArt(arms, express) {
    * the palette drives it -- a livery is a colour on an element. */
   const p = beltPaths(arms, N, express ? 2 : 1);
   const join = (list, cls) => list.map(d => '<path class="' + cls + '" d="' + d + '"/>').join("");
+  /* TREADS: the bed's own path stroked again, dashed, a shade lighter. On a
+   * curve the dashes follow the arc, so the belt reads as a belt going round
+   * rather than a painted road. Express is pitched tighter. */
   return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' +
-    join(p.beds, "pr-bed") + join(p.rails, "pr-rail") +
+    join(p.beds, "pr-bed") + join(p.beds, "pr-tread") + join(p.rails, "pr-rail") +
     join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
 }
 

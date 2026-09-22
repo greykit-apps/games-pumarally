@@ -181,10 +181,14 @@ function levelLayer(board, mode) {
          * the base floor is 0 and a sunken channel is negative. Two characters
          * wide either way, so the corner does not jump about. */
         const label = (lvl > 0 ? "+" : "\u2212") + Math.abs(lvl);
-        const x = c * CELL + 17, y = r * CELL + 14;
-        marks += '<text x="' + x + '" y="' + y + '" font-size="20" font-family="ui-monospace,monospace"' +
+        /* Lighter than it was, now that the deck itself is shaded by level: the
+         * numeral is the exact value and the shade is only a band, so it stays,
+         * but it no longer has to be the loudest thing on a board with a hundred
+         * of them. */
+        const x = c * CELL + 14, y = r * CELL + 12;
+        marks += '<text x="' + x + '" y="' + y + '" font-size="15" font-family="ui-monospace,monospace"' +
           ' text-anchor="middle" dominant-baseline="central" stroke="' + MARK.halo +
-          '" stroke-width="3.5" paint-order="stroke" fill="' + MARK.level + '">' + label + "</text>";
+          '" stroke-width="2.6" paint-order="stroke" fill="' + MARK.level + '" fill-opacity="0.8">' + label + "</text>";
       }
       /* Only the north and west edges, so each ledge is drawn once. A ramp
        * across the edge is drawn as a ramp instead, below. */

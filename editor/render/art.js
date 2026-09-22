@@ -96,6 +96,11 @@ export function pusherSvg(dir, odd) {
     /* the slot in the wall it emerges from */
     '<path class="pr-push-slot" d="' + bar(-3, hinge, HALF - 4) + '"/>' +
     /* the scissor: two arms crossing at a centre pivot */
+    /* each arm drawn twice: a dark outline under a steel stroke */
+    '<path class="pr-push-arm-edge" d="M' + pt(hinge, -SPREAD) + "L" + pt(cross, 0) +
+      "L" + pt(FACE - PLATE, -SPREAD) + '"/>' +
+    '<path class="pr-push-arm-edge" d="M' + pt(hinge, SPREAD) + "L" + pt(cross, 0) +
+      "L" + pt(FACE - PLATE, SPREAD) + '"/>' +
     '<path class="pr-push-arm" d="M' + pt(hinge, -SPREAD) + "L" + pt(cross, 0) +
       "L" + pt(FACE - PLATE, -SPREAD) + '"/>' +
     '<path class="pr-push-arm" d="M' + pt(hinge, SPREAD) + "L" + pt(cross, 0) +
@@ -200,14 +205,18 @@ export function randomizerSvg() {
  * Nine identical rings on Labyrinth are nine identical rings. */
 export function teleporterSvg() {
   const hue = TELEPORT_HUE;
-  return svg('<path d="M50 14l31 18v36L50 86 19 68V32z" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
+  return svg('<path d="M50 14l31 18v36L50 86 19 68V32z" fill="none" stroke="' + hue + '" stroke-width="9" opacity=".35" filter="url(#pr-beamglow)"/>' +
+             '<path d="M50 14l31 18v36L50 86 19 68V32z" fill="var(--pr-bg)" fill-opacity=".7" stroke="' + hue + '" stroke-width="5"/>' +
              '<path d="M50 30l17 10v20L50 70 33 60V40z" fill="' + hue + '" opacity=".55"/>' +
              '<circle cx="50" cy="50" r="7" fill="var(--pr-bg)"/>', "pr-teleport");
 }
 
 export function portalSvg(n) {
   const hue = portalHue(n);
-  return svg('<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
+  /* a well under the rings, and a glow round the outer one: somewhere you go, and lit */
+  return svg('<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="10" opacity=".35" filter="url(#pr-beamglow)"/>' +
+             '<circle cx="50" cy="50" r="34" fill="var(--pr-bg)" fill-opacity=".75"/>' +
+             '<circle cx="50" cy="50" r="36" fill="none" stroke="' + hue + '" stroke-width="5"/>' +
              '<circle cx="50" cy="50" r="25" fill="none" stroke="' + hue + '" stroke-width="3" opacity=".65"/>' +
              '<circle cx="50" cy="50" r="13" fill="' + hue + '" opacity=".9"/>' +
              '<circle cx="50" cy="50" r="6" fill="var(--pr-bg)"/>', "pr-portal");
@@ -352,10 +361,23 @@ export function oilSvg() {
              '<g filter="url(#pr-oilsoft)">' + oilSheen(0, 0) + "</g>", "pr-oil");
 }
 
+/* A RAM SEEN FROM BELOW. The shaft it comes down is a hole in the ceiling,
+ * black, with a lit far wall like a pit's; the face is a heavy steel plate
+ * casting its own shadow down the shaft, with the bolts that hold it on and
+ * the red centre bolt the printed disc has. Round the lot, the hazard ring --
+ * stripes mean "this will move or swallow you", and a crusher does. */
 export function pressSvg() {
-  return svg('<circle class="pr-shaft" cx="50" cy="50" r="37"/>' +
-             '<circle class="pr-press-ram" cx="50" cy="50" r="26"/>' +
-             '<circle class="pr-press-bolt" cx="50" cy="50" r="9"/>', "pr-press");
+  return svg('<circle class="pr-press-hz" cx="50" cy="50" r="41"/>' +
+             '<circle class="pr-shaft" cx="50" cy="50" r="37"/>' +
+             '<path class="pr-press-shaftwall" d="M20 62A33 33 0 0 1 74 28"/>' +
+             '<circle class="pr-press-ram" cx="50" cy="50" r="26" filter="url(#pr-wallshadow)"/>' +
+             '<path class="pr-plate-lip" d="M29 60A25 25 0 0 1 60 27"/>' +
+             [45, 135, 225, 315].map(a => {
+               const x = 50 + Math.cos(a * Math.PI / 180) * 18, y = 50 + Math.sin(a * Math.PI / 180) * 18;
+               return '<circle class="pr-press-boltlet" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.3"/>';
+             }).join("") +
+             '<circle class="pr-press-bolt" cx="50" cy="50" r="8"/>' +
+             '<circle class="pr-press-bolt-lit" cx="47" cy="47" r="2.4"/>', "pr-press");
 }
 
 /* FIRE, IN TWO SHAPES THAT CANNOT BE MISTAKEN FOR EACH OTHER.
@@ -430,9 +452,17 @@ export function flamerSvg() {
   return svg(art, "pr-burner pr-grill");
 }
 
+/* A BAY IS WHERE THE GAME STARTS, and it was the one element left as a flat
+ * plate with a dim number on it. It is a bolted plate now, with a ring lit in
+ * the accent and the numeral in the text colour under a dark halo -- because
+ * the setup screen is thumbnails, and a bay has to be countable at that size. */
 export function dockSvg(n) {
-  return svg('<rect class="pr-plate" x="16" y="16" width="68" height="68" rx="4"/>' +
-             '<path class="pr-plate-lip" d="M17 80 V20 A3 3 0 0 1 20 17 H80"/>' +
+  return svg('<rect class="pr-plate" x="10" y="10" width="80" height="80" rx="5"/>' +
+             '<path class="pr-plate-lip" d="M11 84 V15 A4 4 0 0 1 15 11 H84"/>' +
+             [[17, 17], [83, 17], [17, 83], [83, 83]].map(([x, y]) =>
+               '<circle class="pr-dock-bolt" cx="' + x + '" cy="' + y + '" r="2.4"/>').join("") +
+             '<circle class="pr-dock-ring" cx="50" cy="50" r="27"/>' +
+             '<path class="pr-dock-ring-lit" d="M31 62A27 27 0 0 1 61 24"/>' +
              '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
 }
 
