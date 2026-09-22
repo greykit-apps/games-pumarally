@@ -21,12 +21,12 @@
   },
   "blackGold": {
     "art": {
-      "sha": "1496afaff6be53c3",
-      "bytes": 92173
+      "sha": "a982411d78802292",
+      "bytes": 92370
     },
     "markup": {
-      "sha": "c27188c51f95837d",
-      "bytes": 61599
+      "sha": "65ee04b95ff7f627",
+      "bytes": 61796
     }
   },
   "blueprint": {
@@ -191,42 +191,42 @@
   },
   "fireballFactory": {
     "art": {
-      "sha": "369f935c32095e5f",
-      "bytes": 145650
+      "sha": "5820998d3511027e",
+      "bytes": 145847
     },
     "markup": {
-      "sha": "2f0644e333789db3",
-      "bytes": 60613
+      "sha": "2315564b0b0b4ae2",
+      "bytes": 60810
     }
   },
   "floodZone": {
     "art": {
-      "sha": "a9f2ecb0e230f081",
-      "bytes": 118039
+      "sha": "d03d3ee342c105d2",
+      "bytes": 118236
     },
     "markup": {
-      "sha": "b08ef3e9334b9d21",
-      "bytes": 80982
+      "sha": "73e9541c00cd7026",
+      "bytes": 81179
     }
   },
   "gauntletOfFire": {
     "art": {
-      "sha": "e4fbfecb506035e2",
-      "bytes": 109400
+      "sha": "745841fd01d24ef2",
+      "bytes": 109597
     },
     "markup": {
-      "sha": "9931f6c759e0fdb5",
-      "bytes": 88599
+      "sha": "3ed0eb1e2754c4d6",
+      "bytes": 88796
     }
   },
   "gearBox": {
     "art": {
-      "sha": "8c24b95150b90ddf",
-      "bytes": 84239
+      "sha": "79878b6ae7045fb3",
+      "bytes": 84436
     },
     "markup": {
-      "sha": "64d3ac346d63a891",
-      "bytes": 76005
+      "sha": "7fcb1a9e019fc835",
+      "bytes": 76202
     }
   },
   "inAndOut": {
@@ -251,12 +251,12 @@
   },
   "labyrinth": {
     "art": {
-      "sha": "6f84cd18ddce4dc0",
-      "bytes": 97955
+      "sha": "c2a42e8f2e319dd3",
+      "bytes": 98152
     },
     "markup": {
-      "sha": "b1d7a5563d0e092c",
-      "bytes": 76783
+      "sha": "6122b14cc07b895e",
+      "bytes": 76980
     }
   },
   "laserMaze": {
@@ -271,12 +271,12 @@
   },
   "locked": {
     "art": {
-      "sha": "90bcf385a520d840",
-      "bytes": 88601
+      "sha": "11fc3bc318eafd46",
+      "bytes": 88798
     },
     "markup": {
-      "sha": "1aaf44d361db5fe5",
-      "bytes": 63749
+      "sha": "79bc4137cb038ecf",
+      "bytes": 63946
     }
   },
   "maelstrom": {
@@ -331,22 +331,22 @@
   },
   "portalPalace": {
     "art": {
-      "sha": "00eda74f4b291952",
-      "bytes": 82179
+      "sha": "f7605a0e64658ef3",
+      "bytes": 82376
     },
     "markup": {
-      "sha": "b24788e691954e77",
-      "bytes": 55388
+      "sha": "545921845151b191",
+      "bytes": 55585
     }
   },
   "pushy": {
     "art": {
-      "sha": "31be421d8469a327",
-      "bytes": 92925
+      "sha": "3b075ac1107b491f",
+      "bytes": 93122
     },
     "markup": {
-      "sha": "7e15add2eb2c73af",
-      "bytes": 74705
+      "sha": "2073548ca22e81ed",
+      "bytes": 74902
     }
   },
   "sidewinder": {
@@ -371,12 +371,12 @@
   },
   "stopAndGo": {
     "art": {
-      "sha": "94dba1ae3c385033",
-      "bytes": 94848
+      "sha": "44aee9101baf8233",
+      "bytes": 95045
     },
     "markup": {
-      "sha": "d1d4a9e30b4a6426",
-      "bytes": 72954
+      "sha": "07766db755d22a07",
+      "bytes": 73151
     }
   },
   "tabulaRasa": {
@@ -471,22 +471,22 @@
   },
   "trenchRun": {
     "art": {
-      "sha": "dcceba7f7c01d188",
-      "bytes": 89789
+      "sha": "b2a583a279e547fd",
+      "bytes": 90601
     },
     "markup": {
-      "sha": "dd75641380cd85f7",
-      "bytes": 69128
+      "sha": "957842a326b56ca3",
+      "bytes": 69325
     }
   },
   "waterPark": {
     "art": {
-      "sha": "33303f34e0ee2844",
-      "bytes": 131271
+      "sha": "61a5e2e153c26940",
+      "bytes": 132784
     },
     "markup": {
-      "sha": "fb94f16f1b088c76",
-      "bytes": 106087
+      "sha": "f7ff6bdfbd1f9a6b",
+      "bytes": 109238
     }
   },
   "whirlpool": {

@@ -67,9 +67,16 @@
     ],
     "sites": [
       { "at": [5, 0], "has": ["battery"] },
+      { "at": [3, 2], "has": ["flagspot"] },
+      { "at": [8, 3], "has": ["flagspot"] },
       { "at": [3, 4], "has": ["upgrade", "battery"] },
+      { "at": [4, 5], "has": ["flagspot"] },
       { "at": [9, 5], "has": ["battery"] },
-      { "at": [0, 9], "has": ["repair", "battery"] }
+      { "at": [8, 6], "has": ["flagspot"] },
+      { "at": [10, 6], "has": ["flagspot"] },
+      { "at": [2, 8], "has": ["flagspot"] },
+      { "at": [0, 9], "has": ["repair", "battery"] },
+      { "at": [6, 9], "has": ["flagspot"] }
     ]
   },
   "wall": {
