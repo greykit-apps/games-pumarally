@@ -161,7 +161,12 @@ export function beltPaths(arms, exit, speed) {
     marks.push(markPath(g, true));
   }
   const h = headPoint(exit), heads = [headPath(h[0], h[1], DC[exit], DR[exit])];
-  if (speed === 2) {
+  /* Express carries its second head only on a plain straight, where the shaft
+   * runs under both. On a turn or a merge the shaft comes in from the side
+   * and the second head, set back along the exit axis, would float on bare
+   * bed with nothing under it. One head there; the colour already says
+   * express, and the square's facing is the rule the head is for. */
+  if (speed === 2 && runs.length === 1 && runs[0] === exit) {
     heads.push(headPath(h[0] - DC[exit] * 18, h[1] - DR[exit] * 18, DC[exit], DR[exit]));
   }
   return { beds, rails, marks, heads, headed: true };
