@@ -229,12 +229,17 @@ function ledgeArt(board) {
         const step = levelStep(board, c, r, d);
         if (step <= 0 || !isLedge(board, c, r, d) || rampOn(board, c, r, d)) continue;
         const walled = wallAt(board, c, r, d) !== EDGE_NONE;
-        /* a taller step gets a deeper band; behind a wall the band starts
-           where the wall's foot ends, so what shows is the whole gradient */
+        /* THE SHADOW SAYS DOWN, THE PAINT SAYS CAUTION. Bright yellow to the
+         * band's full depth read as attention, not as depth; a drop seen from
+         * above is a shadow cast into the lower square. So the shadow goes in
+         * first, deep and fading, and the paint is a narrow faded strip at
+         * the lip on top of it. A taller step casts a longer shadow. Behind a
+         * wall both start where the wall's foot ends. */
         const from = walled ? WALL_HALF : 0;
-        const to = from + Math.min(22, 13 + 5 * (step - 1));
-        paint += g(at(c, r) + spin(d),
-          '<path class="pr-paint" d="M ' + from + " " + from + " H " + (CELL - from) + " L " + (CELL - to) + " " + to + " H " + to + ' Z"/>' +
+        const shade = from + Math.min(30, 20 + 6 * (step - 1));
+        const strip = from + 8;
+        const band = (to, cls) => '<path class="' + cls + '" d="M ' + from + " " + from + " H " + (CELL - from) + " L " + (CELL - to) + " " + to + " H " + to + ' Z"/>';
+        paint += g(at(c, r) + spin(d), band(shade, "pr-drop") + band(strip, "pr-paint") +
           (walled ? "" : '<path class="pr-paint-lip" d="M 2 0.8 H ' + (CELL - 2) + '"/>'));
       }
     }
