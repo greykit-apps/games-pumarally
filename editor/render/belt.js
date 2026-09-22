@@ -26,9 +26,10 @@ export const EDGE = [[50, 0], [100, 50], [50, 100], [0, 50]];
 
 export const BELT_HALF = 31;   // rail centre, either side of the run
 export const TURN_R = 50;      // a quarter turn through the edge midpoints
-export const HEAD_BACK = 26;   // how far short of the exit edge the head sits
-export const TAIL_IN = 22;     // how far past the entry edge the shaft starts
-export const HEAD = 11;        // the chevron's length
+export const HEAD_BACK = 21;   // how far short of the exit edge the head's centre sits
+export const TAIL_IN = 15;     // how far past the entry edge the shaft starts
+export const HEAD_LEN = 24;    // the filled head: tip to base
+export const HEAD_HALF = 13;   //   and half its base
 
 /**
  * The absolute directions a robot TRAVELS IN as it enters, one per arm.
@@ -85,21 +86,22 @@ export function headPoint(exit) {
 }
 
 /**
- * EVERY RUN CARRIES A HEAD, and every arrow stays inside its square.
+ * EVERY RUN CARRIES A HEAD, and every square carries its own arrow.
  *
- * It was not always so. Heads were reserved for the plain straight; a turn or
- * a merge drew its line edge to edge, so consecutive tiles joined into one
- * continuous line, with a small chevron sat ON the exit edge to say which way
- * it ran. The theory was that the curve already said "rotation" and a head
- * would compete with it. In practice the edge chevron read as popped off its
- * tile and half into the next, the continuous line ran straight into the next
- * straight's tail, and a loop of belts became one long unbroken arrow with
- * bumps in it. So now a curve is drawn the way a straight is: a shaft that
- * starts a little in from the entry edge, bends, and ends in a chevron a
- * little short of the exit edge -- one arrow per square, a clear gap between
- * squares, the bend still visible in the shaft. A merge's runs all converge
- * on the one head. The curve's shaft is a quadratic rather than a trimmed
- * arc for the reason markPath gives.
+ * Three schemes were tried before this one and each failed at play scale in
+ * its own way. Heads only on straights, with a continuous line through turns
+ * and a chevron on the exit edge: the chevron read as popped off its square
+ * and the loops as one unbroken arrow. Short hooked arrows in every square:
+ * choppy, a queue of dashes. A continuous line with a head at each run's
+ * apex pointing along the tangent: flowed, but a head pointing diagonally on
+ * a turn is not the square's facing, and the facing is the rule.
+ *
+ * So: one distinct arrow per square. The shaft follows the run -- it starts a
+ * little in from the entry edge and bends if the run bends, so a corner is
+ * still visibly a corner -- and ends in ONE filled head near the exit edge
+ * that points exactly N, S, E or W: the direction the square carries a robot
+ * in, and nothing else. A merge's shafts all converge on that one head.
+ * Express carries a second head close behind the first.
  */
 export function headed(arms, exit) {
   return true;
@@ -132,37 +134,35 @@ export function markPath(g, isHeaded) {
     "Q" + cx.toFixed(1) + " " + cy.toFixed(1) + " " + h[0].toFixed(1) + " " + h[1].toFixed(1);
 }
 
-/** A chevron pointing along (hx,hy) with its point at (x,y). */
-export function chevPath(x, y, hx, hy, size) {
-  const bx = x - hx * size, by = y - hy * size;
-  const px = -hy * size * 0.78, py = hx * size * 0.78;
-  return "M" + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
-    "L" + x.toFixed(1) + " " + y.toFixed(1) +
-    "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1);
+/** A FILLED arrowhead centred at (x,y), pointing along (dx,dy). */
+export function headPath(x, y, dx, dy, len = HEAD_LEN, half = HEAD_HALF) {
+  const tx = x + dx * len / 2, ty = y + dy * len / 2;
+  const bx = x - dx * len / 2, by = y - dy * len / 2;
+  const px = -dy * half, py = dx * half;
+  return "M" + tx.toFixed(1) + " " + ty.toFixed(1) +
+    "L" + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) +
+    "L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + "Z";
 }
 
 /**
  * Everything one belt tile needs drawn, as path strings.
  * Beds first and rails after, ALL of them: at a junction the rails have to be
  * able to cross a neighbouring bed, which is what a junction looks like.
+ * Then one shaft per run and the square's one head (two for express); see
+ * `headed` for why the head is axis-aligned and the shaft is not.
  */
 export function beltPaths(arms, exit, speed) {
   const runs = runsOf(arms, exit);
-  const isHeaded = headed(arms, exit);
   const beds = [], rails = [], marks = [];
   for (const inDir of runs) {
     const g = runGeom(inDir, exit);
     beds.push(bedPath(g));
     for (const rp of railPaths(g)) rails.push(rp);
-    marks.push(markPath(g, isHeaded));
+    marks.push(markPath(g, true));
   }
-  const chevrons = [];
-  const h = headPoint(exit);
-  chevrons.push(chevPath(h[0], h[1], DC[exit], DR[exit], HEAD));
+  const h = headPoint(exit), heads = [headPath(h[0], h[1], DC[exit], DR[exit])];
   if (speed === 2) {
-    /* express: a second chevron close behind the first, so the pair reads as
-       one "fast" mark rather than as two arrows */
-    chevrons.push(chevPath(h[0] - DC[exit] * 12, h[1] - DR[exit] * 12, DC[exit], DR[exit], HEAD));
+    heads.push(headPath(h[0] - DC[exit] * 18, h[1] - DR[exit] * 18, DC[exit], DR[exit]));
   }
-  return { beds, rails, marks, chevrons, headed: isHeaded };
+  return { beds, rails, marks, heads, headed: true };
 }
