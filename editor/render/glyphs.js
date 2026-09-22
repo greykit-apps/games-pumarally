@@ -287,21 +287,33 @@ export const DEVICE_GLYPHS = {
    * it fires -- one, two or three across, the way the printed board shows
    * them -- and the beam itself is another layer, since it crosses squares. */
   laser: {
+    /* AN EMITTER, NOT A BOX. Bolted to the wall through a bracket, a finned
+     * housing on top of that, and a barrel per point of damage -- one, two or
+     * three across, as the printed boards show them -- each with a muzzle ring
+     * and a lens that is lit, because the thing is firing and the beam layer
+     * is about to say so. The warning lamp on the bracket is the one dot of
+     * hazard yellow: in this art stripes mean "this will move or swallow you",
+     * and a laser does neither, so it gets a lamp and not a stripe. */
     art: ctx => {
       const n = Math.max(1, Math.min(3, ctx.damage | 0));
-      const w = 18 + n * 14;
-      let out = '<rect x="' + (50 - w / 2) + '" y="82" width="' + w + '" height="17" rx="3" fill="url(#pr-steel-g)' +
-        '" stroke="#11141d" stroke-width="2"/>' +
-        '<path class="pr-plate-lip" d="M' + (50 - w / 2 + 2) + ' 83.2 H' + (50 + w / 2 - 2) + '"/>';
+      const w = 20 + n * 14, x0 = 50 - w / 2, x1 = 50 + w / 2;
+      let out = '<g class="pr-laser">' +
+        '<rect class="pr-las-bracket" x="' + (x0 - 7) + '" y="89" width="' + (w + 14) + '" height="10" rx="2"/>' +
+        '<circle class="pr-las-bolt" cx="' + (x0 - 2.5) + '" cy="94" r="2.4"/>' +
+        '<circle class="pr-las-bolt" cx="' + (x1 + 2.5) + '" cy="94" r="2.4"/>' +
+        '<rect class="pr-las-body" x="' + x0 + '" y="70" width="' + w + '" height="21" rx="3"/>' +
+        '<path class="pr-plate-lip" d="M' + (x0 + 2) + ' 71.2 H' + (x1 - 2) + '"/>' +
+        '<path class="pr-las-fin" d="M' + (x0 + 3) + ' 77 H' + (x1 - 3) + ' M' + (x0 + 3) + ' 82 H' + (x1 - 3) + ' M' + (x0 + 3) + ' 87 H' + (x1 - 3) + '"/>' +
+        '<circle class="pr-las-warn" cx="' + (x1 + 2.5) + '" cy="94" r="1.1"/>';
       for (let i = 0; i < n; i++) {
         const cx = 50 + (i - (n - 1) / 2) * 14;
-        out += '<rect x="' + (cx - 4) + '" y="76" width="8" height="8" rx="1.5" fill="#3c424e"/>' +
-          /* the lens is lit: this thing is firing, and it is firing NOW */
-          '<circle cx="' + cx + '" cy="76" r="7" fill="' + ART.laser + '" opacity="0.35" filter="url(#pr-beamglow)"/>' +
-          '<circle cx="' + cx + '" cy="76" r="4.2" fill="' + ART.laser + '"/>' +
-          '<circle cx="' + cx + '" cy="76" r="2" fill="#ffe6e3"/>';
+        out += '<rect class="pr-las-barrel" x="' + (cx - 4.5) + '" y="58" width="9" height="14" rx="1.5"/>' +
+          '<path class="pr-las-muzzle" d="M' + (cx - 4.5) + ' 61.5 H' + (cx + 4.5) + '"/>' +
+          '<circle cx="' + cx + '" cy="58.5" r="7" fill="' + ART.laser + '" opacity="0.4" filter="url(#pr-beamglow)"/>' +
+          '<circle cx="' + cx + '" cy="58.5" r="3.6" fill="' + ART.laser + '"/>' +
+          '<circle cx="' + cx + '" cy="58.5" r="1.6" fill="#ffe6e3"/>';
       }
-      return out;
+      return out + "</g>";
     },
     markup: ctx => mk("M 34 96 L 34 78 M 50 96 L 50 74 M 66 96 L 66 78 M 28 96 L 72 96",
       MARK.device, 1.5) + (ctx.damage > 1 ? mkText(ctx.damage, 50, 66, MARK.device, 22) : "")

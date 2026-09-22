@@ -11,7 +11,7 @@
  */
 
 import { CELL, ART, MARK, markStroke, haloStroke, esc } from "./theme.js";
-import { ART_DEFS, PALETTE_CSS, ART_CSS, STAMP_CSS, SPOT_CSS, TOKENS } from "./palette.js";
+import { ART_DEFS, PALETTE_CSS, ART_CSS, STAMP_CSS, SPOT_CSS, TOKENS, CONCRETE } from "./palette.js";
 import { GLYPHS, DEVICE_GLYPHS, siteOverlay, floorArt, stampArt } from "./glyphs.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
@@ -66,6 +66,9 @@ function groundLayer(board, mode) {
       if (!body) continue;
       /* the floor first, unrotated, then the element standing on it */
       if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt(ctx.level));
+      /* oil is a layer too -- one spill, not a tiling of puddles -- but unlike
+       * a pit it lies ON the deck, so the deck has already gone in above */
+      if (mode === "art" && def.key === "oil") continue;
       out += g(at(c, r) + spin(d), body);
       /* A RANDOMIZER FILLS THE SQUARE, as printed: the starburst goes over the
        * square's plate and bed, and whatever the element paints on top -- a
@@ -107,6 +110,36 @@ function pitLayer(board) {
   return '<g class="pr-art pr-pits"><g fill="' + ART.pit + '">' + holes + "</g>" +
     '<g fill="url(#pr-pitwall)" opacity="0.85">' + walls + "</g>" +
     '<g fill="url(#pr-hz)" opacity="0.42">' + rims + "</g></g>";
+}
+
+/* AN OIL SPILL IS ONE SPILL. Drawn like the pits: each oil square contributes
+ * a puddle whose edge pulls in from the sides that meet floor and runs out to
+ * the sides that meet more oil, so a run of them is one contiguous slick with
+ * a single rim round the outside -- and a single film across it, so the sheen
+ * reads as one surface rather than as a stamp repeated. The shape itself is
+ * art.js's, so the rail's swatch (a puddle with floor on every side) is the
+ * same puddle. */
+function oilLayer(board) {
+  const isOil = (c, r) => inBoard(board, c, r) && !isVoid(board, c, r) &&
+    (elementAt(board, c, r) || {}).key === "oil";
+  let body = "", rim = "", sheen = "";
+  for (let r = 0; r < board.h; r++) {
+    for (let c = 0; c < board.w; c++) {
+      if (!isOil(c, r)) continue;
+      const open = { n: isOil(c, r - 1), e: isOil(c + 1, r), s: isOil(c, r + 1), w: isOil(c - 1, r) };
+      const blob = A.oilBlobPath(open, c, r, c * CELL, r * CELL);
+      body += blob.fill;
+      rim += blob.rim;
+      sheen += g(at(c, r), A.oilSheen(c, r));
+    }
+  }
+  if (!body) return "";
+  /* the sheen is softened by ONE filter over the whole layer, not one per streak */
+  return '<g class="pr-art pr-oil">' +
+    '<path class="pr-oil" d="' + body + '"/>' +
+    '<path class="pr-oil-film" d="' + body + '"/>' +
+    '<path class="pr-oil-rim" d="' + rim + '"/>' +
+    '<g filter="url(#pr-oilsoft)">' + sheen + "</g></g>";
 }
 
 /* Site markings, drawn over the squares they mark. Their own layer rather than
@@ -178,7 +211,7 @@ function levelLayer(board, mode) {
  * a photograph. */
 const LIP = CELL * 0.12;
 function ledgeArt(board) {
-  let lips = "", faces = "";
+  let lips = [], faces = "";
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       if (isVoid(board, c, r)) continue;
@@ -191,13 +224,14 @@ function ledgeArt(board) {
          * which on this dark floor reads better than a shadow would */
         faces += g(at(c, r) + spin(d), '<path d="M 0 0 H ' + CELL + " L " + (CELL - depth) + " " + depth + " H " + depth + ' Z" fill="url(#pr-ledgeface)"/>');
         const x = c * CELL + (d === E ? CELL : 0), y = r * CELL + (d === S ? CELL : 0);
-        lips += d === N || d === S
-          ? '<rect class="pr-ledge" x="' + c * CELL + '" y="' + (y - LIP / 2) + '" width="' + CELL + '" height="' + LIP + '" fill="url(#pr-concrete-h)" filter="url(#pr-wallshadow)"/>'
-          : '<rect class="pr-ledge" x="' + (x - LIP / 2) + '" y="' + r * CELL + '" width="' + LIP + '" height="' + CELL + '" fill="url(#pr-concrete-v)" filter="url(#pr-wallshadow)"/>';
+        lips.push(d === N || d === S
+          ? { x: c * CELL, y: y - LIP / 2, w: CELL, h: LIP }
+          : { x: x - LIP / 2, y: r * CELL, w: LIP, h: CELL });
       }
     }
   }
-  return faces + lips;
+  /* the lips are poured as one body too, so a block's rim turns its corners */
+  return faces + masonry(lips, "l");
 }
 
 /** Ramps: drawn on the foot square of each ramp edge, climbing toward the
@@ -272,30 +306,62 @@ function wallLayer(board, mode) {
     return out;
   }
 
-  let out = "";
-  /* A capping highlight along the lit face. The concrete gradient already runs
-   * light-to-dark away from the top left; this is the hard edge at the top of
-   * it, which is what makes a bar read as a block with a top rather than as a
-   * painted stripe. It is drawn after every wall so a junction's caps do not
-   * get buried under the next wall's shadow. */
-  let caps = "";
-  for (const b of bars) {
-    out += '<rect class="pr-wall" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
-      '" height="' + b.h + '" fill="url(#pr-concrete-' + (b.vertical ? "v" : "h") +
-      ')" filter="url(#pr-wallshadow)"/>';
-    /* the same wear the deck has, so the two read as the same material world */
-    out += '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h +
-      '" fill="url(#pr-grit)" opacity="0.7"/>';
-    caps += b.vertical
-      ? '<rect x="' + b.x + '" y="' + b.y + '" width="1.9" height="' + b.h + '" fill="#c2c8d4" opacity="0.5"/>'
-      : '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="1.9" fill="#c2c8d4" opacity="0.5"/>';
-  }
-  out += caps;
+  let out = masonry(bars, "w");
   for (const b of doors) {
     out += '<rect class="pr-doorbar" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
       '" height="' + b.h + '"/>';
   }
   return out;
+}
+
+/* CONCRETE IS POURED, NOT STACKED. The walls were one rect per edge, each with
+ * its own gradient, its own cap and its own drop shadow -- and at every corner
+ * the second bar's shadow fell across the first, its cap ran on under the
+ * other's foot, and the two gradients met at a visible seam. A wall that turns
+ * a corner is one wall; it was being drawn as two that happen to touch.
+ *
+ * So every bar goes into ONE path and the union is what gets drawn. The bevel
+ * comes off that union rather than off the pieces: the whole body is painted
+ * in the lit shade, then everything except a band along its top-left edges is
+ * painted dark, then everything except a band along its bottom-right edges is
+ * painted mid -- each pass being the same outline shifted a couple of units
+ * and clipped back to the body. What survives is a lit lip on every top and
+ * left edge the body actually has, a shadowed lip on every bottom and right,
+ * and NOTHING at the joins, because the joins are not edges of the union.
+ * The drop shadow is one filter on the group, so it is cast by the outline
+ * and not by each brick onto its neighbour.
+ *
+ * The clip paths need ids, and ids are document-wide: two boards on one page
+ * with the same id would clip each other. They are named from a hash of the
+ * geometry, which is stable across renders (the snapshot depends on that) and
+ * distinct wherever the walls are. */
+function masonry(bars, kind) {
+  if (!bars.length) return "";
+  const U = bars.map(b => "M" + b.x + " " + b.y + "h" + b.w + "v" + b.h + "h" + (-b.w) + "Z").join("");
+  const key = kind + hash36(U);
+  const d = kind === "w" ? 2.2 : 1.5;
+  const body = '<path d="' + U + '"';
+  const shift = k => ' transform="translate(' + (d * k) + " " + (d * k) + ')"';
+  return '<clipPath id="pr-cb-' + key + '">' + body + "/></clipPath>" +
+    '<clipPath id="pr-cd-' + key + '">' + body + shift(1) + "/></clipPath>" +
+    '<g class="pr-masonry" filter="url(#pr-wallshadow)">' +
+      body + ' fill="' + CONCRETE.lit + '"/>' +
+      '<g clip-path="url(#pr-cb-' + key + ')">' +
+        body + shift(1) + ' fill="' + CONCRETE.dark + '"/>' +
+        '<g clip-path="url(#pr-cd-' + key + ')">' +
+          body + shift(-1) + ' fill="' + CONCRETE.mid + '"/>' +
+        "</g>" +
+        /* the same wear the deck has, so the two read as the same material world */
+        body + ' fill="url(#pr-grit)" opacity="0.7"/>' +
+      "</g>" +
+    "</g>";
+}
+
+/** djb2, in base 36: a short stable name for a piece of geometry. */
+function hash36(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
 }
 
 /* A beam runs from the emitter on its wall to the far side of the last square
@@ -415,7 +481,7 @@ export function boardSVG(board, opts = {}) {
     (o.background && o.mode === "art"
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
-    (o.mode === "art" ? pitLayer(board) : "") +
+    (o.mode === "art" ? pitLayer(board) + oilLayer(board) : "") +
     siteLayer(board, o.mode, o) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +

@@ -35,9 +35,11 @@ function toolSwatch(tool) {
   }
   if (tool.kind === "site") return swatch(siteSwatch(tool.site, "art"));
   if (tool.kind === "wall") {
+    /* the board's wall, in miniature: lit lip, mid body, shadowed foot */
     return swatch(GLYPHS.floor.art(ctx) +
-      '<rect x="0" y="84" width="100" height="19" fill="url(#pr-concrete-h)" filter="url(#pr-wallshadow)"/>' +
-      '<rect x="0" y="84" width="100" height="2.6" fill="#c2c8d4" opacity="0.5"/>');
+      '<g filter="url(#pr-wallshadow)"><rect x="0" y="84" width="100" height="19" fill="#5f6674"/>' +
+      '<rect x="0" y="84" width="100" height="17" fill="#7a818e"/>' +
+      '<rect x="0" y="84" width="100" height="2.4" fill="#99a0ad"/></g>');
   }
   if (tool.kind === "level") {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +

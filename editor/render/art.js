@@ -213,21 +213,116 @@ export function portalSvg(n) {
              '<circle cx="50" cy="50" r="6" fill="var(--pr-bg)"/>', "pr-portal");
 }
 
-const OIL_BODY = "M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z";
-
 /* OIL IS A RULE, AND IT WAS INVISIBLE. The film was #0a0d16 on a deck five per
  * cent lighter, inside a hairline rim: on a board you had to already know the
  * square was there. It stays black -- it is oil -- and is found by its sheen
  * instead, which is how you find real oil: the film is iridescent, so it gets
- * a raking band of violet through teal to amber and a bright meniscus on the
- * lit side. Still the darkest square on the board, and now the one with the
- * only rainbow on it. */
+ * a raking band of violet through teal to amber and a bright meniscus. Still
+ * the darkest square on the board, and now the one with the only rainbow on it.
+ *
+ * THE PUDDLE IS BUILT FROM ITS NEIGHBOURS. `open` says which sides meet more
+ * oil: on those the edge runs out to the square's boundary, on the others it
+ * pulls in, and a corner is rounded only where both of its sides pull in. Put
+ * the puddles of a run of squares side by side and they make one slick with a
+ * single outline -- svg.js draws them as one path so the film and the rim are
+ * one surface -- while a lone square is a lone puddle. The radii and insets
+ * vary a little with where the square is, because a spill is not a stamp and
+ * twelve identical puddles in a row read as tiling. */
+function oilVar(c, r, k) {
+  /* a small stable wobble in [0,1): the same square always gets the same puddle */
+  const n = ((c * 73856093) ^ (r * 19349663) ^ (k * 83492791)) >>> 0;
+  return ((n * 2654435761) >>> 0) / 4294967296;
+}
+
+export function oilBlobPath(open, c, r, ox = 0, oy = 0) {
+  /* HOW FAR A CLOSED SIDE PULLS IN IS A PROPERTY OF THE EDGE LINE, not of the
+   * square: the west side of every square in column c pulls in by the same
+   * amount, the north side of every square in row r likewise. Two oil squares
+   * in a run then agree exactly where their outlines meet, so the slick's edge
+   * is continuous across them instead of stepping at every square boundary.
+   * The bow along each side is per square, which is what keeps it organic. */
+  const ins = (line, axis, k) => 9 + oilVar(line, axis, k) * 7;
+  const rad = k => 24 + oilVar(c, r, k) * 12;
+  const N = open.n ? 0 : ins(r, 0, 1), S = open.s ? 100 : 100 - ins(r + 1, 0, 1);
+  const W = open.w ? 0 : ins(c, 1, 2), E = open.e ? 100 : 100 - ins(c + 1, 1, 2);
+  const f = v => (v + 0).toFixed(1);
+  const P = (x, y) => f(ox + x) + " " + f(oy + y);
+  /* corners clockwise from top-left; each is rounded only if both its sides pull in */
+  const rTL = (!open.n && !open.w) ? rad(5) : 0, rTR = (!open.n && !open.e) ? rad(6) : 0;
+  const rBR = (!open.s && !open.e) ? rad(7) : 0, rBL = (!open.s && !open.w) ? rad(8) : 0;
+  const arc = (rr, x, y) => (rr ? "A" + f(rr) + " " + f(rr) + " 0 0 1 " + P(x, y) : "L" + P(x, y));
+  /* A side that meets floor BOWS, a few units in or out, through a quadratic
+   * whose control point sits off its midpoint. A side that meets more oil stays
+   * dead straight, because it has to land exactly on the neighbour's edge or
+   * the two puddles show a notch where they join. */
+  const bow = (k, x0, y0, x1, y1, nx, ny) => {
+    const a = (oilVar(c, r, k) - 0.5) * 11;
+    return "Q" + P((x0 + x1) / 2 + nx * a, (y0 + y1) / 2 + ny * a) + " " + P(x1, y1);
+  };
+  /* Built as segments, so the RIM can be a second path holding only the
+   * segments that face floor. Stroking the whole outline would draw a line
+   * along every boundary between two oil squares -- which is exactly the seam
+   * the layer exists to get rid of. */
+  const segs = [
+    { closed: !open.n, from: [W + rTL, N], d: bow(11, W + rTL, N, E - rTR, N, 0, 1), to: [E - rTR, N] },
+    { closed: !open.n && !open.e, d: arc(rTR, E, N + rTR), to: [E, N + rTR] },
+    { closed: !open.e, from: [E, N + rTR], d: bow(12, E, N + rTR, E, S - rBR, -1, 0), to: [E, S - rBR] },
+    { closed: !open.s && !open.e, d: arc(rBR, E - rBR, S), to: [E - rBR, S] },
+    { closed: !open.s, from: [E - rBR, S], d: bow(13, E - rBR, S, W + rBL, S, 0, -1), to: [W + rBL, S] },
+    { closed: !open.s && !open.w, d: arc(rBL, W, S - rBL), to: [W, S - rBL] },
+    { closed: !open.w, from: [W, S - rBL], d: bow(14, W, S - rBL, W, N + rTL, 1, 0), to: [W, N + rTL] },
+    { closed: !open.n && !open.w, d: arc(rTL, W + rTL, N), to: [W + rTL, N] }
+  ];
+  /* the fill: every segment, closed; open sides are straight lines to the boundary */
+  let fill = "M" + P(W + rTL, N);
+  for (const g of segs) fill += g.closed ? g.d : "L" + P(g.to[0], g.to[1]);
+  fill += "Z";
+  /* the rim: only what faces floor, each run started where it starts */
+  let rim = "", pen = null;
+  const same = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
+  for (const g of segs) {
+    if (!g.closed) { pen = null; continue; }
+    const start = g.from || pen;
+    if (!same(pen, start)) rim += "M" + P(start[0], start[1]);
+    rim += g.d;
+    pen = g.to;
+  }
+  return { fill, rim };
+}
+
+/* THE SHEEN IS IN STREAKS. Oil on a floor is black with iridescence running
+ * through it in bands that follow how it flowed, not a rainbow laid flat over
+ * the lot: two or three curved strokes per square, each its own hue from the
+ * film's range, each set a little differently by where the square is, and one
+ * small hard specular where the light actually hits. The film underneath is
+ * kept faint enough that the streaks are the colour you notice. */
+const SWIRL_HUES = ["#8b79ff", "#3fd8cc", "#e0a94a", "#c56cff"];
+export function oilSheen(c, r) {
+  let out = "";
+  const n = 2 + (oilVar(c, r, 15) > 0.5 ? 1 : 0);
+  for (let i = 0; i < n; i++) {
+    const v = k => oilVar(c, r, 20 + i * 4 + k);
+    const x0 = 14 + v(0) * 30, y0 = 22 + v(1) * 56;
+    const dx = 26 + v(2) * 34, dy = (v(3) - 0.5) * 30;
+    const cx = x0 + dx * 0.5 + (v(1) - 0.5) * 24, cy = y0 + dy * 0.5 - (v(2) - 0.5) * 26;
+    const hue = SWIRL_HUES[(c + r * 3 + i) % SWIRL_HUES.length];
+    out += '<path class="pr-oil-swirl" stroke="' + hue + '" d="M' + x0.toFixed(1) + " " + y0.toFixed(1) +
+      "Q" + cx.toFixed(1) + " " + cy.toFixed(1) + " " + (x0 + dx).toFixed(1) + " " + (y0 + dy).toFixed(1) + '"/>';
+  }
+  const sx = 28 + oilVar(c, r, 16) * 30, sy = 28 + oilVar(c, r, 17) * 24;
+  out += '<path class="pr-oil-sheen" transform="translate(' + (sx - 42).toFixed(1) + " " + (sy - 38).toFixed(1) + ')"' +
+    ' d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>';
+  return out;
+}
+
+/** One puddle with floor on every side: the rail's swatch. On a board the
+ *  spill is a layer (svg.js, oilLayer) drawn from the same shape. */
 export function oilSvg() {
-  return svg('<path class="pr-oil" d="' + OIL_BODY + '"/>' +
-             '<path class="pr-oil-film" d="' + OIL_BODY + '"/>' +
-             '<path class="pr-oil-rim" d="M23 52C22 34 36 22 52 22C64 22 74 26 79 36"/>' +
-             '<path class="pr-oil-sheen" d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>',
-             "pr-oil");
+  const { fill, rim } = oilBlobPath({ n: false, e: false, s: false, w: false }, 0, 0);
+  return svg('<path class="pr-oil" d="' + fill + '"/>' +
+             '<path class="pr-oil-film" d="' + fill + '"/>' +
+             '<path class="pr-oil-rim" d="' + rim + '"/>' +
+             '<g filter="url(#pr-oilsoft)">' + oilSheen(0, 0) + "</g>", "pr-oil");
 }
 
 export function pressSvg() {
