@@ -150,6 +150,18 @@ export const TESTS = [
     stepRobot(st, co.C, p, S, "ramp");
     eq([[p.c, p.r], [q.c, q.r]], [[3, 4], [3, 5]], "the robot below the ramp is pushed along");
   }],
+  ["a conveyor carries a robot down a ledge at the drop's cost, not up one, and off the edge of the board", () => {
+    /* the terrace: rows 0-2 a level up; a belt on the terrace's edge running down, one below running up, one at the rim running off */
+    const co = terraced((b, t) => { t.setCell(1, 2, "bv."); t.setCell(3, 3, "..."); t.setCell(4, 3, "b^."); t.setCell(0, 5, "b<."); });
+    let st = mgame(co, [{ c: 1, r: 2, face: E }, { c: 4, r: 3, face: E }, { c: 0, r: 5, face: N }]);
+    const [down, up, rim] = st.players;
+    beltPass(st, co.C, 1, 2);
+    eq([[down.c, down.r], dmg(st, down)], [[1, 3], 2], "carried down off the ledge, and it draws two damage");
+    eq([up.c, up.r], [4, 3], "the belt running up at the ledge moves nothing: a ledge cannot be climbed without a ramp");
+    eq(dmg(st, up), 0, "and costs nothing");
+    assert(!rim.alive, "the belt at the rim carries the robot off the board");
+    assertInvariants(st, co.library);
+  }],
   ["currents convey at their own step, and are water", () => {
     const co = far((b, t) => { t.setCell(2, 5, "C>."); t.setCell(3, 5, "C>."); t.setCell(2, 3, "b>."); });
     const st = mgame(co, [{ c: 2, r: 5, face: N }, { c: 2, r: 3, face: N }]);

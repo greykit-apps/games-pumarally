@@ -23,7 +23,7 @@ import {
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, edgeCodeAt, edgeInBounds,
   wallAt, isNormalOf, edgeOf
 } from "../lib/edges.js";
-import { isLedge, rampsOf, levelsUsed } from "../lib/levels.js";
+import { rampsOf, levelsUsed } from "../lib/levels.js";
 import { SITES, EXCLUSIVE, checkSites } from "../rulesets/sites.js";
 import { DC, DR, N, E, S, W, dirLetter } from "../lib/dir.js";
 import { REGISTER_COUNT } from "../lib/registers.js";
@@ -205,13 +205,11 @@ export function checkBelts(board, d) {
           " into a wall.", at(c, r), ptr);
         continue;
       }
-      const nc = c + DC[dir], nr = r + DR[dir];
-      if (!inBoard(board, nc, nr) || isVoid(board, nc, nr)) continue;
-      if (isLedge(board, c, r, dir)) {
-        d.error("belt.acrossLedge", "The conveyor at " + at(c, r) + " runs " + dirLetter(dir) +
-          " across a level change. A belt cannot climb, and a ramp is the only way between levels.",
-          at(c, r), ptr);
-      }
+      // A conveyor may run across a level change, and there is deliberately no
+      // check here: Wet and Wild says nothing that forbids it. A belt carries a
+      // robot down off a ledge (at the drop's cost), up one over a ramp, and off
+      // the board's edge, and the engine resolves each at play time. The check
+      // that used to be here (belt.acrossLedge) was invented, like belt.headOn.
       // Two conveyors that run head-on into each other are rare but legal: the
       // board art prints them and the engine resolves the contention at play
       // time. So there is deliberately no check here for opposed belts.
