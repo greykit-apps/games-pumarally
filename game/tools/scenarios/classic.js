@@ -10,7 +10,7 @@ import {
   stepRobot, beltPass, gearPass, pusherPass, laserPass, checkpointPass, computeLaserHits, damage
 } from "../../engine/rules.js";
 import { openRegisters, cardsDealt, CLASSIC_DECK } from "../../engine/cards.js";
-import { newGame, LIVERIES } from "../../engine/state.js";
+import { newGame, LIVERIES, assignLiveries, HUMAN_LIVERY } from "../../engine/state.js";
 import { step, tick } from "../../engine/machine.js";
 import { runGame } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
@@ -331,6 +331,10 @@ export const TESTS = [
     const co = courseOn(board(8, 8), [[1, 1]]);
     const st = newGame({ seed: 5, course: co.doc, seats: [{ seat: "human", livery: 3 }, { seat: "human", livery: 3 }, { seat: "bot", livery: 3 }] });
     eq(new Set(st.players.map(p => p.livery)).size, 3, "three seats, three liveries at the start");
+    /* a human seat that asked for nothing is Coolant; a second human the next free colour; bots fill the rest in order */
+    eq(assignLiveries([{ seat: "human" }, { seat: "bot" }, { seat: "human" }, { seat: "bot" }]).map(k => LIVERIES[k].name), ["Coolant", "Hazard", "Rivet", "Verdigris"], "the first human is Coolant, the rest fill in order");
+    eq(assignLiveries([{ seat: "bot" }, { seat: "human" }]).map(k => LIVERIES[k].name), ["Hazard", "Coolant"], "a human after a bot is still Coolant");
+    eq(assignLiveries([{ seat: "bot", livery: HUMAN_LIVERY }, { seat: "human" }]).map(k => LIVERIES[k].name), ["Coolant", "Hazard"], "a seat that asked for Coolant first keeps it");
     let r = step(st, co.library);
     assert(r.waiting.kind === "livery" && r.waiting.player === 0, "seat 0 picks first");
     r = step(st, co.library, 5);
