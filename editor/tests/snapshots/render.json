@@ -11,12 +11,12 @@
   },
   "assembly": {
     "art": {
-      "sha": "dcb23c320c2c8a25",
-      "bytes": 30914
+      "sha": "4c65185f343c8241",
+      "bytes": 30796
     },
     "markup": {
-      "sha": "5c3bb6d06853f8aa",
-      "bytes": 21132
+      "sha": "fccc41dad735c1f9",
+      "bytes": 21004
     }
   },
   "blueprint": {
@@ -51,32 +51,32 @@
   },
   "cactus": {
     "art": {
-      "sha": "7c65b6b60b1d33a1",
-      "bytes": 75184
+      "sha": "2a2176f6012f506d",
+      "bytes": 74122
     },
     "markup": {
-      "sha": "8c86bab41b976dea",
-      "bytes": 63568
+      "sha": "900bd048bd13a16c",
+      "bytes": 62416
     }
   },
   "canneryRow": {
     "art": {
-      "sha": "fcf39659282b6a4d",
-      "bytes": 102471
+      "sha": "434bd7fd835850f3",
+      "bytes": 102058
     },
     "markup": {
-      "sha": "980fdb2a79f11e23",
-      "bytes": 75204
+      "sha": "b4002ad8f8a9dc14",
+      "bytes": 74756
     }
   },
   "circles": {
     "art": {
-      "sha": "f9fdcde41106ec92",
-      "bytes": 35583
+      "sha": "ec67d8fc036f449c",
+      "bytes": 35347
     },
     "markup": {
-      "sha": "2383c989b8176217",
-      "bytes": 28249
+      "sha": "81b08b9f58b8337d",
+      "bytes": 27993
     }
   },
   "circuitTrap": {
@@ -181,12 +181,12 @@
   },
   "inAndOut": {
     "art": {
-      "sha": "32c7094660660b63",
-      "bytes": 69260
+      "sha": "bc626d3efec82eac",
+      "bytes": 68788
     },
     "markup": {
-      "sha": "9bfa9280a4365f12",
-      "bytes": 60717
+      "sha": "8bfd6d15960e6308",
+      "bytes": 60205
     }
   },
   "island": {
@@ -211,42 +211,42 @@
   },
   "maelstrom": {
     "art": {
-      "sha": "44c310535856e4c2",
-      "bytes": 100945
+      "sha": "66486eeca388c701",
+      "bytes": 100296
     },
     "markup": {
-      "sha": "bf39d46247b34c86",
-      "bytes": 86487
+      "sha": "613628cd2e7ae1d5",
+      "bytes": 85783
     }
   },
   "mergers": {
     "art": {
-      "sha": "c9b96ad082b62417",
-      "bytes": 34713
+      "sha": "8632821d7468a0ad",
+      "bytes": 34477
     },
     "markup": {
-      "sha": "5cd96bd128ea3cc2",
-      "bytes": 24297
+      "sha": "4fdd30f5b379d3df",
+      "bytes": 24041
     }
   },
   "misdirection": {
     "art": {
-      "sha": "c0e43781a5b39768",
-      "bytes": 83726
+      "sha": "3bbeba4edfff7bce",
+      "bytes": 82959
     },
     "markup": {
-      "sha": "ab17cfd9428d9a76",
-      "bytes": 73798
+      "sha": "3be9642883ede8e1",
+      "bytes": 72966
     }
   },
   "oRing": {
     "art": {
-      "sha": "f534ee80de0e93b9",
-      "bytes": 112023
+      "sha": "bbf3f15f784eb444",
+      "bytes": 111787
     },
     "markup": {
-      "sha": "53e78b2b98593e6a",
-      "bytes": 60475
+      "sha": "8086a544088b0a97",
+      "bytes": 60219
     }
   },
   "pitMaze": {
@@ -261,12 +261,12 @@
   },
   "sidewinder": {
     "art": {
-      "sha": "9924373917b3167a",
-      "bytes": 69641
+      "sha": "71aab49fd87757e8",
+      "bytes": 69110
     },
     "markup": {
-      "sha": "5d59ca2f31b469d7",
-      "bytes": 54931
+      "sha": "4abf36de7fbdd64e",
+      "bytes": 54355
     }
   },
   "steps": {
@@ -291,12 +291,12 @@
   },
   "tempest": {
     "art": {
-      "sha": "b9e7baeb36ff39cb",
-      "bytes": 84396
+      "sha": "6cb0bf3fb184d381",
+      "bytes": 83924
     },
     "markup": {
-      "sha": "0a743a422c518d8b",
-      "bytes": 70416
+      "sha": "5b58c036e2387fa2",
+      "bytes": 69904
     }
   },
   "theH": {
@@ -311,22 +311,22 @@
   },
   "theKeep": {
     "art": {
-      "sha": "ddbe996ec88def95",
-      "bytes": 64156
+      "sha": "69dd94f602b0ad6c",
+      "bytes": 63920
     },
     "markup": {
-      "sha": "b433308c051802e8",
-      "bytes": 54494
+      "sha": "1b3967ac04d236b0",
+      "bytes": 54238
     }
   },
   "theOval": {
     "art": {
-      "sha": "515336accfb777fe",
-      "bytes": 35677
+      "sha": "5cd9d995dcb723b2",
+      "bytes": 35264
     },
     "markup": {
-      "sha": "f6ab639720330366",
-      "bytes": 25604
+      "sha": "918bd974bfc13329",
+      "bytes": 25156
     }
   },
   "theWave": {
@@ -371,32 +371,32 @@
   },
   "waterPark": {
     "art": {
-      "sha": "39cac53b1496ed96",
-      "bytes": 126861
+      "sha": "38c352e746b526fd",
+      "bytes": 126271
     },
     "markup": {
-      "sha": "a489da0cc5f7d420",
-      "bytes": 102701
+      "sha": "4ad6e5353d6872dd",
+      "bytes": 102061
     }
   },
   "whirlpool": {
     "art": {
-      "sha": "058db9e1ba7c3cb6",
-      "bytes": 37482
+      "sha": "e1f62f26a7ad3c88",
+      "bytes": 37246
     },
     "markup": {
-      "sha": "82f591d27868338b",
-      "bytes": 27888
+      "sha": "9536fff8499a96f4",
+      "bytes": 27632
     }
   },
   "winding": {
     "art": {
-      "sha": "d5312ed738baba83",
-      "bytes": 33901
+      "sha": "5eeed178661adbc2",
+      "bytes": 33252
     },
     "markup": {
-      "sha": "5776c993dead0182",
-      "bytes": 23435
+      "sha": "c33f130d14fccb1b",
+      "bytes": 22731
     }
   },
   "provingGround": {
