@@ -23,10 +23,15 @@
       "... ... ... l.. ... ... b^. ... r.. ... b^. ..."
     ],
     "sites": [
+      { "at": [3, 2], "has": ["flagspot"] },
       { "at": [4, 2], "has": ["battery"] },
-      { "at": [10, 5], "has": ["battery"] },
-      { "at": [3, 8], "has": ["battery"] },
-      { "at": [9, 8], "has": ["battery"] }
+      { "at": [11, 2], "has": ["flagspot"] },
+      { "at": [10, 5], "has": ["repair", "battery"] },
+      { "at": [5, 6], "has": ["flagspot"] },
+      { "at": [3, 8], "has": ["upgrade", "battery"] },
+      { "at": [9, 8], "has": ["battery"] },
+      { "at": [3, 10], "has": ["flagspot"] },
+      { "at": [9, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {
