@@ -203,39 +203,41 @@ function levelLayer(board, mode) {
          '<path d="' + d + '" ' + markStroke(MARK.level, 2.4) + ' stroke-dasharray="9 5"/>' + marks;
 }
 
-/* THE PLAY ART DRAWS A LEDGE AS A WALL WITH A FACE UNDER IT. The rim of a
- * block of squares at one level is a lip of the same concrete the walls are
- * made of, a little thinner, and on the LOWER side of it a shaded trapezoid
- * runs along the edge: the face of the step, its ends cut at the diagonals so
- * the faces round a block meet at the corners. Drawing the face on the lower
- * side is what makes the same rule read both ways -- a raised block wears its
- * faces outside itself and stands up off the floor, a sunken one wears them
- * inside and drops into it. A ramp edge and a walled edge are left to the ramp
- * and the wall; the markup view keeps its dashed line, which sits better over
- * a photograph. */
-const LIP = CELL * 0.12;
+/* A LEDGE IS A STEP, NOT A WALL. It was drawn as a thinner bar of the same
+ * concrete with the same shadow, so a step and a barrier differed only in
+ * width -- and a wall standing on a level edge was drawn as the wall alone,
+ * so the drop beneath it was invisible. Now the two are made of different
+ * things. A level edge gets a FACE on its lower side: a shaded trapezoid
+ * running along the edge, its ends cut at the diagonals so the faces round a
+ * block meet at the corners, lit concrete fading into the floor. Drawing it
+ * on the lower side is what makes the rule read both ways -- a raised block
+ * wears its faces outside itself and stands up off the floor, a sunken one
+ * wears them inside and drops into it. An unwalled edge gets, on top of that,
+ * a thin lit RIM along the edge itself: the lip of the platform catching the
+ * light, a line and not a bar, nothing you could mistake for something that
+ * stops a robot. A walled edge gets the face too, with the wall drawn over
+ * it: a wall on a step, impassable and a drop. A ramp edge is left to the
+ * ramp; the markup view keeps its dashed line, which sits better over a
+ * photograph. */
 function ledgeArt(board) {
-  let lips = [], faces = "";
+  let rims = "", faces = "";
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       if (isVoid(board, c, r)) continue;
       for (const d of [N, E, S, W]) {
         /* once per edge, from its lower square */
         const step = levelStep(board, c, r, d);
-        if (step <= 0 || !isLedge(board, c, r, d) || rampOn(board, c, r, d) || wallAt(board, c, r, d) !== EDGE_NONE) continue;
+        if (step <= 0 || !isLedge(board, c, r, d) || rampOn(board, c, r, d)) continue;
         const depth = Math.min(26, 14 + 6 * (step - 1));
-        /* lit concrete fading into the floor: a face catching the light,
-         * which on this dark floor reads better than a shadow would */
         faces += g(at(c, r) + spin(d), '<path d="M 0 0 H ' + CELL + " L " + (CELL - depth) + " " + depth + " H " + depth + ' Z" fill="url(#pr-ledgeface)"/>');
-        const x = c * CELL + (d === E ? CELL : 0), y = r * CELL + (d === S ? CELL : 0);
-        lips.push(d === N || d === S
-          ? { x: c * CELL, y: y - LIP / 2, w: CELL, h: LIP }
-          : { x: x - LIP / 2, y: r * CELL, w: LIP, h: CELL });
+        /* the wall itself marks a walled edge; the face beneath it says it is also a step */
+        if (wallAt(board, c, r, d) !== EDGE_NONE) continue;
+        rims += g(at(c, r) + spin(d), '<path class="pr-ledge-rim" d="M 3 0 H ' + (CELL - 3) + '"/>' +
+          '<path class="pr-ledge-rim-dark" d="M 2 2.6 H ' + (CELL - 2) + '"/>');
       }
     }
   }
-  /* the lips are poured as one body too, so a block's rim turns its corners */
-  return faces + masonry(lips, "l");
+  return faces + rims;
 }
 
 /** Ramps: drawn on the foot square of each ramp edge, climbing toward the
