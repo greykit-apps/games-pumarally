@@ -329,10 +329,15 @@ export const DEVICE_GLYPHS = {
   },
 
   jet: {
-    art: ctx => A.burnerSvg(N, true) +
-      (ctx.reach > 1 ? artText("2", 82, 78, ART.jet, 20) : ""),
+    /* a reach-two jet draws the near half of its fire here and the far half in
+       the next square (svg.js, deviceLayer), stamped on both: the "2" in the
+       corner it used to carry said the same thing in a way nobody read */
+    art: ctx => A.burnerSvg(N, true, ctx.reach > 1 ? "near" : "one"),
+    /* the far square's share, for the renderer: the fire alone, no nozzle */
+    far: ctx => A.burnerSvg(N, false, "far"),
     markup: ctx => mk("M 40 98 L 40 88 L 60 88 L 60 98 M 44 84 q 6 -14 -2 -22 q 14 8 14 22",
-      MARK.device, 1.5) + (ctx.reach > 1 ? mkText("2", 70, 84, MARK.device, 20) : "") +
+      MARK.device, 1.5) + regsMark(ctx.regs, MARK.device),
+    farMarkup: ctx => mk("M 44 60 q 6 -14 -2 -22 q 14 8 14 22 M 36 96 L 50 70 L 64 96", MARK.device, 1.5) +
       regsMark(ctx.regs, MARK.device)
   },
 

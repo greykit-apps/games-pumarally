@@ -419,10 +419,29 @@ const FLAME_LAYERS = [
   ["pr-flame-tip",  "M49 30C47 38 46 44 47 52C48 58 50 60 50 64C50 60 52 58 53 52C54 44 53 38 51 30Z"]
 ];
 
-export function burnerSvg(dir, nozzle) {
+/* A REACH-TWO JET IS ONE FIRE ACROSS TWO SQUARES. `span` says which part of
+ * it a square draws: "one" is the whole plume in its own square; "near" is
+ * the first square of two, whose plume runs out to the far edge without
+ * breaking into tongues -- they belong to the far square -- and "far" is the
+ * second square, whose plume comes in at the near edge at the width the
+ * first left off and thins to its tongues. The two are authored to meet at
+ * the boundary, so the fire reads as thrown two squares, not as two fires. */
+const FLAME_NEAR = [
+  ["pr-flame",      "M44 22C40 34 30 44 30 56C30 68 33 80 32 100H68C67 80 70 68 70 56C70 44 60 34 56 22Z"],
+  ["pr-flame-mid",  "M46 26C42 38 36 46 37 58C38 70 40 82 40 100H60C60 82 62 70 63 58C64 46 58 38 54 26Z"],
+  ["pr-flame-core", "M48 30C46 40 42 48 43 58C44 70 46 84 47 100H53C54 84 56 70 57 58C58 48 54 40 52 30Z"],
+  ["pr-flame-tip",  "M49 30C47 38 46 44 47 52C48 58 50 60 50 64C50 60 52 58 53 52C54 44 53 38 51 30Z"]
+];
+const FLAME_FAR = [
+  ["pr-flame",      "M32 0C31 14 28 26 29 40C30 52 36 58 33 72C41 66 45 70 50 84C55 70 58 66 66 74C64 58 70 52 71 40C72 26 69 14 68 0Z"],
+  ["pr-flame-mid",  "M40 0C39 12 37 24 38 38C39 48 43 54 42 66C47 62 49 64 50 74C52 64 55 62 58 66C60 54 63 48 63 38C64 24 61 12 60 0Z"],
+  ["pr-flame-core", "M47 0C46 10 45 20 45 32C45 42 48 48 50 58C52 48 55 42 55 32C55 20 54 10 53 0Z"]
+];
+
+export function burnerSvg(dir, nozzle, span = "one") {
   const deg = (dir - 2) * 90;
   let art = "";
-  if (nozzle) {
+  if (nozzle && span !== "far") {
     /* the mount on the wall, and a short barrel the plume leaves from */
     art += '<rect class="pr-jet-mount" x="28" y="1" width="44" height="11" rx="2.5"/>' +
            '<circle class="pr-jet-bolt" cx="34" cy="6.5" r="2.2"/>' +
@@ -430,13 +449,16 @@ export function burnerSvg(dir, nozzle) {
            '<rect class="pr-jet-barrel" x="42" y="11" width="16" height="12" rx="2"/>' +
            '<path class="pr-jet-muzzle" d="M43 21H57"/>';
   }
-  art += '<path class="pr-flame-glow" d="' + FLAME_LAYERS[0][1] + '" filter="url(#pr-beamglow)"/>';
-  for (const [cls, d] of FLAME_LAYERS) art += '<path class="' + cls + '" d="' + d + '"/>';
-  /* sparks thrown ahead of the plume */
-  art += '<circle class="pr-spark" cx="27" cy="72" r="1.6"/>' +
-         '<circle class="pr-spark" cx="74" cy="78" r="1.3"/>' +
-         '<circle class="pr-spark" cx="39" cy="93" r="1.4"/>' +
-         '<circle class="pr-spark" cx="62" cy="96" r="1.1"/>';
+  const layers = span === "near" ? FLAME_NEAR : span === "far" ? FLAME_FAR : FLAME_LAYERS;
+  art += '<path class="pr-flame-glow" d="' + layers[0][1] + '" filter="url(#pr-beamglow)"/>';
+  for (const [cls, d] of layers) art += '<path class="' + cls + '" d="' + d + '"/>';
+  /* sparks thrown ahead of the plume: at its far end, whichever square that is */
+  if (span !== "near") {
+    art += '<circle class="pr-spark" cx="27" cy="72" r="1.6"/>' +
+           '<circle class="pr-spark" cx="74" cy="78" r="1.3"/>' +
+           '<circle class="pr-spark" cx="39" cy="93" r="1.4"/>' +
+           '<circle class="pr-spark" cx="62" cy="96" r="1.1"/>';
+  }
   return svg('<g transform="rotate(' + deg + ' 50 50)">' + art + "</g>", "pr-burner pr-jet");
 }
 
