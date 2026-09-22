@@ -13,6 +13,27 @@ import UPGRADES_DATA from "../data/upgrades.js";
 import { newHeld } from "./options.js";
 
 export const LIVERIES = LIVERY_DATA.liveries;
+/* The colour a human seat gets unless it asks for another: Coolant, the
+ * author's favourite. A bot takes what is left, in the table's order. */
+export const HUMAN_LIVERY = LIVERIES.findIndex(l => l.name === "Coolant");
+
+/**
+ * The livery each seat starts with, in seat order: a seat that asked for one
+ * gets it if nobody earlier did, a human seat that asked for none gets
+ * HUMAN_LIVERY if it is free, and the rest fill in the table's order, so no
+ * two robots share a colour before anyone picks. Shared with the setup
+ * screen, so the swatch beside a seat is the colour it will actually get.
+ */
+export function assignLiveries(seats) {
+  const taken = new Set();
+  return seats.map(s => {
+    let liv = Number.isInteger(s.livery) && !taken.has(s.livery) ? s.livery : -1;
+    if (liv < 0 && s.seat !== "bot" && !taken.has(HUMAN_LIVERY)) liv = HUMAN_LIVERY;
+    if (liv < 0) for (let k = 0; k < LIVERIES.length; k++) if (!taken.has(k)) { liv = k; break; }
+    taken.add(liv);
+    return liv;
+  });
+}
 export const SAVE_VERSION = 1;
 export const MAX_TURNS = 200;
 const START_LIVES = 3;
@@ -93,13 +114,9 @@ export function newGame(opts) {
     maxTurns: opts.maxTurns || MAX_TURNS
   };
 
-  /* liveries: a seat that asked for one gets it if nobody earlier did; the
-   * rest fill in order, so no two robots share a colour before anyone picks */
-  const taken = new Set();
+  const liveries = assignLiveries(seats);
   seats.forEach((s, i) => {
-    let liv = Number.isInteger(s.livery) && !taken.has(s.livery) ? s.livery : -1;
-    if (liv < 0) for (let k = 0; k < LIVERIES.length; k++) if (!taken.has(k)) { liv = k; break; }
-    taken.add(liv);
+    const liv = liveries[i];
     st.players.push({
       id: i,
       seat: s.seat === "bot" ? "bot" : "human",

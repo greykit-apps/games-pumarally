@@ -12,7 +12,7 @@ import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { assemble } from "../../editor/lib/course.js";
 import { readCourse, rulesetsFor } from "../engine/library.js";
-import { LIVERIES } from "../engine/state.js";
+import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
@@ -125,8 +125,10 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     html += "</div>";
 
     html += "<h2>Seats</h2><div class='seats'>";
+    /* the swatch is the colour the seat will get: the first human is Coolant, the rest fill in order */
+    const liveries = assignLiveries(prefs.seats);
     prefs.seats.forEach((s, i) => {
-      const liv = LIVERIES[i];
+      const liv = LIVERIES[liveries[i]];
       html += '<div class="seat"><span>' + (i + 1) + '</span><span class="sw" style="background:' + liv.a + '"></span>' +
         '<select data-seat="' + i + '"><option value="human"' + (s.seat === "human" ? " selected" : "") + '>Human</option>' +
         '<option value="bot"' + (s.seat === "bot" ? " selected" : "") + '>Bot</option></select>' +

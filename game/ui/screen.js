@@ -714,8 +714,10 @@ export function mountScreen(root, ctx) {
   function requestHtml(w, me) {
     switch (w.kind) {
       case "livery":
-        return '<div class="ask"><p>' + esc(me.name) + ", pick your colour.</p><div class='row'>" +
-          w.options.map(k => '<button data-livery="' + k + '" style="border-color:' + LIVERIES[k].a + ';color:' + LIVERIES[k].a + '">' + esc(LIVERIES[k].name) + "</button>").join("") + "</div></div>";
+        /* the seat's own colour is offered first and lit: one click keeps it */
+        return '<div class="ask"><p>' + esc(me.name) + ", you are <b style='color:" + LIVERIES[me.livery].a + "'>" + esc(LIVERIES[me.livery].name) + "</b>. Keep it, or pick another colour.</p><div class='row'>" +
+          [...w.options].sort((a, b) => (a === me.livery ? 0 : 1) - (b === me.livery ? 0 : 1))
+            .map(k => '<button data-livery="' + k + '" aria-pressed="' + (k === me.livery) + '" style="border-color:' + LIVERIES[k].a + ';color:' + LIVERIES[k].a + '">' + esc(LIVERIES[k].name) + "</button>").join("") + "</div></div>";
       case "bay":
         return '<div class="ask"><p>' + esc(me.name) + ", pick a docking bay. They are lit on the board.</p><div class='row'>" +
           w.options.map(n => '<button data-bay="' + n + '">Bay ' + n + "</button>").join("") + "</div></div>";
