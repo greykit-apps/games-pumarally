@@ -211,12 +211,12 @@
   },
   "gauntletOfFire": {
     "art": {
-      "sha": "748ecb9a45d93ec8",
-      "bytes": 97324
+      "sha": "e4fbfecb506035e2",
+      "bytes": 109400
     },
     "markup": {
-      "sha": "5e50ce7bdea82592",
-      "bytes": 79531
+      "sha": "9931f6c759e0fdb5",
+      "bytes": 88599
     }
   },
   "gearBox": {
@@ -471,12 +471,12 @@
   },
   "trenchRun": {
     "art": {
-      "sha": "7507b33da2ea89be",
-      "bytes": 47657
+      "sha": "dcceba7f7c01d188",
+      "bytes": 89789
     },
     "markup": {
-      "sha": "bb7e55652ce46046",
-      "bytes": 29449
+      "sha": "dd75641380cd85f7",
+      "bytes": 69128
     }
   },
   "waterPark": {
