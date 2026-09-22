@@ -12,7 +12,7 @@
  * same board transcribed twice carries the same sites too.
  */
 
-import { groundRows, latticeRows } from "../lib/canon.js";
+import { groundRows, latticeRows, levelRows, rampRows } from "../lib/canon.js";
 import { siteList } from "../lib/board.js";
 import { canonSites } from "../rulesets/sites.js";
 
@@ -22,6 +22,11 @@ function layoutKey(board) {
     groundRows(board).join("\n"),
     latticeRows(board, "h").join("\n"),
     latticeRows(board, "v").join("\n"),
+    /* elevation is layout too: a board and its copy with a channel cut into
+     * it are two boards, and so are one with a ramp and one without */
+    (levelRows(board) || []).join("\n"),
+    rampRows(board, "h").join("\n"),
+    rampRows(board, "v").join("\n"),
     siteList(board).map(s => s.c + "," + s.r + ":" + canonSites(s.has).join("+")).join(";")
   ].join("\n--\n");
 }

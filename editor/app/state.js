@@ -63,6 +63,12 @@ function same(a, b) {
   for (let i = 0; i < a.cells.length; i++) if (a.cells[i] !== b.cells[i]) return false;
   for (let i = 0; i < a.wallH.length; i++) if (a.wallH[i] !== b.wallH[i]) return false;
   for (let i = 0; i < a.wallV.length; i++) if (a.wallV[i] !== b.wallV[i]) return false;
+  /* THE RAMP LATTICE COUNTS. The first ramp laid on a flat board raised a
+   * square, which this saw; a second ramp against that raised square changed
+   * only the lattice, which it did not -- so the ramp sat in the model with no
+   * redraw, no undo step and no autosave, the sites bug below over again. */
+  for (let i = 0; i < a.rampH.length; i++) if (a.rampH[i] !== b.rampH[i]) return false;
+  for (let i = 0; i < a.rampV.length; i++) if (a.rampV[i] !== b.rampV[i]) return false;
   const al = a.levels, bl = b.levels;
   if (!!al !== !!bl) return false;
   if (al && bl) for (let i = 0; i < al.length; i++) if (al[i] !== bl[i]) return false;

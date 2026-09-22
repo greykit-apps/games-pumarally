@@ -726,6 +726,19 @@ const fresh = (w = 8, h = 8) =>
   const t3 = mark(stS);
   stS.board.siteNotes.set("1,1", "uncertain");
   ok(keep(stS, t3), "sites: a note on a square is a change");
+  /* the same bug for the ramp lattice: the first ramp on a flat board raised a
+   * square, which keep() saw; the second, against the raised square, changed
+   * only the lattice, which it did not */
+  const ramp = { ...blankToolState(), tool: "ramp" };
+  const t4 = mark(stS);
+  ok(apply(stS.board, ramp, 2, 2, { face: N }).changed, "ramps: the first ramp raises (2,1)");
+  ok(keep(stS, t4), "ramps: and keep() sees it");
+  const t5 = mark(stS);
+  ok(apply(stS.board, ramp, 2, 1, { face: E }).changed, "ramps: a second ramp on the raised square, levels already differ");
+  ok(keep(stS, t5), "ramps: keep() sees a change that is only the lattice, so it redraws and is undoable");
+  const t6 = mark(stS);
+  apply(stS.board, ramp, 2, 1, { face: E });        // toggles it back off
+  ok(keep(stS, t6), "ramps: taking a ramp off is a change too");
 }
 {
   /* 2. flags stay on their square when the layout's origin moves */
