@@ -103,6 +103,7 @@ button[data-ruleset]{padding:8px 14px}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ask{border:1px solid var(--accent);border-radius:4px;padding:10px;background:#0a1620}
 .ask p{margin:0 0 8px}
+.ask .away{margin:6px 0 0;color:var(--text);font-size:12px}
 .robots{display:flex;flex-direction:column}
 .robot{display:flex;flex-direction:column;gap:5px;font-size:12px;padding:7px 0;border-top:1px solid var(--line)}
 .robot:first-child{border-top:0;padding-top:0}
