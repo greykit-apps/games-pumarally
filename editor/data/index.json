@@ -317,6 +317,14 @@
       "h": 6,
       "set": "masterBuilder",
       "origin": "transcribed"
+    },
+    {
+      "id": "waterPark",
+      "name": "Water Park",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
     }
   ],
   "courses": [

@@ -369,6 +369,16 @@
       "bytes": 82478
     }
   },
+  "waterPark": {
+    "art": {
+      "sha": "23729972a620a6c9",
+      "bytes": 121396
+    },
+    "markup": {
+      "sha": "08ade2dedf1e01a5",
+      "bytes": 98374
+    }
+  },
   "whirlpool": {
     "art": {
       "sha": "9a43758884f6da92",
