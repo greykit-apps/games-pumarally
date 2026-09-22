@@ -497,11 +497,13 @@ export function mountScreen(root, ctx) {
       }
       case "destroyed":
         return { dur: T.slide + T.appear, acts: [
-          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); tagPiece(p.id, ""); }],
+          /* the panel is told at once: a wreck is the moment a player starts
+             wondering whether the game has forgotten them */
+          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); tagPiece(p.id, ""); if (isHuman(p)) safely(renderPanel); }],
           /* then the ghost, where it will come back */
           [T.slide, () => { const back = returnPoint(p); if (back) drawPiece(p.id, back.c, back.r, back.face, "ghost", false); }]] };
       case "respawned": case "placed": case "rebooted":
-        return { dur: T.land, acts: [[0, () => drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false)]] };
+        return { dur: T.land, acts: [[0, () => { drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false); if (isHuman(p)) safely(renderPanel); }]] };
       case "flag": {
         const f = els.overlay.querySelector('.flag[data-n="' + e.flag + '"]');
         return { dur: T.flag, acts: [[0, () => { if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
@@ -752,7 +754,25 @@ export function mountScreen(root, ctx) {
       /* the floor is moving, or a bot is thinking: the humans' register
        * plans and buttons stay up here, live, so a card can be armed or the
        * damage button flipped while the registers run */
-      html += '<div class="ask"><p>' + (animating ? "The floor is moving&hellip;" : esc(me.name) + " is thinking.") + "</p>" +
+      /* A HUMAN WHOSE ROBOT IS OFF THE BOARD IS TOLD SO, HERE. Until now the
+       * panel said only "the floor is moving" for the rest of the turn after a
+       * wreck, while the other robots finished their registers -- which reads
+       * as the game having forgotten you. It has not: you are back next turn,
+       * and the panel now says so, with the lives left and where. */
+      /* While the replay runs the engine's state is already the FUTURE -- the
+       * robot may have respawned in it -- so what is off the board is read
+       * from what the replay has drawn, not from the state. */
+      const isAway = p => animating ? drawnAt(p.id).show !== "on" : (p.out || !p.alive || p.rebooting);
+      const away = st.players.filter(p => isHuman(p) && isAway(p)).map(p => {
+        if (p.out) return '<p class="away"><b style="color:' + LIVERIES[p.livery].a + '">' + esc(p.name) + "</b> is out of the race. The others race on.</p>";
+        const back = returnPoint(p) || (p.archive ? { c: p.archive.c, r: p.archive.r } : null);
+        const where = back ? " at (" + back.c + "," + back.r + ")" + (back.token ? " on the Reboot Token" : "") : "";
+        return '<p class="away"><b style="color:' + LIVERIES[p.livery].a + '">' + esc(p.name) + "</b> " +
+          (isModern(st) ? "is rebooting and comes back" + where + " in register 1 of the next round." :
+           "is destroyed, with " + p.lives + (p.lives === 1 ? " life" : " lives") + " left, and comes back" + where + " next turn.") +
+          " The other robots are finishing the turn.</p>";
+      }).join("");
+      html += '<div class="ask"><p>' + (animating ? "The floor is moving&hellip;" : esc(me.name) + " is thinking.") + "</p>" + away +
         st.players.filter(p => isHuman(p) && !p.out).map(p => { const ctl = ctlHtml(p), plan = planHtml(p); return ctl || plan ? '<div class="live"><span class="who" style="color:' + LIVERIES[p.livery].a + '">' + esc(p.name) + "</span>" + plan + '<div class="ctl">' + ctl + "</div></div>" : ""; }).join("") + "</div>";
     } else if (w && isHuman(me)) {
       html += requestHtml(w, me);
