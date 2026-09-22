@@ -23,11 +23,15 @@
       "T.. ... ... ... ... Bv. b^. ... ... ... b^. o.."
     ],
     "sites": [
-      { "at": [2, 2], "has": ["battery"] },
+      { "at": [2, 2], "has": ["upgrade", "battery"] },
+      { "at": [9, 2], "has": ["flagspot"] },
       { "at": [10, 2], "has": ["battery"] },
+      { "at": [2, 4], "has": ["flagspot"] },
       { "at": [9, 7], "has": ["battery"] },
       { "at": [1, 9], "has": ["battery"] },
-      { "at": [8, 9], "has": ["battery"] }
+      { "at": [2, 9], "has": ["flagspot"] },
+      { "at": [8, 9], "has": ["repair", "battery"] },
+      { "at": [8, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {
