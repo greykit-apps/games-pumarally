@@ -154,6 +154,30 @@ cutover, then modern. `tools/scenarios.js` carries every rule the old suite
 asserted, as pending until the new engine passes it, so the count that
 matters is visible from the first commit.
 
+## Debug dumps, and replaying one
+
+The **Debug** button in the top bar saves the race as a file,
+`pumarally-debug-<seed>-t<turn>.json`. It carries two things: the **trace** --
+the game's inputs (seed, course, seats, house rules, ruleset) and every answer
+given through the request door, bots' included, plus every log line with the
+turn and register it happened in -- and the **state** as it stands. The engine
+is deterministic, so the inputs plus the answers *are* the game; the state is
+there to compare against.
+
+    node game/tools/replay-dump.js pumarally-debug-<seed>-t<turn>.json [--log] [--until N]
+
+re-runs the trace headlessly and checks it lands on the dumped state: turn,
+phase, every robot's square, facing, damage and lives, and the RNG. A dump
+whose replay does not land on its own state is the interesting kind -- the
+browser took a branch the engine no longer takes, and the answer at which the
+replay first diverges is where to look. `--log` prints the race as it goes;
+`--until N` stops after N answers to inspect the state part-way.
+
+The trace is kept in `localStorage` beside the save (`pumarally_trace_v1`) and
+written on every step, so a dump taken after something has gone wrong still
+holds the whole race. A race started before traces were kept dumps its state
+alone and says so.
+
 ## Checks
 
 ```
