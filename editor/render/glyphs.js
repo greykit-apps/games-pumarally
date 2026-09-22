@@ -348,10 +348,9 @@ export const DEVICE_GLYPHS = {
     markup: ctx => ceilingMark(ctx)
   },
   flamer: {
-    art: ctx => '<circle cx="50" cy="52" r="26" fill="none" stroke="' + ART.flamer +
-      '" stroke-width="5" stroke-dasharray="7 6"/>' +
-      '<path d="M 44 62 q 8 -18 -2 -28 q 18 10 18 28" fill="none" stroke="' + ART.flamer +
-      '" stroke-width="5" stroke-linecap="round"/>',
+    /* the game's grate-and-tongues drawing; see art.js for why it is not the
+       jet's plume with the nozzle left off */
+    art: ctx => A.flamerSvg(),
     markup: ctx => mk("M 24 52 A 26 26 0 1 1 76 52 A 26 26 0 1 1 24 52 " +
       "M 44 62 q 8 -18 -2 -28 q 18 10 18 28", MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22)
   }

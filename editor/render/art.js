@@ -242,7 +242,7 @@ export function oilBlobPath(open, c, r, ox = 0, oy = 0) {
    * is continuous across them instead of stepping at every square boundary.
    * The bow along each side is per square, which is what keeps it organic. */
   const ins = (line, axis, k) => 9 + oilVar(line, axis, k) * 7;
-  const rad = k => 24 + oilVar(c, r, k) * 12;
+  const rad = k => 13 + oilVar(c, r, k) * 9;
   const N = open.n ? 0 : ins(r, 0, 1), S = open.s ? 100 : 100 - ins(r + 1, 0, 1);
   const W = open.w ? 0 : ins(c, 1, 2), E = open.e ? 100 : 100 - ins(c + 1, 1, 2);
   const f = v => (v + 0).toFixed(1);
@@ -251,13 +251,40 @@ export function oilBlobPath(open, c, r, ox = 0, oy = 0) {
   const rTL = (!open.n && !open.w) ? rad(5) : 0, rTR = (!open.n && !open.e) ? rad(6) : 0;
   const rBR = (!open.s && !open.e) ? rad(7) : 0, rBL = (!open.s && !open.w) ? rad(8) : 0;
   const arc = (rr, x, y) => (rr ? "A" + f(rr) + " " + f(rr) + " 0 0 1 " + P(x, y) : "L" + P(x, y));
-  /* A side that meets floor BOWS, a few units in or out, through a quadratic
-   * whose control point sits off its midpoint. A side that meets more oil stays
-   * dead straight, because it has to land exactly on the neighbour's edge or
-   * the two puddles show a notch where they join. */
+  /* A SIDE THAT MEETS FLOOR IS LOBED, NOT RULED. The first version bowed each
+   * side through one shallow quadratic, and eighteen of those in a ring read
+   * as a square trench with soft corners. A spill's edge is a run of bulges
+   * with pinches between them, so a side is now drawn as two, three or four
+   * lobes -- as many as its length has room for -- each bulging OUT toward
+   * the square's boundary and stopping a hair short of it, so the oil never
+   * paints over a neighbouring square's element. The pinches sit a little in
+   * from the line, which is what makes the bulges read as bulges. The lobes
+   * repeat square by square, which is fine: the two ends of every side are
+   * pinned to the corner points, and those agree with the neighbours', so a
+   * run of squares is one scalloped edge with no step in it. */
+  const lobes = (k, x0, y0, x1, y1, nx, ny, inset) => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const m = Math.max(1, Math.round(len / 26 + (oilVar(c, r, k) - 0.5) * 0.8));
+    const ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+    /* uneven lobe widths, normalised to the side */
+    const w = []; let tot = 0;
+    for (let i = 0; i < m; i++) { const v = 0.65 + oilVar(c, r, k * 7 + i) * 0.7; w.push(v); tot += v; }
+    let out = "", t = 0;
+    for (let i = 0; i < m; i++) {
+      const t1 = t + w[i] / tot;
+      const mid = (t + t1) / 2;
+      const bulge = inset * 1.7 * (0.7 + oilVar(c, r, k * 11 + i) * 0.3);    // control offset; the curve peaks at half
+      const pinch = i === m - 1 ? 0 : 2 + oilVar(c, r, k * 13 + i) * 2.5;      // the last point is the corner itself
+      const cx = x0 + ux * len * mid - nx * bulge, cy = y0 + uy * len * mid - ny * bulge;
+      const px = x0 + ux * len * t1 + nx * pinch, py = y0 + uy * len * t1 + ny * pinch;
+      out += "Q" + P(cx, cy) + " " + P(px, py);
+      t = t1;
+    }
+    return out;
+  };
   const bow = (k, x0, y0, x1, y1, nx, ny) => {
-    const a = (oilVar(c, r, k) - 0.5) * 11;
-    return "Q" + P((x0 + x1) / 2 + nx * a, (y0 + y1) / 2 + ny * a) + " " + P(x1, y1);
+    const inset = nx ? (nx > 0 ? W : 100 - E) : (ny > 0 ? N : 100 - S);
+    return lobes(k, x0, y0, x1, y1, nx, ny, inset);
   };
   /* Built as segments, so the RIM can be a second path holding only the
    * segments that face floor. Stroking the whole outline would draw a line
@@ -331,19 +358,76 @@ export function pressSvg() {
              '<circle class="pr-press-bolt" cx="50" cy="50" r="9"/>', "pr-press");
 }
 
+/* FIRE, IN TWO SHAPES THAT CANNOT BE MISTAKEN FOR EACH OTHER.
+ *
+ * Both devices are a point of damage over a square, and the rules of either
+ * edition read them alike (rulesets/devices.js). What tells them apart on the
+ * printed board is the picture, so the picture has to carry it:
+ *
+ *   - a JET is bolted to a wall and THROWS its fire. One plume, from a
+ *     nozzle, narrow at the muzzle and breaking into tongues at the far end,
+ *     with sparks thrown ahead of it. It is lopsided on purpose; a symmetric
+ *     teardrop read as a map pin.
+ *   - a FLAMER hangs over the square and faces nowhere, so it is drawn as the
+ *     thing the fire comes THROUGH: a grate in the floor with several tongues
+ *     rising between the slats, upright, no nozzle, no direction.
+ *
+ * The flames share their layers -- red body, orange, yellow core, a pale tip
+ * where it is hottest -- and one blurred copy underneath for the glow. */
+const FLAME_LAYERS = [
+  ["pr-flame",      "M44 22C40 34 30 44 30 56C30 66 36 72 33 84C41 78 45 82 50 95C54 82 58 78 67 87C64 72 70 66 70 56C70 44 60 34 56 22Z"],
+  ["pr-flame-mid",  "M46 26C42 38 36 46 37 58C38 66 42 70 42 80C47 76 49 78 50 88C52 78 55 76 59 81C60 70 63 66 63 58C64 46 58 38 54 26Z"],
+  ["pr-flame-core", "M48 30C46 40 42 48 43 58C44 66 48 70 50 78C52 70 56 66 57 58C58 48 54 40 52 30Z"],
+  ["pr-flame-tip",  "M49 30C47 38 46 44 47 52C48 58 50 60 50 64C50 60 52 58 53 52C54 44 53 38 51 30Z"]
+];
+
 export function burnerSvg(dir, nozzle) {
   const deg = (dir - 2) * 90;
   let art = "";
   if (nozzle) {
-    art += '<rect class="pr-jet-mount" x="26" y="2" width="48" height="13" rx="3"/>' +
-           '<rect class="pr-jet-neck" x="38" y="13" width="9" height="10"/>' +
-           '<rect class="pr-jet-neck" x="53" y="13" width="9" height="10"/>';
+    /* the mount on the wall, and a short barrel the plume leaves from */
+    art += '<rect class="pr-jet-mount" x="28" y="1" width="44" height="11" rx="2.5"/>' +
+           '<circle class="pr-jet-bolt" cx="34" cy="6.5" r="2.2"/>' +
+           '<circle class="pr-jet-bolt" cx="66" cy="6.5" r="2.2"/>' +
+           '<rect class="pr-jet-barrel" x="42" y="11" width="16" height="12" rx="2"/>' +
+           '<path class="pr-jet-muzzle" d="M43 21H57"/>';
   }
-  /* Two cones and a body, widening away from the wall: the fire is
-     thrown, and a symmetrical blob would read as a puddle. */
-  art += '<path class="pr-flame" d="M42 20C30 44 22 56 22 68C22 84 34 94 50 94C66 94 78 84 78 68C78 56 70 44 58 20C56 40 44 40 42 20Z"/>' +
-         '<path class="pr-flame-core" d="M50 46C58 60 62 66 62 72C62 81 57 87 50 87C43 87 38 81 38 72C38 66 42 60 50 46Z"/>';
-  return svg('<g transform="rotate(' + deg + ' 50 50)">' + art + "</g>", "pr-burner");
+  art += '<path class="pr-flame-glow" d="' + FLAME_LAYERS[0][1] + '" filter="url(#pr-beamglow)"/>';
+  for (const [cls, d] of FLAME_LAYERS) art += '<path class="' + cls + '" d="' + d + '"/>';
+  /* sparks thrown ahead of the plume */
+  art += '<circle class="pr-spark" cx="27" cy="72" r="1.6"/>' +
+         '<circle class="pr-spark" cx="74" cy="78" r="1.3"/>' +
+         '<circle class="pr-spark" cx="39" cy="93" r="1.4"/>' +
+         '<circle class="pr-spark" cx="62" cy="96" r="1.1"/>';
+  return svg('<g transform="rotate(' + deg + ' 50 50)">' + art + "</g>", "pr-burner pr-jet");
+}
+
+/* one upright tongue of the flamer's fire, base at (x, base), rising to `top` */
+function tongue(x, base, top, lean) {
+  const h = base - top, w = 7 + h * 0.16;
+  const tip = x + lean;
+  const layer = (k, cls) => {
+    const ww = w * k, hh = h * k, t = top + (h - hh);
+    return '<path class="' + cls + '" d="M' + (x - ww) + " " + base +
+      "C" + (x - ww) + " " + (base - hh * 0.45) + " " + (x - ww * 0.55 + lean * k * 0.4) + " " + (t + hh * 0.35) + " " + (tip * k + x * (1 - k)) + " " + t +
+      "C" + (x + ww * 0.55 + lean * k * 0.4) + " " + (t + hh * 0.35) + " " + (x + ww) + " " + (base - hh * 0.45) + " " + (x + ww) + " " + base + 'Z"/>';
+  };
+  return layer(1, "pr-flame") + layer(0.72, "pr-flame-mid") + layer(0.46, "pr-flame-core");
+}
+
+export function flamerSvg() {
+  /* the grate: a dark plate with five steel slats over it */
+  let art = '<rect class="pr-grate" x="16" y="16" width="68" height="68" rx="7"/>';
+  for (const y of [25, 37, 49, 61, 73]) {
+    art += '<rect class="pr-slat" x="22" y="' + y + '" width="56" height="5" rx="2.5"/>';
+  }
+  /* the fire: four tongues up through the gaps, tallest in the middle, each
+     leaning a little its own way, glow first */
+  const tongues = [[33, 74, 40, -3], [45, 76, 18, 2], [58, 75, 28, -2], [69, 73, 46, 3]];
+  let fire = "";
+  for (const [x, base, top, lean] of tongues) fire += tongue(x, base, top, lean);
+  art += '<g class="pr-flame-glow" filter="url(#pr-beamglow)">' + fire + "</g>" + fire;
+  return svg(art, "pr-burner pr-grill");
 }
 
 export function dockSvg(n) {
