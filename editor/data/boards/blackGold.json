@@ -7,7 +7,6 @@
   "h": 12,
   "set": "modernUnfiled",
   "origin": "transcribed",
-  "unverified": true,
   "ground": {
     "rows": [
       "... bv. o.. b^r b<. b<. b<. b<. b<. b<. b<. b<l",
@@ -16,18 +15,22 @@
       "... L.. L.. ... bv. o.. ... ... L.. L.. b>r b^l",
       "... L.. L.. L.. bv. r.. ... t2. ... o.. b^. ...",
       "... ... ... ... bv. L.. ... b>r b>. b>. b^l ...",
-      "... bvr b<. b<. b<l L.. ... b^. o.. t1. L.. ...",
+      "... bvl b<. b<. b<r L.. ... b^. o.. t1. L.. ...",
       "... bv. o.. ... ... L.. ... b^. ... L.. L.. ...",
       "... bv. l.. ... L.. L.. L.. b^. ... L.. L.. ...",
       "... bv. t2. ... ... L.. ... b^. ... L.. L.. ...",
-      "... b>r b>. b>. b>. b>. b>. b^l ... ... L.. ...",
+      "... b>l b>. b>. b>. b>. b>. b^l ... ... L.. ...",
       "... ... ... ... ... ... ... ... r.. ... ... ..."
     ],
     "sites": [
-      { "at": [5, 2], "has": ["battery"] },
+      { "at": [1, 2], "has": ["flagspot"] },
+      { "at": [5, 2], "has": ["upgrade", "battery"] },
+      { "at": [7, 3], "has": ["flagspot"] },
       { "at": [8, 4], "has": ["battery"] },
       { "at": [3, 5], "has": ["battery"] },
-      { "at": [8, 9], "has": ["battery"] }
+      { "at": [3, 8], "has": ["flagspot"] },
+      { "at": [8, 8], "has": ["flagspot"] },
+      { "at": [8, 9], "has": ["repair", "battery"] }
     ]
   },
   "wall": {
