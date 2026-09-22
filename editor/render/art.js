@@ -140,13 +140,18 @@ export function drainSvg() {
              '<path class="pr-wave" d="M14 76q9-8 18 0t18 0 18 0 18 0"/>', "pr-drain");
 }
 
-/* A ramp is drawn on the FOOT square, filling its half nearest the edge it
- * climbs: a deck widening toward the ledge with the treads across it, so the
- * eye reads "up" toward the edge without an arrow the belts already own.
- * `dir` is the uphill side of the square; the drawing is authored for north. */
+/* A ramp is drawn on the FOOT square as a TRAPEZOID: its wide edge lies along
+ * the edge it climbs and its sides run in along the square's diagonals toward
+ * the centre. The diagonals are the point. Four ramps on one square are four
+ * trapezoids meeting at the middle like the faces of a pyramid, none of them
+ * overlapping, and two on neighbouring sides share a diagonal and read as one
+ * corner. It is kept shallow. The treads run across it, so the eye reads "up" toward the edge
+ * without an arrow, which the belts own. Authored for north; `dir` turns it. */
 export function rampEdgeSvg(dir) {
-  let out = '<path class="pr-ramp-deck" d="M20 54h60V8H20z"/>';
-  for (let i = 0; i < 3; i++) out += '<path class="pr-ramp-step" d="M28 ' + (44 - i * 12) + 'h44"/>';
+  /* shallow: it reaches 28 in from the edge and stays 44 wide at the top, so
+   * it reads as a ramp against the wall of the square rather than filling it */
+  let out = '<path class="pr-ramp-deck" d="M1 1h98L72 28H28z"/>';
+  for (const y of [9, 18]) out += '<path class="pr-ramp-step" d="M' + (y + 5) + " " + y + "h" + (90 - 2 * y) + '"/>';
   return svg('<g transform="rotate(' + (dir * 90) + ' 50 50)">' + out + "</g>", "pr-ramp");
 }
 

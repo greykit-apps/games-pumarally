@@ -44,8 +44,8 @@ function toolSwatch(tool) {
   }
   if (tool.kind === "ramp") {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
-      '<path d="M 12 74 L 88 26 L 88 74 Z" fill="#ffe14d" opacity=".9"/>' +
-      '<path d="M 40 74 L 40 56 M 60 74 L 60 44" stroke="#2a2f3d" stroke-width="5"/>');
+      '<path d="M 4 26 L 96 26 L 70 52 L 30 52 Z" fill="#ffe14d" opacity=".9"/>' +
+      '<path d="M 16 34 L 84 34 M 24 43 L 76 43" stroke="#2a2f3d" stroke-width="5"/>');
   }
   if (tool.kind === "flag") {
     return swatch('<path d="M 32 88 L 32 14 L 74 28 L 32 44" fill="#ff5f56" stroke="#ff5f56" stroke-width="6" stroke-linejoin="round"/>');
