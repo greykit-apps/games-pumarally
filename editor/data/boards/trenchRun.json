@@ -1,0 +1,132 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "trenchRun",
+  "name": "Trench Run",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... bv. ... ... ...",
+      "... ... ... ... ... ... ... ... b<r ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... o.. ... ... ... ... bvl",
+      "b>. b>. b>. b>. b>. b^l ... ... ... ... ... bv.",
+      "... ... ... ... ... ... ... ... ... ... bvl b<r",
+      "... ... ... ... ... ... ... ... ... ... b<r ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... ... ... b>r b^l ... ... ... ... ... r.. ..."
+    ],
+    "levels": [
+      "000000000000",
+      "AAAAAAA00000",
+      "AAAAAAAAAAAA",
+      "AAAAAAAAAAAA",
+      "00AAAAAAAAAA",
+      "000000AAAAA0",
+      "000000AAAA00",
+      "0AAAAAAAA000",
+      "AAAAAAAAA000",
+      "AAAAAAAAAA00",
+      "AAAA00AAAA00",
+      "AAA000AAA000"
+    ],
+    "rampH": [
+      "            ",
+      " R  RRR     ",
+      "         R  ",
+      "            ",
+      "            ",
+      "    R       ",
+      "            ",
+      "  R         ",
+      "            ",
+      "            ",
+      "     R      ",
+      "   R        ",
+      "      RRR   "
+    ],
+    "rampV": [
+      "             ",
+      "R            ",
+      "R           R",
+      "R           R",
+      "            R",
+      "             ",
+      "          R  ",
+      "             ",
+      "R            ",
+      "R         R  ",
+      "R            ",
+      "             "
+    ],
+    "sites": [
+      { "at": [7, 1], "has": ["battery"] },
+      { "at": [4, 2], "has": ["flagspot"] },
+      { "at": [5, 3], "has": ["repair", "battery"] },
+      { "at": [9, 4], "has": ["flagspot"] },
+      { "at": [2, 5], "has": ["flagspot"] },
+      { "at": [5, 5], "has": ["battery"] },
+      { "at": [6, 7], "has": ["upgrade", "battery"] },
+      { "at": [3, 8], "has": ["flagspot"] },
+      { "at": [8, 8], "has": ["flagspot"] },
+      { "at": [9, 8], "has": ["battery"] },
+      { "at": [4, 10], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "  #         ",
+      "            ",
+      "            ",
+      "            ",
+      "        #   ",
+      "          # ",
+      " #          ",
+      "       #    ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "     #   #   ",
+      "             ",
+      "    #        ",
+      "      #      ",
+      "         #   ",
+      "             ",
+      "             ",
+      "             ",
+      "     #       ",
+      "             ",
+      "      #      ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:1,7", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:2,1", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "h:10,6", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:6,10", "face": "E", "damage": 1 }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [2, 0], "regs": [1, 2] },
+      { "kind": "crusher", "at": [10, 1], "regs": [2, 5] },
+      { "kind": "crusher", "at": [3, 3], "regs": [3, 4] },
+      { "kind": "crusher", "at": [9, 3], "regs": [1, 5] },
+      { "kind": "crusher", "at": [1, 4], "regs": [2, 3] },
+      { "kind": "crusher", "at": [8, 6], "regs": [3, 4] },
+      { "kind": "crusher", "at": [2, 8], "regs": [3, 5] },
+      { "kind": "crusher", "at": [7, 9], "regs": [1, 3] },
+      { "kind": "crusher", "at": [10, 9], "regs": [2, 4] }
+    ]
+  }
+}

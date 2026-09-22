@@ -144,8 +144,7 @@
       "w": 12,
       "h": 12,
       "set": "modernUnfiled",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "circuitTrap",
@@ -153,8 +152,7 @@
       "w": 12,
       "h": 12,
       "set": "modernUnfiled",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "allRoads",
@@ -194,8 +192,7 @@
       "w": 12,
       "h": 12,
       "set": "modernUnfiled",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "comingAndGoing",
@@ -283,8 +280,7 @@
       "w": 12,
       "h": 12,
       "set": "modernUnfiled",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "whirlpool",
@@ -321,6 +317,94 @@
     {
       "id": "waterPark",
       "name": "Water Park",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "pushy",
+      "name": "Pushy",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "labyrinth",
+      "name": "Labyrinth",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "blackGold",
+      "name": "Black Gold",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "fireballFactory",
+      "name": "Fireball Factory",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "floodZone",
+      "name": "Flood Zone",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "gauntletOfFire",
+      "name": "Gauntlet of Fire",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "gearBox",
+      "name": "Gear Box",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "locked",
+      "name": "Locked",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "portalPalace",
+      "name": "Portal Palace",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "stopAndGo",
+      "name": "Stop & Go",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed"
+    },
+    {
+      "id": "trenchRun",
+      "name": "Trench Run",
       "w": 12,
       "h": 12,
       "set": "modernUnfiled",

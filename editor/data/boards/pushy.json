@@ -1,0 +1,100 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "pushy",
+  "name": "Pushy",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "... bv. ... r.. ... bv. ... ... bv. ... ... T..",
+      "... bv. T.. ... ... b>l b>. bvr b>l b>. bvr ...",
+      "... ... ... ... ... ... ... bv. ... ... b<r ...",
+      "b>. bvr ... bv. ... bvl b<. b<r ... B>. Bvr Bv.",
+      "... bv. ... b>l b>. bvR ... o.. ... ... B<R B<r",
+      "o.. bv. l.. ... ... b>l b>. bvr ... o.. ... ...",
+      "... r.. o.. b<. b<. bvr ... ... ... ... ... ...",
+      "... b>r b>. bvr ... b^r b<. b<R b<. b<. ... ...",
+      "... b^. ... b>l b>R bvr ... ... ... ... Bvl B<.",
+      "b>r b^l ... ... b^. b>l b>. bvr Bvl B<. B<r ...",
+      "b^l ... ... ... b^. bvl b<. b<r l.. ... ... ...",
+      "... T.. ... b>r b^l bv. ... ... ... B>. B>. Bvr"
+    ],
+    "sites": [
+      { "at": [4, 2], "has": ["battery"] },
+      { "at": [2, 3], "has": ["flagspot"] },
+      { "at": [6, 3], "has": ["randomizer"] },
+      { "at": [8, 3], "has": ["repair", "battery"] },
+      { "at": [8, 4], "has": ["flagspot"] },
+      { "at": [6, 7], "has": ["randomizer"] },
+      { "at": [10, 7], "has": ["flagspot"] },
+      { "at": [1, 8], "has": ["randomizer"] },
+      { "at": [6, 8], "has": ["flagspot"] },
+      { "at": [9, 8], "has": ["battery"] },
+      { "at": [2, 9], "has": ["flagspot"] },
+      { "at": [3, 9], "has": ["upgrade", "battery"] },
+      { "at": [4, 10], "has": ["randomizer"] },
+      { "at": [6, 10], "has": ["randomizer"] },
+      { "at": [10, 10], "has": ["randomizer"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "            ",
+      "   #     #  ",
+      "      #     ",
+      "       # #  ",
+      "    #       ",
+      "   #     #  ",
+      "#     #     ",
+      "        #   ",
+      "            ",
+      "   #     #  ",
+      "            ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "     #       ",
+      "  #     #    ",
+      "     #       ",
+      "  #          ",
+      "        #    ",
+      "  #          ",
+      "     #     # ",
+      "  #     #    ",
+      "     #       ",
+      "  #     #    ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:0,7", "face": "N", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:3,6", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:3,10", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:6,3", "face": "N", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:6,7", "face": "N", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:9,2", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:9,4", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:9,6", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:9,10", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:2,2", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:2,4", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:2,6", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:2,10", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:8,2", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:8,10", "face": "E", "regs": [1, 3, 5] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "crusher", "at": [6, 1], "regs": [1, 3] },
+      { "kind": "crusher", "at": [7, 2], "regs": [2, 4] },
+      { "kind": "crusher", "at": [4, 6], "regs": [2, 5] },
+      { "kind": "crusher", "at": [7, 6], "regs": [3, 4] },
+      { "kind": "crusher", "at": [6, 9], "regs": [2, 5] }
+    ]
+  }
+}

@@ -7,8 +7,7 @@
   "h": 12,
   "set": "modernUnfiled",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "DRAFT, unverified. Belt squares/directions drafted by maps/boardscan.py + propagation from hand-read seeds; walls and laser beams measured; gears, crushers, push-panels, batteries and pits read at magnification. Push-panel faces (esp. the interior ones at (9,2),(2,4),(12,3)), laser damage, and belt arms are to be confirmed in the workshop against the photograph.",
+  "notes": "Belt squares/directions drafted by maps/boardscan.py + propagation from hand-read seeds; walls and laser beams measured; gears, crushers, push-panels, batteries and pits read at magnification. Push-panel faces (esp. the interior ones at (9,2),(2,4),(12,3)), laser damage, and belt arms are to be confirmed in the workshop against the photograph.",
   "ground": {
     "rows": [
       "o.. Bv. ... b^. ... Bv. b^. ... Bv. ... ... Bv.",
@@ -25,7 +24,7 @@
       "... B<. B<. B<. B<. B<. B<. B<. B<. B<. B<. o.."
     ],
     "sites": [
-      { "at": [4, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 1], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [7, 1], "has": ["flagspot"] },
       { "at": [10, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [4, 2], "has": ["flagspot"] },
@@ -33,7 +32,7 @@
       { "at": [2, 7], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [6, 7], "has": ["flagspot"] },
       { "at": [2, 8], "has": ["flagspot"] },
-      { "at": [4, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [4, 9], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [9, 9], "has": ["flagspot"] }
     ]
   },

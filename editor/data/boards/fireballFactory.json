@@ -1,0 +1,96 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "fireballFactory",
+  "name": "Fireball Factory",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... ... b^. ... Bv. ... b^. ...",
+      "... B>l Bvr o.. ... ... b^. ... Bv. ... r.. b<.",
+      "... ... B>l Bvr ... ... b^. ... Bv. ... ... ...",
+      "... ... ... B>l Bvr ... b^. ... Bv. ... o.. b>r",
+      "... ... ... ... ... ... b^r ... B<r ... ... b^.",
+      "b<. b<. b<. b<. b<r ... ... ... ... ... b>r b^x",
+      "... ... ... ... ... ... ... b>r b>. b>. b^l ...",
+      "... ... ... B>r ... bvr ... ... ... ... ... ...",
+      "... o.. ... B^. ... bv. ... B^r B<. B<. B<l ...",
+      "... B>r B>. B^l ... bv. ... ... ... ... B^. ...",
+      "B>. B^l ... ... ... bv. ... ... o.. ... B^. ...",
+      "... ... ... ... ... bv. ... ... ... ... B^. ..."
+    ],
+    "sites": [
+      { "at": [9, 1], "has": ["battery"] },
+      { "at": [1, 2], "has": ["repair", "battery"] },
+      { "at": [9, 2], "has": ["flagspot"] },
+      { "at": [2, 3], "has": ["flagspot"] },
+      { "at": [6, 5], "has": ["flagspot"] },
+      { "at": [2, 8], "has": ["flagspot"] },
+      { "at": [8, 9], "has": ["flagspot"] },
+      { "at": [9, 9], "has": ["upgrade", "battery"] },
+      { "at": [2, 10], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "       #    ",
+      "     #      ",
+      "            ",
+      "            ",
+      "  #      #  ",
+      "            ",
+      "            ",
+      "#           ",
+      "            ",
+      "            ",
+      "           #",
+      "      #     ",
+      "    #       "
+    ],
+    "vRows": [
+      "     #       ",
+      "     #       ",
+      "     #       ",
+      "  #          ",
+      "#            ",
+      "         #   ",
+      "  # #        ",
+      "            #",
+      "             ",
+      "       #  #  ",
+      "             ",
+      " #           "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "v:5,1", "face": "W", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:5,2", "face": "E", "regs": [2, 4] }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "flamer", "at": [7, 0], "regs": [1] },
+      { "kind": "flamer", "at": [7, 1], "regs": [2] },
+      { "kind": "flamer", "at": [7, 2], "regs": [3] },
+      { "kind": "flamer", "at": [7, 3], "regs": [4] },
+      { "kind": "flamer", "at": [0, 4], "regs": [1] },
+      { "kind": "flamer", "at": [1, 4], "regs": [2] },
+      { "kind": "flamer", "at": [2, 4], "regs": [3] },
+      { "kind": "flamer", "at": [3, 4], "regs": [4] },
+      { "kind": "flamer", "at": [4, 4], "regs": [5] },
+      { "kind": "flamer", "at": [7, 4], "regs": [5] },
+      { "kind": "flamer", "at": [4, 7], "regs": [5] },
+      { "kind": "flamer", "at": [7, 7], "regs": [5] },
+      { "kind": "flamer", "at": [8, 7], "regs": [4] },
+      { "kind": "flamer", "at": [9, 7], "regs": [3] },
+      { "kind": "flamer", "at": [10, 7], "regs": [2] },
+      { "kind": "flamer", "at": [11, 7], "regs": [1] },
+      { "kind": "flamer", "at": [4, 8], "regs": [4] },
+      { "kind": "flamer", "at": [4, 9], "regs": [3] },
+      { "kind": "flamer", "at": [4, 10], "regs": [2] },
+      { "kind": "flamer", "at": [4, 11], "regs": [1] }
+    ]
+  }
+}

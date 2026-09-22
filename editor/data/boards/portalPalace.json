@@ -1,0 +1,75 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "portalPalace",
+  "name": "Portal Palace",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "o.. ... ... b^. ... ... ... ... bv. ... ... ...",
+      "... t1. ... b^r b<. b<l o.. o.. bv. t2. b<. ...",
+      "... b^. ... ... ... b^r b<l ... bv. L.. L.. ...",
+      "B>. B>. B>. B>. B>. B>. b^r b<l bv. L.. L.. ...",
+      "... ... ... b>. t1. L.. L.. b^r b<r bv. L.. ...",
+      "b<. b<l ... ... ... ... ... ... ... t3. ... ...",
+      "... b^r b<. b<l ... ... ... ... ... ... L.. ...",
+      "... L.. t3. b^r b<l t2. b<. t4. b<. L.. L.. ...",
+      "... L.. ... ... b^. ... B<. B<. B<l ... ... ...",
+      "... L.. L.. L.. b^r b<l ... ... B^r B<. B<l ...",
+      "... ... L.. ... ... b^r b<l ... ... ... t4. ...",
+      "... ... ... l.. ... ... b^. ... r.. ... b^. ..."
+    ],
+    "sites": [
+      { "at": [3, 2], "has": ["flagspot"] },
+      { "at": [4, 2], "has": ["battery"] },
+      { "at": [11, 2], "has": ["flagspot"] },
+      { "at": [10, 5], "has": ["repair", "battery"] },
+      { "at": [5, 6], "has": ["flagspot"] },
+      { "at": [3, 8], "has": ["upgrade", "battery"] },
+      { "at": [9, 8], "has": ["battery"] },
+      { "at": [3, 10], "has": ["flagspot"] },
+      { "at": [9, 10], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "  #  #   # #",
+      "            ",
+      "            ",
+      "#           ",
+      "            ",
+      "  #         ",
+      "         # #",
+      "            ",
+      "# #    #    ",
+      " #  #       ",
+      "       #    ",
+      "  # #       "
+    ],
+    "vRows": [
+      "             ",
+      "   #         ",
+      "#           #",
+      "             ",
+      "             ",
+      "   #    #    ",
+      "       #  #  ",
+      "             ",
+      "  #          ",
+      "#      #   # ",
+      "   #   #     ",
+      "     #       "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:2,6", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:3,5", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,9", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:10,6", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

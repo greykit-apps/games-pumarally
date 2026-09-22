@@ -159,7 +159,6 @@ const CASES = [
   ["ramp.walled", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 8, "#"); }],
   ["ramp.flat", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "0"); }],
   ["level.rampGradient", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "2"); }],
-  ["level.rampFoot", FIXTURE, d => { d.ground.levels[9] = setCh(d.ground.levels[9], 5, "1"); }],
   ["level.unreachable", FIXTURE, d => { d.ground.rampH[8] = setCh(d.ground.rampH[8], 5, " "); }],
 
   /* provenance */

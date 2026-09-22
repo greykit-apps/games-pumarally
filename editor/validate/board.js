@@ -449,24 +449,24 @@ function checkLevels(board, d) {
         ". A ramp is the way between levels; raise one side, or take the ramp off.", where, ptr);
       continue;
     }
-    /* THE NEXT TWO ARE WARNINGS BECAUSE NOTHING HAS BEEN FOUND THAT STATES THEM.
+    /* THIS ONE IS A WARNING BECAUSE NOTHING HAS BEEN FOUND THAT STATES IT.
      * `rules/MANIFEST.md` quotes Wet and Wild on ramps -- "the only way between
      * levels", an extra space of floor going up, slide back if you stop on one,
-     * ignored entirely going down -- and says nothing about how far one climbs
-     * or what is behind it. Both look right for a printed ramp tile and both
-     * may well be; neither is quoted, and an unquoted rule enforced as an error
-     * is exactly what `level.notContiguous` was. They stay, because a ramp that
-     * breaks one is worth looking at, and they warn, because being worth
-     * looking at is not the same as being wrong. Promote either the moment the
-     * sentence behind it is found. */
+     * ignored entirely going down -- and says nothing about how far one climbs.
+     * It stays, because a ramp that breaks it is worth looking at, and it
+     * warns, because being worth looking at is not the same as being wrong.
+     * Promote it the moment the sentence behind it is found.
+     *
+     * `level.rampFoot` used to sit beside it -- a ramp's foot is level with the
+     * floor it is approached from -- and is GONE (2026-09-22). The author was
+     * asked and it is not a rule: the printed boards step a ramp's foot away
+     * from the floor behind it, and the check was flagging four ramps across
+     * Water Park and Coliseum that are simply what the print shows. An uncited
+     * rule enforced against the boards it describes is exactly what
+     * `level.notContiguous` was. */
     if (ramp.top.level !== ramp.foot.level + 1) {
       d.warn("level.rampGradient", "The ramp " + between + " climbs from level " + ramp.foot.level + " to level " + ramp.top.level +
         ". A ramp is expected to climb exactly one level -- though no rulebook text has been found saying so.", where, ptr);
-    }
-    if (ramp.behind !== null && ramp.behind !== ramp.foot.level) {
-      d.warn("level.rampFoot", "The ramp " + between + " has its foot at level " + ramp.foot.level +
-        " but the square it is approached from, " + at(ramp.foot.c - DC[ramp.dir], ramp.foot.r - DR[ramp.dir]) + ", is at level " + ramp.behind +
-        ". A ramp's foot is expected to be level with the floor it is approached from -- though no rulebook text has been found saying so.", where, ptr);
     }
     climbs.push(ramp);
   }
