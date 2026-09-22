@@ -384,20 +384,22 @@ function beamLayer(board, mode) {
     const x1 = b[0] * CELL + 50 + dx, y1 = b[1] * CELL + 50 + dy;      // the far side of the last square
     const d = "M " + x0 + " " + y0 + " L " + x1 + " " + y1;
     if (mode === "art") {
-      /* A BLOOM, then a core, then a white-hot centre. The old beam was a flat
-       * 14%-opacity band under a dull core and read as a ruled line -- which
-       * for the one thing on the board that is always ON and always firing is
-       * the wrong end of every possible mistake. The blur is a filter on one
-       * path per beam, not per square, so it costs nothing a board notices. */
-      out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (9 + dev.damage * 4) +
-        '" stroke-linecap="butt" opacity="0.3" filter="url(#pr-beamglow)"/>';
+      /* A BLOOM, then a core, then a white-hot centre, PER BEAM. A two- or
+       * three-lens laser fires two or three beams, and the emitter draws its
+       * lenses fourteen units apart -- so the beams leave from the lenses and
+       * run fourteen apart the whole way, each with its own bloom, rather than
+       * five apart under one shared glow, which read as a single slightly fat
+       * beam. How many beams cross a square is how much damage it does, and
+       * that has to be countable from across the table. */
       const n = Math.max(1, Math.min(3, dev.damage | 0));
       const dir = dev.face, across = (dir === N || dir === S) ? [1, 0] : [0, 1];
       for (let i = 0; i < n; i++) {
-        const off = (i - (n - 1) / 2) * 5;
+        const off = (i - (n - 1) / 2) * 14;
         const ox = across[0] * off, oy = across[1] * off;
         const line = 'M ' + (x0 + ox) + " " + (y0 + oy) + " L " + (x1 + ox) + " " + (y1 + oy);
         out += '<path d="' + line + '" stroke="' + ART.laser +
+          '" stroke-width="9" stroke-linecap="butt" opacity="0.3" filter="url(#pr-beamglow)"/>' +
+          '<path d="' + line + '" stroke="' + ART.laser +
           '" stroke-width="2.6" stroke-linecap="butt" opacity="0.92"/>' +
           '<path d="' + line + '" stroke="#ffe6e3" stroke-width="0.9" stroke-linecap="butt" opacity="0.75"/>';
       }
