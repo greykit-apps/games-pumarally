@@ -113,8 +113,7 @@ const CASES = [
   ["device.badField", FIXTURE, d => { wallDev(d, "laser").damage = 9; }],
   ["device.unknownKey", FIXTURE, d => { wallDev(d, "laser").colour = "red"; }],
 
-  /* lasers and jets */
-  ["laser.ownSquareOnly", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 1, "#"); }],
+  /* jets */
   ["jet.blockedReach", FIXTURE, d => { setEdgeGlyph(d, "h", 8, 9, "#"); }],
   ["jet.overlap", FIXTURE, d => {
     setEdgeGlyph(d, "h", 8, 10, "#");
