@@ -18,25 +18,28 @@ import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn, playableIn } f
 import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
+import { ART_DEFS } from "../render/palette.js";
 import { boardSVG } from "../render/svg.js";
 
 const swatch = body =>
   '<span class="sw"><svg viewBox="-4 -4 108 108" xmlns="http://www.w3.org/2000/svg">' + body + "</svg></span>";
 
 function toolSwatch(tool) {
-  const ctx = { arg: "1", arms: ARM_CODES["."], dir: 0, regs: [1, 3], damage: 1, reach: 1 };
+  const ctx = { arg: "1", arms: ARM_CODES["."], dir: 0, level: 0, regs: [1, 3], damage: 1, reach: 1 };
   if (tool.kind === "ground") {
     const def = ELEMENTS[tool.element];
     return swatch(GLYPHS[def.key].art(ctx));
   }
   if (tool.kind === "device" || tool.kind === "ceiling") {
-    return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
-      DEVICE_GLYPHS[tool.device].art(ctx));
+    return swatch(GLYPHS.floor.art(ctx) + DEVICE_GLYPHS[tool.device].art(ctx));
   }
   if (tool.kind === "site") return swatch(siteSwatch(tool.site, "art"));
   if (tool.kind === "wall") {
-    return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
-      '<path d="M 0 96 L 100 96" stroke="#d8a52c" stroke-width="14" stroke-linecap="round"/>');
+    /* the board's wall, in miniature: lit lip, mid body, shadowed foot */
+    return swatch(GLYPHS.floor.art(ctx) +
+      '<g filter="url(#pr-wallshadow)"><rect x="0" y="84" width="100" height="19" fill="#5f6674"/>' +
+      '<rect x="0" y="84" width="100" height="17" fill="#7a818e"/>' +
+      '<rect x="0" y="84" width="100" height="2.4" fill="#99a0ad"/></g>');
   }
   if (tool.kind === "level") {
     return swatch('<rect x="1" y="1" width="98" height="98" rx="4" fill="#2a2f3d"/>' +
@@ -54,9 +57,22 @@ function toolSwatch(tool) {
   return swatch('<path d="' + (mark[tool.kind] || "") + '" fill="none" stroke="#c8d4ea" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>');
 }
 
+/* THE RAIL'S GRADIENTS AND SYMBOLS, once.
+ *
+ * A swatch is a bare <svg> with no defs of its own, and the art's shared
+ * pieces -- the hazard stripe, the steel gradient, the floor deck -- are
+ * addressed by id. Until now those resolved only because the BOARD's SVG was
+ * in the same document and its ids leaked; the floor plate became a <use> of
+ * one of those symbols, and a <use> whose target is not there draws nothing at
+ * all, silently. One hidden copy in the rail is what makes the swatches stand
+ * on their own instead of on an accident. */
+const RAIL_DEFS =
+  '<svg class="pr-defs" aria-hidden="true" width="0" height="0" ' +
+  'style="position:absolute" xmlns="http://www.w3.org/2000/svg">' + ART_DEFS + "</svg>";
+
 export function renderRail(el, st, isCourse) {
   const tools = toolsFor(isCourse);
-  let html = "";
+  let html = RAIL_DEFS;
   for (const group of GROUPS) {
     const list = tools.filter(t => t.group === group);
     if (!list.length) continue;

@@ -1,372 +1,382 @@
 {
   "allRoads": {
     "art": {
-      "sha": "011096300dec1756",
-      "bytes": 28000
+      "sha": "b531aa7fe7632acc",
+      "bytes": 30822
     },
     "markup": {
-      "sha": "cd43120c0fd96db5",
-      "bytes": 19472
+      "sha": "c10ebc68a86fead3",
+      "bytes": 21283
     }
   },
   "assembly": {
     "art": {
-      "sha": "b590565dc2c68399",
-      "bytes": 28026
+      "sha": "d4c7bf93560ba93f",
+      "bytes": 30696
     },
     "markup": {
-      "sha": "58f74043501a54b2",
-      "bytes": 19007
+      "sha": "43238270201946ea",
+      "bytes": 20910
     }
   },
   "blueprint": {
     "art": {
-      "sha": "1ae208dbde40d060",
-      "bytes": 22726
+      "sha": "6466eb3dd1c4dcd4",
+      "bytes": 23673
     },
     "markup": {
-      "sha": "12c3c866c55ae175",
-      "bytes": 13046
+      "sha": "6a7937892e50f259",
+      "bytes": 14869
     }
   },
   "boardG": {
     "art": {
-      "sha": "a61dc5653d9f279d",
-      "bytes": 84029
+      "sha": "87abde38a885ccd4",
+      "bytes": 83572
     },
     "markup": {
-      "sha": "b18ff224a672898b",
-      "bytes": 51452
+      "sha": "805e5e944da8fb3e",
+      "bytes": 53187
     }
   },
   "boardH": {
     "art": {
-      "sha": "b57ed5a7f70b8bea",
-      "bytes": 106532
+      "sha": "28d46856a22d9bb4",
+      "bytes": 98692
     },
     "markup": {
-      "sha": "076e1f6beac29182",
-      "bytes": 69567
+      "sha": "f61fb453a629eb4d",
+      "bytes": 71296
     }
   },
   "cactus": {
     "art": {
-      "sha": "50db65602202e7d2",
-      "bytes": 93252
+      "sha": "ab7f288a6d98a089",
+      "bytes": 74934
     },
     "markup": {
-      "sha": "898ad8bb85780ad8",
-      "bytes": 60657
+      "sha": "e6e01cb1aeac6eee",
+      "bytes": 63282
     }
   },
   "canneryRow": {
     "art": {
-      "sha": "36b32bc362d3f106",
-      "bytes": 108973
+      "sha": "7fb883d4dc980bea",
+      "bytes": 102226
     },
     "markup": {
-      "sha": "0c3bcb1083bb0fa8",
-      "bytes": 72855
+      "sha": "5c26653c730a99c9",
+      "bytes": 74928
     }
   },
   "circles": {
     "art": {
-      "sha": "04d5cbc9b6d8d977",
-      "bytes": 32692
+      "sha": "0c3652b7c9e92b00",
+      "bytes": 35349
     },
     "markup": {
-      "sha": "35ef6491c7d46a2a",
-      "bytes": 25988
+      "sha": "b9b98ad2469d4637",
+      "bytes": 27995
     }
   },
   "circuitTrap": {
     "art": {
-      "sha": "51cfd4f29d24d71d",
-      "bytes": 108567
+      "sha": "3dc1722322feddc6",
+      "bytes": 99216
     },
     "markup": {
-      "sha": "d7408632a6ce5af6",
-      "bytes": 80759
+      "sha": "444b1e9da101d16f",
+      "bytes": 82220
     }
   },
   "coliseum": {
     "art": {
-      "sha": "44f395df8cd569ce",
-      "bytes": 91743
+      "sha": "8fd3ca584019f958",
+      "bytes": 73973
     },
     "markup": {
-      "sha": "c1a384f63f16dfc4",
-      "bytes": 61136
+      "sha": "ee776c2c8b811a4d",
+      "bytes": 62773
     }
   },
   "comingAndGoing": {
     "art": {
-      "sha": "e935ecf82ef88eaa",
-      "bytes": 26887
+      "sha": "edc16cdfbcde66b2",
+      "bytes": 28972
     },
     "markup": {
-      "sha": "6c83ed8a036e0ddc",
-      "bytes": 18021
+      "sha": "96ac9609e63e85a8",
+      "bytes": 19844
     }
   },
   "convergence": {
     "art": {
-      "sha": "db5bd59283ad5b99",
-      "bytes": 27043
+      "sha": "379e1d32c035231d",
+      "bytes": 29366
     },
     "markup": {
-      "sha": "c9deabc9b73efce1",
-      "bytes": 18462
+      "sha": "07c3e2c6e1975557",
+      "bytes": 20267
     }
   },
   "cross": {
     "art": {
-      "sha": "22b9a557caf0c36b",
-      "bytes": 86268
+      "sha": "551d3142c198d155",
+      "bytes": 69268
     },
     "markup": {
-      "sha": "b774e5c533deb688",
-      "bytes": 53419
+      "sha": "56e2ed80f2af283c",
+      "bytes": 55086
     }
   },
   "dockingBay": {
     "art": {
-      "sha": "6a7106b4179021c4",
-      "bytes": 26275
+      "sha": "1f62bf41cd8c80e6",
+      "bytes": 27278
     },
     "markup": {
-      "sha": "f5681143156ad519",
-      "bytes": 14458
+      "sha": "66f95ebd9bc10225",
+      "bytes": 16281
     }
   },
   "dockingBayB": {
     "art": {
-      "sha": "f7c0bf971cda743d",
-      "bytes": 14758
+      "sha": "892f7246049eed3b",
+      "bytes": 24739
     },
     "markup": {
-      "sha": "be16ec15b5fdaeba",
-      "bytes": 13608
+      "sha": "28379bf86f119ef6",
+      "bytes": 15431
     }
   },
   "doubles": {
     "art": {
-      "sha": "36f8267ae9f5e456",
-      "bytes": 31814
+      "sha": "1dbc989c5ed16a80",
+      "bytes": 35615
     },
     "markup": {
-      "sha": "4e8c9ec9976bd544",
-      "bytes": 23670
+      "sha": "a5ae7f8d4eaf24cb",
+      "bytes": 25493
     }
   },
   "energize": {
     "art": {
-      "sha": "e9c4f13c87b1d155",
-      "bytes": 76664
+      "sha": "37f15045881e45f2",
+      "bytes": 57269
     },
     "markup": {
-      "sha": "50eeb51c6ce6e883",
-      "bytes": 37747
+      "sha": "7423e248031c7669",
+      "bytes": 39570
     }
   },
   "exchange": {
     "art": {
-      "sha": "1fff75981e58e7ef",
-      "bytes": 88457
+      "sha": "cd9d92a6f6999c89",
+      "bytes": 67076
     },
     "markup": {
-      "sha": "cc198fe9341ac765",
-      "bytes": 55632
+      "sha": "05ac9e225a450928",
+      "bytes": 57455
     }
   },
   "inAndOut": {
     "art": {
-      "sha": "c112215b5927b17b",
-      "bytes": 90567
+      "sha": "85a69a0b31f18b69",
+      "bytes": 68994
     },
     "markup": {
-      "sha": "44df83055c55a7cc",
-      "bytes": 58272
+      "sha": "0226810cdec0a186",
+      "bytes": 60399
     }
   },
   "island": {
     "art": {
-      "sha": "0aad1a233fcfedaf",
-      "bytes": 77649
+      "sha": "7e73dc591f1e8dd4",
+      "bytes": 58969
     },
     "markup": {
-      "sha": "3ea88766512d250f",
-      "bytes": 51156
+      "sha": "d61568b938eb76f1",
+      "bytes": 52967
     }
   },
   "laserMaze": {
     "art": {
-      "sha": "c474c8dda6feb8fb",
-      "bytes": 102458
+      "sha": "7e8e1eb0de0c1ef7",
+      "bytes": 100649
     },
     "markup": {
-      "sha": "eb377566e7aba492",
-      "bytes": 65064
+      "sha": "19cfea7218b2e652",
+      "bytes": 66731
     }
   },
   "maelstrom": {
     "art": {
-      "sha": "d7e2e8f156f53aa8",
-      "bytes": 115231
+      "sha": "9810595bcce7ea77",
+      "bytes": 100679
     },
     "markup": {
-      "sha": "3cdcd5917c7d006e",
-      "bytes": 83876
+      "sha": "fb97c0d5e8b5452e",
+      "bytes": 86169
     }
   },
   "mergers": {
     "art": {
-      "sha": "60a9a0cafde02bad",
-      "bytes": 30751
+      "sha": "30eec67119209544",
+      "bytes": 34487
     },
     "markup": {
-      "sha": "56c4f41e245356e5",
-      "bytes": 22050
+      "sha": "b0c54eb6f4a858a4",
+      "bytes": 24059
     }
   },
   "misdirection": {
     "art": {
-      "sha": "17a9fa4739a31611",
-      "bytes": 100032
+      "sha": "c5b848411ed19f16",
+      "bytes": 83482
     },
     "markup": {
-      "sha": "52072d9c5e4a55ee",
-      "bytes": 71133
+      "sha": "d7d34dc05d82ae62",
+      "bytes": 73524
     }
   },
   "oRing": {
     "art": {
-      "sha": "38a99c022e4afe7f",
-      "bytes": 93489
+      "sha": "519d89c675557507",
+      "bytes": 111798
     },
     "markup": {
-      "sha": "cddd7d9d1ea8b62b",
-      "bytes": 58274
+      "sha": "a5bd22b026a83397",
+      "bytes": 60239
     }
   },
   "pitMaze": {
     "art": {
-      "sha": "3e2fae6beaea4bf0",
-      "bytes": 83505
+      "sha": "d413c17092a424a5",
+      "bytes": 68543
     },
     "markup": {
-      "sha": "afa18c3f5defaf7f",
-      "bytes": 56682
+      "sha": "6455599ee173f5c5",
+      "bytes": 58309
     }
   },
   "sidewinder": {
     "art": {
-      "sha": "5b6745c82c10c3bf",
-      "bytes": 88815
+      "sha": "11a0ecad7dc5e578",
+      "bytes": 69382
     },
     "markup": {
-      "sha": "8b26eba859bf5c46",
-      "bytes": 52396
+      "sha": "dae81d3d3cee18c7",
+      "bytes": 54627
     }
   },
   "steps": {
     "art": {
-      "sha": "f57046f45810a779",
-      "bytes": 89088
+      "sha": "5e7343261d0b8de4",
+      "bytes": 70408
     },
     "markup": {
-      "sha": "1dae13d8757e11a2",
-      "bytes": 57607
+      "sha": "ea87546187d11976",
+      "bytes": 59342
     }
   },
   "tabulaRasa": {
     "art": {
-      "sha": "34be7c6b2e9be74d",
-      "bytes": 28815
+      "sha": "b3dffb0cb1b33218",
+      "bytes": 29890
     },
     "markup": {
-      "sha": "cf47ce4fa95604d1",
-      "bytes": 25205
+      "sha": "04ca55d5b9dec1d4",
+      "bytes": 27028
     }
   },
   "tempest": {
     "art": {
-      "sha": "281bc1f6171f1ac3",
-      "bytes": 101141
+      "sha": "9c162fad7eb84a19",
+      "bytes": 84172
     },
     "markup": {
-      "sha": "0ec2441e252db35e",
-      "bytes": 68307
+      "sha": "3e4845736a635909",
+      "bytes": 70182
     }
   },
   "theH": {
     "art": {
-      "sha": "969cbe89e9a48873",
-      "bytes": 31884
+      "sha": "3f91372ec4637d42",
+      "bytes": 35807
     },
     "markup": {
-      "sha": "178c21cbf8a7496a",
-      "bytes": 23817
+      "sha": "e5c5186b42f3f794",
+      "bytes": 25592
     }
   },
   "theKeep": {
     "art": {
-      "sha": "75f6f81c8dccf888",
-      "bytes": 84339
+      "sha": "04f055aa2cf89c48",
+      "bytes": 63922
     },
     "markup": {
-      "sha": "4632397c45db6134",
-      "bytes": 52257
+      "sha": "908b99d389b29883",
+      "bytes": 54240
     }
   },
   "theOval": {
     "art": {
-      "sha": "b766c697bc89cfd0",
-      "bytes": 31282
+      "sha": "6a73153f8fa3390d",
+      "bytes": 35445
     },
     "markup": {
-      "sha": "bb051bde912621ef",
-      "bytes": 23159
+      "sha": "15f734548e9be777",
+      "bytes": 25354
     }
   },
   "theWave": {
     "art": {
-      "sha": "3aed6278d9f1479d",
-      "bytes": 29611
+      "sha": "3f47fae2ca36e293",
+      "bytes": 32962
     },
     "markup": {
-      "sha": "9127a34ed64bbd84",
-      "bytes": 21429
+      "sha": "e1cb6590cedeb50b",
+      "bytes": 23148
     }
   },
   "theX": {
     "art": {
-      "sha": "8493609bf836c2b1",
-      "bytes": 30954
+      "sha": "06d403279f82997a",
+      "bytes": 33377
     },
     "markup": {
-      "sha": "6459770f6c7db39b",
-      "bytes": 24589
+      "sha": "546113032f2af5e5",
+      "bytes": 26412
     }
   },
   "theZone": {
     "art": {
-      "sha": "00e394b6ddadb814",
-      "bytes": 28568
+      "sha": "76f68849d3edd2c3",
+      "bytes": 31949
     },
     "markup": {
-      "sha": "48d72a355c23f42f",
-      "bytes": 19163
+      "sha": "bef1ee84d6192ae4",
+      "bytes": 20986
     }
   },
   "transition": {
     "art": {
-      "sha": "ffaa816f5508c595",
-      "bytes": 110002
+      "sha": "e7bde954c897eb19",
+      "bytes": 98621
     },
     "markup": {
-      "sha": "3b2c49b772831bbd",
-      "bytes": 82774
+      "sha": "96fd2464c4e792df",
+      "bytes": 84597
+    }
+  },
+  "waterPark": {
+    "art": {
+      "sha": "5e5ffd77ce823b76",
+      "bytes": 126624
+    },
+    "markup": {
+      "sha": "c6703584e28f1b23",
+      "bytes": 102441
     }
   },
   "waterPark": {
@@ -381,32 +391,32 @@
   },
   "whirlpool": {
     "art": {
-      "sha": "d6b2468d20d529d6",
-      "bytes": 33312
+      "sha": "2cf15f16c76459ea",
+      "bytes": 37256
     },
     "markup": {
-      "sha": "92efa95ce380114b",
-      "bytes": 25639
+      "sha": "352ce0a5e441f042",
+      "bytes": 27650
     }
   },
   "winding": {
     "art": {
-      "sha": "8556be948d4a34ab",
-      "bytes": 29928
+      "sha": "21c4a3a5ddb5c7da",
+      "bytes": 33676
     },
     "markup": {
-      "sha": "87ecfdcaa1bc146b",
-      "bytes": 20784
+      "sha": "240659309080a70d",
+      "bytes": 23199
     }
   },
   "provingGround": {
     "art": {
-      "sha": "b87ea0d42324d66c",
-      "bytes": 77436
+      "sha": "2f06021310a0ba5c",
+      "bytes": 64864
     },
     "markup": {
-      "sha": "439dfca23a31553e",
-      "bytes": 40472
+      "sha": "6ac33c0b5e2861fe",
+      "bytes": 42284
     }
   }
 }
