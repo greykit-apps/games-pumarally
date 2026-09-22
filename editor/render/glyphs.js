@@ -105,14 +105,14 @@ function beltArt(arms, express) {
    * rather than a painted road. Express is pitched tighter. */
   return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' +
     join(p.beds, "pr-bed") + join(p.beds, "pr-tread") + join(p.rails, "pr-rail") +
-    join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
+    join(p.marks, "pr-mark") + join(p.heads, "pr-head") + "</g>";
 }
 
 /** What a belt paints ON its bed: the arrow and chevrons alone, for painting again over a randomizer. */
 function beltOver(arms, express) {
   const p = beltPaths(arms, N, express ? 2 : 1);
   const join = (list, cls) => list.map(d => '<path class="' + cls + '" d="' + d + '"/>').join("");
-  return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' + join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
+  return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' + join(p.marks, "pr-mark") + join(p.heads, "pr-head") + "</g>";
 }
 
 /* A CURRENT IS WATER THAT MOVES, not a belt in water. No bed and no rails --
@@ -127,7 +127,7 @@ function currentArt(arms) {
    * a machine in it -- but a mid-blue arrow on a blue bed had nothing to sit
    * against, and the direction a current carries you is a rule. */
   return '<g class="pr-art pr-current">' + join(p.marks, "pr-flow") +
-    join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
+    join(p.marks, "pr-mark") + join(p.heads, "pr-head") + "</g>";
 }
 
 function beltMark(arms, express) {
@@ -136,7 +136,7 @@ function beltMark(arms, express) {
   /* The painted line and the chevron, and no bed: over a photograph the shape
    * has to sit on the printed belt rather than cover it. The line follows the
    * run, so a curve reads as a curve at a glance. */
-  const d = p.marks.concat(p.chevrons).join(" ");
+  const d = p.marks.concat(p.heads).join(" ");
   return mk(d, colour, express ? 1.8 : 1.4);
 }
 
