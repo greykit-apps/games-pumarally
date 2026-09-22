@@ -432,6 +432,14 @@ export function beltPass(st, C, lo, hi, only, squares) {
     tread(b);
     st.events.push({ type: "conveyed", player: b.id, from, to: m.to, dir: m.dir });
     if (isHole(C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
+    /* "When a robot crosses over a ledge from an upper level to a lower level,
+     * draw 2 damage" -- a belt carrying it over is a crossing like any other */
+    if (levelStepAt(C, from[0], from[1], m.dir) < 0 && !rampBetween(C, from[0], from[1], m.dir)) {
+      const n = waterAt(C, b.c, b.r) ? 1 : 2;
+      log(st, b.name + " is carried off the ledge and takes " + n);
+      damage(st, C, b, n, "ledge");
+      if (!b.alive) continue;
+    }
     throughPortal(st, C, b);
     /* rotate ONLY because a belt carried the robot onto a curve, and only
      * where the board prints an arm on the side it came in by */

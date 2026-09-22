@@ -2179,6 +2179,12 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "a conveyor carries a robot down a ledge at the drop's cost, not up one, and off the edge of the board",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "the race draws the markings its edition reads and no others",
     "layer": "screen",
     "status": "ported",

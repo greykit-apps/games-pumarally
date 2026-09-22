@@ -90,7 +90,6 @@ const CASES = [
 
   /* ground geometry */
   ["belt.intoWall", FIXTURE, d => { setEdgeGlyph(d, "v", 2, 1, "#"); }],
-  ["belt.acrossLedge", FIXTURE, d => { setTok(d, 5, 8, "b^."); }],
 
   /* wall lattice */
   ["wall.doorGlyphNoDevice", FIXTURE, d => {

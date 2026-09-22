@@ -554,7 +554,12 @@ does not exist (`meta.setEdition`), one because a course cannot mix editions whe
 nothing has one (`course.mixedEditions`), and three that could never fire: a runaway laser beam (a beam leaves a
 rectangular board within `max(w,h)` steps), a beam that lights no square (the
 path always contains the square the laser stands in), and "an element spanning a
-level change" (an element occupies one square and cannot span an edge).
+level change" (an element occupies one square and cannot span an edge). Two more
+went later for being invented rather than read: `belt.headOn` (two conveyors
+facing each other are rare and legal) and `belt.acrossLedge` — a conveyor may
+run across a level change, carrying a robot down off a ledge at the drop's cost,
+up one over a ramp, or off the board's edge, and the engine resolves each at
+play time.
 
 ---
 

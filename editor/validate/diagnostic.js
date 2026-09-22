@@ -51,7 +51,6 @@ export const CODES = Object.freeze({
 
   /* --- ground geometry -------------------------------------------------- */
   "belt.intoWall":        "a conveyor runs out into a wall",
-  "belt.acrossLedge":     "a conveyor runs across a level change",
 
   /* --- wall lattice ----------------------------------------------------- */
   "wall.doorGlyphNoDevice":"a 'D' in the lattice with no door device on that edge",
