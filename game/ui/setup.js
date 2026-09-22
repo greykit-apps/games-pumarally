@@ -43,6 +43,13 @@ function workshopCourses(library) {
   return out;
 }
 
+/** Take a course saved from the workshop out of this browser's library. */
+function forgetCourse(id) {
+  const all = read(WORKSHOP_KEY, {});
+  delete all[id];
+  store(WORKSHOP_KEY, all);
+}
+
 /* the workshop sits beside the game whichever page mounted it */
 const workshopHref = new URL("../../editor/index.html#course", import.meta.url).href;
 
@@ -107,10 +114,13 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     for (const c of shelf) {
       const ok = c.reads.includes(prefs.ruleset);
       const boards = c.doc.stamps.filter(s => s.role !== "dock").length;
-      html += '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
+      /* a course of yours can be taken out of the library; a shipped one cannot, so it gets no button */
+      html += (c.kind === "mine" ? '<div class="tile">' : "") +
+        '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
         (ok ? "" : notRead(c.reads)) + ">" + thumb(c.id, assemble(c.doc, library).grid) + '<span class="name">' + esc(c.doc.name) + "</span>" +
         '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + boards + " board" + (boards === 1 ? "" : "s") +
-        " &middot; " + (c.doc.flags || []).length + " " + flagWord + (ok ? "" : onlyRead(c.reads)) + "</span></button>";
+        " &middot; " + (c.doc.flags || []).length + " " + flagWord + (ok ? "" : onlyRead(c.reads)) + "</span></button>" +
+        (c.kind === "mine" ? '<button class="forget" data-forget="' + esc(c.id) + '" title="Delete this course from the library" aria-label="Delete ' + esc(c.doc.name) + '">&times;</button></div>' : "");
     }
     html += "</div>";
 
@@ -139,7 +149,14 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     } else {
       html += '<span class="keys">2016: every robot starts on 3 Energy with 3 upgrade cards; a robot that falls reboots at its last checkpoint; the Priority Token starts with seat 1.</span>';
     }
-    html += "</div><div class='row'><button class='primary' data-act='start'" + (prefs.course ? "" : " disabled") + ">Start the race</button></div></div>";
+    html += "</div><div class='row'><button class='primary' data-act='start'" + (prefs.course ? "" : " disabled") + ">Start the race</button></div>";
+
+    /* issue #6: everything this browser remembers, gone in one press. Not
+     * a per-key list, because a key added later would be a key this missed:
+     * the saved race, these settings, the mats' preferences, the speed, the
+     * workshop's autosave and its libraries of courses -- all of it. */
+    html += "<h2>Storage</h2><div class='row'><button data-act='reset'>Forget everything</button>" +
+      "<span class='keys'>Clears everything PumaRally keeps in this browser: the saved race, these settings, your courses, the workshop's autosave.</span></div></div>";
     root.innerHTML = html;
   }
 
@@ -152,6 +169,23 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (d.drop !== undefined) { prefs.seats.splice(+d.drop, 1); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
+    if (d.forget !== undefined) {
+      const c = shelf.find(x => x.id === d.forget && x.kind === "mine");
+      if (!c || !window.confirm("Delete " + c.doc.name + " from the library? This cannot be undone.")) return;
+      forgetCourse(d.forget);
+      shelf.splice(shelf.indexOf(c), 1);
+      if (prefs.course === d.forget) prefs.course = playable().length ? playable()[0].id : null;
+      store(SETUP_KEY, prefs);
+      render();
+      return;
+    }
+    if (d.act === "reset") {
+      if (!window.confirm("Forget everything PumaRally has saved in this browser -- the race in progress, these settings, every course you saved, the workshop's autosave? This cannot be undone.")) return;
+      try { localStorage.clear(); } catch (e) { /* no storage */ }
+      try { sessionStorage.clear(); } catch (e) { /* no storage */ }
+      location.reload();
+      return;
+    }
     if (d.act === "start") {
       const q = quick.find(x => x.id === prefs.course);
       const c = q ? null : shelf.find(x => x.id === prefs.course);

@@ -164,6 +164,10 @@ button[data-ruleset]{padding:8px 14px}
 .course svg{width:100%;height:auto;display:block;background:var(--bg)}
 .course .name{font-size:12px;color:var(--text)}
 .course .meta{font-size:10px;color:var(--dim)}
+.tile{position:relative;display:flex}
+.tile>.course{flex:1}
+.tile .forget{position:absolute;top:4px;right:4px;min-height:0;padding:0 8px;line-height:22px;font-size:15px;opacity:.7;background:var(--bg)}
+.tile .forget:hover{opacity:1;border-color:var(--danger);color:var(--danger)}
 .seats{display:flex;flex-direction:column;gap:6px}
 .seat{display:grid;grid-template-columns:24px 16px 1fr 1fr 1fr;gap:8px;align-items:center}
 .seat .sw{width:14px;height:14px;border-radius:3px}
