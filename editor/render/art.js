@@ -112,15 +112,31 @@ export function pusherSvg(dir, odd) {
     "pr-pusher" + (odd ? " pr-odd" : " pr-even"));
 }
 
+/* TOOLS, NOT CROSSES. A repair site was a plus and an upgrade site a plus in
+ * a box, and a plus in a box is a window. The printed boards mark them with
+ * tools -- one wrench for a repair site, a wrench crossed with a hammer for an
+ * upgrade site -- and the markup mode here already drew wrenches, so the play
+ * art now draws the same things. Both lie diagonally across a bolted plate. */
+function wrenchArt(cls) {
+  /* an open-end spanner from bottom-left to top-right: a shaft, a round head
+     at the top-right with the jaw cut out of it, and a small eye at the foot */
+  return '<path class="' + cls + ' pr-tool-line" d="M31 71L61 41"/>' +
+    '<circle class="' + cls + ' pr-tool-fill" cx="67" cy="35" r="12"/>' +
+    '<path class="pr-tool-cut" d="M67 35l12-12-6-6-12 12z"/>' +
+    '<circle class="' + cls + ' pr-tool-fill" cx="29" cy="73" r="6.5"/>';
+}
+function hammerArt(cls) {
+  /* from top-left to bottom-right: a handle and a head across the top end */
+  return '<path class="' + cls + ' pr-tool-line" d="M40 40L71 71"/>' +
+    '<path class="' + cls + ' pr-tool-fill" d="M22 30l10-10 20 20-10 10z"/>';
+}
+
 export function repairSvg(upgrade) {
-  /* The plate was --pr-plate on a floor five per cent away from it, which is
-     to say invisible: a repair site read as a green cross floating on bare
-     deck. It is a bolted-down plate, so it is lit like one. */
+  const cls = upgrade ? "pr-upgrade-tool" : "pr-repair-tool";
   return svg(
     '<rect class="pr-plate" x="12" y="12" width="76" height="76" rx="4"/>' +
     '<path class="pr-plate-lip" d="M13 80 V16 A3 3 0 0 1 16 13 H80"/>' +
-    '<path class="pr-tool" d="M50 24L50 76M24 50L76 50"/>' +
-    (upgrade ? '<rect class="pr-tool-ring" x="22" y="22" width="56" height="56" rx="3"/>' : ""),
+    (upgrade ? hammerArt(cls) : "") + wrenchArt(cls),
     upgrade ? "pr-upgrade" : "pr-repair");
 }
 
