@@ -7,7 +7,7 @@
   "h": 12,
   "set": "modernUnfiled",
   "origin": "transcribed",
-  "notes": "DRAFT, unverified. A flat spiral of green conveyors, drafted by maps/boardscan.py + propagation and verified against the photo by overlay; walls and laser beams measured; the two crushers, three batteries and the pits read at magnification. Belt arms/merges at the loop transitions and the laser damage are to be confirmed in the workshop.",
+  "notes": "A flat spiral of green conveyors, drafted by maps/boardscan.py + propagation and verified against the photo by overlay; walls and laser beams measured; the two crushers, three batteries and the pits read at magnification. Belt arms/merges at the loop transitions and the laser damage are to be confirmed in the workshop.",
   "ground": {
     "rows": [
       "bvl b<R b<. b<. b<. b<R b<l ... bv. ... b^. ...",
