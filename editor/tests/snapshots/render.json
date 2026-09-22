@@ -461,12 +461,12 @@
   },
   "transition": {
     "art": {
-      "sha": "e4c42e1d4e2efa93",
-      "bytes": 100060
+      "sha": "aacfe489b86f8770",
+      "bytes": 99122
     },
     "markup": {
-      "sha": "9ae14c9d11402dc2",
-      "bytes": 85215
+      "sha": "7bfdfed3f250f530",
+      "bytes": 84325
     }
   },
   "trenchRun": {
