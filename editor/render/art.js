@@ -164,13 +164,15 @@ export function rampSvg(dir) {
   return svg('<g transform="rotate(' + (dir * 90) + ' 50 50)">' + out + "</g>", "pr-ramp");
 }
 
+/* THE PRINT: an eight-point star, silver-edged and black, nearly the whole
+ * square, with a red jagged burst inside it and the belt's arrow drawn over
+ * the lot. It is the loudest thing on a Chaos and Carnage board, which is
+ * right for what it does to your register. This is drawn UNDER the square's
+ * element (svg.js puts it between the floor and the belt), so the arrow
+ * stays legible over it exactly as printed. */
 export function randomizerSvg() {
-  let out = '<rect class="pr-rand-face" x="20" y="20" width="60" height="60" rx="8"/>';
-  const pips = [[35, 35], [65, 35], [50, 50], [35, 65], [65, 65]];
-  for (let i = 0; i < pips.length; i++) {
-    out += '<circle class="pr-rand-pip" cx="' + pips[i][0] + '" cy="' + pips[i][1] + '" r="6"/>';
-  }
-  return svg(out, "pr-rand");
+  return svg('<path class="pr-rand-star" d="M 50.0 2.0 L 61.5 22.3 L 83.9 16.1 L 77.7 38.5 L 98.0 50.0 L 77.7 61.5 L 83.9 83.9 L 61.5 77.7 L 50.0 98.0 L 38.5 77.7 L 16.1 83.9 L 22.3 61.5 L 2.0 50.0 L 22.3 38.5 L 16.1 16.1 L 38.5 22.3 Z"/>' +
+             '<path class="pr-rand-burst" d="M 59.6 14.3 L 61.0 30.9 L 76.2 23.8 L 69.1 39.0 L 85.7 40.4 L 72.0 50.0 L 85.7 59.6 L 69.1 61.0 L 76.2 76.2 L 61.0 69.1 L 59.6 85.7 L 50.0 72.0 L 40.4 85.7 L 39.0 69.1 L 23.8 76.2 L 30.9 61.0 L 14.3 59.6 L 28.0 50.0 L 14.3 40.4 L 30.9 39.0 L 23.8 23.8 L 39.0 30.9 L 40.4 14.3 L 50.0 28.0 Z"/>', "pr-rand");
 }
 
 /* ONE HUE, because a teleporter has no colour to match. The portal below takes
