@@ -1,0 +1,115 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "waterPark",
+  "name": "Water Park",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "ground": {
+    "rows": [
+      "D.. Cv. ... ... ... ... ... ... Cv. ... ... ...",
+      "... Cv. ... ... ... ... ... Cvl C<r ... ... ...",
+      "~.. C>l Cvr ... ... ... Cvl C<r B<. B<l ... ...",
+      "... C>. C>L C>. C>R Cvx C<r ... ... B^r B<. B<l",
+      "B^. ~.. ... ... C^r C<r D.. ... ~.. ... ... B^.",
+      "B^r B<. B<. B<l ... C>. C>. Cvr ... ... ... B^.",
+      "... ... ... B^. ... ... ~.. Cv. ... ... ... B^.",
+      "... ... ... B^r B<l ... ~.. C>l Cvr D.. ... B^.",
+      "... ... ... ... B^r B<. B<. B<. Cv. Cv. B>r B^l",
+      "... ... ... ... ... ... ... ... Cv. Cv. ... ...",
+      "... ... D.. ... ... ... ... ... C>l C>L C>. D..",
+      "... ... ... ... ... ... ... ... ... ~.. D.. D.."
+    ],
+    "levels": [
+      "AA00000AA011",
+      "AAA0000AA011",
+      "AAAA00AA0000",
+      "AAAAAAAA0000",
+      "0AA0AAA00000",
+      "00000AAA0000",
+      "00000AAAA000",
+      "110000AAAA00",
+      "11100000AA00",
+      "11111110AAA0",
+      "11111110AAAA",
+      "11111110AAAA"
+    ],
+    "rampH": [
+      " R      R   ",
+      "            ",
+      "           R",
+      "            ",
+      "       R    ",
+      "  R         ",
+      "            ",
+      " R   R      ",
+      "            ",
+      "          R ",
+      "            ",
+      "            ",
+      "        R   "
+    ],
+    "rampV": [
+      "       R  R  ",
+      "R  R         ",
+      "             ",
+      "R            ",
+      "             ",
+      "             ",
+      "         R   ",
+      "             ",
+      "   R         ",
+      "             ",
+      "       R     ",
+      "        R    "
+    ],
+    "sites": [
+      { "at": [5, 0], "has": ["battery"] },
+      { "at": [3, 4], "has": ["upgrade", "battery"] },
+      { "at": [9, 5], "has": ["battery"] },
+      { "at": [0, 9], "has": ["repair", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "          # ",
+      "            ",
+      "            ",
+      "            ",
+      "    #       ",
+      "            ",
+      "            ",
+      "  # #  #    "
+    ],
+    "vRows": [
+      "             ",
+      "          #  ",
+      "            #",
+      "             ",
+      "#          ##",
+      "             ",
+      "             ",
+      "# #         #",
+      "             ",
+      "#      #     ",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:4,0", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "h:4,12", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:10,5", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:0,7", "face": "E", "damage": 2 },
+      { "kind": "pusher", "edge": "v:7,9", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:10,1", "face": "W", "regs": [2, 4] }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
