@@ -54,13 +54,18 @@ function groundLayer(board, mode) {
         throw new Error("no " + mode + " glyph for element " + def.key + " at (" + c + "," + r + ")");
       }
       const d = def.arg === ARG_DIR ? (dirOfChar(tok.charAt(1)) || 0) : 0;
-      const ctx = { arg: tok.charAt(1), arms: ARM_CODES[tok.charAt(2)] || ARM_CODES["."], dir: d, c, r };
+      /* The deck under a square is shaded by its LEVEL, so a board with
+       * elevation on it reads as ground rather than as a hundred small
+       * numerals. The numeral stays -- it is the exact value, and the shade is
+       * only a band -- but the terrain no longer has to be spelled out. */
+      const ctx = { arg: tok.charAt(1), arms: ARM_CODES[tok.charAt(2)] || ARM_CODES["."],
+                    dir: d, c, r, level: levelAt(board, c, r) };
       /* pits are drawn as one layer, so neighbouring pits become one hole */
       if (mode === "art" && def.key === "pit") continue;
       const body = glyph[mode](ctx);
       if (!body) continue;
       /* the floor first, unrotated, then the element standing on it */
-      if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt());
+      if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt(ctx.level));
       out += g(at(c, r) + spin(d), body);
       /* A RANDOMIZER FILLS THE SQUARE, as printed: the starburst goes over the
        * square's plate and bed, and whatever the element paints on top -- a
@@ -92,7 +97,7 @@ function pitLayer(board) {
       holes += '<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + CELL + '"/>';
       const open = { n: isPit(c, r - 1), e: isPit(c + 1, r), s: isPit(c, r + 1), w: isPit(c - 1, r) };
       if (!open.n) { rims += '<rect x="' + x + '" y="' + y + '" width="' + CELL + '" height="' + RIM + '"/>';
-                     walls += '<rect x="' + (x + (open.w ? 0 : RIM)) + '" y="' + (y + RIM) + '" width="' + (CELL - (open.w ? 0 : RIM) - (open.e ? 0 : RIM)) + '" height="14"/>'; }
+                     walls += '<rect x="' + (x + (open.w ? 0 : RIM)) + '" y="' + (y + RIM) + '" width="' + (CELL - (open.w ? 0 : RIM) - (open.e ? 0 : RIM)) + '" height="26"/>'; }
       if (!open.s) rims += '<rect x="' + x + '" y="' + (y + CELL - RIM) + '" width="' + CELL + '" height="' + RIM + '"/>';
       if (!open.w) rims += '<rect x="' + x + '" y="' + y + '" width="' + RIM + '" height="' + CELL + '"/>';
       if (!open.e) rims += '<rect x="' + (x + CELL - RIM) + '" y="' + y + '" width="' + RIM + '" height="' + CELL + '"/>';
@@ -100,7 +105,7 @@ function pitLayer(board) {
   }
   if (!holes) return "";
   return '<g class="pr-art pr-pits"><g fill="' + ART.pit + '">' + holes + "</g>" +
-    '<g fill="#1a2030" opacity="0.55">' + walls + "</g>" +
+    '<g fill="url(#pr-pitwall)" opacity="0.85">' + walls + "</g>" +
     '<g fill="url(#pr-hz)" opacity="0.42">' + rims + "</g></g>";
 }
 
@@ -268,11 +273,24 @@ function wallLayer(board, mode) {
   }
 
   let out = "";
+  /* A capping highlight along the lit face. The concrete gradient already runs
+   * light-to-dark away from the top left; this is the hard edge at the top of
+   * it, which is what makes a bar read as a block with a top rather than as a
+   * painted stripe. It is drawn after every wall so a junction's caps do not
+   * get buried under the next wall's shadow. */
+  let caps = "";
   for (const b of bars) {
     out += '<rect class="pr-wall" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
       '" height="' + b.h + '" fill="url(#pr-concrete-' + (b.vertical ? "v" : "h") +
       ')" filter="url(#pr-wallshadow)"/>';
+    /* the same wear the deck has, so the two read as the same material world */
+    out += '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h +
+      '" fill="url(#pr-grit)" opacity="0.7"/>';
+    caps += b.vertical
+      ? '<rect x="' + b.x + '" y="' + b.y + '" width="1.9" height="' + b.h + '" fill="#c2c8d4" opacity="0.5"/>'
+      : '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="1.9" fill="#c2c8d4" opacity="0.5"/>';
   }
+  out += caps;
   for (const b of doors) {
     out += '<rect class="pr-doorbar" x="' + b.x + '" y="' + b.y + '" width="' + b.w +
       '" height="' + b.h + '"/>';
@@ -296,16 +314,22 @@ function beamLayer(board, mode) {
     const x1 = b[0] * CELL + 50 + dx, y1 = b[1] * CELL + 50 + dy;      // the far side of the last square
     const d = "M " + x0 + " " + y0 + " L " + x1 + " " + y1;
     if (mode === "art") {
-      /* a soft glow under a thin bright core, one core per point of damage */
-      out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (8 + dev.damage * 3) +
-        '" stroke-linecap="butt" opacity="0.14"/>';
+      /* A BLOOM, then a core, then a white-hot centre. The old beam was a flat
+       * 14%-opacity band under a dull core and read as a ruled line -- which
+       * for the one thing on the board that is always ON and always firing is
+       * the wrong end of every possible mistake. The blur is a filter on one
+       * path per beam, not per square, so it costs nothing a board notices. */
+      out += '<path d="' + d + '" stroke="' + ART.laser + '" stroke-width="' + (9 + dev.damage * 4) +
+        '" stroke-linecap="butt" opacity="0.3" filter="url(#pr-beamglow)"/>';
       const n = Math.max(1, Math.min(3, dev.damage | 0));
       const dir = dev.face, across = (dir === N || dir === S) ? [1, 0] : [0, 1];
       for (let i = 0; i < n; i++) {
         const off = (i - (n - 1) / 2) * 5;
         const ox = across[0] * off, oy = across[1] * off;
-        out += '<path d="M ' + (x0 + ox) + " " + (y0 + oy) + " L " + (x1 + ox) + " " + (y1 + oy) + '" stroke="' + ART.laser +
-          '" stroke-width="2.2" stroke-linecap="butt" opacity="0.8"/>';
+        const line = 'M ' + (x0 + ox) + " " + (y0 + oy) + " L " + (x1 + ox) + " " + (y1 + oy);
+        out += '<path d="' + line + '" stroke="' + ART.laser +
+          '" stroke-width="2.6" stroke-linecap="butt" opacity="0.92"/>' +
+          '<path d="' + line + '" stroke="#ffe6e3" stroke-width="0.9" stroke-linecap="butt" opacity="0.75"/>';
       }
     } else {
       out += '<path d="' + d + '" ' + markStroke(MARK.device, 1.0) + ' stroke-dasharray="5 6" opacity="0.9"/>';
@@ -408,8 +432,16 @@ export function boardSVG(board, opts = {}) {
   const style = "<style>" + PALETTE_CSS + ART_CSS + STAMP_CSS + SPOT_CSS +
     ".pr-doorbar{fill:none;stroke:var(--pr-warn);stroke-width:4;stroke-dasharray:14 9}" +
     "</style>";
+  /* The defs belong to the PLAY art and to nothing else: markup is stroke
+   * colours and dash patterns all the way down, and referred to not one of
+   * them. Shipping them anyway put the deck symbols, the gradients and the
+   * filters into every markup SVG and every markup thumbnail, which is several
+   * kilobytes each to define shapes nothing in the drawing points at.
+   *
+   * The STYLESHEET still travels in both modes. It is what the rail's swatches
+   * resolve against -- they are art whichever mode the board is drawn in. */
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (-m) + " " + (-m) + " " +
     (w + m * 2) + " " + (h + m * 2) + '" width="100%" preserveAspectRatio="xMidYMid meet"' +
     ' data-board="' + esc(board.id) + '" data-mode="' + o.mode + '">' +
-    style + ART_DEFS + body + "</svg>";
+    style + (o.mode === "art" ? ART_DEFS : "") + body + "</svg>";
 }

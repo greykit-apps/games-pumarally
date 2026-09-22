@@ -56,7 +56,11 @@ export function gearSvg(dir) {
   let hy = cw ? Math.cos(s1) : -Math.cos(s1);
   return svg(
     '<path class="pr-cog" d="M' + pts.join("L") + 'Z"/>' +
+    /* the root circle, dark, so the teeth read as teeth rather than as a
+       scalloped disc -- and the hub gets a lit rim off the same light */
+    '<circle class="pr-cog-root" cx="50" cy="50" r="30"/>' +
     '<circle class="pr-hub" cx="50" cy="50" r="26"/>' +
+    '<path class="pr-hub-lip" d="M28 58A26 26 0 0 1 64 27"/>' +
     '<path class="pr-turn" d="M' + polar(s0, RAD) + "A" + RAD + " " + RAD + " 0 1 " +
       (cw ? 1 : 0) + " " + polar(s1, RAD) + '"/>' +
     turnHead(50 + Math.cos(s1) * RAD, 50 + Math.sin(s1) * RAD, hx, hy, 13),
@@ -104,8 +108,12 @@ export function pusherSvg(dir, odd) {
 }
 
 export function repairSvg(upgrade) {
+  /* The plate was --pr-plate on a floor five per cent away from it, which is
+     to say invisible: a repair site read as a green cross floating on bare
+     deck. It is a bolted-down plate, so it is lit like one. */
   return svg(
     '<rect class="pr-plate" x="12" y="12" width="76" height="76" rx="4"/>' +
+    '<path class="pr-plate-lip" d="M13 80 V16 A3 3 0 0 1 16 13 H80"/>' +
     '<path class="pr-tool" d="M50 24L50 76M24 50L76 50"/>' +
     (upgrade ? '<rect class="pr-tool-ring" x="22" y="22" width="56" height="56" rx="3"/>' : ""),
     upgrade ? "pr-upgrade" : "pr-repair");
@@ -127,14 +135,25 @@ export function batterySvg() {
 
 export function waterSvg() {
   let out = "", y;
+  /* Each crest is drawn twice: a dark trough a shade below it, then the lit
+   * crest. Two lines is what makes a wave a surface rather than a squiggle,
+   * and it costs one extra path. */
   for (y = 0; y < 3; y++) {
-    out += '<path class="pr-wave" d="M12 ' + (32 + y * 18) + 'q10-9 20 0t20 0 20 0 16 0"/>';
+    const d = 'M12 ' + (32 + y * 18) + 'q10-9 20 0t20 0 20 0 16 0';
+    out += '<path d="' + d + '" fill="none" stroke="#04131f" stroke-opacity=".55"' +
+           ' stroke-width="5" stroke-linecap="round" transform="translate(0 2.6)"/>' +
+           '<path class="pr-wave" d="' + d + '"/>';
   }
   return svg(out, "pr-water");
 }
 
 export function drainSvg() {
+  /* A hole in water, lit like a hole: the far wall of the shaft catches what
+   * light there is and the near side is black. The rim stays hazard yellow,
+   * because a drain is a pit in every respect the rules care about. */
   return svg('<circle class="pr-drain-hole" cx="50" cy="50" r="30"/>' +
+             '<path d="M22 58A30 30 0 0 1 76 34" fill="none" stroke="#12283a"' +
+             ' stroke-width="9" stroke-linecap="round"/>' +
              '<circle class="pr-drain-rim" cx="50" cy="50" r="30"/>' +
              '<path class="pr-wave" d="M14 28q9-8 18 0t18 0 18 0 18 0"/>' +
              '<path class="pr-wave" d="M14 76q9-8 18 0t18 0 18 0 18 0"/>', "pr-drain");
@@ -194,8 +213,19 @@ export function portalSvg(n) {
              '<circle cx="50" cy="50" r="6" fill="var(--pr-bg)"/>', "pr-portal");
 }
 
+const OIL_BODY = "M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z";
+
+/* OIL IS A RULE, AND IT WAS INVISIBLE. The film was #0a0d16 on a deck five per
+ * cent lighter, inside a hairline rim: on a board you had to already know the
+ * square was there. It stays black -- it is oil -- and is found by its sheen
+ * instead, which is how you find real oil: the film is iridescent, so it gets
+ * a raking band of violet through teal to amber and a bright meniscus on the
+ * lit side. Still the darkest square on the board, and now the one with the
+ * only rainbow on it. */
 export function oilSvg() {
-  return svg('<path class="pr-oil" d="M22 46C22 32 34 22 50 22C68 22 80 30 80 44C80 58 72 74 52 76C32 78 22 62 22 46Z"/>' +
+  return svg('<path class="pr-oil" d="' + OIL_BODY + '"/>' +
+             '<path class="pr-oil-film" d="' + OIL_BODY + '"/>' +
+             '<path class="pr-oil-rim" d="M23 52C22 34 36 22 52 22C64 22 74 26 79 36"/>' +
              '<path class="pr-oil-sheen" d="M36 40C38 34 45 30 53 31C46 34 42 38 40 44C38 50 35 46 36 40Z"/>',
              "pr-oil");
 }
@@ -223,6 +253,7 @@ export function burnerSvg(dir, nozzle) {
 
 export function dockSvg(n) {
   return svg('<rect class="pr-plate" x="16" y="16" width="68" height="68" rx="4"/>' +
+             '<path class="pr-plate-lip" d="M17 80 V20 A3 3 0 0 1 20 17 H80"/>' +
              '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
 }
 
