@@ -49,7 +49,9 @@ function build() {
    *
    * ONE oil and ONE portal, where there used to be an edition-classic and an
    * edition-modern of each. The `t1` pair spans the two rows so that the
-   * paired-colour check has a pair to break that is not the teleporter's. */
+   * paired-colour check has a pair to break; the two teleporters are NOT a pair
+   * and never were -- they are here precisely because a board may carry any
+   * number of them, which is what `ground.pairCount` must not complain about. */
   setCell(b, 1, 3, "o..");   setCell(b, 2, 3, "l..");   setCell(b, 3, 3, "r..");
   setCell(b, 6, 3, "L..");   setCell(b, 7, 3, "t1.");    setCell(b, 9, 3, "~..");
   setCell(b, 10, 3, "D..");
@@ -67,8 +69,8 @@ function build() {
   setSites(b, 7, 9, ["battery", "flagspot"]);
 
   setCell(b, 1, 5, "C>.");   setCell(b, 2, 5, "z..");   setCell(b, 3, 5, "A..");
-  setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T1.");
-  setCell(b, 8, 5, "T1.");   setCell(b, 9, 5, "t1.");
+  setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T..");
+  setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 
   /* two levels, joined by the only thing that may join them */
   setCell(b, 5, 8, "R^.");
