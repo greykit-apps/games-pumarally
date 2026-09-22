@@ -7,7 +7,6 @@
   "h": 12,
   "set": "modernUnfiled",
   "origin": "transcribed",
-  "unverified": true,
   "notes": "DRAFT, unverified. Belt squares and directions drafted by maps/boardscan.py + propagation, seeded from hand-read arrows; walls and laser beams measured; batteries, pits, crushers, push-panel and laser mounts read at magnification. Belt arms, the four ring conveyors' spin, the col-3 laser cluster and the push-panel faces are to be confirmed in the workshop against the photograph.",
   "ground": {
     "rows": [
@@ -25,18 +24,17 @@
       "... bv. b>. b^L ... bv. b^. b>l b^l ... b^. ..."
     ],
     "sites": [
-      { "at": [0, 0], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [0, 0], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [4, 2], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [7, 2], "has": ["flagspot"] },
       { "at": [11, 2], "has": ["flagspot"] },
       { "at": [0, 3], "has": ["flagspot"] },
       { "at": [6, 5], "has": ["flagspot"] },
       { "at": [6, 6], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
-      { "at": [0, 8], "has": ["repair"] },
       { "at": [6, 8], "has": ["flagspot"] },
       { "at": [11, 8], "has": ["flagspot"] },
       { "at": [0, 9], "has": ["flagspot"] },
-      { "at": [11, 11], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+      { "at": [11, 11], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
     ]
   },
   "wall": {
