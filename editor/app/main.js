@@ -211,18 +211,25 @@ export function mount(root) {
   view.viewport.addEventListener("pointerdown", ev => {
     view.viewport.setPointerCapture(ev.pointerId);
     const tool = toolByKey(st.hand.tool);
-    const wantsPan = tool.kind === "pan" || ev.button === 1 || ev.shiftKey;
+    /* The right button pans when dragged and erases when clicked. It used to
+     * erase on drag too; a right-drag pan is worth more than a right-drag
+     * erase, and a click still erases the square under it, so nothing is lost
+     * but the erasing sweep. Whether it was a drag is settled on release. */
+    const wantsPan = tool.kind === "pan" || ev.button === 1 || ev.button === 2 || ev.shiftKey;
     if (wantsPan) {
-      panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY };
+      panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY, moved: false,
+                  eraseOnClick: ev.button === 2 && tool.kind !== "pan" ? hit(view, st, ev) : null };
       return;
     }
     const h = hit(view, st, ev);
-    painting = { erase: ev.button === 2, stroke: newStroke(isEdgeTool()), last: h, wallSet: null };
+    painting = { erase: false, stroke: newStroke(isEdgeTool()), last: h, wallSet: null };
     if (painting.stroke.wants(h)) edit(h, painting.erase);
   });
 
   view.viewport.addEventListener("pointermove", ev => {
     if (panning) {
+      if (Math.abs(ev.clientX - panning.x) > 3 || Math.abs(ev.clientY - panning.y) > 3) panning.moved = true;
+      if (!panning.moved) return;
       st.offX = panning.ox + (ev.clientX - panning.x);
       st.offY = panning.oy + (ev.clientY - panning.y);
       layout(view, st);
@@ -268,7 +275,14 @@ export function mount(root) {
   });
 
   const endPointer = () => { painting = null; panning = null; };
-  view.viewport.addEventListener("pointerup", endPointer);
+  view.viewport.addEventListener("pointerup", () => {
+    /* a right button released where it was pressed is a click: erase there */
+    if (panning && !panning.moved && panning.eraseOnClick) {
+      const h = panning.eraseOnClick, stroke = newStroke(isEdgeTool());
+      if (stroke.wants(h)) edit(h, true);
+    }
+    endPointer();
+  });
   view.viewport.addEventListener("pointercancel", endPointer);
   view.viewport.addEventListener("pointerleave", () => {
     endPointer(); hover = null; showGhost(view, st, null);
@@ -306,8 +320,9 @@ export function mount(root) {
       return;
     }
     if (k === "`") { toggleMode(); return; }
-    if (k === "+" || k === "=") { zoomAbout(view, st, 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
-    if (k === "-") { zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
+    /* Z and C zoom, as + and - do: a hand on WASD reaches them without moving */
+    if (k === "+" || k === "=" || k === "z") { zoomAbout(view, st, 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
+    if (k === "-" || k === "c") { zoomAbout(view, st, 1 / 1.2, view.viewport.clientWidth / 2, view.viewport.clientHeight / 2); refresh({ board: false }); return; }
     if (k === "0") { fit(view, st); refresh({ board: false }); return; }
 
     /* WASD pan the view (issue #3); the arrow keys face the thing in hand, QE
@@ -792,7 +807,7 @@ export function mount(root) {
   drawLibrary();
   refresh();
   fit(view, st);
-  say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D pan, ` swaps the drawing.", "");
+  say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D or right-drag pan, Z C or the wheel zoom, ` swaps the drawing.", "");
 
   /* a small handle for the browser console and for tests */
   window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev),

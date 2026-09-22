@@ -329,6 +329,64 @@ export function mountScreen(root, ctx) {
     const availW = stage.clientWidth - 24, availH = window.innerHeight - 70;
     const w = Math.max(200, Math.min(availW, availH * C.w / C.h));
     els.board.style.width = w + "px";
+    look.zoom = 1; look.offX = 0; look.offY = 0; applyLook();
+  }
+
+  /* ZOOM AND PAN, the same three ways the workshops have them: the wheel
+   * zooms about the pointer, Z and C zoom about the middle, W A S D pan, and
+   * the right or middle button drags. The board is laid out at its fitted
+   * size and then CSS-transformed, so nothing else on the screen moves; 0
+   * puts it back. */
+  const look = { zoom: 1, offX: 0, offY: 0 };
+  const LOOK_MIN = 0.5, LOOK_MAX = 6, LOOK_STEP = 1.2, LOOK_PAN = 120;
+  function applyLook() {
+    els.board.style.transformOrigin = "0 0";
+    els.board.style.transform = "translate(" + look.offX + "px," + look.offY + "px) scale(" + look.zoom + ")";
+  }
+  function zoomLook(factor, clientX, clientY) {
+    const next = Math.max(LOOK_MIN, Math.min(LOOK_MAX, look.zoom * factor));
+    if (next === look.zoom) return;
+    const r = els.board.getBoundingClientRect();
+    const px = clientX === undefined ? r.width / 2 : clientX - r.left;
+    const py = clientY === undefined ? r.height / 2 : clientY - r.top;
+    look.offX += px * (1 - next / look.zoom);
+    look.offY += py * (1 - next / look.zoom);
+    look.zoom = next;
+    applyLook();
+  }
+  {
+    const stage = els.board.parentElement;
+    let drag = null;
+    stage.addEventListener("wheel", ev => {
+      ev.preventDefault();
+      zoomLook(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX, ev.clientY);
+    }, { passive: false });
+    stage.addEventListener("contextmenu", ev => ev.preventDefault());
+    stage.addEventListener("pointerdown", ev => {
+      if (ev.button !== 1 && ev.button !== 2) return;
+      try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* a synthetic pointer has no capture */ }
+      drag = { x: ev.clientX, y: ev.clientY, ox: look.offX, oy: look.offY };
+      stage.style.cursor = "grabbing";
+    });
+    stage.addEventListener("pointermove", ev => {
+      if (!drag) return;
+      look.offX = drag.ox + (ev.clientX - drag.x);
+      look.offY = drag.oy + (ev.clientY - drag.y);
+      applyLook();
+    });
+    const endDrag = () => { drag = null; stage.style.cursor = ""; };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+  }
+  /** The view keys; true when one was taken. Consulted before the game's own keys. */
+  function lookKey(ev) {
+    const k = ev.key.toLowerCase();
+    if (k === "z" || k === "+" || k === "=") { zoomLook(LOOK_STEP); return true; }
+    if (k === "c" || k === "-") { zoomLook(1 / LOOK_STEP); return true; }
+    if (k === "0") { look.zoom = 1; look.offX = 0; look.offY = 0; applyLook(); return true; }
+    const pan = { w: [0, 1], s: [0, -1], a: [1, 0], d: [-1, 0] }[k];
+    if (pan) { look.offX += pan[0] * LOOK_PAN; look.offY += pan[1] * LOOK_PAN; applyLook(); return true; }
+    return false;
   }
   window.addEventListener("resize", () => { if (current && current.fitBoard === fitBoard) fitBoard(); });
 
@@ -973,6 +1031,9 @@ export function mountScreen(root, ctx) {
    * screen's listener was still firing on a state that no longer existed. */
   function onKey(ev) {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName) || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    /* the view keys are taken first, but NOT returned on: the Konami code
+       below wants to see every key, and "a" is one of its own */
+    if (lookKey(ev)) ev.preventDefault();
     if (curtainFor !== null) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); liftCurtain(); } return; }
     const w = st && st.waiting;
     if (!w || animating || !isHuman(st.players[w.player])) return;

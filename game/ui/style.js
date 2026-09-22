@@ -26,8 +26,8 @@ h2:first-child{margin-top:0}
 .top .grow{flex:1}
 .top .turn{color:var(--dim)}
 .main{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:0;flex:1;min-height:0}
-.stage{position:relative;overflow:auto;padding:12px;display:flex;align-items:flex-start;justify-content:center}
-.stage .board{position:relative;max-width:100%}
+.stage{position:relative;overflow:hidden;padding:12px;display:flex;align-items:flex-start;justify-content:center;touch-action:none}
+.stage .board{position:relative;max-width:100%;transform-origin:0 0}
 .stage .board svg{display:block;width:100%;height:auto}
 .stage .board .overlay{position:absolute;inset:0;overflow:visible}
 .stage .caption{position:absolute;top:8px;left:8px;padding:5px 10px;background:rgba(6,10,16,.82);border:1px solid var(--line);border-radius:4px;pointer-events:none;line-height:1.3}
