@@ -208,7 +208,9 @@ export function priorityOrder(st) {
 export function log(st, msg) {
   st.log.push({ turn: st.turn, reg: st.register, msg });
   if (st.log.length > 400) st.log.shift();
-  st.events.push({ type: "log", msg });
+  /* the event carries the moment too: a step can run a whole turn, and a
+   * trace that stamps its lines afterwards puts every one of them at the end */
+  st.events.push({ type: "log", msg, turn: st.turn, reg: st.register });
 }
 
 /**

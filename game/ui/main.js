@@ -19,9 +19,58 @@ import { mountScreen } from "./screen.js";
 const DATA_BASE = new URL("../../editor/data/", import.meta.url).href;
 const SAVE_KEY = "pumarally_game_v2";
 const SPEED_KEY = "pumarally_speed_v2";
+const TRACE_KEY = "pumarally_trace_v1";
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
 function saveGame(st) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(st)); } catch (e) { /* no storage */ } }
+
+/* THE TRACE: what it takes to replay this race from nothing. The engine is
+ * deterministic -- a seed, a course, the seats, the house rules and the
+ * ruleset make the same game every time, and every branch after that is an
+ * answer through the one request door -- so the game's inputs plus every
+ * answer in order IS the game. The trace records exactly that, plus every
+ * log line (the state keeps only the last four hundred) and every request
+ * as it was asked. It is written beside the save on every step, and the
+ * Debug button bundles it with the current state into a file, so that a race
+ * that went wrong can be handed over whole and re-run to the step it broke.
+ * game/tools/replay-dump.js does the re-running. */
+let trace = null;
+function loadTrace() { try { return JSON.parse(localStorage.getItem(TRACE_KEY)); } catch (e) { return null; } }
+function saveTrace() { if (!trace) return; try { localStorage.setItem(TRACE_KEY, JSON.stringify(trace)); } catch (e) { /* no storage, or full */ } }
+function startTrace(opts, st) {
+  trace = { v: 1, started: new Date().toISOString(), seed: st.seed,
+    opts: { seed: st.seed, course: opts.course, seats: opts.seats, house: opts.house || {}, ruleset: st.ruleset },
+    answers: [], log: [], notes: [] };
+  saveTrace();
+}
+/** One step's worth: the answer that drove it and the log it produced. */
+function traceStep(st, answer, req, events) {
+  if (!trace || trace.seed !== st.seed) return;
+  if (answer !== undefined && req) trace.answers.push({ turn: req.turn, at: req.at, kind: req.kind, player: req.player, answer });
+  for (const e of events) if (e.type === "log") trace.log.push({ turn: e.turn === undefined ? st.turn : e.turn, reg: e.reg === undefined ? st.register : e.reg, msg: e.msg });
+  saveTrace();
+}
+/** Everything, as one object: the trace and the state as it stands. */
+function debugDump() {
+  return {
+    v: 1, exported: new Date().toISOString(),
+    page: location.href, ua: navigator.userAgent, speed,
+    trace: trace && trace.seed === st.seed ? trace : null,
+    traceNote: trace && trace.seed === st.seed ? undefined : "no trace for this race: it was started before traces were kept, or on another browser",
+    state: st
+  };
+}
+/** The dump, saved as a file: pumarally-debug-<seed>-t<turn>.json */
+function downloadDump() {
+  const d = debugDump();
+  const name = "pumarally-debug-" + (st ? st.seed : "none") + "-t" + (st ? st.turn : 0) + ".json";
+  const blob = new Blob([JSON.stringify(d, null, 1)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return name;
+}
 function loadGame() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s ? normaliseSave(s) : null; } catch (e) { return null; } }
 function clearGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* no storage */ } }
 
@@ -73,6 +122,7 @@ function start(opts) {
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   st = newGame({ seed, course: opts.course, seats: opts.seats, house: opts.house, ruleset: opts.ruleset });
   saveGame(st);
+  startTrace(opts, st);
   openScreen();
   advance();
 }
@@ -85,6 +135,7 @@ function openScreen() {
     speedName: () => speed,
     cycleSpeed: () => { speed = speed === "slow" ? "normal" : speed === "normal" ? "fast" : "slow"; try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* */ } },
     toSetup: () => toSetup(),
+    debugDump: () => downloadDump(),
     newGame: () => { clearGame(); toSetup(); }
   });
   screen.show(st);
@@ -98,7 +149,9 @@ async function advance(answer) {
   let a = answer;
   try {
     for (;;) {
+      const req = st.waiting ? { turn: st.turn, at: st.phase + "." + st.step, kind: st.waiting.kind, player: st.waiting.player } : null;
       const r = step(st, library, a);
+      traceStep(st, r.refused ? undefined : a, req, r.events);
       a = undefined;
       saveGame(st);
       if (st.over) { clearGame(); await screen.update(st, r.events); break; }
@@ -132,6 +185,7 @@ async function advance(answer) {
 function submit(answer) { advance(answer); }
 
 const saved = loadGame();
+trace = loadTrace();
 if (wantedCourse()) toSetup();
 else if (saved && !saved.over && saved.v === 1) {
   try {
@@ -145,4 +199,4 @@ else if (saved && !saved.over && saved.v === 1) {
   }
 } else toSetup();
 
-window.__PR = { get state() { return st; }, library, step: a => advance(a) };
+window.__PR = { get state() { return st; }, library, step: a => advance(a), dump: () => debugDump() };
