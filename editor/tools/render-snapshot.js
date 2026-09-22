@@ -252,8 +252,10 @@ for (const [kind, glyph] of Object.entries(DEVICE_GLYPHS)) {
 {
   let looked = 0;
   for (const { id, board } of boards) {
+    /* a reach-two jet is drawn on both squares it burns and stamped on both */
     const want = [...board.wallDevices, ...board.ceilingDevices]
-      .filter(d => d.regs && d.regs.length).length;
+      .filter(d => d.regs && d.regs.length)
+      .reduce((n, d) => n + (d.kind === "jet" && (d.reach | 0) > 1 ? 2 : 1), 0);
     if (!want) continue;
     looked += want;
     const got = (boardSVG(board, { mode: "art" }).match(/class="pr-stamp"/g) || []).length;

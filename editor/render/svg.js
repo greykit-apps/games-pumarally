@@ -426,6 +426,17 @@ function deviceLayer(board, mode) {
       out += g(at(cell[0], cell[1]) + spin(dev.face), glyph[mode](ctx));
       /* the register stamp stays upright in the square's corner, whichever way the device points */
       if (mode === "art") out += g(at(cell[0], cell[1]), stampArt(dev.regs));
+      /* A REACH-TWO JET COVERS TWO SQUARES, and is drawn on both: the far
+       * square gets the far half of the fire and its own stamp, because the
+       * registers it burns on are a rule of THAT square as much as the first,
+       * and a robot stopping there should not have to look next door. */
+      if (ctx.reach > 1 && typeof glyph[mode === "art" ? "far" : "farMarkup"] === "function") {
+        const far = [cell[0] + DC[dev.face], cell[1] + DR[dev.face]];
+        if (inBoard(board, far[0], far[1])) {
+          out += g(at(far[0], far[1]) + spin(dev.face), glyph[mode === "art" ? "far" : "farMarkup"](ctx));
+          if (mode === "art") out += g(at(far[0], far[1]), stampArt(dev.regs));
+        }
+      }
     } else {
       /* A door has no face, so it is drawn along the edge it stands on: the
        * glyph draws along its own southern edge, so a horizontal edge is the

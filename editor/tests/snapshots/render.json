@@ -31,12 +31,12 @@
   },
   "boardG": {
     "art": {
-      "sha": "48bda3ee5f65a00f",
-      "bytes": 84835
+      "sha": "76042dc2b08f5547",
+      "bytes": 85475
     },
     "markup": {
-      "sha": "935c02e10a092a95",
-      "bytes": 53518
+      "sha": "0dd7834b649059ae",
+      "bytes": 54000
     }
   },
   "boardH": {
@@ -401,12 +401,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "ce129cbf470ec7cb",
-      "bytes": 66136
+      "sha": "caf76ad1a50632e0",
+      "bytes": 66775
     },
     "markup": {
-      "sha": "cb5f567a315f0c77",
-      "bytes": 42617
+      "sha": "e99a8154738fc3d8",
+      "bytes": 43098
     }
   }
 }
