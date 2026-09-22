@@ -11,7 +11,8 @@ import { usableFlagSpots, flagRefusal, assemble } from "../../../editor/lib/cour
 import { boardSVG, sitesShown } from "../../../editor/render/svg.js";
 import { readCourse } from "../../engine/library.js";
 import { buildCourse } from "../../engine/course.js";
-import { quickCourse, quickSpots, canQuick, seeded, QUICK_FLAGS, DOCK_BOARD } from "../../engine/quick.js";
+import { quickCourse, quickSpots, canQuick, seeded, QUICK_FLAGS, DOCK_BOARD,
+  quickMulti, quickCells, routeOf, quickFlagCounts, quickFlagRange, quickDefaultFlags, QUICK_MAX_BOARDS } from "../../engine/quick.js";
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(msg + ": got " + JSON.stringify(a) + ", expected " + JSON.stringify(b)); };
@@ -30,6 +31,21 @@ function marked(spots, id = "m") {
   return { b, library };
 }
 const FIVE = [[2, 2], [5, 2], [4, 4], [2, 5], [6, 6]];
+
+/* A pool of 12x12 boards for the multi-board draw, each marking six
+ * locations spread over the floor so a route can be found at any facing,
+ * and a library holding them and the dock. */
+function pool12(count) {
+  const library = new Map([[DOCK_BOARD, dock()]]);
+  const boards = [];
+  for (let i = 0; i < count; i++) {
+    const b = blankBoard({ id: "p" + i, name: "Pool " + i, w: 12, h: 12, set: "authored", origin: "authored" });
+    for (const [c, r] of [[2, 2], [9, 2], [5, 5], [6, 8], [2, 9], [9, 9]]) setSites(b, c, r, ["flagspot"]);
+    library.set(b.id, b); boards.push(b);
+  }
+  return { boards, library };
+}
+const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
 
 export const TESTS = [
   ["a quick game lays the board at the facing drawn, over the docking bay", () => {
@@ -99,5 +115,89 @@ export const TESTS = [
     assert(has(modern, "pr-batt") && !has(modern, "pr-upgrade"), "2016 draws the battery and no wrench");
     assert(!has(classic, "pr-flagspot") && !has(modern, "pr-flagspot"), "neither draws the flag location");
     assert(has(shop, "pr-upgrade") && has(shop, "pr-batt") && has(shop, "pr-flagspot"), "the workshop draws all three");
+  }]
+,
+  /* --- a quick game on several boards ------------------------------------------ */
+  ["the boards stack as the box does: the column first, then the sides, never beyond three by three", () => {
+    for (let n = 1; n <= 3; n++) eq(quickCells(n, seeded(1)), [{ gx: 0, gy: 0 }, { gx: 0, gy: 1 }, { gx: 0, gy: 2 }].slice(0, n), n + " boards: a column");
+    for (let n = 4; n <= QUICK_MAX_BOARDS; n++) {
+      for (const seed of [1, 2, 3]) {
+        const cells = quickCells(n, seeded(seed));
+        eq(cells.length, n, n + " boards laid");
+        eq(new Set(cells.map(c => c.gx + "," + c.gy)).size, n, n + " boards on " + n + " different cells");
+        assert(cells.every(c => c.gx >= -1 && c.gx <= 1 && c.gy >= 0 && c.gy <= 2), n + " boards: all within three by three");
+        assert(cells.slice(3).every(c => c.gx !== 0), n + " boards: the fourth on is beside the column");
+        /* every board touches one already down: the course is one piece */
+        cells.slice(1).forEach((c, i) => assert(cells.slice(0, i + 1).some(o => Math.abs(o.gx - c.gx) + Math.abs(o.gy - c.gy) === 1), n + " boards: board " + (i + 2) + " touches an earlier one"));
+      }
+    }
+    /* the sides fill where a board touches two: after (0,0)..(0,2) and a side at gy 0, the next on that side sits at gy 1, touching two */
+    const seen = new Set();
+    for (let seed = 0; seed < 20; seed++) { const c = quickCells(5, seeded(seed)); seen.add(Math.abs(c[3].gx - c[4].gx) + Math.abs(c[3].gy - c[4].gy)); }
+    eq([...seen], [1], "5 boards: the fifth always touches the fourth as well as the column");
+  }],
+  ["the route visits every board, board by board where the layout allows", () => {
+    for (let n = 1; n <= QUICK_MAX_BOARDS; n++) {
+      const cells = quickCells(n, seeded(n));
+      const route = routeOf(cells, seeded(n));
+      eq([...route.order].sort((a, b) => a - b), [...Array(n).keys()], n + " boards: every board once");
+      eq(route.order[0], 0, n + " boards: from board 1");
+      eq(route.jumps.length, n - 1, n + " boards: a step between each pair");
+      if (n <= 8) eq(route.jumps.filter(j => j).length, 0, n + " boards: no jumps");
+    }
+    /* nine is the one count with no such route: three by three from the bottom middle cannot be walked, so exactly one jump */
+    eq(routeOf(quickCells(9, seeded(1)), seeded(1)).jumps.filter(j => j).length, 1, "9 boards: one jump, unavoidable");
+  }],
+  ["every board gets a flag, the extras go one per board in turn, and the knob's range says so", () => {
+    eq(quickFlagCounts(3, 3, [0, 1, 2]), [1, 1, 1], "3 boards, 3 flags: one each");
+    eq(quickFlagCounts(3, 5, [0, 1, 2]), [2, 2, 1], "3 boards, 5 flags: 2-2-1, not 3-1-1");
+    eq(quickFlagCounts(3, 5, [0, 2, 1]), [2, 1, 2], "the extras follow the route order");
+    eq(quickFlagCounts(2, 6, [0, 1]), [3, 3], "the most a board takes is three");
+    eq([quickFlagRange(1), quickFlagRange(4)], [[1, 3], [4, 12]], "the range: one a board at least, three a board at most");
+    eq([quickDefaultFlags(1), quickDefaultFlags(2), quickDefaultFlags(4)], [3, 4, 6], "the default: three on one board, two more than the boards otherwise");
+  }],
+  ["a quick game on several boards draws, lays and flags a course the validator takes", () => {
+    const { boards, library } = pool12(6);
+    for (const [n, f] of [[1, 3], [2, 2], [2, 6], [3, 5], [4, 6], [5, 15]]) {
+      for (const seed of [1, 2]) {
+        const doc = quickMulti(boards, n, f, library, { rnd: seeded(seed * 10 + n) });
+        readCourse(doc, library);
+        const stamps = doc.stamps.filter(s => s.role === "board");
+        eq(stamps.length, n, n + " boards laid");
+        eq(new Set(stamps.map(s => s.board)).size, n, n + " different boards");
+        eq(doc.stamps[doc.stamps.length - 1].role, "dock", "the dock last, under the column");
+        eq(doc.flags.length, f, f + " flags");
+        eq(new Set(doc.flags.map(x => x.join(","))).size, f, f + " different squares");
+        const asm = assemble(doc, library);
+        const usable = usableFlagSpots(doc, library, asm);
+        const owners = doc.flags.map(([c, r]) => { const u = usable.find(s => s.c === c && s.r === r); assert(u, "flag at " + c + "," + r + " is a usable marked location"); return u.stamp; });
+        for (let i = 0; i < n; i++) assert(owners.includes(i), n + " boards, " + f + " flags: board " + i + " has a flag");
+        /* a board's flags come in a row: the owner sequence never returns to a board it has left */
+        const runs = owners.filter((o, i) => i === 0 || o !== owners[i - 1]);
+        eq(new Set(runs).size, runs.length, "a board's flags are consecutive: " + owners.join(" "));
+        /* and consecutive flags keep to twelve wherever their boards touch */
+        for (let i = 1; i < doc.flags.length; i++) {
+          const a = stamps[owners[i - 1]].at, b = stamps[owners[i]].at;
+          if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) <= 12) assert(cheb(doc.flags[i - 1], doc.flags[i]) <= 12, "flags " + i + " and " + (i + 1) + " within twelve: " + doc.flags[i - 1] + " to " + doc.flags[i]);
+        }
+      }
+    }
+    /* different seeds draw different courses */
+    const a = quickMulti(boards, 3, 5, library, { rnd: seeded(1) }), b = quickMulti(boards, 3, 5, library, { rnd: seeded(2) });
+    assert(JSON.stringify([a.stamps, a.flags]) !== JSON.stringify([b.stamps, b.flags]), "two seeds, two courses");
+  }],
+  ["the ask is refused when it cannot be met, and says why", () => {
+    const { boards, library } = pool12(3);
+    const refuses = (fn, re) => { let msg = null; try { fn(); } catch (e) { msg = e.message; } assert(msg && re.test(msg), "refused with " + JSON.stringify(msg) + ", expected " + re); };
+    refuses(() => quickMulti(boards, 4, 4, library, { rnd: seeded(1) }), /only 3 boards/);
+    refuses(() => quickMulti(boards, 3, 2, library, { rnd: seeded(1) }), /3 to 9 flags/);
+    refuses(() => quickMulti(boards, 2, 7, library, { rnd: seeded(1) }), /2 to 6 flags/);
+    refuses(() => quickMulti(boards, 0, 0, library, { rnd: seeded(1) }), /1 to 9 boards/);
+    const small = marked(FIVE);
+    refuses(() => quickMulti([small.b], 1, 3, small.library, { rnd: seeded(1) }), /8x8/);
+    /* a single board asked for fewer or more flags than three */
+    const one = quickCourse(small.b, small.library, { rnd: seeded(1), flags: 5 });
+    eq(one.flags.length, 5, "a single board draws five when asked");
+    refuses(() => quickCourse(small.b, small.library, { rnd: seeded(1), flags: 6 }), /marks 5 usable/);
   }]
 ];

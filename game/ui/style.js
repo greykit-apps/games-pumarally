@@ -164,6 +164,11 @@ button[data-ruleset]{padding:8px 14px}
 .course svg{width:100%;height:auto;display:block;background:var(--bg)}
 .course .name{font-size:12px;color:var(--text)}
 .course .meta{font-size:10px;color:var(--dim)}
+.course.any{justify-content:center;align-items:center;min-height:120px;border-style:dashed}
+.course.any .name{font-size:14px}
+.knob{min-width:2ch;text-align:center;font-size:16px;color:var(--text)}
+.row>label{color:var(--dim);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-right:4px}
+.row>label:has(input){color:var(--text);font-size:14px;letter-spacing:0;text-transform:none;margin-left:12px}
 .tile{position:relative;display:flex}
 .tile>.course{flex:1}
 .tile .forget{position:absolute;top:4px;right:4px;min-height:0;padding:0 8px;line-height:22px;font-size:15px;opacity:.7;background:var(--bg)}

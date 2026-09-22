@@ -109,15 +109,26 @@ row, never an edit to the register loop.
 
 ## Quick games, and what a race draws on a board
 
-A **quick game** is any shipped board with three marked flag locations
-(`editor/rulesets/sites.js`: the board says where a flag *may* go). The setup
-screen offers every such board; pressing Start draws the race
-(`game/engine/quick.js`): the board at a random facing over the docking bay,
-and three flags drawn at random, in a random order, from its marks. The draw
-is an ordinary PRCourse document and it is what the save carries, so a resumed
-game plays the layout it started on. There is no course file for a quick
-game; the shipped course files are the multi-board tracks. The simulator
-plays a seeded quick game on every board as well as every track.
+A **quick game** is *N boards, F flags*, drawn rather than chosen
+(`game/engine/quick.js`; issue #9). On one board it is any shipped board with
+three marked flag locations (`editor/rulesets/sites.js`: the board says where a
+flag *may* go), picked from the palette or drawn, at a random facing over the
+docking bay, with F flags drawn from its marks. On several it is boards drawn
+from the verified 12×12 ones the ruleset reads (unverified ones only when
+asked), laid as the box stacks them -- the docking bay at the bottom, board 1
+above it, boards 2 and 3 up the column, any more to either side where they
+touch the most boards already down, never beyond three by three -- and then
+one route of flags through them: **every board gets at least one, and the
+extras go one per board in turn** (3 boards, 5 flags is 2-2-1), a board's
+flags come in a row before the race moves on, and consecutive flags keep to
+the classic book's twelve squares wherever their boards touch. Turning F up
+makes the same course a denser race. There are no race types: anything else
+is a custom course, which the workshop makes easy. The draw is an ordinary
+PRCourse document and it is what the save carries, so a resumed game plays
+the layout it started on. There is no course file for a quick game; the
+shipped course files are the hand-laid tracks. The simulator plays a seeded
+quick game on every board, and on stacks of two, three and five, as well as
+every track.
 
 A race draws only the markings its edition reads: under the classic rules a
 square shows its wrench and not its battery, under the 2016 rules its

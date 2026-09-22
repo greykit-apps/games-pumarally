@@ -15,7 +15,7 @@
  */
 import { loadLibraryFromDisk, readCourse, rulesetsFor } from "../engine/library.js";
 import { runSim } from "../engine/sim.js";
-import { quickCourse, canQuick, seeded } from "../engine/quick.js";
+import { quickCourse, quickMulti, canQuick, seeded, quickDefaultFlags } from "../engine/quick.js";
 
 const games = parseInt(process.argv[2], 10) || 20;
 const only = process.argv[3] || null;
@@ -27,6 +27,17 @@ const { library, courses } = await loadLibraryFromDisk();
   const q = quickCourse(b, library, { rnd: seeded(1000 + k) });
   courses.set(q.id, q);
 });
+/* and quick games on several boards, drawn from the verified 12x12 ones
+ * as the setup screen draws them: a stack the sims have never seen crash
+ * is a stack somebody will start a race on */
+{
+  const pool = [...library.values()].filter(b => b.w === 12 && b.h === 12 && !b.unverified && canQuick(b, library)).sort((a, b) => a.id.localeCompare(b.id));
+  for (const n of [2, 3, 5]) {
+    if (pool.length < n) break;
+    const q = quickMulti(pool, n, quickDefaultFlags(n), library, { rnd: seeded(2000 + n) });
+    courses.set(q.id, q);
+  }
+}
 let failed = 0, totalDecided = 0;
 const decidedBy = { classic: 0, modern: 0 };
 for (const [id, doc] of courses) {
