@@ -65,6 +65,10 @@ export const ART_DEFS =
       '<stop offset="0.52" stop-color="' + CONCRETE.mid + '"/>' +
       '<stop offset="1" stop-color="' + CONCRETE.dark + '"/>' +
     '</linearGradient>' +
+    '<linearGradient id="pr-ledgeface" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="' + CONCRETE.lit + '" stop-opacity="0.85"/>' +
+      '<stop offset="1" stop-color="' + CONCRETE.dark + '" stop-opacity="0"/>' +
+    '</linearGradient>' +
     '<linearGradient id="pr-concrete-v" x1="0" y1="0" x2="1" y2="0">' +
       '<stop offset="0" stop-color="' + CONCRETE.lit + '"/>' +
       '<stop offset="0.52" stop-color="' + CONCRETE.mid + '"/>' +
