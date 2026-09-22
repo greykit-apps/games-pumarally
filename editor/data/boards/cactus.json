@@ -24,14 +24,13 @@
       "... B^r B<. B<l ... ... b>r b^l ... ... ... ..."
     ],
     "sites": [
-      { "at": [10, 1], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [5, 2], "has": ["flagspot"] },
       { "at": [10, 3], "has": ["flagspot"] },
       { "at": [2, 4], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
-      { "at": [10, 4], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [10, 4], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [1, 6], "has": ["flagspot"] },
       { "at": [7, 6], "has": ["flagspot"] },
-      { "at": [1, 9], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 9], "has": ["battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [8, 9], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [4, 10], "has": ["flagspot"] },
       { "at": [10, 10], "has": ["flagspot"] }
