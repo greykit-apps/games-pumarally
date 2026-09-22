@@ -368,7 +368,9 @@ const fresh = (w = 8, h = 8) =>
   ok(erase(b, st, 2, 2, { face: E }).changed && !rampOn(b, 2, 2, E), "ramp: right-click on the edge takes it off");
   apply(b, { ...blankToolState(), tool: "wall" }, 2, 2, { face: E });
   refused(apply(b, st, 2, 2, { face: E }), "ramp: refused under a wall");
-  refused(apply(b, st, 0, 0, { face: N }), "ramp: refused on the rim, with nothing to climb to");
+  ok(apply(b, st, 0, 0, { face: N }).changed && rampOn(b, 0, 0, N), "ramp: laid on the rim -- it meets whatever board is laid beside this one");
+  eq(levelAt(b, 0, 0), 0, "ramp: a rim ramp raises nothing");
+  ok(!checkBoard(b).diagnostics.some(x => x.code === "level.rampGradient" && x.severity === "error"), "ramp: a rim ramp is not an error");
   ok(apply(b, st, 4, 4, { face: S }).changed && apply(b, st, 4, 4, { face: W }).changed, "ramp: a square may carry ramps on two sides");
   eq(describe(b, 4, 4).ramps.length, 2, "ramp: and lists both");
 }
@@ -800,7 +802,7 @@ const fresh = (w = 8, h = 8) =>
   ok(checkBoard(b).diagnostics.some(x => x.code === "ramp.flat"), "levels: a ramp between two level squares is reported on a flat board");
   const b2 = fresh(4, 4);
   setRamp(b2, 0, 0, N, true);
-  ok(checkBoard(b2).diagnostics.some(x => x.code === "level.rampGradient"), "levels: a ramp on the rim, with nothing to climb to, is reported");
+  ok(!checkBoard(b2).diagnostics.some(x => x.severity === "error"), "levels: a ramp on the rim is left to the course, not reported");
 }
 {
   /* 5. a stroke visits every square between two pointer samples */

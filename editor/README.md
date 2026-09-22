@@ -265,9 +265,13 @@ the sheet says the ramp "does not act as an extra space". In the ASCII picture a
 ramp takes the lattice slot a wall would, `RRR` or `R`, since an edge is a wall,
 a door, a ramp or nothing.
 
-The validator refuses a ramp with floor on one side only, one under a wall, and
-one between two squares at the same level: each is the data contradicting
-itself, not a claim about the game. Two rules about ramps that *look* right —
+The validator refuses a ramp under a wall and one between two squares at the
+same level: each is the data contradicting itself, not a claim about the game.
+**A ramp may stand on the board's rim.** Boards compose, and a ramp at the edge
+climbs onto — or down from — whatever board is laid beside it, which this board
+cannot know, exactly as a belt at the rim runs onto the next board; what it does
+is settled on the assembled course, where both squares exist. On the board alone
+it is drawn on its one square, climbing off the edge. Two rules about ramps that *look* right —
 that a ramp climbs exactly one level, and that its foot is level with the square
 it is approached from — are **warnings**, because no rulebook sentence has been
 found that states either; see `no-invented-validator-rules` in the project
