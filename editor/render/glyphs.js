@@ -156,12 +156,6 @@ export const GLYPHS = {
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
-  randomizer: {
-    art: () => A.randomizerSvg(),
-    markup: () => mk("M 24 26 L 76 26 L 76 78 L 24 78 Z", MARK.ground, 1.4) +
-      mkText("?", 50, 53, MARK.ground, 34)
-  },
-
   priorityAntenna: {
     art: () => plate("#2a3346") + rivets() +
       '<path d="M 50 84 L 50 24 M 30 40 L 50 24 L 70 40" fill="none" stroke="#9fd8ff" stroke-width="6" stroke-linecap="round"/>' +
@@ -380,6 +374,14 @@ export function siteOverlay(has, mode) {
   if (battery) {
     const body = art ? A.batterySvg() : mk(BOLT, MARK.ground, 2.4);
     out += box(bx, y, k, body);
+  }
+  if (has.indexOf("randomizer") >= 0) {
+    /* Drawn small and in a corner of its own, because unlike the other markings
+     * it may share the square with a BELT, whose arrow runs through the middle.
+     * The corner opposite the flag location, so a square can carry both. */
+    const body = art ? A.randomizerSvg()
+      : mk("M 24 26 L 76 26 L 76 78 L 24 78 Z", MARK.ground, 1.4) + mkText("?", 50, 53, MARK.ground, 34);
+    out += box(2, 58, 0.4, body);
   }
   if (flag) {
     /* Always the same corner at the same size. A flag LOCATION is a question

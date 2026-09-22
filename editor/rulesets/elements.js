@@ -130,9 +130,13 @@ export const ELEMENTS = {
          props: { belt: 1, water: true, current: true },
          source: "Wet and Wild. A belt running through water; also a water space." },
 
-  "z": { key: "randomizer", name: "Randomizer", arg: ARG_NONE, printedIn: MODERN,
-         props: { randomize: true },
-         source: "Chaos and Carnage. Replaces the register with the top card of your deck." },
+  /* THE RANDOMIZER IS NOT HERE. It was `z`, a ground element, and one ground
+   * token holds one element -- so a square could be a conveyor or a randomizer
+   * and not both. Pushy prints them directly on belt squares, which made that
+   * board unrepresentable. It is a marking a square carries in addition to what
+   * it is, exactly like a wrench, so it lives in rulesets/sites.js. Leaving `z`
+   * here as well would give one thing two spellings, and `propAt` merges both
+   * layers, so nothing could tell which the board meant. */
 
   /* THE TELEPORTER DOES NOT PAIR, and modelling it as a pair was wrong. The
    * portal (`t`) steps you to a matching colour and therefore needs a twin;

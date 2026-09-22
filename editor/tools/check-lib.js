@@ -184,7 +184,14 @@ for (const [id, s] of Object.entries(SETS)) {
 
 /* --- sites: markings a square carries as well as being floor ---------------- */
 {
-  eq(SITE_ORDER, ["repair", "upgrade", "battery", "flagspot"], "sites: canonical order");
+  eq(SITE_ORDER, ["repair", "upgrade", "battery", "randomizer", "flagspot"], "sites: canonical order");
+  /* Placement is a fact about the marking, not about the layer: the four
+   * collection markings need floor to come to rest on, the randomizer fires on
+   * the card reveal and so needs only somewhere a robot can be standing. */
+  eq(SITE_ORDER.filter(k => SITES[k].place === "floor"),
+     ["repair", "upgrade", "battery", "flagspot"], "sites: the collection markings are floor-only");
+  eq(SITE_ORDER.filter(k => SITES[k].place === "standable"), ["randomizer"],
+     "sites: the randomizer is the one marking that may share a square with a belt");
   eq(canonSites(["flagspot", "repair"]), ["repair", "flagspot"], "sites: a list has one spelling");
   eq(canonSites(["repair", "repair"]), ["repair"], "sites: and no repeats");
   eq(checkSites(["repair", "battery", "flagspot"]), [],

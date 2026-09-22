@@ -15,6 +15,8 @@ import modern from "./modern.js";
 import { EDITIONS } from "./sets.js";
 import { hasLevels, hasRamps } from "../lib/board.js";
 import { ELEMENTS } from "./elements.js";
+import { SITES } from "./sites.js";
+import { siteList } from "../lib/board.js";
 import { DEVICE_KINDS } from "./devices.js";
 
 export const RULESETS = { classic, modern };
@@ -69,6 +71,11 @@ export function playableIn(board) {
    * down anywhere, or climbs anywhere, is floor the classic book has no rule
    * for, exactly as its water is. */
   if (hasLevels(board) || hasRamps(board)) out = out.filter(id => id === "modern");
+  /* Sites narrow too, and the four collection markings declare a `playsIn` of
+   * both books precisely so that they do not -- a wrench is something the 2016
+   * game has no use for rather than something it cannot read. A randomizer
+   * declares none, so it narrows to the book that has a rule for it. */
+  for (const s of siteList(board)) for (const k of s.has) narrow(SITES[k]);
   return out.sort();
 }
 

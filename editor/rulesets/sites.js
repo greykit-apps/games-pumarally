@@ -13,9 +13,21 @@
  * actually uses. So a flag spot has to be able to sit on a wrench, an upgrade
  * or a battery, because those are exactly the squares worth racing to.
  *
- * Sites sit ON plain floor. Every one of them is somewhere a robot comes to
- * rest to collect something, and a belt, a gear or a pit is not somewhere a
- * robot rests.
+ * WHERE A MARKING MAY BE PRINTED IS A FACT ABOUT THE MARKING, not about this
+ * layer, and treating it as the latter was wrong. Four of these are collection
+ * markings -- a robot comes to rest on them and picks something up -- so they
+ * sit on plain floor and nothing else, because a belt, a gear or a pit is not
+ * somewhere a robot rests. `place: "floor"` says so.
+ *
+ * A RANDOMIZER IS NOT A COLLECTION MARKING. It fires when you REVEAL a card
+ * while standing on it, at the top of a register, and a robot is perfectly able
+ * to be standing on a conveyor at that moment. Pushy prints randomizers
+ * directly on belt squares. So it is `place: "standable"` -- any square a robot
+ * can occupy, which is everything except a pit and a hole.
+ *
+ * It was a ground element (`z`) until 2026-09-17, and one ground token holds one
+ * element, so the belt and the randomizer could not both be on the square. It is
+ * a marking, and this is the layer for markings.
  */
 
 const BOTH = ["classic", "modern"];
@@ -25,28 +37,44 @@ const MODERN = ["modern"];
 export const SITES = {
   repair: {
     name: "Repair site", short: "one wrench", printedIn: CLASSIC,
-    props: { repair: 1 },
+    place: "floor", playsIn: BOTH, props: { repair: 1 },
     source: "Classic pp.28-29. Removed from the 2016 boards, which print energy here instead."
   },
   upgrade: {
     name: "Upgrade site", short: "two wrenches", printedIn: CLASSIC,
-    props: { repair: 2, option: true },
+    place: "floor", playsIn: BOTH, props: { repair: 2, option: true },
     source: "Classic p.36: repair two, or take an option card."
   },
   battery: {
     name: "Energy space", short: "a battery", printedIn: MODERN,
-    props: { energy: 1 },
+    place: "floor", playsIn: BOTH, props: { energy: 1 },
     source: "Modern Game Guide. Take an energy cube for ending a register on it."
   },
   flagspot: {
     name: "Flag location", short: "a flag may go here", printedIn: BOTH,
-    props: { flagspot: true },
+    place: "floor", playsIn: BOTH, props: { flagspot: true },
     source: "Ours. The board says where a flag MAY stand; the engine picks which ones a race uses."
+  },
+  randomizer: {
+    name: "Randomizer", short: "a randomizer", printedIn: MODERN,
+    place: "standable", props: { randomize: true },
+    source: "Chaos and Carnage. Reveal a card in a register while standing on one and that " +
+            "register is discarded and replaced with the top card of your own deck. It fires on " +
+            "the reveal rather than on coming to rest, which is why it may be printed on a belt."
   }
 };
 
+/* `playsIn` is which books can RESOLVE the marking, and it is wider than
+ * `printedIn` for the four collection markings: a 2016 game meets a printed
+ * wrench and simply has no use for it, and a classic game does the same with a
+ * battery, so neither narrows the board to one book. That is what the swap rule
+ * relies on. THE RANDOMIZER IS DIFFERENT and declares no `playsIn`, so it falls
+ * back to printedIn: the classic book has no rule for it at all, and a board
+ * carrying one is a 2016 board. Same shape as a device's `playsIn` in
+ * devices.js, and read the same way by playableIn(). */
+
 /** Canonical order, so a `has` list has exactly one spelling. */
-export const SITE_ORDER = ["repair", "upgrade", "battery", "flagspot"];
+export const SITE_ORDER = ["repair", "upgrade", "battery", "randomizer", "flagspot"];
 
 /* A square is printed with one wrench or two, never both -- they are the same
  * marking at two strengths. Everything else stacks: a battery may share a
@@ -55,6 +83,9 @@ export const SITE_ORDER = ["repair", "upgrade", "battery", "flagspot"];
 export const EXCLUSIVE = [["repair", "upgrade"]];
 
 export function siteOf(key) { return SITES[key]; }
+
+/** Where this marking may be printed: "floor" (plain floor only) or "standable". */
+export function sitePlace(key) { return SITES[key] ? SITES[key].place : undefined; }
 
 export function siteKeys() { return SITE_ORDER.slice(); }
 

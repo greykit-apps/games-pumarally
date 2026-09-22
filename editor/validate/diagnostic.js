@@ -97,7 +97,8 @@ export const CODES = Object.freeze({
   "site.unknown":         "a site name that is not in the registry",
   "site.repeated":        "one site listed twice on a square",
   "site.exclusive":       "a square marked with both one wrench and two",
-  "site.notFloor":        "a site on something other than plain floor",
+  "site.notFloor":        "a collection marking on something other than plain floor",
+  "site.notStandable":    "a randomizer on a square no robot can stand on",
   "site.empty":           "a square listed with no sites on it",
 
   /* --- ceiling ---------------------------------------------------------- */
