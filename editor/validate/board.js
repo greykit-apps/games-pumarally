@@ -24,7 +24,7 @@ import {
   wallAt, isNormalOf, edgeOf
 } from "../lib/edges.js";
 import { rampsOf, levelsUsed } from "../lib/levels.js";
-import { SITES, EXCLUSIVE, checkSites } from "../rulesets/sites.js";
+import { SITES, EXCLUSIVE, checkSites, restsOn } from "../rulesets/sites.js";
 import { DC, DR, N, E, S, W, dirLetter } from "../lib/dir.js";
 import { REGISTER_COUNT } from "../lib/registers.js";
 
@@ -172,16 +172,16 @@ function checkSquareSites(board, d) {
       }
     }
     /* WHERE a marking may be printed is a fact about the marking. A collection
-     * marking needs plain floor because a robot has to come to rest on it; a
+     * marking needs floor or still water because a robot has to come to rest on it; a
      * randomizer fires on the card reveal instead, so it needs only a square a
      * robot can be standing on -- which is how Pushy prints them on belts. */
     const def = elementAt(board, s.c, s.r);
     const kinds = [...seen].filter(k => SITES[k]);
-    const floorOnly = kinds.filter(k => SITES[k].place === "floor");
-    if (floorOnly.length && (!def || def.key !== "floor")) {
+    const resting = kinds.filter(k => SITES[k].place === "rest");
+    if (resting.length && !restsOn(def)) {
       d.error("site.notFloor", where + " is " + (def ? def.name.toLowerCase() : "not floor") +
-        ", and " + floorOnly.map(k => SITES[k].short).join(" and ") +
-        " marks plain floor -- it is somewhere a robot comes to rest.", where, ptr);
+        ", and " + resting.map(k => SITES[k].short).join(" and ") +
+        " marks floor or water -- somewhere a robot comes to rest.", where, ptr);
     }
     const standable = kinds.filter(k => SITES[k].place === "standable");
     if (standable.length && (!def || def.props.pit)) {

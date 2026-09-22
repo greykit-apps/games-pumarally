@@ -12,7 +12,7 @@
  */
 
 import { ELEMENTS, CHAR_OF_KEY, ARG_DIR, ARG_DIGIT, ARG_PAIR, ARG_NONE } from "../rulesets/elements.js";
-import { SITES, SITE_ORDER, EXCLUSIVE } from "../rulesets/sites.js";
+import { SITES, SITE_ORDER, EXCLUSIVE, restsOn } from "../rulesets/sites.js";
 import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS } from "../rulesets/devices.js";
 import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken, bayCharOf } from "../lib/token.js";
 import { describeRegs } from "../lib/registers.js";
@@ -179,14 +179,15 @@ function applyGround(board, st, tool, c, r) {
   if (def.props.pit && ceilingAt(board, c, r).length) {
     return { ok: false, why: "Something hangs over " + at(c, r) + "; a pit has nothing under it to come down on." };
   }
-  /* A site marks plain floor, so turning the square into anything else has to
-   * take the markings with it -- silently leaving a wrench under a pit is how a
-   * board ends up carrying data nothing can see. */
+  /* A site marks somewhere a robot comes to rest -- floor or still water --
+   * so turning the square into anything else has to take the markings with
+   * it: silently leaving a wrench under a pit is how a board ends up carrying
+   * data nothing can see. */
   const marks = sitesAt(board, c, r);
-  if (marks.length && def.key !== "floor") {
+  if (marks.length && !restsOn(def)) {
     return { ok: false, why: at(c, r) + " is marked with " +
       marks.map(k => SITES[k].short).join(" and ") +
-      ", and a marking sits on plain floor. Take it off first." };
+      ", and a marking sits on floor or water. Take it off first." };
   }
 
   const arms = def.props.belt ? st.arms : ".";
@@ -259,11 +260,11 @@ function applySite(board, st, tool, c, r, opts) {
   }
 
   /* Where a marking may go is a fact about the marking -- a collection marking
-   * needs plain floor to come to rest on, a randomizer needs only a square a
-   * robot can be standing on when it reveals a card. */
+   * needs floor or still water to come to rest on, a randomizer needs only a
+   * square a robot can be standing on when it reveals a card. */
   const el = elementAt(board, c, r);
-  if (def.place === "floor" && (!el || el.key !== "floor")) {
-    return { ok: false, why: "A " + def.name.toLowerCase() + " marks plain floor. " +
+  if (def.place === "rest" && !restsOn(el)) {
+    return { ok: false, why: "A " + def.name.toLowerCase() + " marks floor or water. " +
       at(c, r) + " is " + (el ? el.name.toLowerCase() : "not floor") + "." };
   }
   if (def.place === "standable" && (!el || el.props.pit)) {

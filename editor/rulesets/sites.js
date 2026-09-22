@@ -16,8 +16,10 @@
  * WHERE A MARKING MAY BE PRINTED IS A FACT ABOUT THE MARKING, not about this
  * layer, and treating it as the latter was wrong. Four of these are collection
  * markings -- a robot comes to rest on them and picks something up -- so they
- * sit on plain floor and nothing else, because a belt, a gear or a pit is not
- * somewhere a robot rests. `place: "floor"` says so.
+ * sit where a robot comes to rest: plain floor, or WATER, which is floor a
+ * robot wades out of. Not a belt, a gear or a pit. `place: "rest"` says so,
+ * and `restsOn` is the one place that decides what counts. It used to say
+ * "floor" and mean it, which refused the printed boards' batteries on water.
  *
  * A RANDOMIZER IS NOT A COLLECTION MARKING. It fires when you REVEAL a card
  * while standing on it, at the top of a register, and a robot is perfectly able
@@ -37,22 +39,22 @@ const MODERN = ["modern"];
 export const SITES = {
   repair: {
     name: "Repair site", short: "one wrench", printedIn: CLASSIC,
-    place: "floor", playsIn: BOTH, props: { repair: 1 },
+    place: "rest", playsIn: BOTH, props: { repair: 1 },
     source: "Classic pp.28-29. Removed from the 2016 boards, which print energy here instead."
   },
   upgrade: {
     name: "Upgrade site", short: "two wrenches", printedIn: CLASSIC,
-    place: "floor", playsIn: BOTH, props: { repair: 2, option: true },
+    place: "rest", playsIn: BOTH, props: { repair: 2, option: true },
     source: "Classic p.36: repair two, or take an option card."
   },
   battery: {
     name: "Energy space", short: "a battery", printedIn: MODERN,
-    place: "floor", playsIn: BOTH, props: { energy: 1 },
+    place: "rest", playsIn: BOTH, props: { energy: 1 },
     source: "Modern Game Guide. Take an energy cube for ending a register on it."
   },
   flagspot: {
     name: "Flag location", short: "a flag may go here", printedIn: BOTH,
-    place: "floor", playsIn: BOTH, props: { flagspot: true },
+    place: "rest", playsIn: BOTH, props: { flagspot: true },
     source: "Ours. The board says where a flag MAY stand; the engine picks which ones a race uses."
   },
   randomizer: {
@@ -72,6 +74,13 @@ export const SITES = {
  * back to printedIn: the classic book has no rule for it at all, and a board
  * carrying one is a 2016 board. Same shape as a device's `playsIn` in
  * devices.js, and read the same way by playableIn(). */
+
+/** Whether a collection marking may be printed on an element: somewhere a
+ *  robot comes to rest. Floor; or still water -- not a current, which carries
+ *  the robot off, and not a drain, which is a pit. */
+export function restsOn(def) {
+  return !!def && (def.key === "floor" || (!!def.props.water && !def.props.pit && !def.props.belt));
+}
 
 /** Canonical order, so a `has` list has exactly one spelling. */
 export const SITE_ORDER = ["repair", "upgrade", "battery", "randomizer", "flagspot"];

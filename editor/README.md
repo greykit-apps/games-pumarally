@@ -153,9 +153,9 @@ racing to.
 
 **Where a marking may be printed is a fact about the marking, not about this
 layer.** Four of them are *collection* markings — a robot comes to rest on one
-and picks something up — so they sit on plain floor and nothing else, because a
-belt, a gear or a pit is not somewhere a robot rests. They carry `place:
-"floor"`.
+and picks something up — so they sit where a robot comes to rest: plain floor,
+or still water. Not a belt, a gear, a current or a pit. They carry `place:
+"rest"`, and `restsOn()` in `rulesets/sites.js` is the one place that decides.
 
 **A randomizer is not a collection marking.** It fires when you *reveal* a card
 while standing on it, at the top of a register, and a robot is perfectly able to
