@@ -20,6 +20,7 @@
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { courseOf } from "../engine/course.js";
+import { PASS_LABELS } from "../engine/machine.js";
 import { rebootPoint } from "../engine/rules.js";
 import { card, KINDS, openRegisters, REGISTERS, isDamage, isModern, MAX_ENERGY } from "../engine/cards.js";
 import { LIVERIES, isHuman, livesFor } from "../engine/state.js";
@@ -38,7 +39,8 @@ const DIRS = ["North", "East", "South", "West"];
 const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
 
 const ROBOT = '<g class="spin"><path class="pr-hull" d="M24 30h52a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8V38a8 8 0 0 1 8-8z"/>' +
-  '<path class="pr-nose" d="M50 8L66 30H34Z"/><rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/></g>';
+  '<path class="pr-nose" d="M50 8L66 30H34Z"/><rect class="pr-eye" x="30" y="44" width="40" height="14" rx="4"/></g>' +
+  '<text class="tag" x="50" y="-6" text-anchor="middle"></text>';
 
 function rebootSvg(t) {
   return '<g class="reboot" transform="translate(' + (t.c * CELL) + " " + (t.r * CELL) + ')"><rect class="pr-tok" x="14" y="14" width="72" height="72" rx="12"/>' +
@@ -46,7 +48,7 @@ function rebootSvg(t) {
 }
 
 function flagSvg(n, c, r) {
-  return '<g class="flag" transform="translate(' + (c * CELL) + " " + (r * CELL) + ')"><rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
+  return '<g class="flag" data-n="' + n + '" transform="translate(' + (c * CELL) + " " + (r * CELL) + ')"><rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
     '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/><text x="56" y="41" class="pr-num">' + n + "</text></g>";
 }
 
@@ -65,6 +67,7 @@ export function mountScreen(root, ctx) {
   let curtainFor = null;         // a human seat that has not yet taken the keyboard
   let lastHuman = null;
   let animating = false;
+  let stopped = false;           // the race was left: the replay ends at its next beat
   let lastError = null;          // what stopped the last replay or step, shown once in the panel
   let dragging = null;
   let draggingKit = null;        // an option or upgrade card being reordered on its mat
@@ -200,10 +203,12 @@ export function mountScreen(root, ctx) {
 
   root.innerHTML = '<div class="pr"><div class="top"><h1>PumaRally</h1><span class="turn"></span><span class="grow"></span>' +
     '<button data-act="speed"></button><button data-act="setup">Set up</button><button data-act="new">New game</button></div>' +
-    '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg></div></div><aside class="side"></aside></div></div>';
+    '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg>' +
+    '<div class="caption" hidden><b></b><span></span></div></div></div><aside class="side"></aside></div></div>';
   const els = {
     turn: root.querySelector(".turn"), art: root.querySelector(".art"), overlay: root.querySelector(".overlay"),
-    side: root.querySelector(".side"), board: root.querySelector(".board"), speed: root.querySelector('[data-act="speed"]')
+    side: root.querySelector(".side"), board: root.querySelector(".board"), speed: root.querySelector('[data-act="speed"]'),
+    caption: root.querySelector(".caption")
   };
   const pieces = new Map();
 
@@ -229,7 +234,7 @@ export function mountScreen(root, ctx) {
       g.innerHTML = ROBOT;
       layer.appendChild(g);
       pieces.set(p.id, g);
-      placePiece(p, p.c, p.r, p.face, false);
+      syncPiece(p);
     }
   }
 
@@ -242,24 +247,55 @@ export function mountScreen(root, ctx) {
     return p.archive ? { c: p.archive.c, r: p.archive.r, face: p.archive.face, token: false } : null;
   }
 
-  function placePiece(p, c, r, face, animate) {
+  /* --- the pieces: what is DRAWN, kept apart from what the state says -------- */
+
+  /* Where each piece is drawn: square, facing, and whether it is shown, a
+   * ghost, or gone. Kept here rather than read back off the state, because
+   * during a replay the state is already at the END of the batch -- every
+   * robot on its final square with its final facing, alive or not -- and a
+   * replay that reads it draws the ending before the events have happened.
+   * That was issue #5's "turn-then-move": a Move card slid the robot along
+   * with its facing already set to what the Rotate AFTER it would set, so the
+   * turn was on screen before the move. A robot wrecked later in the batch
+   * was worse: it was drawn as gone from the batch's first event. So the
+   * state places the pieces only when nothing is moving (syncPieces), and a
+   * replay moves them by event, from where they were drawn last. */
+  const drawn = new Map();       // id -> { c, r, face, show }; show is "on", "ghost" or "gone"
+
+  function drawPiece(id, c, r, face, show, animate) {
+    const g = pieces.get(id);
+    if (!g) return;
+    const spin = g.querySelector(".spin");
+    if (!animate) { g.style.transition = "none"; spin.style.transition = "none"; }
+    g.style.transform = "translate(" + (c * CELL) + "px," + (r * CELL) + "px)";
+    spin.style.transform = "rotate(" + (face * 90) + "deg)";
+    if (!animate) { void g.getBoundingClientRect(); g.style.transition = ""; spin.style.transition = ""; }
+    g.classList.toggle("gone", show === "gone");
+    g.classList.toggle("ghost", show === "ghost");
+    drawn.set(id, { c, r, face, show });
+  }
+  function drawnAt(id) { return drawn.get(id) || { c: st.players[id].c, r: st.players[id].r, face: st.players[id].face, show: "on" }; }
+  /* the card a robot has just revealed, floated over the piece; "" clears it */
+  function tagPiece(id, text) {
+    const g = pieces.get(id);
+    if (g) g.querySelector(".tag").textContent = text;
+  }
+
+  /* the piece as the state has it: on its square; or a ghost where it comes
+   * back, so its player programs from the right square; or gone */
+  function syncPiece(p) {
     const g = pieces.get(p.id);
     if (!g) return;
     const liv = LIVERIES[p.livery];
     g.style.setProperty("--a", liv.a); g.style.setProperty("--d", liv.d);
     const back = returnPoint(p);
-    if (back) { c = back.c; r = back.r; face = back.face; }
-    if (!animate) g.style.transition = "none";
-    g.style.transform = "translate(" + (c * CELL) + "px," + (r * CELL) + "px)";
-    g.querySelector(".spin").style.transform = "rotate(" + (face * 90) + "deg)";
-    if (!animate) { void g.getBoundingClientRect(); g.style.transition = ""; }
-    g.classList.toggle("gone", (!p.alive || !p.placed) && !back);
-    g.classList.toggle("ghost", !!back);
+    const show = back ? "ghost" : (!p.alive || !p.placed) ? "gone" : "on";
+    drawPiece(p.id, back ? back.c : p.c, back ? back.r : p.r, back ? back.face : p.face, show, false);
     g.classList.toggle("down", !!p.poweredDown);
     g.classList.toggle("virtual", !!p.virtual);
+    tagPiece(p.id, "");
   }
-
-  function syncPieces() { for (const p of st.players) placePiece(p, p.c, p.r, p.face, false); }
+  function syncPieces() { for (const p of st.players) syncPiece(p); }
   /* the square a returning robot comes back on, in words */
   function returnText(p) {
     const back = returnPoint(p);
@@ -302,16 +338,166 @@ export function mountScreen(root, ctx) {
     }
   }
 
-  /* --- animation: the events, replayed ---------------------------------------- */
+  /* --- animation: the events, replayed register by register ------------------ */
 
   const wait = ms => new Promise(res => setTimeout(res, ms * speedOf()));
 
-  /* THE REPLAY KEEPS TIME WITH ITS OWN TRANSITIONS (issue #2). A slide is a
-   * CSS transition and a turn another; the wait after each event is longer
-   * than the transition it started, and both scale with the speed setting,
-   * so a belt's curve turns the robot AFTER it has arrived rather than while
-   * it is still sliding, which read as a robot moving sideways. And the
-   * replay cannot wedge the game (issue #1): whatever throws inside it is
+  /* THE REPLAY IS A SCHEDULE, NOT A LOOP (issue #5). The engine's events for a
+   * batch are cut into PHASES -- the register mark, the cards, then each
+   * board-element pass -- and within a phase into GROUPS: in the card phase a
+   * robot's whole activation (its reveal, its move or turn, whatever it
+   * pushed), in a board pass every event on its own. Each phase starts when
+   * the one before it has ended, so the register's structure is on screen:
+   * the mark, the robots in priority order, then the belts, the pushers, the
+   * gears, the lasers, each announced. Within a phase the groups OVERLAP:
+   * the card phase staggers the robots across half a second in priority
+   * order, so the first mover leads and the last trails, and a board pass
+   * plays every event at once, because every belt does move at once. One
+   * rule keeps that honest: a group waits for any robot in it that an
+   * earlier group is still moving, so a push, a chain of pushes and a card
+   * played from a pushed square keep the engine's order and never overlap.
+   *
+   * THE CARD PHASE IS A FIXED SLOT -- the stagger window plus the longest
+   * card, a Move 3 -- so a register of Move 3s and a register of rotates take
+   * the same time, and the run reads as five beats rather than as a queue
+   * whose length depends on the hands. Every duration scales with the speed
+   * setting, and the CSS transitions scale with it too (--anim), so the wait
+   * after a slide always outlasts the slide. */
+  const T = { mark: 420, reveal: 220, slide: 300, turn: 240, beam: 260, vanish: 120, appear: 160, land: 200, flag: 320, stagger: 500 };
+  const CARD_SLOT = T.stagger + T.reveal + 3 * T.slide;
+
+  /* the robots an event touches, so groups sharing one are kept in order */
+  const who = e => [e.player, e.target, e.shooter, e.by].filter(x => x !== undefined && x !== null);
+
+  /* the batch cut into phases and groups; each phase carries the event that opened it, if one did */
+  function phasesOf(events) {
+    const phases = [];
+    let ph = null, grp = null;
+    const open = (kind, mark) => { ph = { kind, mark: mark || null, groups: [] }; phases.push(ph); grp = null; };
+    for (const e of events) {
+      if (e.type === "register") { open("mark", e); open("cards"); continue; }
+      if (e.type === "element") { open("board", e); continue; }
+      if (e.type === "turnStart" || e.type === "turnEnd") { open("other"); continue; }
+      if (!ph) open(e.type === "revealed" ? "cards" : "other");   // a batch resuming after a question, mid-register
+      if (ph.kind === "cards") {
+        /* an activation begins at the reveal; a reboot lands before its register 1 card is revealed */
+        if (!grp || e.type === "revealed" || e.type === "rebooted" || e.cause === "reboot") { grp = []; ph.groups.push(grp); }
+        grp.push(e);
+      } else ph.groups.push([e]);
+    }
+    return phases;
+  }
+
+  /* one event as timed actions: `acts` are [offset ms, fn] from the event's
+   * start, `dur` is how long it holds the robots it touches */
+  function compile(e) {
+    const p = e.player !== undefined ? st.players[e.player] : null;
+    switch (e.type) {
+      case "register":
+        return { dur: T.mark, acts: [[0, () => {
+          caption((isModern(st) ? "Round " : "Turn ") + e.turn + " · Register " + (e.register + 1), "");
+          els.turn.textContent = turnText(e.register, e.turn);
+          for (const id of pieces.keys()) tagPiece(id, "");
+          renderLog(e.turn, e.register);
+        }]] };
+      case "element":
+        return { dur: 0, acts: [[0, () => caption(null, PASS_LABELS[e.name] || e.name)]] };
+      case "revealed":
+        return { dur: T.reveal, acts: [[0, () => tagPiece(p.id, KINDS[e.card.kind] ? KINDS[e.card.kind].label : "")]] };
+      case "moved": case "pushed": case "conveyed": case "shoved":
+        return { dur: T.slide, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, d.show, true); }]] };
+      case "turned":
+        return { dur: T.turn, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, e.face, d.show, true); }]] };
+      case "portal": case "teleported":
+        /* in one end and out of the other: no glide across the floor between */
+        return { dur: T.vanish + T.appear, acts: [
+          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); }],
+          [T.vanish, () => { const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, "on", false); }]] };
+      case "shot": {
+        const g = pieces.get(e.target);
+        let l = null;
+        return { dur: T.beam, acts: [
+          [0, () => { const d = drawnAt(e.target); l = beam(e.from, [d.c, d.r]); if (g) g.classList.add("hit"); }],
+          [T.beam, () => { if (l) l.remove(); if (g) g.classList.remove("hit"); }]] };
+      }
+      case "destroyed":
+        return { dur: T.slide + T.appear, acts: [
+          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); tagPiece(p.id, ""); }],
+          /* then the ghost, where it will come back */
+          [T.slide, () => { const back = returnPoint(p); if (back) drawPiece(p.id, back.c, back.r, back.face, "ghost", false); }]] };
+      case "respawned": case "placed": case "rebooted":
+        return { dur: T.land, acts: [[0, () => drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false)]] };
+      case "flag": {
+        const f = els.overlay.querySelector('.flag[data-n="' + e.flag + '"]');
+        return { dur: T.flag, acts: [[0, () => { if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
+      }
+      default:
+        return { dur: 0, acts: [] };
+    }
+  }
+
+  /* the batch as actions on one clock, in ms at normal speed */
+  function schedule(events) {
+    const acts = [];
+    let clock = 0;
+    for (const ph of phasesOf(events)) {
+      const free = new Map();            // robot -> when the last group touching it ends
+      let lead = 0;
+      if (ph.mark) {
+        /* a board pass is announced only when something happens in it */
+        if (ph.kind !== "board" || ph.groups.some(g => g.some(e => compile(e).dur > 0))) {
+          const m = compile(ph.mark);
+          for (const [dt, fn] of m.acts) acts.push({ at: clock + dt, fn });
+          lead = m.dur;
+        }
+      }
+      const base = clock + lead;
+      let end = base;
+      const n = ph.groups.length;
+      ph.groups.forEach((evs, k) => {
+        let at = base + (ph.kind === "cards" && n > 1 ? Math.round(T.stagger * k / (n - 1)) : 0);
+        const ids = new Set();
+        for (const e of evs) for (const id of who(e)) ids.add(id);
+        for (const id of ids) at = Math.max(at, free.get(id) || 0);
+        let cursor = at;
+        for (const e of evs) {
+          const c = compile(e);
+          for (const [dt, fn] of c.acts) acts.push({ at: cursor + dt, fn });
+          cursor += c.dur;
+        }
+        for (const id of ids) free.set(id, cursor);
+        end = Math.max(end, cursor);
+      });
+      if (ph.kind === "cards" && n) end = Math.max(end, base + CARD_SLOT);
+      clock = end;
+    }
+    acts.sort((a, b) => a.at - b.at);
+    return { acts, end: clock };
+  }
+
+  async function replay(events) {
+    const { acts, end } = schedule(events);
+    let now = 0;
+    for (const a of acts) {
+      if (stopped) return;
+      if (a.at > now) { await wait(a.at - now); now = a.at; }
+      a.fn();
+    }
+    if (end > now && !stopped) await wait(end - now);
+  }
+
+  /* the caption over the board: the register, and the pass under way */
+  function caption(head, sub) {
+    if (head !== null) els.caption.querySelector("b").textContent = head;
+    els.caption.querySelector("span").textContent = sub || "";
+    els.caption.hidden = !els.caption.querySelector("b").textContent;
+  }
+  function turnText(register, turn = st.turn) {
+    return (isModern(st) ? "2016 rules · " : "Classic rules · ") + (st.over ? "Race over" : (isModern(st) ? "Round " : "Turn ") + turn +
+      (register !== undefined ? " · register " + (register + 1) : ""));
+  }
+
+  /* The replay cannot wedge the game (issue #1): whatever throws inside it is
    * caught, the pieces are put where the state says, and the panel comes
    * back with the request that is waiting. */
   async function play(events) {
@@ -326,6 +512,8 @@ export function mountScreen(root, ctx) {
       lastError = "The replay stopped early (" + (e && e.message ? e.message : String(e)) + "). The race itself is fine; the pieces are shown where they stand.";
     } finally {
       animating = false;
+      caption("", "");
+      for (const l of els.overlay.querySelectorAll(".beam")) l.remove();
       syncPieces();
       safely(render);
     }
@@ -349,75 +537,6 @@ export function mountScreen(root, ctx) {
       els.side.innerHTML = html;
       return false;
     }
-  }
-
-  async function replay(events) {
-    for (const e of events) {
-      const p = e.player !== undefined ? st.players[e.player] : null;
-      switch (e.type) {
-        case "moved": case "pushed": case "conveyed": case "shoved":
-          placePiece(p, e.to[0], e.to[1], pieceFace(p.id), true);
-          await wait(300);
-          break;
-        case "portal":
-          /* in one end and out of the other: no glide across the floor between */
-          pieces.get(p.id).classList.add("gone");
-          await wait(120);
-          placePiece(p, e.to[0], e.to[1], pieceFace(p.id), false);
-          pieces.get(p.id).classList.remove("gone");
-          await wait(160);
-          break;
-        case "turned":
-          setFace(p.id, e.face);
-          await wait(240);
-          break;
-        case "shot": {
-          const target = st.players[e.target];
-          const g = pieces.get(e.target);
-          const l = beam(e.from, pieceCell(e.target) || [target.c, target.r]);
-          if (g) g.classList.add("hit");
-          await wait(240);
-          l.remove();
-          if (g) g.classList.remove("hit");
-          break;
-        }
-        case "destroyed":
-          if (pieces.get(p.id)) pieces.get(p.id).classList.add("gone");
-          await wait(300);
-          /* then the ghost, where it will come back */
-          placePiece(p, p.c, p.r, p.face, false);
-          break;
-        case "respawned": case "placed": case "rebooted":
-          placePiece(p, e.at[0], e.at[1], e.face === undefined ? p.face : e.face, false);
-          if (pieces.get(p.id)) pieces.get(p.id).classList.remove("gone");
-          await wait(200);
-          break;
-        case "flag":
-          await wait(300);
-          break;
-        case "register":
-          renderLog();
-          await wait(150);
-          break;
-        case "element":
-          break;
-        default:
-          break;
-      }
-    }
-  }
-  /* where a piece is drawn now, in cells, so a beam ends where the robot is shown */
-  function pieceCell(id) {
-    const g = pieces.get(id);
-    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(g.style.transform || "");
-    return m ? [Math.round(m[1] / CELL), Math.round(m[2] / CELL)] : null;
-  }
-  const faces = new Map();
-  function pieceFace(id) { return faces.has(id) ? faces.get(id) : st.players[id].face; }
-  function setFace(id, face) {
-    faces.set(id, face);
-    const g = pieces.get(id);
-    if (g) g.querySelector(".spin").style.transform = "rotate(" + (face * 90) + "deg)";
   }
 
   /* --- the panel --------------------------------------------------------------- */
@@ -702,10 +821,14 @@ export function mountScreen(root, ctx) {
   /* a hand index already placed, alone or as half of a Crab Legs pair */
   function pickHas(i) { return pick.some(e => Array.isArray(e) ? e.includes(i) : e === i); }
 
-  function renderLog() {
+  /* the whole log, or during a replay the log as it stood at (turn, register):
+   * the state's log is already at the end of the batch, and every line
+   * carries the turn and register it was written in */
+  function renderLog(turn, register) {
     const el = els.side.querySelector(".log");
     if (!el) return;
-    el.innerHTML = st.log.slice(-14).map(l => '<div class="' + (/^-- register/.test(l.msg) ? "reg" : "") + '">' + esc(l.msg) + "</div>").join("");
+    const lines = turn === undefined ? st.log : st.log.filter(l => l.turn < turn || (l.turn === turn && l.reg <= register));
+    el.innerHTML = lines.slice(-14).map(l => '<div class="' + (/^-- register/.test(l.msg) ? "reg" : "") + '">' + esc(l.msg) + "</div>").join("");
     el.scrollTop = el.scrollHeight;
   }
 
@@ -892,7 +1015,7 @@ export function mountScreen(root, ctx) {
   root.querySelector(".top").addEventListener("click", ev => {
     const b = ev.target.closest("button");
     if (!b) return;
-    if (b.dataset.act === "speed") { ctx.cycleSpeed(); els.speed.textContent = "Speed: " + ctx.speedName(); }
+    if (b.dataset.act === "speed") { ctx.cycleSpeed(); els.speed.textContent = "Speed: " + ctx.speedName(); els.overlay.style.setProperty("--anim", String(speedOf())); }
     if (b.dataset.act === "setup") ctx.toSetup();
     if (b.dataset.act === "new") ctx.newGame();
   });
@@ -929,7 +1052,7 @@ export function mountScreen(root, ctx) {
   /* --- render ---------------------------------------------------------------------- */
 
   function render() {
-    els.turn.textContent = (isModern(st) ? "2016 rules · " : "Classic rules · ") + (st.over ? "Race over" : (isModern(st) ? "Round " : "Turn ") + st.turn + (st.phase === "exec" ? " · register " + (st.register + 1) : ""));
+    els.turn.textContent = turnText(st.phase === "exec" ? st.register : undefined);
     els.speed.textContent = "Speed: " + ctx.speedName();
     if (!animating) syncPieces();                       // a state change with no events still moves a ghost
     if (needsCurtain(st.waiting)) { showCurtain(st.waiting.player); return; }
@@ -941,12 +1064,14 @@ export function mountScreen(root, ctx) {
     show(state) {
       st = state;
       C = courseOf(st, library);
-      pick = []; faces.clear(); lastHuman = null;
+      pick = []; drawn.clear(); lastHuman = null; stopped = false;
       loadPrefs();
       drawBoard();
       fitBoard();
       render();
     },
+    /** The screen is being torn down: a replay in progress ends at its next beat. */
+    stop() { stopped = true; },
     /** The mat's answer to a human's pending request, or undefined to ask. */
     autoAnswer(w) { return autoAnswer(w); },
     /** The loop hit an error: say so in the panel and hand the controls back. */

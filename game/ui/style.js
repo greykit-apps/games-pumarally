@@ -29,7 +29,11 @@ h2:first-child{margin-top:0}
 .stage{position:relative;overflow:auto;padding:12px;display:flex;align-items:flex-start;justify-content:center}
 .stage .board{position:relative;max-width:100%}
 .stage .board svg{display:block;width:100%;height:auto}
-.stage .board .overlay{position:absolute;inset:0}
+.stage .board .overlay{position:absolute;inset:0;overflow:visible}
+.stage .caption{position:absolute;top:8px;left:8px;padding:5px 10px;background:rgba(6,10,16,.82);border:1px solid var(--line);border-radius:4px;pointer-events:none;line-height:1.3}
+.stage .caption b{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.stage .caption span{display:block;font-size:11px;color:var(--dim)}
+.stage .caption span:empty{display:none}
 .overlay .piece{transition:transform calc(.26s * var(--anim,1)) cubic-bezier(.3,.7,.3,1)}
 .overlay .spin{transition:transform calc(.2s * var(--anim,1)) ease;transform-origin:50px 50px}
 .overlay .pr-hull{stroke:var(--a);stroke-width:5;fill:var(--d)}
@@ -43,6 +47,9 @@ h2:first-child{margin-top:0}
 .overlay .piece.ghost .pr-hull{fill:none;stroke-dasharray:10 7}
 .overlay .piece.ghost .pr-nose{opacity:.5}
 .overlay .piece.hit .pr-hull{fill:var(--danger)}
+.overlay .piece .tag{font:600 26px ui-monospace,Menlo,Consolas,monospace;fill:var(--text);stroke:var(--bg);stroke-width:5;paint-order:stroke;letter-spacing:.04em;pointer-events:none}
+.overlay .piece.gone .tag,.overlay .piece.ghost .tag{display:none}
+.overlay .flag.hit .pr-banner{fill:var(--good)}
 .overlay .beam{stroke:var(--danger);stroke-width:6;stroke-linecap:round;opacity:.9;filter:drop-shadow(0 0 6px var(--danger))}
 .overlay .bay-pick{fill:var(--accent);opacity:.18;cursor:pointer}
 .overlay .bay-pick:hover{opacity:.45}
