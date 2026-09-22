@@ -478,7 +478,9 @@ export function dockSvg(n) {
              [[17, 17], [83, 17], [17, 83], [83, 83]].map(([x, y]) =>
                '<circle class="pr-dock-bolt" cx="' + x + '" cy="' + y + '" r="2.4"/>').join("") +
              '<circle class="pr-dock-ring" cx="50" cy="50" r="27"/>' +
-             '<path class="pr-dock-ring-lit" d="M31 62A27 27 0 0 1 61 24"/>' +
+             /* the lit run of the same ring, top-left: both ends ON the circle
+                (r=27 from the centre), or the highlight floats off it */
+             '<path class="pr-dock-ring-lit" d="M23.9 57A27 27 0 0 1 57 23.9"/>' +
              '<text x="50" y="52" class="pr-num">' + esc(n) + "</text>", "pr-dock");
 }
 
