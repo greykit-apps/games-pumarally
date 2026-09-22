@@ -4,9 +4,12 @@
  * solo human with no opponents, all humans passing the keyboard, bots only,
  * or anything between. The course shelf is the workshop's: every shipped
  * course, and every course saved from the course workshop in this browser.
- * Before the shelf comes the quick game: any one board, laid at a random
- * facing with three flags drawn from the locations it marks, fresh at every
- * start (game/engine/quick.js).
+ * Before the shelf comes the quick game: N boards and F flags, drawn fresh
+ * at every start (game/engine/quick.js) -- on one board, any board from the
+ * palette or one drawn; on more, boards drawn from the verified 12x12 ones
+ * and stacked as the box stacks them, with a route of flags through them.
+ * The two knobs are the whole of the setup: there are no race types, since
+ * anything else is a custom course, and the workshop makes those easy.
  */
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
@@ -16,7 +19,7 @@ import { LIVERIES } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
-import { quickCourse, quickSpots, QUICK_FLAGS, DOCK_BOARD } from "../engine/quick.js";
+import { quickCourse, quickMulti, quickSpots, canQuick, quickFlagRange, quickDefaultFlags, QUICK_FLAGS, QUICK_MAX_BOARDS, DOCK_BOARD } from "../engine/quick.js";
 
 const SETUP_KEY = "pumarally_setup_v2";
 const WORKSHOP_KEY = "pumarally_courses_v1";
@@ -38,9 +41,10 @@ function workshopCourses(library) {
         if (b && !d.items.some(x => x.severity === "error")) library.set(b.id, b);
       } catch (e) { /* the course will not read, and is skipped below */ }
     }
-    try { out.push({ id, doc: readCourse(all[id].doc, library, id), mine: true }); } catch (e) { /* not raceable */ }
+    try { out.push({ id, doc: readCourse(all[id].doc, library, id), mine: true, saved: all[id].saved || 0 }); } catch (e) { /* not raceable */ }
   }
-  return out;
+  /* yours first and the most recent first: the course you just made is the one you are here to race */
+  return out.sort((a, b) => b.saved - a.saved);
 }
 
 /** Take a course saved from the workshop out of this browser's library. */
@@ -56,6 +60,10 @@ const workshopHref = new URL("../../editor/index.html#course", import.meta.url).
 export function mountSetup(root, { library, index, courses, onStart, onResume, initialCourse }) {
   const prefs = read(SETUP_KEY, { course: null, ruleset: "classic", seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
   if (prefs.ruleset !== "modern") prefs.ruleset = "classic";
+  /* the quick game's knobs: how many boards, how many flags, whether an unverified board may be drawn */
+  if (!prefs.quick || !Number.isInteger(prefs.quick.boards)) prefs.quick = { boards: 1, flags: QUICK_FLAGS, unverified: false };
+  const clampFlags = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); prefs.quick.flags = Math.min(hi, Math.max(lo, prefs.quick.flags | 0)); };
+  clampFlags();
   if (initialCourse) prefs.course = initialCourse;                // the workshop's Play button names a course
   const shelf = [];
   for (const row of index.courses) {
@@ -63,7 +71,8 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (!doc) continue;
     try { const d = readCourse(doc, library, row.id); shelf.push({ id: row.id, doc: d, kind: row.kind, blurb: row.blurb, reads: rulesetsFor(d, library) }); } catch (e) { /* skip a course that will not build */ }
   }
-  for (const c of workshopCourses(library)) shelf.push({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop.", reads: rulesetsFor(c.doc, library) });
+  const mine = workshopCourses(library).map(c => ({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop.", reads: rulesetsFor(c.doc, library) }));
+  shelf.unshift(...mine);
   /* the quick games: every board with enough marked flag locations, in the palette's order */
   const quick = [];
   for (const row of index.boards) {
@@ -74,8 +83,14 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     quick.push({ id: "quick:" + row.id, board: b, spots, unverified: !!row.unverified,
       reads: rulesetsFor({ stamps: [{ board: row.id }, { board: DOCK_BOARD }] }, library) });
   }
-  const playable = () => quick.concat(shelf).filter(c => c.reads.includes(prefs.ruleset));
-  if (!playable().some(c => c.id === prefs.course)) prefs.course = playable().length ? playable()[0].id : null;
+  /* the boards a random draw may pick: 12x12 so they stack, verified unless
+   * asked, and read by the ruleset in force. A hand-picked board from the
+   * palette is the player's own choice and is not filtered the same way. */
+  const pool = () => quick.filter(q => q.board.w === 12 && q.board.h === 12 && (!q.unverified || prefs.quick.unverified) && q.reads.includes(prefs.ruleset)).map(q => q.board);
+  const ANY = "quick:*";
+  const playable = () => [{ id: ANY, reads: ["classic", "modern"] }].concat(quick, shelf).filter(c => c.reads.includes(prefs.ruleset));
+  if (!playable().some(c => c.id === prefs.course)) prefs.course = ANY;
+  if (prefs.quick.boards > 1) prefs.course = ANY;
 
   /* thumbnails are drawn once per ruleset: the markings shown are the ones that edition reads */
   const thumbs = new Map();
@@ -100,16 +115,35 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     }
     html += "</div>";
     const flagWord = prefs.ruleset === "modern" ? "checkpoints" : "flags";
-    html += "<h2>Quick game</h2><p class='keys'>One board over the docking bay, laid at a random facing, with " + QUICK_FLAGS + " " + flagWord +
-      " drawn in a random order from the locations it marks. A fresh draw every start.</p><div class='courses'>";
-    for (const q of quick) {
-      const ok = q.reads.includes(prefs.ruleset);
-      html += '<button class="course" data-course="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + (prefs.course === q.id) + '"' +
-        (ok ? "" : notRead(q.reads)) + ">" + thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span>" +
-        '<span class="meta">' + q.board.w + "&times;" + q.board.h + " &middot; " + q.spots + " flag locations" +
-        (q.unverified ? " &middot; unverified" : "") + (ok ? "" : onlyRead(q.reads)) + "</span></button>";
+    const n = prefs.quick.boards, [lo, hi] = quickFlagRange(n), drawable = pool().length;
+    html += "<h2>Quick game</h2><p class='keys'>" + (n === 1
+      ? "One board over the docking bay, laid at a random facing, with the " + flagWord + " drawn from the locations it marks. A fresh draw every start."
+      : n + " boards drawn and stacked over the docking bay, each at a random facing, with a route of " + flagWord + " through them: at least one a board, the rest handed out in turn. A fresh draw every start.") + "</p>";
+    html += "<div class='row'><label>Boards</label>";
+    for (let k = 1; k <= QUICK_MAX_BOARDS; k++) {
+      html += '<button data-quick-boards="' + k + '" aria-pressed="' + (n === k) + '"' + (k > 1 && k > drawable ? ' disabled title="Only ' + drawable + ' board' + (drawable === 1 ? "" : "s") + ' can be drawn under these rules."' : "") + ">" + k + "</button>";
     }
-    html += "</div>";
+    html += "</div><div class='row'><label>" + (flagWord.charAt(0).toUpperCase() + flagWord.slice(1)) + "</label>" +
+      '<button data-quick-flags="-1"' + (prefs.quick.flags <= lo ? " disabled" : "") + ' aria-label="one fewer">&minus;</button>' +
+      '<b class="knob">' + prefs.quick.flags + "</b>" +
+      '<button data-quick-flags="1"' + (prefs.quick.flags >= hi ? " disabled" : "") + ' aria-label="one more">+</button>' +
+      '<span class="keys">' + lo + " to " + hi + ": at least one a board, three at most</span>" +
+      '<label title="A board nobody has checked against its photograph yet. Left out of the draw unless you say so."><input type="checkbox" data-quick-unverified' + (prefs.quick.unverified ? " checked" : "") + "> Draw unverified boards too</label></div>";
+    /* the palette: only when one board is being played, since that is the one
+     * case where picking it is a choice worth making. The first tile draws one. */
+    if (n === 1) {
+      html += "<div class='courses'>";
+      html += '<button class="course any" data-course="' + ANY + '" aria-label="Any board" aria-pressed="' + (prefs.course === ANY) + '">' +
+        '<span class="name">Any board</span><span class="meta">drawn from ' + drawable + " at random</span></button>";
+      for (const q of quick) {
+        const ok = q.reads.includes(prefs.ruleset);
+        html += '<button class="course" data-course="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + (prefs.course === q.id) + '"' +
+          (ok ? "" : notRead(q.reads)) + ">" + thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span>" +
+          '<span class="meta">' + q.board.w + "&times;" + q.board.h + " &middot; " + q.spots + " flag locations" +
+          (q.unverified ? " &middot; unverified" : "") + (ok ? "" : onlyRead(q.reads)) + "</span></button>";
+      }
+      html += "</div>";
+    }
     html += "<h2>Course</h2><div class='courses'>";
     for (const c of shelf) {
       const ok = c.reads.includes(prefs.ruleset);
@@ -164,8 +198,17 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     const b = ev.target.closest("button");
     if (!b) return;
     const d = b.dataset;
-    if (d.ruleset) { prefs.ruleset = d.ruleset; if (!playable().some(c => c.id === prefs.course)) prefs.course = playable().length ? playable()[0].id : null; store(SETUP_KEY, prefs); render(); return; }
-    if (d.course) { prefs.course = d.course; store(SETUP_KEY, prefs); render(); return; }
+    if (d.ruleset) { prefs.ruleset = d.ruleset; if (!playable().some(c => c.id === prefs.course)) prefs.course = ANY; store(SETUP_KEY, prefs); render(); return; }
+    if (d.course) { prefs.course = d.course; if (d.course !== ANY && !d.course.startsWith("quick:")) { /* a track is what it is */ } store(SETUP_KEY, prefs); render(); return; }
+    if (d.quickBoards !== undefined) {
+      prefs.quick.boards = +d.quickBoards;
+      /* the default follows the boards until the knob is turned; the range always does */
+      prefs.quick.flags = quickDefaultFlags(prefs.quick.boards);
+      clampFlags();
+      if (prefs.quick.boards > 1 || !String(prefs.course).startsWith("quick:")) prefs.course = ANY;
+      store(SETUP_KEY, prefs); render(); return;
+    }
+    if (d.quickFlags !== undefined) { prefs.quick.flags += +d.quickFlags; clampFlags(); store(SETUP_KEY, prefs); render(); return; }
     if (d.drop !== undefined) { prefs.seats.splice(+d.drop, 1); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
@@ -188,11 +231,19 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     }
     if (d.act === "start") {
       const q = quick.find(x => x.id === prefs.course);
-      const c = q ? null : shelf.find(x => x.id === prefs.course);
-      if (!q && !c) return;
+      const c = q || prefs.course === ANY ? null : shelf.find(x => x.id === prefs.course);
+      if (!q && !c && prefs.course !== ANY) return;
       store(SETUP_KEY, prefs);
       /* a quick game is drawn now, and the draw is the course the save carries */
-      const course = q ? readCourse(quickCourse(q.board, library), library) : c.doc;
+      let course;
+      try {
+        course = c ? c.doc
+          : q ? readCourse(quickCourse(q.board, library, { flags: Math.min(prefs.quick.flags, q.spots) }), library)
+          : readCourse(quickMulti(pool(), prefs.quick.boards, prefs.quick.flags, library), library);
+      } catch (e) {
+        window.alert("The quick game could not be drawn: " + e.message);
+        return;
+      }
       onStart({ course, seats: prefs.seats.map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset });
     }
   };
@@ -201,6 +252,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (t.dataset.seat !== undefined) { prefs.seats[+t.dataset.seat].seat = t.value; store(SETUP_KEY, prefs); render(); }
     else if (t.dataset.skill !== undefined) { prefs.seats[+t.dataset.skill].skill = +t.value; store(SETUP_KEY, prefs); }
     else if (t.dataset.house !== undefined) { prefs.house[t.dataset.house] = t.checked; store(SETUP_KEY, prefs); }
+    else if (t.dataset.quickUnverified !== undefined) { prefs.quick.unverified = t.checked; store(SETUP_KEY, prefs); render(); }
     else if (t.dataset.houseN !== undefined) { prefs.house[t.dataset.houseN] = +t.value; store(SETUP_KEY, prefs); }
   };
   render();

@@ -2149,6 +2149,36 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "the boards stack as the box does: the column first, then the sides, never beyond three by three",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the route visits every board, board by board where the layout allows",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "every board gets a flag, the extras go one per board in turn, and the knob's range says so",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a quick game on several boards draws, lays and flags a course the validator takes",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the ask is refused when it cannot be met, and says why",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "the race draws the markings its edition reads and no others",
     "layer": "screen",
     "status": "ported",
