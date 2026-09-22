@@ -66,6 +66,16 @@ export const MODERN_ORDER = [
 
 export function orderFor(st) { return isModern(st) ? MODERN_ORDER : CLASSIC_ORDER; }
 
+/* What each pass is called on screen, by its name in the tables above. The
+ * screen announces a pass over the board as it plays, so a robot seen
+ * sliding sideways is seen doing it under "Conveyors" and not by magic. */
+export const PASS_LABELS = {
+  express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
+  lasers: "Lasers", burners: "Flame jets", touch: "Flags",
+  blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
+  flamers: "Flamers", batteries: "Energy"
+};
+
 function go(st, phase, step) { st.phase = phase; st.step = step; }
 
 function ask(st, player, kind, options, extra) {
@@ -289,7 +299,7 @@ function takeBay(st, p, dock, C) {
   p.face = face;
   p.archive = { c: dock.c, r: dock.r, face };
   p.placed = true;
-  st.events.push({ type: "placed", player: p.id, at: [p.c, p.r], bay: dock.n });
+  st.events.push({ type: "placed", player: p.id, at: [p.c, p.r], face, bay: dock.n });
   log(st, p.name + " takes bay " + dock.n);
 }
 
@@ -484,7 +494,7 @@ const STEPS = {
         p.face = rctx.facing;
         p.damage = rctx.damage;
         p.alive = true;
-        st.events.push({ type: "respawned", player: p.id, at: spot, damage: p.damage, virtual: p.virtual });
+        st.events.push({ type: "respawned", player: p.id, at: spot, face: p.face, damage: p.damage, virtual: p.virtual });
         log(st, p.name + " returns at (" + p.c + "," + p.r + ") with " + p.damage + " damage" + (p.virtual ? ", virtual" : ""));
       }
       if (!racing(st).length) { st.over = true; log(st, "Every robot is scrap. Nobody wins."); return; }
@@ -737,7 +747,7 @@ const STEPS = {
       st.queue = q;
       for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
       st.elem = 0;
-      st.events.push({ type: "register", register: st.register });
+      st.events.push({ type: "register", register: st.register, turn: st.turn });
       log(st, "-- register " + (st.register + 1) + " --");
       go(st, "exec", "move");
     },

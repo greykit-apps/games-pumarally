@@ -45,6 +45,9 @@ let speed = (() => { try { return localStorage.getItem(SPEED_KEY) || "normal"; }
 let st = null;
 let screen = null;
 let busy = false;
+/* bumped whenever the screen is torn down, so a loop still replaying the old
+ * race stops at its next beat and never touches the new one */
+let generation = 0;
 
 /* the workshop's Play button arrives as #course=<id>: that course, preselected on the setup screen */
 function wantedCourse() {
@@ -53,7 +56,10 @@ function wantedCourse() {
 }
 
 function toSetup() {
+  generation++;
+  if (screen) screen.stop();
   screen = null;
+  busy = false;
   const saved = loadGame();
   mountSetup(host, {
     library, index, courses,
@@ -88,6 +94,7 @@ function openScreen() {
 async function advance(answer) {
   if (busy) return;
   busy = true;
+  const gen = generation;
   let a = answer;
   try {
     for (;;) {
@@ -97,6 +104,7 @@ async function advance(answer) {
       if (st.over) { clearGame(); await screen.update(st, r.events); break; }
       if (r.refused) { await screen.update(st, []); break; }
       await screen.update(st, r.events);
+      if (gen !== generation) break;                 // the race was left while the floor was moving
       const w = st.waiting;
       if (!w) break;
       if (isHuman(st.players[w.player])) {
@@ -113,10 +121,11 @@ async function advance(answer) {
     /* issue #1: a throw anywhere in here used to leave the panel saying "the
      * floor is moving" with nothing to click. The screen says what happened
      * and shows the request that is waiting. */
+    if (gen !== generation) return;
     if (screen && screen.fail) screen.fail(e); else throw e;
   } finally {
     /* an exception must not wedge the loop: the next click still steps */
-    busy = false;
+    if (gen === generation) busy = false;
   }
 }
 

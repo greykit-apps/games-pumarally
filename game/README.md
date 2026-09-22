@@ -330,6 +330,24 @@ from the pending request and nothing else; a hot-seat curtain between human
 seats; autosave and resume. Verified in the browser through the draft, two
 full turns, a two-human hand-over and a reload mid-game.
 
+The replay is a schedule, register by register (issue #5). The events of a
+batch are cut into phases -- the register mark, the cards, then each
+board-element pass -- and each phase starts when the one before it has
+ended, so the register's structure is on screen: a caption over the board
+names the register and then each pass as it plays, and the card a robot
+reveals floats over the piece. Within the card phase the robots overlap,
+staggered across half a second in priority order, and a board pass plays
+every event at once, because every belt does move at once; a group waits
+only for a robot an earlier group is still moving, so a push and a card
+played from a pushed square keep the engine's order. The card phase is a
+fixed slot, the stagger plus a Move 3, so a register of Move 3s and a
+register of rotates take the same time. The pieces are drawn from a record
+of where they were drawn last, never from the state mid-replay: the state
+is already at the end of the batch, which is how a Move followed by a Rotate
+used to play as a turn and then a move, and a robot wrecked in register 5
+vanished in register 1. Leaving a race stops its replay at the next beat,
+so the loop cannot go on holding the new race's turn.
+
 The replay keeps time with its own transitions (issue #2): a slide and a
 turn are CSS transitions whose durations scale with the speed setting, and
 the wait after each event outlasts the transition it started, so a belt's
