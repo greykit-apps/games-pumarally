@@ -76,6 +76,13 @@ function beltArt(arms, express) {
     join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
 }
 
+/** What a belt paints ON its bed: the arrow and chevrons alone, for painting again over a randomizer. */
+function beltOver(arms, express) {
+  const p = beltPaths(arms, N, express ? 2 : 1);
+  const join = (list, cls) => list.map(d => '<path class="' + cls + '" d="' + d + '"/>').join("");
+  return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' + join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
+}
+
 function beltMark(arms, express) {
   const colour = express ? MARK.express : MARK.belt;
   const p = beltPaths(arms, N, express ? 2 : 1);
@@ -105,11 +112,13 @@ export const GLYPHS = {
 
   conveyor: {
     art: ctx => beltArt(ctx.arms, false),
+    over: ctx => beltOver(ctx.arms, false),
     markup: ctx => beltMark(ctx.arms, false)
   },
 
   expressConveyor: {
     art: ctx => beltArt(ctx.arms, true),
+    over: ctx => beltOver(ctx.arms, true),
     markup: ctx => beltMark(ctx.arms, true)
   },
 
@@ -153,6 +162,7 @@ export const GLYPHS = {
   current: {
     /* a belt that is also water: the water plate, then the belt over it */
     art: ctx => A.waterSvg() + beltArt(ctx.arms, false),
+    over: ctx => beltOver(ctx.arms, false),
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
@@ -375,13 +385,12 @@ export function siteOverlay(has, mode) {
     const body = art ? A.batterySvg() : mk(BOLT, MARK.ground, 2.4);
     out += box(bx, y, k, body);
   }
-  if (has.indexOf("randomizer") >= 0) {
-    /* Drawn small and in a corner of its own, because unlike the other markings
-     * it may share the square with a BELT, whose arrow runs through the middle.
-     * The corner opposite the flag location, so a square can carry both. */
-    const body = art ? A.randomizerSvg()
-      : mk("M 24 26 L 76 26 L 76 78 L 24 78 Z", MARK.ground, 1.4) + mkText("?", 50, 53, MARK.ground, 34);
-    out += box(2, 58, 0.4, body);
+  if (has.indexOf("randomizer") >= 0 && !art) {
+    /* In markup, the print's eight-point star at full size with a ? in it,
+     * so it is as loud over a photograph as it is on the board. In the play
+     * art the starburst is drawn by the ground layer instead, under the
+     * square's element, so a belt's arrow lies over it exactly as printed. */
+    out += mk("M 50.0 2.0 L 61.5 22.3 L 83.9 16.1 L 77.7 38.5 L 98.0 50.0 L 77.7 61.5 L 83.9 83.9 L 61.5 77.7 L 50.0 98.0 L 38.5 77.7 L 16.1 83.9 L 22.3 61.5 L 2.0 50.0 L 22.3 38.5 L 16.1 16.1 L 38.5 22.3 Z", MARK.hazard, 1.6) + mkText("?", 50, 52, MARK.hazard, 30);
   }
   if (flag) {
     /* Always the same corner at the same size. A flag LOCATION is a question

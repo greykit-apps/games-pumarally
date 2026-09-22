@@ -18,12 +18,12 @@ import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SITES } from "../rulesets/sites.js";
 import { ARM_CODES } from "../lib/token.js";
 import {
-  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList
+  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList, hasSite
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
 import { isLedge, levelStep, rampsOf } from "../lib/levels.js";
 import { rampOn, wallAt, EDGE_NONE } from "../lib/edges.js";
-import { rampEdgeSvg } from "./art.js";
+import * as A from "./art.js";
 import { dirOfChar, DC, DR, N, E, S, W } from "../lib/dir.js";
 import { ARG_DIR } from "../rulesets/elements.js";
 
@@ -62,6 +62,14 @@ function groundLayer(board, mode) {
       /* the floor first, unrotated, then the element standing on it */
       if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt());
       out += g(at(c, r) + spin(d), body);
+      /* A RANDOMIZER FILLS THE SQUARE, as printed: the starburst goes over the
+       * square's plate and bed, and whatever the element paints on top -- a
+       * belt's arrow, a current's water -- is painted again over the burst,
+       * so the arrow stays legible exactly as the print has it. */
+      if (mode === "art" && hasSite(board, c, r, "randomizer")) {
+        out += g(at(c, r), A.randomizerSvg());
+        if (typeof glyph.over === "function") out += g(at(c, r) + spin(d), glyph.over(ctx));
+      }
     }
   }
   return out;
@@ -195,7 +203,7 @@ function rampLayer(board, mode) {
   for (const ramp of rampsOf(board)) {
     if (!ramp.foot) continue;
     const { c, r } = ramp.foot;
-    if (mode === "art") { out += g(at(c, r), rampEdgeSvg(ramp.dir)); continue; }
+    if (mode === "art") { out += g(at(c, r), A.rampEdgeSvg(ramp.dir)); continue; }
     /* markup: the same trapezoid as the art, outlined, with a chevron in it
      * pointing up the ramp -- the ledge's dash is left off that edge, and
      * two ramps on neighbouring sides meet along the diagonal as a corner */
