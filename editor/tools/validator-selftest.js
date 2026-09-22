@@ -139,8 +139,15 @@ const CASES = [
   ["site.repeated", FIXTURE, d => { d.ground.sites[0].has = ["repair", "repair"]; }],
   ["site.exclusive", FIXTURE, d => { d.ground.sites[0].has = ["repair", "upgrade"]; }],
   ["site.empty", FIXTURE, d => { d.ground.sites[0].has = []; }],
-  /* a marking sits on plain floor: the pit at (1,3) is not somewhere a robot rests */
+  /* a collection marking sits on plain floor: the pit at (1,3) is not somewhere
+   * a robot rests -- and (1,0) is a conveyor, which is not either */
   ["site.notFloor", FIXTURE, d => { d.ground.sites[0].at = [1, 3]; }],
+  ["site.notFloor", FIXTURE, d => { d.ground.sites[0].at = [1, 1]; }],
+  /* a randomizer needs only a square a robot can be standing on, so a belt is
+   * fine and a PIT is not -- there is nobody standing in a pit to reveal a card */
+  ["site.notStandable", FIXTURE, d => {
+    d.ground.sites.push({ at: [1, 3], has: ["randomizer"] });
+  }],
 
   /* ceiling */
   ["ceiling.offBoard", FIXTURE, d => { d.ceiling.devices[0].at = [99, 0]; }],

@@ -171,10 +171,23 @@ function checkSquareSites(board, d) {
           ". A square is printed with one or the other, not both.", where, ptr);
       }
     }
+    /* WHERE a marking may be printed is a fact about the marking. A collection
+     * marking needs plain floor because a robot has to come to rest on it; a
+     * randomizer fires on the card reveal instead, so it needs only a square a
+     * robot can be standing on -- which is how Pushy prints them on belts. */
     const def = elementAt(board, s.c, s.r);
-    if (!def || def.key !== "floor") {
+    const kinds = [...seen].filter(k => SITES[k]);
+    const floorOnly = kinds.filter(k => SITES[k].place === "floor");
+    if (floorOnly.length && (!def || def.key !== "floor")) {
       d.error("site.notFloor", where + " is " + (def ? def.name.toLowerCase() : "not floor") +
-        ", and a site marks plain floor -- it is somewhere a robot comes to rest.", where, ptr);
+        ", and " + floorOnly.map(k => SITES[k].short).join(" and ") +
+        " marks plain floor -- it is somewhere a robot comes to rest.", where, ptr);
+    }
+    const standable = kinds.filter(k => SITES[k].place === "standable");
+    if (standable.length && (!def || def.props.pit)) {
+      d.error("site.notStandable", where + " is " + (def ? def.name.toLowerCase() : "not a square") +
+        ", and " + standable.map(k => SITES[k].short).join(" and ") +
+        " has to be somewhere a robot can be standing.", where, ptr);
     }
   }
 }

@@ -68,7 +68,14 @@ function build() {
   setSites(b, 6, 9, ["upgrade", "battery"]);
   setSites(b, 7, 9, ["battery", "flagspot"]);
 
-  setCell(b, 1, 5, "C>.");   setCell(b, 2, 5, "z..");   setCell(b, 3, 5, "A..");
+  /* (2,5) is A CONVEYOR CARRYING A RANDOMIZER, which is the whole point of
+   * moving the randomizer into the site layer: Pushy prints them on belt
+   * squares, and while it was the ground element `z` the square could be one or
+   * the other and not both. (4,5) is a standalone one on plain floor, so the
+   * fixture carries the marking in each of the two ways a board prints it. */
+  setCell(b, 1, 5, "C>.");   setCell(b, 2, 5, "b>.");   setCell(b, 3, 5, "A..");
+  setSites(b, 2, 5, ["randomizer"]);
+  setSites(b, 4, 5, ["randomizer"]);
   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T..");
   setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 

@@ -149,10 +149,31 @@ racing to.
 |---|---|
 | stacks freely | battery + either wrench, flag location + anything |
 | never both | one wrench and two — a square is printed with one or the other |
-| sits on | plain floor, and only plain floor |
+| sits on | see below — it depends on the marking |
 
-That last one is not fussiness: every site is somewhere a robot comes to rest to
-collect something, and a belt, a gear or a pit is not somewhere a robot rests.
+**Where a marking may be printed is a fact about the marking, not about this
+layer.** Four of them are *collection* markings — a robot comes to rest on one
+and picks something up — so they sit on plain floor and nothing else, because a
+belt, a gear or a pit is not somewhere a robot rests. They carry `place:
+"floor"`.
+
+**A randomizer is not a collection marking.** It fires when you *reveal* a card
+while standing on it, at the top of a register, and a robot is perfectly able to
+be standing on a conveyor at that moment — **Pushy prints randomizers directly on
+belt squares**. It carries `place: "standable"`: any square a robot can occupy,
+which is everything except a pit and a hole.
+
+It was the ground element `z` until 2026-09-17, and one ground token holds one
+element, so the belt and the randomizer could not both be on the square. Keeping
+`z` as well would give one thing two spellings, and `propAt()` merges both
+layers, so nothing could tell which the board meant.
+
+`playsIn` is a second per-site fact, read by `playableIn()` exactly as a device's
+is. The four collection markings declare **both** books, which is why a printed
+wrench does not narrow a board to the classic game — the 2016 game meets it and
+simply has no use for it, and that is what the swap rule relies on. The
+randomizer declares none and so falls back to `printedIn`: the classic book has
+no rule for it at all, and a board carrying one is a 2016 board.
 Turning a marked square into anything but floor is refused rather than silently
 dropping the marking, which is how a board ends up carrying data nothing can see.
 

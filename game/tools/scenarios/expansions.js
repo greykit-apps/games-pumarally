@@ -173,13 +173,23 @@ export const TESTS = [
 
   /* --- Chaos and Carnage -------------------------------------------------------- */
   ["a randomizer replaces the card you reveal with the top of your deck", () => {
-    const co = far((b, t) => t.setCell(2, 5, "z.."));
+    /* ON A CONVEYOR, because that is the case the site layer exists for: Pushy
+     * prints randomizers on belt squares, and while the randomizer was the
+     * ground element `z` the square could be one or the other and not both.
+     * The belt runs east and the robot is carried off it after the card, so
+     * this also proves the two resolve independently on the one square. */
+    const co = far((b, t) => { t.setCell(2, 5, "b>."); t.sites(2, 5, ["randomizer"]); });
     const st = mgame(co, [{ c: 2, r: 5, face: E }]);
     const p = st.players[0];
     const planned = own(st, p, "move3"), top = own(st, p, "left");
     p.registers[0] = planned; p.deck.push(top);
     driveRegister(st, co.library);
-    eq([p.c, p.r, p.face], [2, 5, N], "the Rotate Left from the deck played, not the Move 3");
+    /* (3,5) not (2,5): the Rotate Left turned the robot on the spot and THEN the
+     * belt under it carried it one east. A Move 3 would have left it at (5,5)
+     * still facing east, so the position and the facing each rule one out. The
+     * two effects on the one square resolve independently, which is the thing
+     * the ground layer could not express while a randomizer was an element. */
+    eq([p.c, p.r, p.face], [3, 5, N], "the Rotate Left from the deck played, not the Move 3");
     assert(p.pile.includes(planned), "the planned card went to the robot's discard");
     eq(p.registers[0], top, "the register holds the replacement");
     /* a replaced SPAM goes to the damage discard */
@@ -252,7 +262,7 @@ export const TESTS = [
     eq(dmg(st, p), 1, "and not when register 1 does");
   }],
   ["a board printing the expansion floor is a 2016 board", () => {
-    for (const tok of ["~..", "D..", "C>.", "z.."]) {
+    for (const tok of ["~..", "D..", "C>."]) {
       const co = courseOn(board(6, 6, (b, t) => t.setCell(2, 2, tok)));
       eq(rulesetsFor(co.doc, co.library), ["modern"], tok + " is read by the 2016 book alone");
     }
@@ -262,6 +272,21 @@ export const TESTS = [
     eq(rulesetsFor(lv.doc, lv.library), ["modern"], "a raised square is read by the 2016 book alone");
     const rp = courseOn(board(6, 6, b => { setRamp(b, 2, 2, N, true); setLevel(b, 2, 1, 1); }));
     eq(rulesetsFor(rp.doc, rp.library), ["modern"], "a ramp is read by the 2016 book alone");
+    /* A MARKING NARROWS A BOARD TOO. The randomizer is a site now, and sites
+     * were excluded from this question on the grounds that a wrench and a
+     * battery on one square is just the swap rule -- true of those four, and
+     * not of this one: the classic book has no randomizer rule at all. The
+     * four collection markings declare playsIn: both so they go on not
+     * narrowing, which is what keeps the swap rule working. */
+    {
+      const co = courseOn(board(6, 6, (b, t) => t.sites(2, 2, ["randomizer"])));
+      eq(rulesetsFor(co.doc, co.library), ["modern"], "a randomizer is read by the 2016 book alone");
+    }
+    for (const mark of ["repair", "upgrade", "battery", "flagspot"]) {
+      const co = courseOn(board(6, 6, (b, t) => t.sites(2, 2, [mark])));
+      eq(rulesetsFor(co.doc, co.library), ["classic", "modern"],
+        "a " + mark + " narrows nothing -- the other book has no use for it, which is not the same as no rule");
+    }
     /* the FLAMER is the exception, and not because it is expansion floor: it
      * stands in for a classic flame jet, so both books play a board with one.
      * scenarios/fire.js holds that substitute to what it claims. */

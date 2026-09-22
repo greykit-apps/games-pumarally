@@ -255,10 +255,17 @@ function applySite(board, st, tool, c, r, opts) {
     return { ok: true, changed: true, note: def.name + " taken off " + at(c, r) + "." };
   }
 
+  /* Where a marking may go is a fact about the marking -- a collection marking
+   * needs plain floor to come to rest on, a randomizer needs only a square a
+   * robot can be standing on when it reveals a card. */
   const el = elementAt(board, c, r);
-  if (!el || el.key !== "floor") {
+  if (def.place === "floor" && (!el || el.key !== "floor")) {
     return { ok: false, why: "A " + def.name.toLowerCase() + " marks plain floor. " +
       at(c, r) + " is " + (el ? el.name.toLowerCase() : "not floor") + "." };
+  }
+  if (def.place === "standable" && (!el || el.props.pit)) {
+    return { ok: false, why: "A " + def.name.toLowerCase() + " has to be somewhere a robot can " +
+      "be standing. " + at(c, r) + " is " + (el ? el.name.toLowerCase() : "not a square") + "." };
   }
   for (const pair of EXCLUSIVE) {
     if (pair.indexOf(key) >= 0) {

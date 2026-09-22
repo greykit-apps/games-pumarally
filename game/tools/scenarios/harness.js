@@ -5,7 +5,7 @@
  * is a PRBoard built with the workshop's own library, so what a test says
  * about a square is what the validator and the renderer say about it.
  */
-import { blankBoard, setCell } from "../../../editor/lib/board.js";
+import { blankBoard, setCell, setSites } from "../../../editor/lib/board.js";
 import { setWall, EDGE_WALL } from "../../../editor/lib/edges.js";
 import { N, E, S, W } from "../../../editor/lib/dir.js";
 import { newGame } from "../../engine/state.js";
@@ -19,7 +19,13 @@ export { N, E, S, W };
 export function board(w = 8, h = 8, edit) {
   const b = blankBoard({ id: "t", name: "T", w, h, set: "authored", origin: "authored" });
   for (let i = 0; i < Math.min(8, w); i++) setCell(b, i, h - 1, "s" + (i + 1) + ".");
-  if (edit) edit(b, { setCell: (c, r, tok) => setCell(b, c, r, tok), wall: (c, r, d) => setWall(b, c, r, d, EDGE_WALL) });
+  if (edit) edit(b, {
+    setCell: (c, r, tok) => setCell(b, c, r, tok),
+    wall: (c, r, d) => setWall(b, c, r, d, EDGE_WALL),
+    /* markings, which since 2026-09-17 include the randomizer -- it is a site
+     * rather than a ground element, so that it can share a square with a belt */
+    sites: (c, r, has) => setSites(b, c, r, has)
+  });
   return b;
 }
 
