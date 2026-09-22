@@ -131,8 +131,8 @@
   },
   "dockingBay": {
     "art": {
-      "sha": "2b93935e4a267fe6",
-      "bytes": 27609
+      "sha": "dc9824954043eeb2",
+      "bytes": 27641
     },
     "markup": {
       "sha": "e8243ff6eb8e03a3",
@@ -141,8 +141,8 @@
   },
   "dockingBayB": {
     "art": {
-      "sha": "1e235d82cb21a84f",
-      "bytes": 25070
+      "sha": "44a3a48eb81bed82",
+      "bytes": 25094
     },
     "markup": {
       "sha": "9ae982be60926115",
@@ -401,8 +401,8 @@
   },
   "provingGround": {
     "art": {
-      "sha": "3dad7767952b887c",
-      "bytes": 66128
+      "sha": "ce129cbf470ec7cb",
+      "bytes": 66136
     },
     "markup": {
       "sha": "cb5f567a315f0c77",
