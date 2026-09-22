@@ -83,6 +83,16 @@ function beltOver(arms, express) {
   return '<g class="pr-art ' + (express ? "pr-express" : "pr-belt") + '">' + join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
 }
 
+/* A CURRENT IS WATER THAT MOVES, not a belt in water. No bed and no rails --
+ * the printed tile has no machinery, just a flow -- only the run's arrow in a
+ * deep blue, with the water's own lines drawn over it, so it reads as water
+ * first and as a conveyor second, which is the order the rules meet it in. */
+function currentArt(arms) {
+  const p = beltPaths(arms, N, 1);
+  const join = (list, cls) => list.map(d => '<path class="' + cls + '" d="' + d + '"/>').join("");
+  return '<g class="pr-art pr-current">' + join(p.marks, "pr-mark") + join(p.chevrons, "pr-mark") + "</g>";
+}
+
 function beltMark(arms, express) {
   const colour = express ? MARK.express : MARK.belt;
   const p = beltPaths(arms, N, express ? 2 : 1);
@@ -160,9 +170,9 @@ export const GLYPHS = {
   },
 
   current: {
-    /* a belt that is also water: the water plate, then the belt over it */
-    art: ctx => A.waterSvg() + beltArt(ctx.arms, false),
-    over: ctx => beltOver(ctx.arms, false),
+    /* water that moves: the arrow of the run, then the water's lines over it */
+    art: ctx => currentArt(ctx.arms) + A.waterSvg(),
+    over: ctx => currentArt(ctx.arms) + A.waterSvg(),
     markup: ctx => waterMark() + beltMark(ctx.arms, false)
   },
 
