@@ -26,8 +26,9 @@ export const EDGE = [[50, 0], [100, 50], [50, 100], [0, 50]];
 
 export const BELT_HALF = 31;   // rail centre, either side of the run
 export const TURN_R = 50;      // a quarter turn through the edge midpoints
-export const HEAD_BACK = 24;   // how far short of the exit edge the head sits
-export const TAIL_IN = 12;     // how far past the entry edge the shaft starts
+export const HEAD_BACK = 26;   // how far short of the exit edge the head sits
+export const TAIL_IN = 22;     // how far past the entry edge the shaft starts
+export const HEAD = 11;        // the chevron's length
 
 /**
  * The absolute directions a robot TRAVELS IN as it enters, one per arm.
@@ -84,14 +85,24 @@ export function headPoint(exit) {
 }
 
 /**
- * A run carries a head only when the whole tile is a plain straight. On a turn
- * or a merge the painted line curves or converges, which already says rotation
- * and junction; a head there would be decoration competing with the one thing
- * the tile has to say.
+ * EVERY RUN CARRIES A HEAD, and every arrow stays inside its square.
+ *
+ * It was not always so. Heads were reserved for the plain straight; a turn or
+ * a merge drew its line edge to edge, so consecutive tiles joined into one
+ * continuous line, with a small chevron sat ON the exit edge to say which way
+ * it ran. The theory was that the curve already said "rotation" and a head
+ * would compete with it. In practice the edge chevron read as popped off its
+ * tile and half into the next, the continuous line ran straight into the next
+ * straight's tail, and a loop of belts became one long unbroken arrow with
+ * bumps in it. So now a curve is drawn the way a straight is: a shaft that
+ * starts a little in from the entry edge, bends, and ends in a chevron a
+ * little short of the exit edge -- one arrow per square, a clear gap between
+ * squares, the bend still visible in the shaft. A merge's runs all converge
+ * on the one head. The curve's shaft is a quadratic rather than a trimmed
+ * arc for the reason markPath gives.
  */
 export function headed(arms, exit) {
-  const runs = runsOf(arms, exit);
-  return runs.length === 1 && runs[0] === exit;
+  return true;
 }
 
 /**
@@ -146,19 +157,12 @@ export function beltPaths(arms, exit, speed) {
     marks.push(markPath(g, isHeaded));
   }
   const chevrons = [];
-  if (isHeaded) {
-    const h = headPoint(exit);
-    chevrons.push(chevPath(h[0], h[1], DC[exit], DR[exit], 14));
-    if (speed === 2) {
-      chevrons.push(chevPath(h[0] - DC[exit] * 19, h[1] - DR[exit] * 19, DC[exit], DR[exit], 14));
-    }
-  } else {
-    /* A headless tile still has to say which way it runs, and the one place a
-     * turning belt is momentarily straight is where it crosses an edge -- a run
-     * crosses every edge at right angles to it. So the marker goes ON the exit
-     * edge, where it lies along the line instead of cutting across a curve. */
-    const e = EDGE[exit];
-    chevrons.push(chevPath(e[0] - DC[exit] * 6, e[1] - DR[exit] * 6, DC[exit], DR[exit], 12));
+  const h = headPoint(exit);
+  chevrons.push(chevPath(h[0], h[1], DC[exit], DR[exit], HEAD));
+  if (speed === 2) {
+    /* express: a second chevron close behind the first, so the pair reads as
+       one "fast" mark rather than as two arrows */
+    chevrons.push(chevPath(h[0] - DC[exit] * 12, h[1] - DR[exit] * 12, DC[exit], DR[exit], HEAD));
   }
   return { beds, rails, marks, chevrons, headed: isHeaded };
 }
