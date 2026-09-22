@@ -19,6 +19,16 @@
       "bytes": 21318
     }
   },
+  "blackGold": {
+    "art": {
+      "sha": "fe63c870a5f9189f",
+      "bytes": 90240
+    },
+    "markup": {
+      "sha": "4f0871cd0de13261",
+      "bytes": 58821
+    }
+  },
   "blueprint": {
     "art": {
       "sha": "c3ec9ab6ecceddc6",
@@ -179,6 +189,46 @@
       "bytes": 58009
     }
   },
+  "fireballFactory": {
+    "art": {
+      "sha": "023995fcbb05ad55",
+      "bytes": 145729
+    },
+    "markup": {
+      "sha": "06a99495135bff23",
+      "bytes": 57841
+    }
+  },
+  "floodZone": {
+    "art": {
+      "sha": "5ca37c16a9227cb1",
+      "bytes": 113937
+    },
+    "markup": {
+      "sha": "6cd44d01c1b9e6dd",
+      "bytes": 76103
+    }
+  },
+  "gauntletOfFire": {
+    "art": {
+      "sha": "ba427200aab3e6c9",
+      "bytes": 207492
+    },
+    "markup": {
+      "sha": "8e732637266ea384",
+      "bytes": 77946
+    }
+  },
+  "gearBox": {
+    "art": {
+      "sha": "8c24b95150b90ddf",
+      "bytes": 84239
+    },
+    "markup": {
+      "sha": "64d3ac346d63a891",
+      "bytes": 76005
+    }
+  },
   "inAndOut": {
     "art": {
       "sha": "06ae9d02a3144ffa",
@@ -201,12 +251,12 @@
   },
   "labyrinth": {
     "art": {
-      "sha": "cfb10243d9b29434",
-      "bytes": 105008
+      "sha": "6f84cd18ddce4dc0",
+      "bytes": 97955
     },
     "markup": {
-      "sha": "0ce3f4221d0d503a",
-      "bytes": 74863
+      "sha": "b1d7a5563d0e092c",
+      "bytes": 76783
     }
   },
   "laserMaze": {
@@ -217,6 +267,16 @@
     "markup": {
       "sha": "d700cda53553969a",
       "bytes": 67259
+    }
+  },
+  "locked": {
+    "art": {
+      "sha": "22469716184c3ad8",
+      "bytes": 85886
+    },
+    "markup": {
+      "sha": "f9008c0c45d75368",
+      "bytes": 60552
     }
   },
   "maelstrom": {
@@ -269,14 +329,24 @@
       "bytes": 58837
     }
   },
-  "pushy": {
+  "portalPalace": {
     "art": {
-      "sha": "6e5d622ae1926bf7",
-      "bytes": 107948
+      "sha": "395dac48699a6ee1",
+      "bytes": 82038
     },
     "markup": {
-      "sha": "2082bd71e45f0cdb",
-      "bytes": 72847
+      "sha": "94620b5025643b53",
+      "bytes": 55334
+    }
+  },
+  "pushy": {
+    "art": {
+      "sha": "31be421d8469a327",
+      "bytes": 92925
+    },
+    "markup": {
+      "sha": "7e15add2eb2c73af",
+      "bytes": 74705
     }
   },
   "sidewinder": {
@@ -297,6 +367,16 @@
     "markup": {
       "sha": "c8a65c1530bbed15",
       "bytes": 59906
+    }
+  },
+  "stopAndGo": {
+    "art": {
+      "sha": "b490cec730378168",
+      "bytes": 94248
+    },
+    "markup": {
+      "sha": "2cb87f3f3ca5602e",
+      "bytes": 72876
     }
   },
   "tabulaRasa": {
@@ -387,6 +467,16 @@
     "markup": {
       "sha": "9ae14c9d11402dc2",
       "bytes": 85215
+    }
+  },
+  "trenchRun": {
+    "art": {
+      "sha": "7507b33da2ea89be",
+      "bytes": 47657
+    },
+    "markup": {
+      "sha": "bb7e55652ce46046",
+      "bytes": 29449
     }
   },
   "waterPark": {

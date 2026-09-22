@@ -341,6 +341,87 @@
       "h": 12,
       "set": "modernUnfiled",
       "origin": "transcribed"
+    },
+    {
+      "id": "blackGold",
+      "name": "Black Gold",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "fireballFactory",
+      "name": "Fireball Factory",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "floodZone",
+      "name": "Flood Zone",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "gauntletOfFire",
+      "name": "Gauntlet of Fire",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "gearBox",
+      "name": "Gear Box",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "locked",
+      "name": "Locked",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "portalPalace",
+      "name": "Portal Palace",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "stopAndGo",
+      "name": "Stop & Go",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "trenchRun",
+      "name": "Trench Run",
+      "w": 12,
+      "h": 12,
+      "set": "modernUnfiled",
+      "origin": "transcribed",
+      "unverified": true
     }
   ],
   "courses": [

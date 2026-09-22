@@ -1,0 +1,84 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "gearBox",
+  "name": "Gear Box",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "unverified": true,
+  "ground": {
+    "rows": [
+      "T.. bv. ... ... ... bv. b^. ... ... ... b^. ...",
+      "b<. o.. ... ... o.. bv. b^. ... ... ... T.. b<.",
+      "... ... ... ... ... bv. b^. ... ... ... ... ...",
+      "... o.. ... ... o.. bv. b^. ... ... ... ... ...",
+      "... ... bvl b<. b<. l.. r.. ... ... ... l.. ...",
+      "b<. b<. b<r o.. l.. r.. l.. r.. b<. b<. b<. b<.",
+      "b>. b>. bvr o.. r.. l.. r.. l.. b>. b>. b>. b>.",
+      "o.. ... b>l b>. b^l r.. l.. o.. ... o.. ... ...",
+      "... ... r.. b>. r.. bv. b^. ... ... ... ... ...",
+      "... ... b^. ... bv. bv. b^. o.. l.. o.. ... l..",
+      "b>. ... r.. b<. r.. bv. b^. ... ... ... ... b>.",
+      "T.. bv. ... r.. ... bv. b^. ... ... ... b^. ..."
+    ],
+    "sites": [
+      { "at": [11, 0], "has": ["randomizer"] },
+      { "at": [1, 2], "has": ["battery"] },
+      { "at": [2, 2], "has": ["randomizer"] },
+      { "at": [9, 3], "has": ["randomizer"] },
+      { "at": [0, 4], "has": ["randomizer"] },
+      { "at": [7, 4], "has": ["battery"] },
+      { "at": [8, 7], "has": ["battery"] },
+      { "at": [8, 8], "has": ["randomizer"] },
+      { "at": [10, 8], "has": ["randomizer"] },
+      { "at": [11, 8], "has": ["randomizer"] },
+      { "at": [3, 9], "has": ["battery"] },
+      { "at": [1, 10], "has": ["randomizer"] },
+      { "at": [8, 10], "has": ["randomizer"] },
+      { "at": [10, 10], "has": ["randomizer"] },
+      { "at": [8, 11], "has": ["randomizer"] },
+      { "at": [11, 11], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "   #        ",
+      "    #  #    ",
+      "    #   #  #",
+      "   #    #  #",
+      "            ",
+      "            ",
+      " #          ",
+      "            ",
+      "            ",
+      " #          ",
+      "        #   ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "         #   ",
+      "#           #",
+      "          #  ",
+      "#           #",
+      "   #         ",
+      "   #         ",
+      "#           #",
+      "           # ",
+      "#     #     #",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:1,10", "face": "N", "damage": 2 },
+      { "kind": "laser", "edge": "h:3,4", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:4,3", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:7,2", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:8,4", "face": "N", "damage": 2 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

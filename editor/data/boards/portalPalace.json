@@ -1,0 +1,71 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "portalPalace",
+  "name": "Portal Palace",
+  "w": 12,
+  "h": 12,
+  "set": "modernUnfiled",
+  "origin": "transcribed",
+  "unverified": true,
+  "ground": {
+    "rows": [
+      "o.. ... ... b^. ... ... ... ... bv. ... ... ...",
+      "... t1. ... b^r b<. b<r o.. o.. bv. t2. b<. ...",
+      "... b^. ... ... ... b^r b<l ... bv. L.. L.. ...",
+      "B>. B>. B>. B>. B>. B>. b^r b<. bv. L.. L.. ...",
+      "... ... ... b>. t1. L.. L.. b^r b<. bv. L.. ...",
+      "b<. b<r ... ... ... ... ... ... ... t3. ... ...",
+      "... b^r b<. b<r ... ... ... ... ... ... L.. ...",
+      "... L.. t3. b^r b<. t2. b<. t4. b<. L.. L.. ...",
+      "... L.. ... ... b^. ... B<. B<. B<l ... ... ...",
+      "... L.. L.. L.. b^r b<r ... ... B^R B<. B<. ...",
+      "... ... L.. ... ... b^r b<l ... ... ... t4. ...",
+      "... ... ... l.. ... ... b^. ... r.. ... b^. ..."
+    ],
+    "sites": [
+      { "at": [4, 2], "has": ["battery"] },
+      { "at": [10, 5], "has": ["battery"] },
+      { "at": [3, 8], "has": ["battery"] },
+      { "at": [9, 8], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "  #  #   # #",
+      "            ",
+      "            ",
+      "#           ",
+      "            ",
+      "  #         ",
+      "         # #",
+      "            ",
+      "# #    #    ",
+      " #  #       ",
+      "       #    ",
+      "  # #       "
+    ],
+    "vRows": [
+      "             ",
+      "   #         ",
+      "#           #",
+      "             ",
+      "             ",
+      "   #    #    ",
+      "       #  #  ",
+      "             ",
+      "  #          ",
+      "#      #   # ",
+      "   #   #     ",
+      "     #       "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:2,6", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:3,5", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,9", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:10,6", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
