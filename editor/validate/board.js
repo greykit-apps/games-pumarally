@@ -341,14 +341,11 @@ function checkWallDevices(board, d) {
       pusherCells.set(key, dev);
     }
 
-    if (dev.kind === "laser" && cell) {
-      const path = laserPath(board, dev);
-      if (path.length <= 1) {
-        d.warn("laser.ownSquareOnly", "The laser at " + at(cell[0], cell[1]) + " faces " +
-          dirLetter(dev.face) + " into a wall, so its beam lights only the square it stands in.",
-          at(cell[0], cell[1]), ptr);
-      }
-    }
+    /* A laser walled in on its firing side lights only the square it stands
+     * in. That used to draw a warning; it is not one. The printed boards do
+     * it on purpose -- nineteen of them across the shipped set -- and a beam
+     * that covers one square is a rule the board states, not a slip a
+     * transcriber made. */
 
     if (dev.kind === "jet" && cell) {
       const reach = dev.reach === undefined ? 1 : dev.reach;

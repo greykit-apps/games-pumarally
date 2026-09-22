@@ -69,9 +69,6 @@ export const CODES = Object.freeze({
   "device.badField":      "a device field is missing, out of range, or not allowed for its kind",
   "device.unknownKey":    "a key the device schema does not define",
 
-  /* --- lasers ----------------------------------------------------------- */
-  "laser.ownSquareOnly":   "a laser walled in on its firing side, lighting only the square it stands in",
-
   /* --- flame jets ------------------------------------------------------- */
   "jet.blockedReach":     "a reach-two jet whose second square is off the board or behind a wall",
   "jet.overlap":          "two flame jets covering one square",
