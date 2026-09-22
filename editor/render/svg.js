@@ -161,13 +161,13 @@ function rampLayer(board, mode) {
     if (!ramp.foot) continue;
     const { c, r } = ramp.foot;
     if (mode === "art") { out += g(at(c, r), rampEdgeSvg(ramp.dir)); continue; }
-    /* markup: a chevron on the foot square pointing up the ramp, and a bar
-     * along the edge it climbs -- the ledge's dash is left off that edge */
+    /* markup: the same trapezoid as the art, outlined, with a chevron in it
+     * pointing up the ramp -- the ledge's dash is left off that edge, and
+     * two ramps on neighbouring sides meet along the diagonal as a corner */
+    const d = "M 1 1 L 99 1 L 72 28 L 28 28 Z M 41 22 L 50 8 L 59 22";
     const body = '<g transform="rotate(' + (ramp.dir * 90) + ' 50 50)">' +
-      '<path d="M 30 46 L 50 20 L 70 46 M 50 20 L 50 60" ' + haloStroke() + "/>" +
-      '<path d="M 30 46 L 50 20 L 70 46 M 50 20 L 50 60" ' + markStroke(MARK.level, 2) + "/>" +
-      '<path d="M 14 3 L 86 3" ' + haloStroke() + "/>" +
-      '<path d="M 14 3 L 86 3" ' + markStroke(MARK.level, 3) + "/></g>";
+      '<path d="' + d + '" ' + haloStroke() + "/>" +
+      '<path d="' + d + '" ' + markStroke(MARK.level, 2) + "/></g>";
     out += g(at(c, r), body);
   }
   return out;
