@@ -155,3 +155,57 @@ export function setWall(board, c, r, d, code) {
 export function isWall(board, c, r, d) {
   return wallAt(board, c, r, d) === EDGE_WALL;
 }
+
+/* --- the ramp lattice --------------------------------------------------------
+ *
+ * A RAMP IS AN EDGE, NOT A SQUARE. Wet and Wild calls it "an extra space of
+ * floor" on the way up, and the board prints it on the lower square -- but
+ * what it IS is a way across one level change: the boundary between a square
+ * and the square uphill of it. Stored as a square it could point one way only,
+ * so a square with ramps on two sides (which the printed boards have) had no
+ * spelling; stored as an edge, two ramps on a square are two marked edges and
+ * nothing more. It keeps the wall lattice's shape and its ids, so `h:3,0` names
+ * the same edge whichever lattice is asked.
+ *
+ * WHICH WAY IS UP IS DERIVED FROM THE LEVELS, exactly as a ledge is. A ramp
+ * that could say "uphill is north" while the levels said otherwise would be a
+ * second source of truth for one fact, and the levels already carry it.
+ */
+
+export const RAMP_NONE = 0;
+export const RAMP = 1;
+export const RAMP_GLYPHS = [" ", "R"];
+
+export function rampCodeOf(ch) {
+  const i = RAMP_GLYPHS.indexOf(ch);
+  return i < 0 ? undefined : i;
+}
+
+export function rampGlyph(code) {
+  return RAMP_GLYPHS[code];
+}
+
+/** The ramp code at an edge, or RAMP_NONE when it is off the lattice. */
+export function rampCodeAt(board, edge) {
+  if (!edgeInBounds(edge, board.w, board.h)) return RAMP_NONE;
+  return edge.kind === "h"
+    ? board.rampH[hIndex(board, edge.c, edge.r)]
+    : board.rampV[vIndex(board, edge.c, edge.r)];
+}
+
+export function setRampCode(board, edge, code) {
+  if (!edgeInBounds(edge, board.w, board.h)) return false;
+  if (edge.kind === "h") board.rampH[hIndex(board, edge.c, edge.r)] = code;
+  else board.rampV[vIndex(board, edge.c, edge.r)] = code;
+  return true;
+}
+
+/** Is the edge on side `d` of (c,r) a ramp? */
+export function rampOn(board, c, r, d) {
+  return rampCodeAt(board, edgeOf(c, r, d)) === RAMP;
+}
+
+/** Lay or clear a ramp on side `d` of (c,r). Symmetric by construction. */
+export function setRamp(board, c, r, d, on) {
+  return setRampCode(board, edgeOf(c, r, d), on ? RAMP : RAMP_NONE);
+}

@@ -47,7 +47,7 @@ export function rotateOnce(board) {
   }
 
   if (hasLevels(board)) {
-    out.levels = new Uint8Array(out.w * out.h);
+    out.levels = new Int8Array(out.w * out.h);
     for (let r = 0; r < board.h; r++) {
       for (let c = 0; c < board.w; c++) {
         out.levels[idx(out, board.h - 1 - r, c)] = board.levels[idx(board, c, r)];
@@ -55,20 +55,24 @@ export function rotateOnce(board) {
     }
   }
 
-  for (let r = 0; r <= board.h; r++) {
-    for (let c = 0; c < board.w; c++) {
-      const code = board.wallH[r * board.w + c];
-      if (!code) continue;
-      const e = rotateEdge({ kind: "h", c, r }, board.w, board.h);
-      out.wallV[e.r * (out.w + 1) + e.c] = code;
+  /* both lattices go through the one edge mapping: a ramp turns exactly as
+   * the wall on the same edge would */
+  for (const [srcH, srcV, dstH, dstV] of [[board.wallH, board.wallV, out.wallH, out.wallV], [board.rampH, board.rampV, out.rampH, out.rampV]]) {
+    for (let r = 0; r <= board.h; r++) {
+      for (let c = 0; c < board.w; c++) {
+        const code = srcH[r * board.w + c];
+        if (!code) continue;
+        const e = rotateEdge({ kind: "h", c, r }, board.w, board.h);
+        dstV[e.r * (out.w + 1) + e.c] = code;
+      }
     }
-  }
-  for (let r = 0; r < board.h; r++) {
-    for (let c = 0; c <= board.w; c++) {
-      const code = board.wallV[r * (board.w + 1) + c];
-      if (!code) continue;
-      const e = rotateEdge({ kind: "v", c, r }, board.w, board.h);
-      out.wallH[e.r * out.w + e.c] = code;
+    for (let r = 0; r < board.h; r++) {
+      for (let c = 0; c <= board.w; c++) {
+        const code = srcV[r * (board.w + 1) + c];
+        if (!code) continue;
+        const e = rotateEdge({ kind: "v", c, r }, board.w, board.h);
+        dstH[e.r * out.w + e.c] = code;
+      }
     }
   }
 

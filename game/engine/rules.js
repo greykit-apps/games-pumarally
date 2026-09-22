@@ -10,7 +10,7 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
@@ -166,9 +166,10 @@ export function stepRobot(st, C, p, dir, cause) {
      * draw 2 damage. Draw only 1 damage if falling into a water space." */
     const drop = levelStepAt(C, m.c, m.r, dir) < 0 && !rampBetween(C, m.c, m.r, dir);
     /* "When a robot is moving down a ramp, the ramp is ignored. The ramp does
-     * not act as an extra space." A lone robot heading downhill onto a ramp
-     * lands on the square below it, when that square is free floor. */
-    if (chain.length === 1 && rampAt(C, tc, tr) === opposite(dir)) {
+     * not act as an extra space." A lone robot coming down across a ramp edge
+     * passes over the ramp's square, the foot, and lands on the square below
+     * it, when that square is free floor. */
+    if (chain.length === 1 && rampDownAt(C, m.c, m.r, dir)) {
       const [bc, br] = stepCell(tc, tr, dir);
       if (inGrid(C, bc, br) && !isHole(C, bc, br) && !solidAt(st, bc, br, m) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
     }
@@ -340,8 +341,9 @@ export function playCard(st, C, p, cd, plan) {
   if (hover && p.alive && isHole(C, p.c, p.r)) destroy(st, C, p, "into a pit");
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
   /* "If a robot stops on this virtual ramp space, the robot slides back to the
-   * lower level, which will push a robot occupying that space." */
-  if (moved > 0 && p.alive && rampAt(C, p.c, p.r) === dir) {
+   * lower level, which will push a robot occupying that space." The ramp space
+   * is the foot square with the climb ahead of it: stopped there, heading up. */
+  if (moved > 0 && p.alive && rampUpAt(C, p.c, p.r, dir)) {
     log(st, p.name + " stops on the ramp and slides back down");
     stepRobot(st, C, p, opposite(dir), "ramp");
   }

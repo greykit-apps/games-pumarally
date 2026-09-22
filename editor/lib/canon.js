@@ -15,10 +15,10 @@
  * `/ground/rows/3` maps to a line number exactly rather than by searching.
  */
 
-import { hasLevels, idx, siteList, BOARD_FORMAT, BOARD_VERSION } from "./board.js";
+import { hasLevels, hasRamps, idx, siteList, BOARD_FORMAT, BOARD_VERSION, levelChar } from "./board.js";
 import { edgeId } from "./edges.js";
 import { dirLetter } from "./dir.js";
-import { edgeGlyph } from "./edges.js";
+import { edgeGlyph, rampGlyph } from "./edges.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { TOKEN_WIDTH } from "./token.js";
 import { canonRegs } from "./registers.js";
@@ -42,8 +42,33 @@ export function levelRows(board) {
   const rows = [];
   for (let r = 0; r < board.h; r++) {
     let s = "";
-    for (let c = 0; c < board.w; c++) s += String(board.levels[idx(board, c, r)]);
+    for (let c = 0; c < board.w; c++) {
+      /* `?? "0"` cannot fire: readLevels refuses an unspellable character and
+       * setLevel refuses an unspellable number, so nothing can put one in the
+       * array. It is here so that if either guard is ever loosened this writes
+       * a file that still parses rather than the text "undefined". */
+      s += levelChar(board.levels[idx(board, c, r)]) ?? "0";
+    }
     rows.push(s);
+  }
+  return rows;
+}
+
+/** The ramp lattice as rows of ' ' and 'R', shaped exactly like the wall lattice's. */
+export function rampRows(board, which) {
+  const rows = [];
+  if (which === "h") {
+    for (let r = 0; r <= board.h; r++) {
+      let s = "";
+      for (let c = 0; c < board.w; c++) s += rampGlyph(board.rampH[r * board.w + c]);
+      rows.push(s);
+    }
+  } else {
+    for (let r = 0; r < board.h; r++) {
+      let s = "";
+      for (let c = 0; c <= board.w; c++) s += rampGlyph(board.rampV[r * (board.w + 1) + c]);
+      rows.push(s);
+    }
   }
   return rows;
 }
@@ -132,18 +157,30 @@ export function stringifyBoard(board) {
   if (board.notes) put('  "notes": ' + q(board.notes) + ",", "/notes");
 
   const levels = levelRows(board);
+  const ramps = hasRamps(board);
   const sites = siteList(board);
   put('  "ground": {', "/ground");
   put('    "rows": [', "/ground/rows");
   const rows = groundRows(board);
   rows.forEach((row, i) =>
     put('      ' + q(row) + (i < rows.length - 1 ? "," : ""), "/ground/rows/" + i));
-  put("    ]" + (levels || sites.length ? "," : ""));
+  put("    ]" + (levels || ramps || sites.length ? "," : ""));
   if (levels) {
     put('    "levels": [', "/ground/levels");
     levels.forEach((row, i) =>
       put('      ' + q(row) + (i < levels.length - 1 ? "," : ""), "/ground/levels/" + i));
-    put("    ]" + (sites.length ? "," : ""));
+    put("    ]" + (ramps || sites.length ? "," : ""));
+  }
+  /* the ramp lattices, omitted entirely from a board with no ramp, so a board
+   * written before ramps had a lattice is byte-identical still */
+  if (ramps) {
+    for (const [key, which] of [["rampH", "h"], ["rampV", "v"]]) {
+      const rs = rampRows(board, which);
+      put('    "' + key + '": [', "/ground/" + key);
+      rs.forEach((row, i) =>
+        put('      ' + q(row) + (i < rs.length - 1 ? "," : ""), "/ground/" + key + "/" + i));
+      put("    ]" + (key === "rampH" || sites.length ? "," : ""));
+    }
   }
   if (sites.length) {
     put('    "sites": [', "/ground/sites");

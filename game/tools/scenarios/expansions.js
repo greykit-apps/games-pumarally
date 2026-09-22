@@ -13,6 +13,7 @@ import { assertInvariants } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
 import { rulesetsFor } from "../../engine/library.js";
 import { setLevel } from "../../../editor/lib/board.js";
+import { setRamp } from "../../../editor/lib/edges.js";
 import { setWall } from "../../../editor/lib/edges.js";
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -44,10 +45,10 @@ function driveRegister(st, library, decide) {
     } else tick(st, library);
   }
 }
-/** A board with the top three rows one level up, and a ramp at (3,3) climbing north into them. */
+/** A board with the top three rows one level up, and a ramp on the north edge of (3,3) climbing into them. */
 const terraced = edit => far((b, t) => {
   for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) setLevel(b, c, r, 1);
-  t.setCell(3, 3, "R^.");
+  setRamp(b, 3, 3, N, true);
   if (edit) edit(b, t);
 });
 
@@ -251,10 +252,16 @@ export const TESTS = [
     eq(dmg(st, p), 1, "and not when register 1 does");
   }],
   ["a board printing the expansion floor is a 2016 board", () => {
-    for (const tok of ["~..", "D..", "C>.", "z..", "R^."]) {
+    for (const tok of ["~..", "D..", "C>.", "z.."]) {
       const co = courseOn(board(6, 6, (b, t) => t.setCell(2, 2, tok)));
       eq(rulesetsFor(co.doc, co.library), ["modern"], tok + " is read by the 2016 book alone");
     }
+    /* levels and ramps are not elements: a level is a property of the floor and
+     * a ramp an edge, and either alone makes the board Wet and Wild's */
+    const lv = courseOn(board(6, 6, b => setLevel(b, 2, 2, 1)));
+    eq(rulesetsFor(lv.doc, lv.library), ["modern"], "a raised square is read by the 2016 book alone");
+    const rp = courseOn(board(6, 6, b => { setRamp(b, 2, 2, N, true); setLevel(b, 2, 1, 1); }));
+    eq(rulesetsFor(rp.doc, rp.library), ["modern"], "a ramp is read by the 2016 book alone");
     /* the FLAMER is the exception, and not because it is expansion floor: it
      * stands in for a classic flame jet, so both books play a board with one.
      * scenarios/fire.js holds that substitute to what it claims. */

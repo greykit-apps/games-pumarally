@@ -21,9 +21,10 @@ import {
   idx, inBoard, cellAt, setCell, isVoid, elementAt, propAt, levelAt, setLevel,
   deviceCell, wallDevicesAt, ceilingAt, doorOn, sitesAt, setSites, toggleSite, doorsAt, deviceOnEdge } from "../lib/board.js";
 import {
-  edgeOf, edgeId, setWall, wallAt, edgeCodeAt, setEdgeCode,
+  edgeOf, edgeId, setWall, wallAt, edgeCodeAt, setEdgeCode, rampOn, setRamp,
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, isNormalOf
 } from "../lib/edges.js";
+import { rampsAt } from "../lib/levels.js";
 
 /* Keys reserved by steering and numbering, which no tool may claim. */
 export const STEER_KEYS = "wasdqe";
@@ -39,6 +40,9 @@ export const TOOLS = [
     group: "Floor", arg: def.arg, printedIn: def.printedIn
   })),
   { key: "level", label: "Level", kind: "level", group: "Floor" },
+  /* an edge tool, like the wall: it marks the edge under the pointer, and the
+   * levels either side of it say which way the ramp climbs */
+  { key: "ramp", label: "Ramp", kind: "ramp", group: "Floor" },
 
   /* Sites TOGGLE rather than replace. A square is floor that also carries a
    * wrench, or a battery, or a flag location, or several of those -- clicking
@@ -154,6 +158,7 @@ export function apply(board, st, c, r, opts = {}) {
   switch (tool.kind) {
     case "ground": return applyGround(board, st, tool, c, r);
     case "level": return applyLevel(board, st, c, r, opts);
+    case "ramp": return applyRamp(board, st, c, r, opts);
     case "site": return applySite(board, st, tool, c, r, opts);
     case "wall": return applyWall(board, st, c, r, opts);
     case "device": return applyDevice(board, st, tool, c, r, opts);
@@ -188,33 +193,49 @@ function applyGround(board, st, tool, c, r) {
   const was = cellAt(board, c, r);
   const tok = writeToken(ch, arg, arms);
 
-  /* A RAMP IS THE ONLY WAY BETWEEN LEVELS, so laying one on a flat board is
-   * always half an edit: the square it points at has to be a level up or the
-   * board is red the moment you put it down. The tool fills that in, but ONLY
-   * when the uphill square is currently level with the ramp -- if it already
-   * has a level of its own, that is data somebody entered and the tool does not
-   * overwrite it, it explains the mismatch instead. */
-  let raised = null;
-  if (def.props.ramp) {
-    const uc = c + DC[st.dir], ur = r + DR[st.dir];
-    if (!inBoard(board, uc, ur)) {
-      return { ok: false, why: "A ramp at " + at(c, r) + " facing " + dirLetter(st.dir) +
-        " points off the board. Turn it with the arrow keys." };
-    }
-    const foot = levelAt(board, c, r), top = levelAt(board, uc, ur);
-    if (top === foot) raised = [uc, ur, foot + 1];
-    else if (top !== foot + 1) {
-      return { ok: false, why: "The square uphill of " + at(c, r) + " is at level " + top +
-        " and this ramp stands at " + foot + ". A ramp climbs exactly one level." };
-    }
-  }
-
-  if (was === tok && !raised) return { ok: true, changed: false };
+  if (was === tok) return { ok: true, changed: false };
   setCell(board, c, r, tok);
-  if (raised) setLevel(board, raised[0], raised[1], raised[2]);
   return { ok: true, changed: true, note: def.name + " at " + at(c, r) +
-    (def.props.belt ? ", " + ARM_NAMES[arms] + ", running " + dirLetter(st.dir) : "") +
-    (raised ? "; raised " + at(raised[0], raised[1]) + " to level " + raised[2] : "") };
+    (def.props.belt ? ", " + ARM_NAMES[arms] + ", running " + dirLetter(st.dir) : "") };
+}
+
+/**
+ * A ramp on the edge under the pointer (or on the hand's facing, away from an
+ * edge). Which way it climbs is the levels' business, so the tool only marks
+ * the edge -- with one convenience: laying a ramp between two squares at ONE
+ * level is always half an edit, since a ramp joins levels, so the square across
+ * the edge is raised a level as the ramp goes down. If the two already differ,
+ * that is data somebody entered and it is left exactly as it is.
+ */
+function applyRamp(board, st, c, r, opts) {
+  const face = opts.face === undefined || opts.face === null ? st.dir : opts.face;
+  const edge = edgeOf(c, r, face);
+  const nc = c + DC[face], nr = r + DR[face];
+  const now = rampOn(board, c, r, face);
+  const want = opts.erase ? false
+    : opts.set === "ramp" ? true
+    : opts.set === "none" ? false
+    : !now;
+  if (now === want) return { ok: true, changed: false };
+  if (!want) {
+    setRamp(board, c, r, face, false);
+    return { ok: true, changed: true, note: "No ramp on the " + dirLetter(face) + " side of " + at(c, r) };
+  }
+  if (!inBoard(board, nc, nr) || isVoid(board, nc, nr)) {
+    return { ok: false, why: "A ramp on the " + dirLetter(face) + " side of " + at(c, r) + " has no floor to climb to." };
+  }
+  if (edgeCodeAt(board, edge) !== EDGE_NONE) {
+    return { ok: false, why: "A wall stands on that edge. A ramp is the way across a level change, not through a wall; take the wall off first." };
+  }
+  let raised = null;
+  if (levelAt(board, c, r) === levelAt(board, nc, nr)) raised = [nc, nr, levelAt(board, c, r) + 1];
+  if (raised && !setLevel(board, raised[0], raised[1], raised[2])) {
+    return { ok: false, why: at(nc, nr) + " cannot go a level higher than " + levelAt(board, nc, nr) + "." };
+  }
+  setRamp(board, c, r, face, true);
+  return { ok: true, changed: true, note: "Ramp on the " + dirLetter(face) + " side of " + at(c, r) +
+    (raised ? "; raised " + at(raised[0], raised[1]) + " to level " + raised[2] : ", climbing " +
+      (levelAt(board, nc, nr) > levelAt(board, c, r) ? "up to " + at(nc, nr) : "up to " + at(c, r))) };
 }
 
 /**
@@ -401,6 +422,9 @@ export function erase(board, st, c, r, opts = {}) {
     setSites(board, c, r, marks.slice(0, -1));
     return { ok: true, changed: true, note: SITES[last].name + " taken off " + at(c, r) + "." };
   }
+  if (opts.face !== undefined && opts.face !== null && rampOn(board, c, r, opts.face)) {
+    return applyRamp(board, st, c, r, { face: opts.face, erase: true });
+  }
   if (opts.face !== undefined && edgeCodeAt(board, edgeOf(c, r, opts.face)) !== EDGE_NONE) {
     return applyWall(board, st, c, r, { face: opts.face, erase: true });
   }
@@ -551,6 +575,8 @@ export function describe(board, c, r) {
     dir: def && def.arg === ARG_DIR ? t.arg : null,
     sites: sitesAt(board, c, r),
     walls: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_WALL).map(dirLetter),
+    /* the ramps on this square's edges, each with the level change across it */
+    ramps: rampsAt(board, c, r),
     doors: [N, E, S, W].filter(d => wallAt(board, c, r, d) === EDGE_DOOR).map(dirLetter),
     wallDevices: wallDevicesAt(board, c, r),
     /* the doors on this square's edges, each with the side it is on; a door

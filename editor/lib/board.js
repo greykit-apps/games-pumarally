@@ -21,7 +21,7 @@ import { canonSites, siteProps, SITES } from "../rulesets/sites.js";
 import { TOKEN_WIDTH, isVoidToken, tokenElement, tokenBeltSpeed, bayNumberOf } from "./token.js";
 import { dirOfLetter, dirLetter, dirOfChar, N, E, S, W, DC, DR } from "./dir.js";
 import {
-  EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeCodeOf, edgeGlyph,
+  EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeCodeOf, edgeGlyph, rampCodeOf,
   edgeId, parseEdge, edgeOf, edgeIdOf, wallAt, isNormalOf, faceCell, edgeCodeAt
 } from "./edges.js";
 
@@ -126,6 +126,58 @@ export function flagSpots(board) {
   return siteList(board).filter(s => s.has.indexOf("flagspot") >= 0);
 }
 
+/* --- levels ----------------------------------------------------------------
+ *
+ * A LEVEL IS A SIGNED OFFSET FROM THE BOARD'S BASE FLOOR, and it was wrong to
+ * store it as a height counting up from zero. The board prints ledges, which
+ * say only that two squares are on DIFFERENT levels; nothing on a printed
+ * board says which of them is "the ground". A board whose main floor has a
+ * sunken channel through it is the ordinary case, and under the old model it
+ * could only be written by calling the channel 0 and lifting the entire rest
+ * of the board to 1 -- a re-description of the board to satisfy the format.
+ *
+ * THE BASE FLOOR IS 0 ON EVERY BOARD, and that is what makes boards compose.
+ * `assemble()` copies each board's levels straight into the shared course
+ * grid, so the zeros have to mean the same height on all of them. With a
+ * signed offset they do by construction: 0 is "the floor you walk in on",
+ * which is the one thing every printed board agrees about.
+ *
+ * ONE CHARACTER PER SQUARE, so a level row is `w` characters exactly like a
+ * ground row is 4w-1, and a row that loses a character fails at a named
+ * column rather than merely being the wrong length.
+ *
+ *     0        the base floor
+ *     1 .. 9   one to nine levels UP
+ *     A .. I   one to nine levels DOWN
+ *
+ * Uppercase rather than the `a b c` the docking bay uses for 10-12: there the
+ * letters go on counting UP, and reusing them here for down would make one
+ * alphabet mean two opposite things in one format.
+ */
+
+const LEVEL_UP = "0123456789";
+const LEVEL_DOWN = "ABCDEFGHI";
+
+/** The character a level is spelled with, or undefined when out of range. */
+export function levelChar(n) {
+  if (!Number.isInteger(n)) return undefined;
+  if (n >= 0 && n <= 9) return LEVEL_UP.charAt(n);
+  if (n < 0 && n >= -9) return LEVEL_DOWN.charAt(-n - 1);
+  return undefined;
+}
+
+/** The level a character spells, or undefined when it spells none. */
+export function levelOfChar(ch) {
+  const up = LEVEL_UP.indexOf(ch);
+  if (up >= 0) return up;
+  const down = LEVEL_DOWN.indexOf(ch);
+  if (down >= 0) return -(down + 1);
+  return undefined;
+}
+
+/** The levels a board may hold, as a readable list for a diagnostic. */
+export const LEVEL_RANGE = "-9 to 9, written 0 for the base floor, 1-9 up and A-I down";
+
 /** The level of a square; 0 everywhere on a board that declares none. */
 export function levelAt(board, c, r) {
   if (!board.levels || !inBoard(board, c, r)) return 0;
@@ -134,7 +186,10 @@ export function levelAt(board, c, r) {
 
 export function setLevel(board, c, r, n) {
   if (!inBoard(board, c, r)) return false;
-  if (!board.levels) board.levels = new Uint8Array(board.w * board.h);
+  /* Refused rather than clamped. An Int8Array would silently take 300 as 44,
+   * and a level nobody asked for is worse than a level that would not go in. */
+  if (levelChar(n) === undefined) return false;
+  if (!board.levels) board.levels = new Int8Array(board.w * board.h);
   board.levels[idx(board, c, r)] = n;
   return true;
 }
@@ -143,6 +198,13 @@ export function setLevel(board, c, r, n) {
 export function hasLevels(board) {
   if (!board.levels) return false;
   for (let i = 0; i < board.levels.length; i++) if (board.levels[i]) return true;
+  return false;
+}
+
+/** Does this board carry a ramp anywhere? Decides whether `rampH`/`rampV` are written. */
+export function hasRamps(board) {
+  for (let i = 0; i < board.rampH.length; i++) if (board.rampH[i]) return true;
+  for (let i = 0; i < board.rampV.length; i++) if (board.rampV[i]) return true;
   return false;
 }
 
@@ -272,6 +334,10 @@ export function blankBoard(meta = {}) {
      * from the list so the list stays canonical; written back by canon.js. */
     siteNotes: new Map(),
     levels: null,
+    /* the ramp lattice: the wall lattice's shape, one byte per edge, 1 where a
+     * ramp crosses that edge. Which way it climbs is read off the levels. */
+    rampH: new Uint8Array(w * (h + 1)),
+    rampV: new Uint8Array((w + 1) * h),
     wallH: new Uint8Array(w * (h + 1)),
     wallV: new Uint8Array((w + 1) * h),
     wallDevices: [],
@@ -292,6 +358,8 @@ export function cloneBoard(board) {
     sites: new Map([...board.sites].map(([k, v]) => [k, v.slice()])),
     siteNotes: new Map(board.siteNotes || []),
     levels: board.levels ? board.levels.slice() : null,
+    rampH: board.rampH.slice(),
+    rampV: board.rampV.slice(),
     wallH: board.wallH.slice(),
     wallV: board.wallV.slice(),
     wallDevices: board.wallDevices.map(d => ({ ...d, edge: { ...d.edge } })),
@@ -415,9 +483,10 @@ function readGround(doc, board, d) {
     }
   }
   if (g.levels !== undefined && g.levels !== null) readLevels(g.levels, board, d);
+  if (g.rampH !== undefined || g.rampV !== undefined) readRamps(g, board, d);
   if (g.sites !== undefined && g.sites !== null) readSites(g.sites, board, d);
   for (const k of Object.keys(g)) {
-    if (k !== "rows" && k !== "levels" && k !== "sites") {
+    if (k !== "rows" && k !== "levels" && k !== "sites" && k !== "rampH" && k !== "rampV") {
       d.error("doc.unknownKey", "`ground." + k + "` is not part of the ground layer.", null, "/ground/" + k);
     }
   }
@@ -428,7 +497,7 @@ function readLevels(rows, board, d) {
     d.error("shape.levelRows", "`ground.levels` must be " + board.h + " rows.", null, "/ground/levels");
     return;
   }
-  board.levels = new Uint8Array(board.w * board.h);
+  board.levels = new Int8Array(board.w * board.h);
   for (let r = 0; r < board.h; r++) {
     const row = rows[r];
     const ptr = "/ground/levels/" + r;
@@ -438,12 +507,50 @@ function readLevels(rows, board, d) {
     }
     for (let c = 0; c < board.w; c++) {
       const ch = row.charAt(c);
-      if (ch < "0" || ch > "9") {
-        d.error("shape.levelChar", "Level " + JSON.stringify(ch) + " is not a digit.",
-          "(" + c + "," + r + ")", ptr);
+      const lvl = levelOfChar(ch);
+      if (lvl === undefined) {
+        d.error("shape.levelChar", "Level " + JSON.stringify(ch) + " is not a level character (" +
+          LEVEL_RANGE + ").", "(" + c + "," + r + ")", ptr);
         continue;
       }
-      board.levels[idx(board, c, r)] = +ch;
+      board.levels[idx(board, c, r)] = lvl;
+    }
+  }
+}
+
+/* The two ramp lattices come together or not at all: one without the other is
+ * a file that lost half its ramps, and the loud answer beats reading the half
+ * that survived. */
+function readRamps(g, board, d) {
+  if (g.rampH === undefined || g.rampV === undefined) {
+    d.error("shape.rampRows", "`ground.rampH` and `ground.rampV` go together; one is missing.", null, "/ground");
+    return;
+  }
+  readRampLattice(g.rampH, board.h + 1, board.w, board.rampH, "rampH", d);
+  readRampLattice(g.rampV, board.h, board.w + 1, board.rampV, "rampV", d);
+}
+
+function readRampLattice(rows, expectRows, expectWidth, arr, label, d) {
+  const ptrBase = "/ground/" + label;
+  if (!Array.isArray(rows) || rows.length !== expectRows) {
+    d.error("shape.rampRows", "`ground." + label + "` must be " + expectRows + " rows.", null, ptrBase);
+    return;
+  }
+  for (let r = 0; r < expectRows; r++) {
+    const row = rows[r];
+    const ptr = ptrBase + "/" + r;
+    if (typeof row !== "string" || row.length !== expectWidth) {
+      d.error("shape.rampRows", label + " row " + r + " must be " + expectWidth + " characters.", null, ptr);
+      continue;
+    }
+    for (let c = 0; c < expectWidth; c++) {
+      const code = rampCodeOf(row.charAt(c));
+      if (code === undefined) {
+        d.error("shape.rampGlyph", "Ramp lattice character " + JSON.stringify(row.charAt(c)) +
+          " is not one of ' ' or 'R'.", label + " " + c + "," + r, ptr);
+        continue;
+      }
+      arr[r * expectWidth + c] = code;
     }
   }
 }

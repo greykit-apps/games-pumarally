@@ -192,14 +192,70 @@ register is not a door, and one open in none is a wall.
 
 ### Elevation
 
-`ground.levels` is an optional block of digits, omitted entirely when the board
-is flat — so a flat board is byte-identical to one written before levels
-existed.
+`ground.levels` is an optional block, omitted entirely when the board is flat —
+so a flat board is byte-identical to one written before levels existed.
+
+**A level is a signed offset from the board's base floor, not a height.** One
+character per square, so a level row is `w` characters exactly as a ground row
+is `4w − 1`:
+
+| | |
+|---|---|
+| `0` | the base floor — the level you walk in on |
+| `1` … `9` | one to nine levels **up** |
+| `A` … `I` | one to nine levels **down** |
+
+Uppercase rather than the `a b c` a docking bay uses for bays 10–12, where the
+letters go on counting *up*; one alphabet meaning two opposite things in one
+format is how a transcription goes quietly wrong.
+
+**There is no contiguity rule, and the one that used to be here was invented.**
+"Levels count up from 0 with no gaps" is in no rulebook. A printed ledge says
+only that two squares are on *different* levels — never how far apart, and never
+which of them is the ground. The rule refused Water Park, whose floor drops
+below the level you walk in on, and could only be satisfied by re-describing the
+board: call the channel 0 and lift everything else to 1.
+
+**The base floor is 0 on every board, and that is what makes boards compose.**
+`assemble()` copies each board's levels straight into the shared course grid, so
+the zeros have to mean the same height on all of them. A signed offset makes
+that true by construction.
 
 **Ledges are derived, not stored.** Any edge whose two squares differ in level
-*is* a ledge. A **ramp** is the only element that spans one; its own square is
-the lower level and its arrow points uphill. Board lasers stop at a level
-change.
+*is* a ledge. Board lasers stop at a level change.
+
+**A ramp is an edge, not a square.** Wet and Wild calls it "an extra space of
+floor" on the way up and the board prints it on the lower square, but what it
+*is* is a way across one level change: the boundary between a square and the
+square uphill of it. It lives on its own lattice beside the walls' —
+`ground.rampH` and `ground.rampV`, shaped exactly like `wall.hRows` and
+`wall.vRows`, glyphs `' '` and `'R'`, omitted together when the board has no
+ramp — so `h:3,0` names the same edge whichever lattice is asked, and a square
+with ramps on two sides (which the printed boards have) is two marked edges and
+nothing more. It was a ground element once, `R` with an uphill arrow, and that
+could not spell that square at all.
+
+**Which way is up is derived from the levels**, exactly as a ledge is. The
+higher of the two squares is the top, the lower is the foot — the square the
+board prints the ramp on — and a ramp cannot disagree with the elevation under
+it because it does not say. The foot stays a real square: climbing costs a step
+onto it and another across the edge; coming down, the engine passes over it, as
+the sheet says the ramp "does not act as an extra space". In the ASCII picture a
+ramp takes the lattice slot a wall would, `RRR` or `R`, since an edge is a wall,
+a door, a ramp or nothing.
+
+The validator refuses a ramp with floor on one side only, one under a wall, and
+one between two squares at the same level: each is the data contradicting
+itself, not a claim about the game. Two rules about ramps that *look* right —
+that a ramp climbs exactly one level, and that its foot is level with the square
+it is approached from — are **warnings**, because no rulebook sentence has been
+found that states either; see `no-invented-validator-rules` in the project
+memory for why an uncited rule enforced as an error is worse than none.
+
+The **Ramp** tool is an edge tool like the wall: click an edge to lay one, click
+again to take it off. Between two squares at one level it raises the far square
+a level as the ramp goes down, since a ramp joins levels and laying one flat is
+always half an edit; between squares that already differ it touches nothing.
 
 ---
 

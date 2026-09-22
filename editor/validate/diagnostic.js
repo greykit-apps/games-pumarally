@@ -106,9 +106,12 @@ export const CODES = Object.freeze({
   "ceiling.duplicate":    "two ceiling devices of one kind on one square",
 
   /* --- elevation -------------------------------------------------------- */
-  "level.notContiguous":  "a board using a level with no level below it in use",
-  "level.rampGradient":   "a ramp whose uphill square is not exactly one level up",
-  "level.rampFoot":       "a ramp whose downhill square is not level with it",
+  "shape.rampRows":       "a ramp lattice with the wrong number of rows, or a row of the wrong width, or one lattice without the other",
+  "shape.rampGlyph":      "a ramp lattice character that is not ' ' or 'R'",
+  "ramp.walled":          "a ramp on an edge that also carries a wall or a door",
+  "ramp.flat":            "a ramp between two squares at the same level",
+  "level.rampGradient":   "a ramp with floor on one side only (error), or not climbing exactly one level (warning -- uncited)",
+  "level.rampFoot":       "a ramp whose foot is not level with the square it is approached from (warning -- uncited)",
   "level.unreachable":    "a level no ramp reaches",
 
   /* --- provenance ---------------------------------------------------------
