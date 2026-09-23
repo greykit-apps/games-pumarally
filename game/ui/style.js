@@ -171,6 +171,13 @@ button[data-ruleset]{padding:8px 14px}
 .tab{display:flex;flex-direction:column;gap:12px}
 .tab>p{margin:0}
 .tab .lead{font-size:14px;color:var(--text);max-width:64ch}
+input[type=range]{accent-color:var(--accent);flex:1;min-width:120px;max-width:320px;margin:0 6px}
+input[type=number][data-num]{width:5ch;text-align:center}
+.rules{display:flex;flex-direction:column;gap:10px}
+.rule{display:grid;grid-template-columns:auto auto 1fr;gap:4px 10px;align-items:baseline;cursor:pointer}
+.rule input,.rule select{grid-row:span 2;align-self:start}
+.rule b{color:var(--text);font-weight:600}
+.rule .keys{grid-column:2/4;max-width:72ch}
 .courses{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .course{border:1px solid var(--line);border-radius:4px;padding:6px;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;gap:4px;text-align:left}
 .course[aria-pressed=true]{border-color:var(--accent)}
