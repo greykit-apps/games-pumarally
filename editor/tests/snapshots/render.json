@@ -211,12 +211,12 @@
   },
   "canyon": {
     "art": {
-      "sha": "5cf2afff60e97d84",
-      "bytes": 84688
+      "sha": "0a446a8808c00b52",
+      "bytes": 86691
     },
     "markup": {
-      "sha": "a38846afaa5cab61",
-      "bytes": 61365
+      "sha": "b549b263c230ff36",
+      "bytes": 64980
     }
   },
   "chasm": {
@@ -441,12 +441,12 @@
   },
   "kingOfTheHill": {
     "art": {
-      "sha": "c9dfbbbcc1b309df",
-      "bytes": 106358
+      "sha": "9a1611fe1954eeee",
+      "bytes": 110364
     },
     "markup": {
-      "sha": "2cc9c5696a636960",
-      "bytes": 68247
+      "sha": "57853debd663ec57",
+      "bytes": 75477
     }
   },
   "labyrinth": {
@@ -501,12 +501,12 @@
   },
   "meeple": {
     "art": {
-      "sha": "ed54a18776d20531",
-      "bytes": 110690
+      "sha": "67ebf58ae7cbef3c",
+      "bytes": 113777
     },
     "markup": {
-      "sha": "e3c33e92ef4d1df9",
-      "bytes": 83165
+      "sha": "a417454baffe4b4d",
+      "bytes": 87412
     }
   },
   "mergers": {
@@ -561,12 +561,12 @@
   },
   "pitRow": {
     "art": {
-      "sha": "518affad95625124",
-      "bytes": 86839
+      "sha": "4cd13178f52be665",
+      "bytes": 89549
     },
     "markup": {
-      "sha": "8675907ff429b0c4",
-      "bytes": 58426
+      "sha": "707dc8ca1f1e1a99",
+      "bytes": 62956
     }
   },
   "portalPalace": {
@@ -601,22 +601,22 @@
   },
   "sampler": {
     "art": {
-      "sha": "482279918de6b6e1",
-      "bytes": 110013
+      "sha": "43b6b3a70792fec9",
+      "bytes": 113073
     },
     "markup": {
-      "sha": "20c0f0e268053dfc",
-      "bytes": 80327
+      "sha": "35ef7c5dcbe521db",
+      "bytes": 84902
     }
   },
   "shakeNBake": {
     "art": {
-      "sha": "e18b6929f79b049d",
-      "bytes": 70992
+      "sha": "98aed15651762d6f",
+      "bytes": 73427
     },
     "markup": {
-      "sha": "0418cfda1dc3f451",
-      "bytes": 55301
+      "sha": "6439cb32c514b62c",
+      "bytes": 59816
     }
   },
   "sidewinder": {

@@ -7,8 +7,7 @@
   "h": 12,
   "set": "grandPrix",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. Unverified. The canyon (columns 1-10, rows 4-7) is read as one level BELOW the floor, from the shadow its rim casts inward; its six tabs are ramps down into it. The coloured hexes are read as portals: yellow (9,1)-(5,6), red (6,5)-(2,10).",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. The canyon (columns 1-10, rows 4-7) is read as one level BELOW the floor, from the shadow its rim casts inward; its six tabs are ramps down into it. The coloured hexes are read as portals: yellow (9,1)-(5,6), red (6,5)-(2,10). Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "... Bv. ... ... ... bv. b^. ... ... ... B^. ...",
@@ -68,9 +67,15 @@
       "             "
     ],
     "sites": [
-      { "at": [7, 3], "has": ["upgrade"] },
+      { "at": [2, 2], "has": ["flagspot"] },
+      { "at": [6, 2], "has": ["flagspot"] },
+      { "at": [7, 3], "has": ["upgrade", "battery"] },
       { "at": [3, 5], "has": ["chopShop"] },
-      { "at": [4, 8], "has": ["upgrade"] }
+      { "at": [9, 5], "has": ["flagspot"] },
+      { "at": [3, 6], "has": ["flagspot"] },
+      { "at": [4, 8], "has": ["upgrade", "battery"] },
+      { "at": [5, 9], "has": ["flagspot"] },
+      { "at": [9, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {

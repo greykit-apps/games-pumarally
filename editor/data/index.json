@@ -424,8 +424,7 @@
       "w": 12,
       "h": 12,
       "set": "grandPrix",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "board1A",
@@ -529,8 +528,7 @@
       "w": 12,
       "h": 12,
       "set": "grandPrix",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "chess",
@@ -570,8 +568,7 @@
       "w": 12,
       "h": 12,
       "set": "origins99",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "links",
@@ -587,8 +584,7 @@
       "w": 12,
       "h": 12,
       "set": "thirtieth",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "pinwheel",
@@ -604,8 +600,7 @@
       "w": 12,
       "h": 12,
       "set": "grandPrix",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "reactorCore",
@@ -621,8 +616,7 @@
       "w": 12,
       "h": 12,
       "set": "thirtieth",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "shakeNBake",
@@ -630,8 +624,7 @@
       "w": 12,
       "h": 12,
       "set": "radioactive",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "spinZone",
