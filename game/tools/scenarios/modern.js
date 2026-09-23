@@ -803,14 +803,14 @@ export const TESTS = [
     eq(START_ENERGY, 3, "three");
   }],
   ["the 2016 floor acts in its own order, which is not the classic one", () => {
-    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "currents", "pushers", "gears", "crushers", "lasers", "flamers", "waste", "batteries", "touch"],
+    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "currents", "pushers", "gears", "crushers", "lasers", "flamers", "waste", "trapDoors", "batteries", "touch"],
       "the reference card's order, with Wet and Wild's currents at step 3, Thrills and Spills' flamers at the end of the register, and Contamination's waste after them (ours)");
     assert(MODERN_ORDER.map(x => x[0]).join() !== CLASSIC_ORDER.map(x => x[0]).join(), "not the classic order");
     for (const n of ["presses", "burners"]) assert(!MODERN_ORDER.some(x => x[0] === n), "no " + n + " on the 2016 floor");
     /* every settled step of the ruleset's table has a pass, except the one
      * no shipped board prints: a current, which is declared here */
     const passOf = { expressConveyor: ["blue1", "blue2"], conveyor: ["green"], current: ["currents"], pusher: ["pushers"], gear: ["gears"], crusher: ["crushers"],
-      boardLaser: ["lasers"], robotLaser: ["lasers"], flamer: ["flamers"], waste: ["waste"], checkpoint: ["batteries", "touch"] };
+      boardLaser: ["lasers"], robotLaser: ["lasers"], flamer: ["flamers"], waste: ["waste"], trapDoor: ["trapDoors"], checkpoint: ["batteries", "touch"] };
     const missing = [];
     const ordered = [];
     for (const s of rulesetFor("modern").order) {

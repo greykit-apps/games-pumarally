@@ -369,6 +369,21 @@ export const DEVICE_GLYPHS = {
     art: ctx => A.pressSvg(),
     markup: ctx => ceilingMark(ctx)
   },
+  trapDoor: {
+    /* As printed: a hazard-striped frame round two steel plates that meet in
+     * the middle along a notched seam, the dark of the shaft showing through
+     * the notch. The register stamp is drawn by the renderer, as for a crusher. */
+    art: ctx => '<g class="pr-trapdoor">' +
+      '<rect x="8" y="8" width="84" height="84" rx="3" fill="#05070f"/>' +
+      '<rect x="8" y="8" width="84" height="84" rx="3" fill="none" stroke="url(#pr-hz)" stroke-width="9" opacity=".8"/>' +
+      '<path d="M16 16H47V40L41 50L47 60V84H16Z" fill="url(#pr-steel-g)" stroke="#0b0d14" stroke-width="2"/>' +
+      '<path d="M84 16H53V40L59 50L53 60V84H84Z" fill="url(#pr-steel-g)" stroke="#0b0d14" stroke-width="2"/>' +
+      '<circle cx="31" cy="28" r="4" fill="#1b1f2a" stroke="#8d98b3" stroke-width="1.2"/>' +
+      '<circle cx="69" cy="28" r="4" fill="#1b1f2a" stroke="#8d98b3" stroke-width="1.2"/></g>',
+    markup: ctx => mk("M 18 18 L 82 18 L 82 82 L 18 82 Z M 50 18 L 50 40 L 44 50 L 50 60 L 50 82",
+      MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22)
+  },
+
   flamer: {
     /* the game's grate-and-tongues drawing; see art.js for why it is not the
        jet's plume with the nozzle left off */

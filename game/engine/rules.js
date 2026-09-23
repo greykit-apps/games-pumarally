@@ -10,7 +10,7 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorOpens
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
@@ -477,6 +477,23 @@ export function pusherPass(st, C) {
     if (!pu) continue;
     log(st, p.name + " is shoved by a pusher");
     stepRobot(st, C, p, pu.dir, "pusher");
+  }
+}
+
+/**
+ * Grand Prix's trap door, and Turn & Burn's. It opens at the END of each
+ * register printed on it (the author's reading, 2026-09-23): a robot may cross
+ * it or stand on it through that register and step off at the start of the
+ * next, and one still standing on it when the register ends falls, as into a
+ * pit. So this is the last thing the board does, after the fire and the waste
+ * and before any checkpoint is touched -- a robot that has fallen through the
+ * floor touches nothing.
+ */
+export function trapDoorPass(st, C) {
+  for (const p of alive(st)) {
+    if (!trapDoorOpens(C, p.c, p.r, st.register)) continue;
+    log(st, p.name + " is still standing on the trap door when it opens");
+    destroy(st, C, p, "through a trap door");
   }
 }
 

@@ -36,11 +36,11 @@ const DIRS = [N, E, S, W];
  * registers". The selftest needs to provoke each separately, and a single code
  * would let one test satisfy five.
  */
-function checkRegs(d, regs, mode, what, ptr) {
+function checkRegs(d, regs, mode, what, ptr, why) {
   if (regs === undefined) {
     if (mode === REGS_REQUIRED) {
       d.error("regs.missing", what + " must name the registers it stands open in: " +
-        "open in every register is not a door, and open in none is a wall.", null, ptr);
+        (why || "it acts in some registers and not others."), null, ptr);
     }
     return;
   }
@@ -74,7 +74,8 @@ function checkRegs(d, regs, mode, what, ptr) {
   }
   if (regs.length === REGISTER_COUNT) {
     d.error(mode === REGS_REQUIRED ? "regs.missing" : "regs.all",
-      what + " lists all five registers. Omit `regs` instead.", null, ptr);
+      what + " lists all five registers. " +
+      (mode === REGS_REQUIRED ? (why ? "But " + why : "It must act in some and not others.") : "Omit `regs` instead."), null, ptr);
   }
 }
 
@@ -258,7 +259,7 @@ function checkWallDevices(board, d) {
         board.w + "x" + board.h + " board.", null, ptr);
       continue;
     }
-    checkRegs(d, dev.regs, def.regs, label, ptr);
+    checkRegs(d, dev.regs, def.regs, label, ptr, def.regsWhy);
 
     /* fields */
     for (const [key, spec] of Object.entries(def.fields)) {
@@ -360,7 +361,7 @@ function checkCeiling(board, d) {
         board.w + "x" + board.h + " board.", at(dev.c, dev.r), ptr);
       continue;
     }
-    checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr);
+    checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr, def.regsWhy);
     /* a press over a pit used to be refused; no book says so, and it harms nothing (gone 2026-09-23) */
     const key = dev.kind + "|" + dev.c + "," + dev.r;
     if (seen.has(key)) {

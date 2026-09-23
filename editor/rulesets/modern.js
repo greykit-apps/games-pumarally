@@ -69,6 +69,9 @@ export default {
     { step: "waste", name: "Radioactive waste burns, then gives an Energy or an upgrade", settled: true,
       note: "Contamination, on the classic timing -- ours, decided 2026-09-23, as no rulebook for " +
             "the box is in hand. What it gives is what a review of Contamination says it gives." },
+    { step: "trapDoor", name: "Trap doors open under whatever is still on them", settled: true,
+      note: "Turn & Burn. At the end of each register printed on the door -- the author's reading, " +
+            "decided 2026-09-23 -- before the batteries and the checkpoints." },
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 

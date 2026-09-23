@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorOpens } from "./course.js";
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -127,6 +127,8 @@ function ghostBoard(st, C, g) {
   if (g.dead) return;
   const t = gearAt(C, g.c, g.r);
   if (t) g.face = rot(g.face, t);
+  /* the board's last act: a trap door opening under the ghost is a pit */
+  if (trapDoorOpens(C, g.c, g.r, g.reg)) g.dead = true;
 }
 
 /* flags touched along the way count, so a program that clips flag N on

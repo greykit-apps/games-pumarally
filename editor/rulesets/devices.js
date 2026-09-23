@@ -83,6 +83,7 @@ export const DEVICE_KINDS = {
     layer: "wall", name: "Swing door", faced: false, needsWall: false, needsDoor: true,
     regs: REGS_REQUIRED, fields: {},
     printedIn: CLASSIC,
+    regsWhy: "open in every register is not a door, and open in none is a wall.",
     source: "Crash and Burn. The register list is the registers it stands OPEN in."
   },
 
@@ -129,6 +130,29 @@ export const DEVICE_KINDS = {
     source: "Crash and Burn (as a press, over a conveyor on every Cannery Row square); " +
             "Wet and Wild and Chaos and Carnage (as a crusher, a dark dotted disc with a " +
             "register number). Acts after gears and before board lasers in both."
+  },
+
+  /* A TRAP DOOR IS UNDER THE ROBOT, NOT OVER IT, and still lives in this
+   * layer, because what the layer holds is the crusher's shape: a thing
+   * anchored to one square, facing nowhere, acting in the registers printed on
+   * it. The printed tile is a striped square with two notched plates meeting in
+   * the middle and its register numbers on it.
+   *
+   * WHEN IT OPENS is the author's reading, decided 2026-09-23: it changes state
+   * at the END of each register it lists, like the other traps. A robot may
+   * cross it, or stand on it, during that register and step off at the start of
+   * the next; one still on it when the register ends falls, as into a pit. The
+   * fan compilation says only "during those register phases, treat them as
+   * pits", and a review of the 2016 reprint says robots standing on or moving
+   * through an active one fall. */
+  trapDoor: {
+    layer: "ceiling", name: "Trap door", faced: false,
+    regs: REGS_REQUIRED, fields: {},
+    printedIn: BOTH,
+    regsWhy: "open in every register is a pit, and open in none is floor.",
+    source: "Grand Prix (1997) and its 2016 reprint Turn & Burn; also the 30th Anniversary boards. " +
+            "A pit in the registers printed on it, floor otherwise (Ultimate RoboRally Collection p.12, " +
+            "a fan compilation); it opens at the end of the register, the author's reading."
   },
 
   flamer: {

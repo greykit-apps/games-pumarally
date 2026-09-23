@@ -24,7 +24,7 @@ import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
-  wastePass, radiationPass } from "./rules.js";
+  wastePass, radiationPass, trapDoorPass } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
@@ -48,6 +48,9 @@ export const CLASSIC_ORDER = [
   /* Radioactive's waste hurts with the laser fire and pays out at the
    * checkpoints; after the burners and before the flags is both at once */
   ["waste", wastePass],
+  /* Grand Prix's trap doors open at the end of the register (the author's
+   * reading), so they are the board's last act before the flags */
+  ["trapDoors", trapDoorPass],
   ["touch", checkpointPass]
 ];
 
@@ -70,6 +73,9 @@ export const MODERN_ORDER = [
   /* Contamination's waste, on the classic timing (ours): with the end-of-
    * register damage, before the batteries and the checkpoints */
   ["waste", wastePass],
+  /* Turn & Burn's trap doors, at the end of the register: before the
+   * batteries and the checkpoints, so a robot falling through gets neither */
+  ["trapDoors", trapDoorPass],
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -83,7 +89,7 @@ export const PASS_LABELS = {
   express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
   lasers: "Lasers", burners: "Flame jets", touch: "Flags",
   blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
-  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste"
+  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste", trapDoors: "Trap doors"
 };
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }

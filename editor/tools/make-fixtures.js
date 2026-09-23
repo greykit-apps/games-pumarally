@@ -125,6 +125,7 @@ function build() {
   b.ceilingDevices.push({ kind: "crusher", c: 10, r: 10, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 3, r: 10, regs: [1, 5] });
   b.ceilingDevices.push({ kind: "flamer", c: 4, r: 10 });   // no regs: every register
+  b.ceilingDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });   // open at the end of 2 and 4
   return b;
 }
 

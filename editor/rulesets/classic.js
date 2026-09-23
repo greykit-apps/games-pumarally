@@ -86,6 +86,9 @@ export default {
       note: "Radioactive. With the laser fire, and its option card at the checkpoints -- so after the " +
             "burners and before the flags. From the Ultimate RoboRally Collection p.6, a fan compilation; " +
             "no publisher's rulebook for the box is in the archive." },
+    { step: "trapDoor", name: "Trap doors open under whatever is still on them", settled: true,
+      note: "Grand Prix. At the end of each register printed on the door -- the author's reading, " +
+            "decided 2026-09-23 -- so it is the board's last act before the flags." },
     { step: "checkpoint", name: "Flags and repair sites are touched", settled: true }
   ],
 

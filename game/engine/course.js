@@ -186,6 +186,11 @@ export function crusherFires(C, c, r, register) {
   return ceilingAt(C.grid, c, r, "crusher").some(d => firesIn(d.regs || null, (register | 0) + 1));
 }
 
+/** A trap door under (c,r) that opens at the end of this 0-based register. */
+export function trapDoorOpens(C, c, r, register) {
+  return inBoard(C.grid, c, r) && ceilingAt(C.grid, c, r, "trapDoor").some(d => firesIn(d.regs || null, (register | 0) + 1));
+}
+
 /**
  * Fire over a square this register, named, or null.
  *

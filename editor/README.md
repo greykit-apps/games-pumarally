@@ -24,6 +24,11 @@ thing the square, or is it standing on the square?**
 - a crusher comes down from above and **faces nowhere** — so no ceiling device
   has a `face` field at all, and a transcriber cannot fill one in wrongly
 
+A trap door is under the robot rather than over it, and still lives in the
+ceiling layer, because what that layer holds is the crusher's shape: one square,
+no facing, a register list. Its list is required, as a swing door's is — open in
+every register is a pit, and open in none is floor.
+
 ```json
 {
   "format": "PRBoard", "version": 1,
