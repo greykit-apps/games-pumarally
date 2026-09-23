@@ -424,7 +424,8 @@
       "w": 12,
       "h": 12,
       "set": "grandPrix",
-      "origin": "transcribed"
+      "origin": "transcribed",
+      "unverified": true
     },
     {
       "id": "board1A",
@@ -553,8 +554,7 @@
       "w": 12,
       "h": 12,
       "set": "thirtieth",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "falling",
