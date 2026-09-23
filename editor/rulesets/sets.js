@@ -22,15 +22,19 @@ export const SETS = {
   armedAndDangerous: { name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous" },
   crashAndBurn:      { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn" },
 
-  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2016)" },
+  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)" },   // the named boards; the 2016 box's are lettered 1A-6B and none is transcribed
   wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild" },
   chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage" },
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills" },
   masterBuilder:     { name: "Master Builder",     edition: "modern", box: "Master Builder" },
 
-  /* Twenty-six 2016 boards are photographed and named but nothing records which
-   * box each came out of. A guess there would be indistinguishable from a fact,
-   * so they sit here until something settles it. */
+  /* Where a board came out of is taken from Gareth's list of the official
+   * boards by expansion, https://tartarus.org/gareth/roborally/boards/official
+   * (the author's reference for this, 2026-09-23), not inferred from what
+   * is printed on it: Chasm and Gear Box carry teleporters but are Armed and
+   * Dangerous boards, Coliseum has levels but is not Wet and Wild's. Nothing
+   * sits here now; the row stays for a board photographed before its box is
+   * looked up. */
   modernUnfiled:     { name: "Modern, box unrecorded", edition: "modern", box: "Not established" }
 };
 
