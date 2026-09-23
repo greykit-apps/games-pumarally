@@ -16,15 +16,33 @@ drawings and the layouts are hand-transcribed tile data.
 No install. Vanilla ES modules, no build step, no dependencies, and no network
 at play time beyond fetching the boards.
 
-> **Status: rebuilt, and playable under the classic rules.** The game was
+![Turn 4 of a six-robot race under the classic rules: a laser fires up the left edge and each robot's option cards sit in the panel](docs/screenshots/classic-laser.png)
+
+*Classic rules, turn 4, register 1. Six robots on Crosscut (Cross and Pit
+Maze over the docking bay): a laser fires up the left edge, the three flags
+are out on the floor, and each robot's option cards, lives and damage are on
+the right.*
+
+| | |
+|---|---|
+| ![Programming registers under the classic rules: four cards placed, three left in hand](docs/screenshots/classic-program.png) | ![Programming under the 2016 rules: SPAM damage cards in the hand and upgrades bought with energy](docs/screenshots/modern-program.png) |
+| *Programming, classic: four registers filled, three cards left in the hand. The next card goes in by click, drag or its number key.* | *The same screen under the 2016 rules, on Four Quarters: SPAM in the hand, energy and upgrades under each robot.* |
+
+![The new-game screen: boards grouped by the box they came from on the left, rules, seats and house rules on the right](docs/screenshots/setup.png)
+
+*Set-up. Boards are shelved by the box they came out of; pick one, or let the
+game draw one, then fill up to eight seats with people and bots.*
+
+> **Status: rebuilt, and playable under the classic and 2016 rules.** The game was
 > rebuilt from the ground up on 2026-09-15 on the board workshop's
 > foundation, after the first version stopped being fixable; `PLAN.md` says
 > why and how, `EDITOR-REVIEW.md` records what the workshop needed first, and
 > the tag `classic-monolith` holds the old game. What plays today is the
 > classic game and the 2016 game, chosen at set-up: any mix of one to eight
-> human and bot seats, seventeen transcribed boards (any one of them as a quick
-> game: a random facing, three flags drawn from where it marks) and three
-> multi-board courses, hot seat, autosave. The expansions are the plan's next milestone.
+> human and bot seats, fifty-two transcribed boards from the classic and 2016
+> boxes (thirty-four of them on the quick-game shelf: a random facing, three
+> flags drawn from where it marks), three multi-board courses, hot seat,
+> autosave.
 
 ## What works today
 
@@ -38,9 +56,9 @@ at play time beyond fetching the boards.
 | Option cards: all twenty-seven of the two printings, with their questions, the two-wrench site, the hand limit, the loss on destruction and the option exchange | done, 51 scenarios by name; the AMIGO eleven carry their German text and the reading each needed |
 | Oil, portals, swing doors, unnumbered presses, burners on the way through, lives by game size (Crash and Burn, from the AMIGO book) | done, 29 scenarios by name |
 | Fire under either book: a flame jet and a flamer stand in for each other, each resolved on its own edition's timing | done, 3 scenarios by name; a declared substitute, ours not the books' |
-| The 2016 expansions' floor: water, drains, ledges and ramps, currents, randomizers, teleporters, flamers (from the three Factory Floor Guides) | done, 11 scenarios by name; no shipped board prints them yet |
+| The 2016 expansions' floor: water, drains, ledges and ramps, currents, randomizers, teleporters, flamers (from the three Factory Floor Guides) | done, 11 scenarios by name |
 | The 2016 rules: own decks, Priority Token, SPAM and Haywire, Energy, the upgrade shop with all forty cards' effects, shutdown, reboot, the reference card's floor order | done, 76 scenarios by name; two declared substitutes (reboot point, first priority) |
-| Flag locations marked on the boards, for the engine to choose among | not yet: board design |
+| Flag locations marked on the boards, for the engine to choose among | done |
 
 ## How it is put together
 
@@ -55,6 +73,7 @@ game/                 the rebuilt game: engine, bots, simulation, screen
 editor/               the board and course workshop, and the data it writes
   data/               every board and course, as PRBoard and PRCourse JSON
   README.md           the format, the workshop, and what its first use found
+docs/screenshots/     the pictures in this file
 PLAN.md               the rebuild plan and its milestones
 EDITOR-REVIEW.md      the workshop review, findings ranked, and what remains
 ```
