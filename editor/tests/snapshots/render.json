@@ -21,12 +21,12 @@
   },
   "backStretch": {
     "art": {
-      "sha": "cbef8f6197b09f2d",
-      "bytes": 104753
+      "sha": "b6715926679b0635",
+      "bytes": 104507
     },
     "markup": {
-      "sha": "e48c874fb6b627ee",
-      "bytes": 74005
+      "sha": "2aee1f4e2275ec2d",
+      "bytes": 73963
     }
   },
   "blackGold": {
@@ -211,12 +211,12 @@
   },
   "canyon": {
     "art": {
-      "sha": "01fb33f767990e47",
-      "bytes": 86140
+      "sha": "5cf2afff60e97d84",
+      "bytes": 84688
     },
     "markup": {
-      "sha": "e909ceef22df8327",
-      "bytes": 61835
+      "sha": "a38846afaa5cab61",
+      "bytes": 61365
     }
   },
   "chasm": {
@@ -441,12 +441,12 @@
   },
   "kingOfTheHill": {
     "art": {
-      "sha": "0ee8040d4f27e0fc",
-      "bytes": 106482
+      "sha": "c9dfbbbcc1b309df",
+      "bytes": 106358
     },
     "markup": {
-      "sha": "133bb54ebc219f26",
-      "bytes": 68267
+      "sha": "2cc9c5696a636960",
+      "bytes": 68247
     }
   },
   "labyrinth": {
@@ -501,12 +501,12 @@
   },
   "meeple": {
     "art": {
-      "sha": "cca605cd8133b97f",
-      "bytes": 110926
+      "sha": "ed54a18776d20531",
+      "bytes": 110690
     },
     "markup": {
-      "sha": "e2fae13ed04b17e2",
-      "bytes": 83205
+      "sha": "e3c33e92ef4d1df9",
+      "bytes": 83165
     }
   },
   "mergers": {
@@ -561,12 +561,12 @@
   },
   "pitRow": {
     "art": {
-      "sha": "3816748e319714b9",
-      "bytes": 87199
+      "sha": "518affad95625124",
+      "bytes": 86839
     },
     "markup": {
-      "sha": "0a666c7d2e1473ee",
-      "bytes": 58486
+      "sha": "8675907ff429b0c4",
+      "bytes": 58426
     }
   },
   "portalPalace": {
@@ -591,32 +591,32 @@
   },
   "reactorCore": {
     "art": {
-      "sha": "3a7633c036b582ae",
-      "bytes": 87090
+      "sha": "3ba9b9ad90dd618a",
+      "bytes": 84992
     },
     "markup": {
-      "sha": "4e30a5e2abbcadf4",
-      "bytes": 96224
+      "sha": "a479a4ffd230cf37",
+      "bytes": 95912
     }
   },
   "sampler": {
     "art": {
-      "sha": "3b05f06fe76fa6a9",
-      "bytes": 110379
+      "sha": "482279918de6b6e1",
+      "bytes": 110013
     },
     "markup": {
-      "sha": "34eacf933b20842c",
-      "bytes": 80387
+      "sha": "20c0f0e268053dfc",
+      "bytes": 80327
     }
   },
   "shakeNBake": {
     "art": {
-      "sha": "e8cc1d7ef1f58fe3",
-      "bytes": 73252
+      "sha": "e18b6929f79b049d",
+      "bytes": 70992
     },
     "markup": {
-      "sha": "90c362b32477393a",
-      "bytes": 55869
+      "sha": "0418cfda1dc3f451",
+      "bytes": 55301
     }
   },
   "sidewinder": {
@@ -801,12 +801,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "f4ad1b8ae8de6caa",
-      "bytes": 72129
+      "sha": "dc667d03b9cf4c5b",
+      "bytes": 71852
     },
     "markup": {
-      "sha": "000e13c9e3afdea7",
-      "bytes": 47446
+      "sha": "ff56b713b20e1a36",
+      "bytes": 47400
     }
   }
 }
