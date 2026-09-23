@@ -1,0 +1,75 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "chopShop",
+  "name": "Chop Shop",
+  "w": 12,
+  "h": 12,
+  "set": "classic2005",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "ground": {
+    "rows": [
+      "... ... ... B^. ... Bv. b^. ... bv. ... ... ...",
+      "... o.. ... B^. ... Bv. b^. ... bv. bvl b<. b<.",
+      "... ... ... B^R B<. B<r b^. ... bv. bv. ... ...",
+      "... ... ... B^. ... ... b^. ... ... o.. ... ...",
+      "... ... ... B^. ... b>. l.. ... ... ... ... ...",
+      "b<. b<. r.. B^. ... ... bvl b<. r.. b<. b<. b<.",
+      "b>. bvr l.. B^. ... ... bv. o.. ... ... ... ...",
+      "... bv. ... B^. ... ... bv. ... ... ... ... ...",
+      "... bv. ... ... r.. l.. ... ... l.. b<. b<. b<.",
+      "... bv. ... b^. ... o.. ... ... bv. o.. ... ...",
+      "... ... ... b^. ... ... ... ... bv. ... ... ...",
+      "... bv. ... b^. ... ... ... ... bv. ... ... ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["repair"] },
+      { "at": [9, 4], "has": ["upgrade"] },
+      { "at": [5, 5], "has": ["upgrade"] },
+      { "at": [2, 9], "has": ["upgrade"] },
+      { "at": [11, 11], "has": ["repair"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "  #         ",
+      "            ",
+      "     #  #   ",
+      "            ",
+      "            ",
+      "        # # ",
+      "  #         ",
+      "            ",
+      "            ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "   #  #      ",
+      "#           #",
+      "     #       ",
+      "#           #",
+      "      #      ",
+      "             ",
+      "#           #",
+      "   #   #     ",
+      "#           #",
+      " ##    #  #  ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:2,8", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:8,7", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "v:2,10", "face": "W", "damage": 3 },
+      { "kind": "laser", "edge": "v:6,1", "face": "W", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,8", "face": "W", "damage": 2 },
+      { "kind": "laser", "edge": "v:7,10", "face": "E", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

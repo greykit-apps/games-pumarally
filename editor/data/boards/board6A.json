@@ -1,0 +1,62 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "board6A",
+  "name": "6A",
+  "w": 10,
+  "h": 10,
+  "set": "modern2016",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... ... b>r b>. b^l ...",
+      "b<l B>l B>. B>. o.. ... b^. ... Bvl B<.",
+      "b^. ... ... ... ... ... b^. ... Bv. ...",
+      "b^r b<. b<. b<. ... ... b^. ... Bv. ...",
+      "... ... ... ... ... ... ... ... o.. ...",
+      "... o.. ... ... ... ... ... ... ... ...",
+      "... B^. ... bv. ... ... b>. b>. b>. bvr",
+      "... B^. ... bv. ... ... ... ... ... bv.",
+      "B>. B^l ... bv. ... o.. B<. B<. B<l b>l",
+      "... bvl b<. b<r ... ... ... ... B^. ..."
+    ],
+    "sites": [
+      { "at": [5, 0], "has": ["battery"] },
+      { "at": [0, 5], "has": ["battery"] },
+      { "at": [8, 5], "has": ["battery"] },
+      { "at": [2, 8], "has": ["battery"] },
+      { "at": [7, 9], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          "
+    ],
+    "vRows": [
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

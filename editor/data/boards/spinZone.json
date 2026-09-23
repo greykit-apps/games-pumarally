@@ -1,0 +1,72 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "spinZone",
+  "name": "Spin Zone",
+  "w": 12,
+  "h": 12,
+  "set": "classic2005",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... B>r B>. B>. Bvr ... ... B>r B>. B>. Bvr ...",
+      "... B^. r.. ... Bv. l.. ... B^. r.. ... Bv. ...",
+      "... B^. ... r.. Bv. ... ... B^. ... r.. Bv. ...",
+      "... B^r B<. B<. B<r ... l.. B^r B<. B<. B<r ...",
+      "... ... ... ... l.. ... ... ... ... l.. ... ...",
+      "... ... l.. ... ... ... ... l.. ... ... ... ...",
+      "... B>r B>. B>. Bvr l.. ... B>r B>. B>. Bvr ...",
+      "... B^. r.. ... Bv. ... ... B^. r.. ... Bv. ...",
+      "... B^. ... r.. Bv. ... l.. B^. ... r.. Bv. ...",
+      "... B^r B<. B<. B<r ... ... B^r B<. B<. B<r ...",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [2, 3], "has": ["repair"] },
+      { "at": [8, 3], "has": ["upgrade"] },
+      { "at": [3, 8], "has": ["upgrade"] },
+      { "at": [9, 8], "has": ["repair"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "   #        ",
+      "            ",
+      "        #   ",
+      "            ",
+      "   #        ",
+      "            ",
+      "        #   ",
+      "            ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "#           #",
+      "     # #     ",
+      "#           #",
+      "             ",
+      "             ",
+      "#           #",
+      "     # #     ",
+      "#           #",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:3,7", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:8,5", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "v:5,8", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,3", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

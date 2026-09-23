@@ -1,0 +1,68 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "board4B",
+  "name": "4B",
+  "w": 10,
+  "h": 10,
+  "set": "modern2016",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... B^. ...",
+      "... ... B>. B>. B>. B>. B>. B>. B^L ...",
+      "o.. ... ... ... ... ... ... ... B^. ...",
+      "... ... ... ... ... ... ... ... B^. ...",
+      "... Bv. ... ... ... ... ... ... B^. ...",
+      "... Bv. ... ... ... ... ... ... B^. ...",
+      "... Bv. ... ... ... ... ... ... ... ...",
+      "... Bv. ... ... ... ... ... ... ... o..",
+      "... BvL B<. B<. B<. B<. B<. B<. ... ...",
+      "... Bv. ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["battery"] },
+      { "at": [9, 0], "has": ["battery"] },
+      { "at": [3, 3], "has": ["battery"] },
+      { "at": [6, 3], "has": ["battery"] },
+      { "at": [3, 6], "has": ["battery"] },
+      { "at": [6, 6], "has": ["battery"] },
+      { "at": [0, 9], "has": ["battery"] },
+      { "at": [9, 9], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "          ",
+      " ###      ",
+      "          ",
+      "   #  #   ",
+      "          ",
+      "          ",
+      "          ",
+      "   #  #   ",
+      "          ",
+      "      ### ",
+      "          "
+    ],
+    "vRows": [
+      "           ",
+      "           ",
+      "           ",
+      "   #   #   ",
+      "           ",
+      "           ",
+      "   #   #   ",
+      "           ",
+      "           ",
+      "           "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:2,1", "face": "N", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:7,9", "face": "S", "regs": [2, 4] }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

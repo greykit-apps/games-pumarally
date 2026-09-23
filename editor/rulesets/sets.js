@@ -21,8 +21,18 @@ export const SETS = {
   base:              { name: "Base Game",    edition: "classic", box: "RoboRally (1994-2005)" },
   armedAndDangerous: { name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous" },
   crashAndBurn:      { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn" },
+  /* The rest of Gareth's list, 2026-09-23. Each row is named as that page
+   * names the board's source. Grand Prix and Radioactive are boxes; 2005 is
+   * the boards first printed in the 2005 edition; Origins '99 is one board,
+   * the final of that year's tournament, known from a scan. */
+  grandPrix:         { name: "Grand Prix",   edition: "classic", box: "Grand Prix" },
+  radioactive:       { name: "Radioactive",  edition: "classic", box: "Radioactive" },
+  classic2005:       { name: "2005",         edition: "classic", box: "RoboRally (2005)" },
+  origins99:         { name: "Origins '99",  edition: "classic", box: "Not from any box: the Origins '99 tournament final" },
 
-  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)" },   // the named boards; the 2016 box's are lettered 1A-6B and none is transcribed
+  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)" },   // the named boards; the 2016 box's are lettered 1A-6B, filed below
+  modern2016:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2016)" },   // the lettered boards 1A-6B, 10x10
+  thirtieth:         { name: "30th Anniversary", edition: "modern", box: "Robo Rally 30th Anniversary" },
   wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild" },
   chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage" },
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills" },

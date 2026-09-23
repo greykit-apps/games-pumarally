@@ -1,0 +1,94 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "falling",
+  "name": "Falling",
+  "w": 12,
+  "h": 12,
+  "set": "thirtieth",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass from Gareth Taylor's 600px render, 2026-09-23. Unverified, and read at the edge of legibility: every crusher and trap door register set is a best reading to confirm, and belt arms are the classifier's. THE FIRE IS A READING TO CHECK: each fire prints its register numbers spread along its length, so each square the fire covers is spelled as a flamer carrying the numbers printed in THAT square -- the column from the bottom rim is (4,11) 1 2, (4,10) 3 4, (4,9) 5. If the print means the flame grows (reaching further in later registers while still burning nearer squares), the nearer squares need the later registers too. The twin-cell markings are batteries.",
+  "ground": {
+    "rows": [
+      "o.. B^. ... ... o.. bv. ... ... bv. ... ... ...",
+      "... B>x B>. Bvr ... bv. o.. ... b>x b>. bvx b<.",
+      "... B^. ... Bv. ... bv. ... ... b^. ... bv. ...",
+      "B>. B^x B<. r.. b>. b>L b>R b>. b^x b<. b<r ...",
+      "... o.. ... ... ... ... b^. o.. ... ... ... o..",
+      "... ... ... o.. ... ... b^r b<. b<. b<. b<. b<.",
+      "B>. B>. B>. B>. B>. Bvr ... ... o.. ... ... ...",
+      "o.. ... ... ... ... Bv. ... ... ... ... ... o..",
+      "... bvl b<. r.. B<. B<R B<L B<. l.. B<. B<L B<.",
+      "... bv. ... b^. ... ... B^. ... Bv. ... B^. ...",
+      "b>. b>L b>. b^L ... o.. B^. ... B>l B>. B^L ...",
+      "... ... ... b^. ... ... B^. o.. ... ... B^. o.."
+    ],
+    "sites": [
+      { "at": [11, 0], "has": ["battery"] },
+      { "at": [9, 4], "has": ["battery"] },
+      { "at": [4, 5], "has": ["chopShop"] },
+      { "at": [5, 9], "has": ["chopShop"] },
+      { "at": [0, 11], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  #    # #  ",
+      "            ",
+      "            ",
+      "            ",
+      "       #    ",
+      "            ",
+      "            ",
+      "   #        ",
+      "            ",
+      "       #    ",
+      "            ",
+      "            ",
+      "  # #    #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "#           #",
+      "             ",
+      "#     #      ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "#           #",
+      "             ",
+      "       #     "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:3,7", "face": "N", "regs": [1, 3, 5] },
+      { "kind": "laser", "edge": "h:7,0", "face": "S", "damage": 1 }
+    ]
+  },
+  "ceiling": {
+    "devices": [
+      { "kind": "trapDoor", "at": [2, 2], "regs": [3, 4] },
+      { "kind": "trapDoor", "at": [9, 2], "regs": [1, 2] },
+      { "kind": "flamer", "at": [11, 2], "regs": [4, 5] },
+      { "kind": "flamer", "at": [4, 4], "regs": [1, 3, 4] },
+      { "kind": "flamer", "at": [5, 4], "regs": [1, 3, 4] },
+      { "kind": "crusher", "at": [8, 5], "regs": [2, 5] },
+      { "kind": "crusher", "at": [10, 5], "regs": [3, 4] },
+      { "kind": "crusher", "at": [2, 6], "regs": [1, 5] },
+      { "kind": "crusher", "at": [4, 6], "regs": [3, 4] },
+      { "kind": "trapDoor", "at": [6, 6], "regs": [1, 5] },
+      { "kind": "trapDoor", "at": [4, 7], "regs": [2, 4] },
+      { "kind": "crusher", "at": [9, 8], "regs": [2, 4] },
+      { "kind": "trapDoor", "at": [2, 9], "regs": [1, 5] },
+      { "kind": "crusher", "at": [3, 9], "regs": [3, 4] },
+      { "kind": "flamer", "at": [4, 9], "regs": [5] },
+      { "kind": "flamer", "at": [7, 9], "regs": [2, 3, 5] },
+      { "kind": "trapDoor", "at": [9, 9], "regs": [3] },
+      { "kind": "flamer", "at": [4, 10], "regs": [3, 4] },
+      { "kind": "flamer", "at": [7, 10], "regs": [2, 3, 5] },
+      { "kind": "flamer", "at": [4, 11], "regs": [1, 2] }
+    ]
+  }
+}

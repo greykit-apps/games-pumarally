@@ -1,0 +1,75 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "board2A",
+  "name": "2A",
+  "w": 10,
+  "h": 10,
+  "set": "modern2016",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "ground": {
+    "rows": [
+      "... b<. b<. b<. b<l ... ... ... ... ...",
+      "... ... ... ... b^r b<. ... o.. ... b^.",
+      "... o.. ... o.. ... ... ... ... ... b^.",
+      "... ... ... ... ... o.. ... o.. ... b^.",
+      "... bv. ... ... ... ... ... ... b>r b^l",
+      "bvl b<r ... ... ... ... ... ... b^. ...",
+      "bv. ... o.. ... o.. ... ... ... ... ...",
+      "bv. ... ... ... ... ... o.. ... o.. ...",
+      "bv. ... o.. ... b>. bvr ... ... ... ...",
+      "... ... ... ... ... b>l b>. b>. b>. ..."
+    ],
+    "sites": [
+      { "at": [6, 2], "has": ["battery"] },
+      { "at": [2, 3], "has": ["battery"] },
+      { "at": [6, 5], "has": ["battery"] },
+      { "at": [7, 6], "has": ["battery"] },
+      { "at": [3, 7], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "          ",
+      " #        ",
+      "   #   #  ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "  #   #   ",
+      "        # ",
+      "          "
+    ],
+    "vRows": [
+      "           ",
+      "         # ",
+      "  #        ",
+      "    #   #  ",
+      "      #    ",
+      "    ##     ",
+      "  #   #    ",
+      "        #  ",
+      " #         ",
+      "           "
+    ],
+    "devices": [
+      { "kind": "pusher", "edge": "h:1,1", "face": "S", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "h:2,8", "face": "N", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:7,2", "face": "S", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "h:8,9", "face": "N", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:1,8", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:2,2", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:4,3", "face": "E", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:4,5", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:5,5", "face": "E", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:6,6", "face": "W", "regs": [1, 3, 5] },
+      { "kind": "pusher", "edge": "v:8,7", "face": "W", "regs": [2, 4] },
+      { "kind": "pusher", "edge": "v:9,1", "face": "W", "regs": [1, 3, 5] }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}
