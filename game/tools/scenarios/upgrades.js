@@ -187,6 +187,19 @@ export const TESTS = [
     stepRobot(st, co.C, st.players[1], E, "card");
     assert(p.rebooting, "shoved into the pit, it falls");
   }],
+  ["a hovering robot destroyed mid-move keeps no hover for later", () => {
+    /* A Move 3 off the board's edge wrecks the robot on its first step, with
+     * two steps of hover still owed. Those must not outlive the move: they once
+     * did, and a Haywire sidestep after the reboot floated over a pit on them. */
+    const co = far();
+    const st = mgame(co, [{ c: 0, r: 3, face: W }, { c: 6, r: 6 }]);
+    const p = st.players[0];
+    fit(st, p, "hoverUnit");
+    p.registers[0] = own(st, p, "move3");
+    driveRegister(st, co.library);
+    assert(p.rebooting, "over the edge on the first step");
+    eq(p.hoverSteps, 0, "and nothing of the hover is left on it");
+  }],
   ["Memory Cards park cards for next round and give them back at the upgrade phase", () => {
     const co = far();
     const st = mgame(co, [{ c: 0, r: 7, seat: "human" }, { c: 1, r: 7 }]);

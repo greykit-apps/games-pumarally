@@ -180,6 +180,7 @@ export function resolveHaywire(st, C, p, i) {
       const dir = rot(p.face, a === 0 ? -1 : 1);
       log(st, p.name + " slides " + (a === 0 ? "left" : "right"));
       let moved = 0;
+      p.hoverSteps = 0;       // the sidestep is not a hovering move, whatever an earlier one left behind
       for (let k = 0; k < s.sidestep && p.alive; k++) { if (!stepRobot(st, C, p, dir, "card")) break; moved++; }
       p.lastMove = moved > 0 ? { dir, n: moved } : null;
     }
