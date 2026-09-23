@@ -25,23 +25,23 @@
     "sites": [
       { "at": [11, 0], "has": ["randomizer"] },
       { "at": [2, 1], "has": ["flagspot"] },
-      { "at": [1, 2], "has": ["battery"] },
+      { "at": [1, 2], "has": ["repair", "battery"] },
       { "at": [2, 2], "has": ["randomizer"] },
       { "at": [9, 2], "has": ["flagspot"] },
       { "at": [9, 3], "has": ["randomizer"] },
       { "at": [0, 4], "has": ["randomizer"] },
       { "at": [7, 4], "has": ["upgrade", "battery"] },
-      { "at": [8, 7], "has": ["battery"] },
+      { "at": [8, 7], "has": ["upgrade", "battery"] },
       { "at": [8, 8], "has": ["randomizer"] },
       { "at": [10, 8], "has": ["randomizer"] },
       { "at": [11, 8], "has": ["randomizer"] },
-      { "at": [3, 9], "has": ["repair", "battery", "flagspot"] },
+      { "at": [3, 9], "has": ["upgrade", "battery", "flagspot"] },
       { "at": [10, 9], "has": ["flagspot"] },
       { "at": [1, 10], "has": ["randomizer"] },
       { "at": [8, 10], "has": ["randomizer"] },
       { "at": [10, 10], "has": ["randomizer"] },
       { "at": [8, 11], "has": ["randomizer"] },
-      { "at": [11, 11], "has": ["battery"] }
+      { "at": [11, 11], "has": ["repair", "battery"] }
     ]
   },
   "wall": {

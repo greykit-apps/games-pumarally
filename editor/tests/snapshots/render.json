@@ -181,12 +181,12 @@
   },
   "boardH": {
     "art": {
-      "sha": "27b5315e120f11ea",
-      "bytes": 98937
+      "sha": "fb0b017d9ad5f9a4",
+      "bytes": 100622
     },
     "markup": {
-      "sha": "5ea3e1c765f14c98",
-      "bytes": 70274
+      "sha": "5ac15af41fca677f",
+      "bytes": 71785
     }
   },
   "cactus": {
@@ -201,12 +201,12 @@
   },
   "canneryRow": {
     "art": {
-      "sha": "034a44d5df193deb",
-      "bytes": 102089
+      "sha": "c319cbfa4793a642",
+      "bytes": 103774
     },
     "markup": {
-      "sha": "150cd78d49f382c3",
-      "bytes": 73520
+      "sha": "fa6e32fdf169f558",
+      "bytes": 75031
     }
   },
   "canyon": {
@@ -221,12 +221,12 @@
   },
   "chasm": {
     "art": {
-      "sha": "ae67aff4e82eba80",
-      "bytes": 61073
+      "sha": "6ffe2f01841c4f33",
+      "bytes": 63366
     },
     "markup": {
-      "sha": "0b57dbcb0e91d38d",
-      "bytes": 78305
+      "sha": "4d8ab812608cd7d1",
+      "bytes": 80349
     }
   },
   "chess": {
@@ -261,22 +261,22 @@
   },
   "circuitTrap": {
     "art": {
-      "sha": "9dfe3b5750b237c6",
-      "bytes": 99581
+      "sha": "708564456a0bc82d",
+      "bytes": 100658
     },
     "markup": {
-      "sha": "b350c1ad99ecdd26",
-      "bytes": 81348
+      "sha": "1183a5232d1c4695",
+      "bytes": 82326
     }
   },
   "coliseum": {
     "art": {
-      "sha": "eb5271ed91e1e2ae",
-      "bytes": 102120
+      "sha": "6a221517ee3e337a",
+      "bytes": 102728
     },
     "markup": {
-      "sha": "9e4365c49953007a",
-      "bytes": 85101
+      "sha": "8d139d9d95fe6b6f",
+      "bytes": 85634
     }
   },
   "comingAndGoing": {
@@ -391,12 +391,12 @@
   },
   "floodZone": {
     "art": {
-      "sha": "aa6f810aa911fb7c",
-      "bytes": 118440
+      "sha": "5e16580c1bc6836e",
+      "bytes": 119048
     },
     "markup": {
-      "sha": "147da918e768a500",
-      "bytes": 81140
+      "sha": "d5066d5a93b162d5",
+      "bytes": 81673
     }
   },
   "gauntletOfFire": {
@@ -411,12 +411,12 @@
   },
   "gearBox": {
     "art": {
-      "sha": "d1b295085567929d",
-      "bytes": 86544
+      "sha": "61dcfd7d2eb33262",
+      "bytes": 88229
     },
     "markup": {
-      "sha": "de299c3164baabcb",
-      "bytes": 78904
+      "sha": "46613f968aa2099f",
+      "bytes": 80415
     }
   },
   "inAndOut": {
@@ -461,12 +461,12 @@
   },
   "laserMaze": {
     "art": {
-      "sha": "b7bc87be727a162b",
-      "bytes": 102247
+      "sha": "c16505115106ce51",
+      "bytes": 102386
     },
     "markup": {
-      "sha": "e697e53c3147f70d",
-      "bytes": 67220
+      "sha": "53ee0d160e95519f",
+      "bytes": 67308
     }
   },
   "links": {
