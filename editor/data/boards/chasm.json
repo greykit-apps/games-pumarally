@@ -23,16 +23,16 @@
       "... bv. o.. o.. o.. bv. b^. o.. T.. ... b^. ..."
     ],
     "sites": [
-      { "at": [11, 0], "has": ["battery"] },
-      { "at": [1, 1], "has": ["battery"] },
+      { "at": [11, 0], "has": ["repair", "battery"] },
+      { "at": [1, 1], "has": ["upgrade", "battery"] },
       { "at": [6, 1], "has": ["flagspot"] },
       { "at": [5, 3], "has": ["flagspot"] },
-      { "at": [6, 4], "has": ["repair", "battery"] },
+      { "at": [6, 4], "has": ["upgrade", "battery"] },
       { "at": [9, 5], "has": ["flagspot"] },
       { "at": [3, 7], "has": ["flagspot"] },
-      { "at": [9, 7], "has": ["battery"] },
-      { "at": [8, 8], "has": ["battery"] },
-      { "at": [1, 10], "has": ["upgrade", "battery"] }
+      { "at": [9, 7], "has": ["upgrade", "battery"] },
+      { "at": [8, 8], "has": ["upgrade", "battery"] },
+      { "at": [1, 10], "has": ["repair", "battery"] }
     ]
   },
   "wall": {

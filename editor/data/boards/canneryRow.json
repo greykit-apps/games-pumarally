@@ -33,12 +33,12 @@
       { "at": [3, 5], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [1, 7], "has": ["flagspot"] },
       { "at": [8, 7], "has": ["flagspot"] },
-      { "at": [5, 8], "has": ["battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [5, 8], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [5, 9], "has": ["flagspot"] },
-      { "at": [1, 10], "has": ["battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [1, 10], "has": ["repair", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [3, 10], "has": ["flagspot"] },
       { "at": [8, 10], "has": ["flagspot"] },
-      { "at": [9, 10], "has": ["battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
+      { "at": [9, 10], "has": ["upgrade", "battery"], "note": "authored battery -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" }
     ]
   },
   "wall": {
