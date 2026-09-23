@@ -45,6 +45,11 @@ const MODES = [
 /* the tabs that start a race, and so carry the rules, the seats and the button */
 const RACING = ["quick", "multi", "saved"];
 const ANY = "quick:*";
+/* what each book is, in a line, under the buttons that choose it -- the author's words */
+const RULESET_BLURB = {
+  classic: "The original Rally game. Limited respawns, Option Cards instead of Energy, original deck mechanics. Killing the competition is a valid strategy.",
+  modern: "2016+ rules. Unlimited lives, SPAM and Haywire damage, Energy and Upgrades, new deck mechanics. Longer games with more potential for chaotic scrums."
+};
 
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* no storage */ } }
 function read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } }
@@ -270,11 +275,10 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
       /* every board plays under either book (issue #14): the choice is which rules, never which boards */
       for (const id of ["classic", "modern"]) {
         const r = rulesetFor(id);
-        html += '<button data-ruleset="' + id + '" aria-pressed="' + (prefs.ruleset === id) + '" title="' +
-          esc(id === "classic" ? "The 1994 book: 84 priority cards, damage on a track, option cards, lives." : "The 2016 book: your own deck of twenty, SPAM, Energy and upgrades, reboots.") +
-          '">' + esc(r.name) + " <span class='keys'>" + esc(r.years) + "</span></button>";
+        html += '<button data-ruleset="' + id + '" aria-pressed="' + (prefs.ruleset === id) + '">' +
+          esc(r.name) + " <span class='keys'>" + esc(r.years) + "</span></button>";
       }
-      html += "</div>";
+      html += "</div><p class='lead blurb'>" + esc(RULESET_BLURB[prefs.ruleset]) + "</p>";
 
       html += "<h2>Seats</h2><div class='seats'>";
       /* the swatch is the colour the seat will get: the first human is Coolant, the rest fill in order */
