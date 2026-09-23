@@ -693,13 +693,14 @@ these are the rules that came out of it:
   board still puts it in hand, riding the pointer until the next click. The
   selected board carries its own turn and take-off buttons; Q and E turn a
   board in hand or on the floor.
-- **The corner rule is the book's.** A flag in a corner formed by two or more
-  walls warns (`course.flagWallCorner`), anywhere on the floor. A board's
-  geometric corner is refused only when it is an OUTER corner of the course,
-  with the drop on two sides; a board corner another board lies against is
-  floor like any other, since the book's rule is about walls and not about
-  where the cardboard ends. A course laying an `unverified` board warns too,
-  which is what that flag now does instead of nothing.
+- **The corner rule is the book's, and only the book's.** A flag in a corner
+  formed by two or more walls warns (`course.flagWallCorner`), anywhere on the
+  floor. A board's geometric corner is floor like any other: the outer-corner
+  refusal that used to sit beside it was ours and is gone, with the other
+  invented checks (2026-09-23: a flag under a wall device, two pushers or two
+  jets on a square, a press over a pit, a ramp's gradient, the flag-location
+  count; a disconnected course and a walled-in bay now warn instead of
+  refusing). A course laying an `unverified` board warns too.
 - **Site notes round-trip**, and a `has` that is not a list is reported rather
   than crashing the first edit.
 

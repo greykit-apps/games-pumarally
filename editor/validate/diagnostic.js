@@ -62,13 +62,11 @@ export const CODES = Object.freeze({
   "device.faceNotAllowed":"a face on a kind that takes none",
   "device.offBoard":      "the cell a device stands in is off the board",
   "device.noMount":       "a wall device on an edge with no wall behind it to mount on",
-  "device.duplicatePusher":"two pushers standing in one square",
   "device.badField":      "a device field is missing, out of range, or not allowed for its kind",
   "device.unknownKey":    "a key the device schema does not define",
 
   /* --- flame jets ------------------------------------------------------- */
   "jet.blockedReach":     "a reach-two jet whose second square is off the board or behind a wall",
-  "jet.overlap":          "two flame jets covering one square",
   "jet.boxedIn":          "a flame jet with walls on more than one side",
 
   /* --- registers -------------------------------------------------------- */
@@ -96,7 +94,6 @@ export const CODES = Object.freeze({
 
   /* --- ceiling ---------------------------------------------------------- */
   "ceiling.offBoard":     "a ceiling device off the board",
-  "ceiling.overPit":      "a ceiling device over a pit",
   "ceiling.duplicate":    "two ceiling devices of one kind on one square",
 
   /* --- elevation -------------------------------------------------------- */
@@ -104,7 +101,6 @@ export const CODES = Object.freeze({
   "shape.rampGlyph":      "a ramp lattice character that is not ' ' or 'R'",
   "ramp.walled":          "a ramp on an edge that also carries a wall or a door",
   "ramp.flat":            "a ramp between two squares at the same level",
-  "level.rampGradient":   "a ramp not climbing exactly one level (warning -- uncited)",
   "level.unreachable":    "a level no ramp reaches",
 
   /* --- provenance ---------------------------------------------------------
@@ -129,7 +125,7 @@ export const CODES = Object.freeze({
   "course.badPlacement":  "a stamp position that is missing or negative",
   "course.badRole":       "a stamp role that is not board or dock",
   "course.overlap":       "a board laid over another, whose covered squares are out of play",
-  "course.disconnected":  "the course is not one connected area",
+  "course.disconnected":  "the course is not one connected area (a warning: odd, not forbidden)",
   "course.twoDocks":      "more than one docking bay",
   "course.noDock":        "a course with no docking bay board and no starting squares of its own",
   "course.bayNumbering":  "docking bays not numbered 1..n with no gaps",
@@ -138,13 +134,11 @@ export const CODES = Object.freeze({
   "course.startNotFloor":  "a starting square on anything but plain floor",
   "course.startInDock":    "a starting square placed on the docking bay board",
   "course.startDuplicate": "two starting squares on one square",
-  "course.bayTrapped":    "a docking bay with no unblocked way out of the dock",
+  "course.bayTrapped":    "a docking bay with no unblocked way out of the dock (a warning: uncited)",
   "course.noFlags":       "a course with no flags",
   "course.flagOffCourse": "a flag off the course or on a void square",
   "course.flagNotFloor":  "a flag in a pit",
   "course.flagInDock":    "a flag inside the docking bay's footprint",
-  "course.flagUnderDevice":"a flag on a square a wall device stands in",
-  "course.flagInCorner":  "a flag in an outer corner of the course, the drop on two sides",
   "course.flagWallCorner":"a flag in a corner formed by two or more walls, which the classic rulebook advises against",
   "course.unverifiedBoard":"a board marked unverified is laid in this course",
   "course.flagGap":       "a flag further from the previous one than the ruleset allows",
@@ -154,8 +148,7 @@ export const CODES = Object.freeze({
   "course.rebootTwice":     "two reboot tokens on one board",
   "course.rebootArrow":     "a reboot token whose arrow points into a pit or off the course",
   "course.rebootMissing":   "a board with no reboot token, on a course that places them",
-  "course.flagDuplicate": "two flags on one square",
-  "course.fewFlagSpots":  "a course marking fewer flag locations than a race wants to choose from"
+  "course.flagDuplicate": "two flags on one square"
 });
 
 export const ALL_CODES = Object.freeze(Object.keys(CODES));

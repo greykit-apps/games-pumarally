@@ -289,10 +289,11 @@ export const TESTS = [
   ["a press is a thing ON a square, and knows which squares it may not be on", () => {
     /* a press sits over a belt on every Cannery Row square, so it is a
      * ceiling device and not a cell. What is left to refuse: off the board,
-     * over a pit, twice on one square, and the long way of saying always. */
+     * twice on one square, and the long way of saying always. A press over a
+     * pit is odd and allowed: no book refuses it, and it flattens nothing. */
     assert(codes(board(4, 2, b => press(b, 6, 0, [1]))).indexOf("ceiling.offBoard") >= 0, "a press outside the grid must be refused");
-    assert(codes(board(4, 2, (b, t) => { t.setCell(0, 0, "o.."); press(b, 0, 0, [1]); })).indexOf("ceiling.overPit") >= 0,
-      "a press over a pit must be refused -- there is no floor to flatten anything against");
+    assert(!codes(board(4, 2, (b, t) => { t.setCell(0, 0, "o.."); press(b, 0, 0, [1]); })).some(c => /^ceiling\./.test(c)),
+      "a press over a pit is allowed");
     assert(codes(board(4, 2, b => { press(b, 0, 0, [1]); press(b, 0, 0, [2]); })).indexOf("ceiling.duplicate") >= 0,
       "two presses on one square must be refused");
     assert(codes(board(4, 2, b => press(b, 0, 0, [1, 2, 3, 4, 5]))).some(c => /^regs\./.test(c)),

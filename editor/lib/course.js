@@ -236,27 +236,14 @@ export function boardLocal(course, library, from, bounds, gridW, c, r) {
   };
 }
 
-/** Is this square the very corner of the board that wrote it? */
-export function inBoardCorner(local) {
-  if (!local) return false;
-  return (local.c === 0 || local.c === local.w - 1) &&
-         (local.r === 0 || local.r === local.h - 1);
-}
-
-/**
- * Is this square an OUTER corner of the course: a board's corner whose two
- * outward sides face off the course, so a robot there is hemmed in by the
- * drop on two sides? A board's corner that another board lies against on
- * either side is floor like any other, and the book's only corner rule is
- * about walls (p.9: "should not be placed in a corner formed by two or more
- * walls"), which `wallsAround` reports as the warning it is.
- */
-export function inOuterCorner(grid, local, c, r) {
-  if (!inBoardCorner(local)) return false;
-  const dc = local.c === 0 ? W : E, dr = local.r === 0 ? N : S;
-  const off = d => { const nc = c + DC[d], nr = r + DR[d]; return !inBoard(grid, nc, nr) || isVoid(grid, nc, nr); };
-  return off(dc) && off(dr);
-}
+/* THERE IS NO CORNER RULE HERE, and there is no rule about wall devices. Two
+ * refusals used to follow: a flag in an OUTER corner of the course (the
+ * cardboard's corner, the drop on two sides), and a flag sharing a square
+ * with something bolted to a wall. Neither is in a book. The classic book's
+ * corner rule is about WALLS (p.9: "should not be placed in a corner formed
+ * by two or more walls"), and `wallsAround` reports that as the warning it
+ * is; 2016 p.15 leaves a board laser active under a checkpoint, which is a
+ * device on a wall. Both refusals gone 2026-09-23. */
 
 /**
  * Connected components over non-void squares, 4-adjacency, IGNORING WALLS.
@@ -350,7 +337,7 @@ export function inBox(box, c, r) {
  * then refuses, which is the worst of both.
  */
 export function flagRefusal(course, library, asm, c, r) {
-  const { grid, from, bounds } = asm;
+  const { grid, bounds } = asm;
   if (!inBoard(grid, c, r) || isVoid(grid, c, r)) {
     return { code: "course.flagOffCourse", why: "off the course" };
   }
@@ -369,17 +356,6 @@ export function flagRefusal(course, library, asm, c, r) {
   }
   if (def.props.dock) {
     return { code: "course.flagInDock", why: "on a starting square" };
-  }
-  for (const dev of grid.wallDevices) {
-    const cell = deviceCell(dev);
-    if (cell && cell[0] === c && cell[1] === r) {
-      return { code: "course.flagUnderDevice", why: "sharing its square with something bolted to a wall" };
-    }
-  }
-  const local = boardLocal(course, library, from, bounds, grid.w, c, r);
-  if (inOuterCorner(grid, local, c, r)) {
-    return { code: "course.flagInCorner",
-      why: "the outer corner of the course, on " + (local ? JSON.stringify(local.boardId) : "its board") };
   }
   return null;
 }

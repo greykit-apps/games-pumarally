@@ -105,19 +105,11 @@ const CASES = [
   ["device.faceNotAllowed", FIXTURE, d => { wallDev(d, "door").face = "N"; }],
   ["device.offBoard", FIXTURE, d => { wallDev(d, "laser").face = "N"; }],
   ["device.noMount", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 0, " "); }],
-  ["device.duplicatePusher", FIXTURE, d => {
-    setEdgeGlyph(d, "h", 2, 9, "#");
-    d.wall.devices.push({ kind: "pusher", edge: "h:2,9", face: "S", regs: [2, 4] });
-  }],
   ["device.badField", FIXTURE, d => { wallDev(d, "laser").damage = 9; }],
   ["device.unknownKey", FIXTURE, d => { wallDev(d, "laser").colour = "red"; }],
 
   /* jets */
   ["jet.blockedReach", FIXTURE, d => { setEdgeGlyph(d, "h", 8, 9, "#"); }],
-  ["jet.overlap", FIXTURE, d => {
-    setEdgeGlyph(d, "h", 8, 10, "#");
-    d.wall.devices.push({ kind: "jet", edge: "h:8,10", face: "N", regs: [1] });
-  }],
   ["jet.boxedIn", FIXTURE, d => { setEdgeGlyph(d, "v", 8, 8, "#"); }],
 
   /* registers */
@@ -148,7 +140,6 @@ const CASES = [
 
   /* ceiling */
   ["ceiling.offBoard", FIXTURE, d => { d.ceiling.devices[0].at = [99, 0]; }],
-  ["ceiling.overPit", FIXTURE, d => { d.ceiling.devices[0].at = [1, 3]; }],
   ["ceiling.duplicate", FIXTURE, d => { d.ceiling.devices.push({ ...d.ceiling.devices[0] }); }],
 
   /* elevation. The fixture's ramps: h:5,8 climbs from (5,8) at 0 up to (5,7)
@@ -157,7 +148,6 @@ const CASES = [
   ["shape.rampGlyph", FIXTURE, d => { d.ground.rampH[8] = setCh(d.ground.rampH[8], 5, "Z"); }],
   ["ramp.walled", FIXTURE, d => { setEdgeGlyph(d, "h", 5, 8, "#"); }],
   ["ramp.flat", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "0"); }],
-  ["level.rampGradient", FIXTURE, d => { d.ground.levels[7] = setCh(d.ground.levels[7], 5, "2"); }],
   ["level.unreachable", FIXTURE, d => { d.ground.rampH[8] = setCh(d.ground.rampH[8], 5, " "); }],
 
   /* provenance */
@@ -227,14 +217,10 @@ LIB.set(FIXTURE, checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board);
   LIB.set("bay", bay);
 }
 
-/* A SIX BY SIX, and it is not decoration.
- *
- * Every other board in this file is twelve square, and on a twelve-square board
- * `c % 12` and a board-local coordinate give the same answer for "is this the
- * corner" -- so reverting the corner rule to a modulus passed this whole suite.
- * On a 6x6 laid at [12,0] the far corner is course (17,5), which `% 12` does
- * not think is a corner at all. That is the case that tells the two rules
- * apart, and it is the shape Master Builder actually ships. */
+/* A SIX BY SIX, for the connectivity case: laid at [12,24] it touches the
+ * docking bay at one corner and nothing else, which is the shape Master
+ * Builder actually ships. (It once also told the outer-corner flag rule from
+ * a `% 12` one; that rule was ours, not a book's, and is gone.) */
 {
   const small = blankBoard({ id: "small", name: "Small", w: 6, h: 6, edition: "classic", set: "authored", origin: "authored" });
   LIB.set("small", small);
@@ -277,11 +263,6 @@ const COURSE_CASES = [
   ["course.flagOffCourse", c => { c.flags[0] = [99, 99]; }],
   ["course.flagNotFloor", c => { c.flags[0] = [1, 3]; }],           // the fixture's pit
   ["course.flagInDock", c => { c.flags[0] = [0, 13]; }],   // floor, and inside the block
-  ["course.flagUnderDevice", c => { c.flags[0] = [2, 9]; }],   // the pusher stands there        // the fixture's pusher
-  ["course.flagInCorner", c => {
-    c.stamps.push({ role: "board", board: "small", rot: 0, at: [12, 0] });
-    c.flags = [[4, 6], [17, 5]];           // the 6x6's own (5,5); `% 12` says (5,5) is not a corner
-  }],
   /* two boards meeting only at a corner: 4-adjacency says that is two areas,
    * and nothing can drive between them. An 8-adjacent flood fill would call it
    * one course and be wrong. */
@@ -311,11 +292,6 @@ const COURSE_CASES = [
   /* the rulebook's corner is walls, not cardboard: (4,6) walled on two sides */
   ["course.flagWallCorner", c => { c.stamps[0].board = "cornered"; }],
   ["course.unverifiedBoard", c => { c.stamps[0].board = "unchecked"; }],
-  /* The fixture marks three flag locations, so the base course -- which lays
-   * two boards -- has six and clears the guideline. One board alone has three,
-   * which does not. (noDock fires too; the case only needs its own code to be
-   * among what comes back.) */
-  ["course.fewFlagSpots", c => { c.stamps = [c.stamps[0]]; }]
 ];
 
 /* three dock variants the cases above need, each the eight-bay dock with one thing wrong */
