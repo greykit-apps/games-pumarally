@@ -18,7 +18,6 @@ import {
   components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal, wallsAround,
   startRefusal, STARTS_WANTED
 } from "../lib/course.js";
-import { checkBelts } from "./board.js";
 import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 /* The classic rulebook's guideline on how far apart flags may be. Kept here
@@ -190,11 +189,6 @@ export function validateCourse(course, library, d) {
       sizes.join(", ") + " squares). Boards that meet only at a corner are not joined: " +
       "nothing can drive between them.", null, "/stamps");
   }
-
-  /* seams: the belt geometry checks, run over the assembled grid so a conveyor
-   * running off one board into a wall on the next is caught by the same code
-   * that catches it inside a board */
-  checkBelts(grid, d);
 
   /* where the robots start: a docking bay board, the course's own squares, or both */
   const docks = course.stamps.filter(s => s.role === "dock" || s.role === "course");

@@ -134,10 +134,7 @@ function checkGround(board, d) {
   }
 }
 
-/* Exported so a course can run it over the ASSEMBLED grid. A conveyor running
- * off one board into a wall on the next is the same fault as one doing it
- * inside a board, and it is worth having exactly one implementation of. */
-export /* A site sits ON plain floor. Every one of them is somewhere a robot comes to
+/* A site sits ON plain floor. Every one of them is somewhere a robot comes to
  * rest to collect something, and a belt, a gear or a pit is not somewhere a
  * robot rests. What is NOT refused is more than one on a square: that is the
  * whole point of the layer. */
@@ -192,30 +189,16 @@ function checkSquareSites(board, d) {
   }
 }
 
-export function checkBelts(board, d) {
-  for (let r = 0; r < board.h; r++) {
-    for (let c = 0; c < board.w; c++) {
-      const speed = tokenBeltSpeed(cellAt(board, c, r));
-      if (!speed) continue;
-      const dir = beltDir(board, c, r);
-      if (dir === undefined) continue;                 // bad argument, already reported
-      const ptr = "/ground/rows/" + r;
-      if (wallAt(board, c, r, dir) === EDGE_WALL) {
-        d.error("belt.intoWall", "The conveyor at " + at(c, r) + " runs " + dirLetter(dir) +
-          " into a wall.", at(c, r), ptr);
-        continue;
-      }
-      // A conveyor may run across a level change, and there is deliberately no
-      // check here: Wet and Wild says nothing that forbids it. A belt carries a
-      // robot down off a ledge (at the drop's cost), up one over a ramp, and off
-      // the board's edge, and the engine resolves each at play time. The check
-      // that used to be here (belt.acrossLedge) was invented, like belt.headOn.
-      // Two conveyors that run head-on into each other are rare but legal: the
-      // board art prints them and the engine resolves the contention at play
-      // time. So there is deliberately no check here for opposed belts.
-    }
-  }
-}
+/* THERE IS NO CONVEYOR GEOMETRY CHECK, and the three that used to be here
+ * were each invented. A conveyor running into a wall is what the printed
+ * boards do -- the robot rides to the wall and stops there, and the engine
+ * resolves that at play time -- so `belt.intoWall` was refusing real boards
+ * (gone 2026-09-23). Two conveyors head-on into each other are rare but
+ * printed, and the engine resolves the contention (`belt.headOn`, gone). A
+ * conveyor across a level change is allowed by everything Wet and Wild says:
+ * it carries a robot down off a ledge at the drop's cost, up one over a ramp,
+ * and off the board's edge (`belt.acrossLedge`, gone). What remains of a belt
+ * is its spelling, checked in checkGround. */
 
 function checkWallLattice(board, d) {
   /* The door glyph and the door's register set are no longer the same
@@ -490,7 +473,6 @@ export function validateBoard(board, d) {
   checkMeta(board, d);
   checkGround(board, d);
   checkSquareSites(board, d);
-  checkBelts(board, d);
   checkWallLattice(board, d);
   checkWallDevices(board, d);
   checkCeiling(board, d);
