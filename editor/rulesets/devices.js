@@ -86,6 +86,24 @@ export const DEVICE_KINDS = {
     source: "Crash and Burn. The register list is the registers it stands OPEN in."
   },
 
+  /* A ONE-WAY WALL IS A WALL THAT KNOWS WHICH SIDE IT IS ON. The lattice
+   * carries an ordinary `#` -- it IS a wall, to everything that only asks
+   * whether an edge is walled -- and this device, bolted to it, says which
+   * side is red. `face` points INTO the red square, the one it is placed in,
+   * exactly as a pusher faces into the square it shoves: from there the edge
+   * is a wall; from the green side beyond it there is nothing there at all.
+   * `blockedAt` (lib/board.js) is the one place that reads it, so a mover, a
+   * laser and the validator cannot disagree about which way it lets through. */
+  oneWay: {
+    layer: "wall", name: "One-way wall", faced: true, needsWall: true,
+    regs: REGS_NONE, fields: {},
+    printedIn: BOTH,
+    source: "Radioactive (1998) and its 2016 reprint Contamination. A wall from the red side, " +
+            "nothing from the green: robots and lasers both. Rule from the Ultimate RoboRally " +
+            "Collection (Justin Alexander, a fan compilation), manual1/roborally-ultimate-" +
+            "collection-rulebook.pdf p.12; a review of Contamination says the same."
+  },
+
   /* --- ceiling layer ---------------------------------------------------- */
 
   /* THE PRESS AND THE CRUSHER ARE ONE DEVICE, and were two here until the

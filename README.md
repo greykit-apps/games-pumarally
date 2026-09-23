@@ -59,6 +59,7 @@ game draw one, then fill up to eight seats with people and bots.*
 | The 2016 expansions' floor: water, drains, ledges and ramps, currents, randomizers, teleporters, flamers (from the three Factory Floor Guides) | done, 11 scenarios by name |
 | The 2016 rules: own decks, Priority Token, SPAM and Haywire, Energy, the upgrade shop with all forty cards' effects, shutdown, reboot, the reference card's floor order | done, 76 scenarios by name; two declared substitutes (reboot point, first priority) |
 | Flag locations marked on the boards, for the engine to choose among | done |
+| One-way walls (Radioactive, and its 2016 reprint Contamination) | done, 5 scenarios by name; the rule is from the Ultimate RoboRally Collection, a fan compilation, as no publisher's rulebook is in the archive |
 
 ## How it is put together
 

@@ -7,7 +7,7 @@
 
 import {
   blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell,
-  sitesAt, setSites, flagSpots, propAt, cloneBoard, docksOf } from "../lib/board.js";
+  sitesAt, setSites, flagSpots, propAt, cloneBoard, docksOf, blockedAt } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE, setRamp, rampOn } from "../lib/edges.js";
 import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
@@ -934,6 +934,37 @@ const fresh = (w = 8, h = 8) =>
   const mainSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "app", "main.js"), "utf8");
   ok(/d\.openBoard|dataset\.openBoard/.test(mainSrc), "library: main.js reads data-open-board off a dataset");
   ok(mainSrc.indexOf('class="insp-lib"') >= 0, "library: and the shell has somewhere to draw it");
+}
+
+/* A ONE-WAY WALL AT A SEAM. Board `a` prints one on its east rim, red toward
+ * its own square; board `b` is laid beside it. With nothing printed on `b`'s
+ * side the one-way wall survives assembly and lets a robot in from `b`. When
+ * `b` prints a plain wall on the same edge, the wall wins -- as it does over a
+ * door -- and the edge stops robots from both sides. */
+{
+  const a = blankBoard({ id: "owA", name: "A", w: 2, h: 1, set: "authored", origin: "authored" });
+  setWall(a, 1, 0, E, EDGE_WALL);
+  a.wallDevices.push({ kind: "oneWay", edge: { kind: "v", c: 2, r: 0 }, face: W });
+  const open = blankBoard({ id: "owB", name: "B", w: 2, h: 1, set: "authored", origin: "authored" });
+  const walled = blankBoard({ id: "owC", name: "C", w: 2, h: 1, set: "authored", origin: "authored" });
+  setWall(walled, 0, 0, W, EDGE_WALL);
+  const lib = new Map([["owA", a], ["owB", open], ["owC", walled]]);
+  const pair = other => ({ id: "seam", name: "Seam", stamps: [
+    { role: "board", board: "owA", rot: 0, at: [0, 0] }, { role: "board", board: other, rot: 0, at: [2, 0] }] });
+
+  const g1 = assemble(pair("owB"), lib).grid;
+  eq(g1.wallDevices.filter(d => d.kind === "oneWay").length, 1, "seam: a one-way rim beside open floor survives assembly");
+  eq(blockedAt(g1, 1, 0, E, 1), true, "seam: and still stops from its red side");
+  eq(blockedAt(g1, 2, 0, W, 1), false, "seam: and lets the neighbour's robot through from the green side");
+
+  const g2 = assemble(pair("owC"), lib).grid;
+  eq(g2.wallDevices.filter(d => d.kind === "oneWay").length, 0, "seam: beside a printed wall the one-way marking is dropped");
+  eq(blockedAt(g2, 2, 0, W, 1), true, "seam: the wall wins, and stops the neighbour's robot too");
+
+  /* laid the other way round, the printed wall first, the answer is the same */
+  const g3 = assemble({ id: "seam2", name: "Seam", stamps: [
+    { role: "board", board: "owC", rot: 0, at: [2, 0] }, { role: "board", board: "owA", rot: 0, at: [0, 0] }] }, lib).grid;
+  eq(blockedAt(g3, 2, 0, W, 1), true, "seam: whichever board is laid first");
 }
 
 console.log((failed ? "FAILED " : "ok ") + passed + " passed, " + failed + " failed");

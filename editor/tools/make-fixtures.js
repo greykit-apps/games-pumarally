@@ -107,6 +107,11 @@ function build() {
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 8, r: 8 }, face: S, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 6, r: 6 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 3, r: 7 }, regs: [2, 4] });
+  /* A one-way wall between (10,7) and (11,7), red toward (10,7): it stops a
+   * robot going east and lets one coming west through. It stands on a plain
+   * `#`, which is what the lattice says a one-way wall is. */
+  setWall(b, 10, 7, E, EDGE_WALL);
+  b.wallDevices.push({ kind: "oneWay", edge: { kind: "v", c: 11, r: 7 }, face: W });
   /* Both ceiling kinds there are: the disc (a press in one game and a crusher
    * in the other, one device either way) and the flamer, which is a different
    * printed thing and stays its own kind. Two discs on ONE square is what the

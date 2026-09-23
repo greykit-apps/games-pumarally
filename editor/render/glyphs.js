@@ -348,6 +348,20 @@ export const DEVICE_GLYPHS = {
     markup: ctx => mk("M 12 98 L 88 98", MARK.door, 2.2) + regsMark(ctx.regs, MARK.door)
   },
 
+  oneWay: {
+    /* The print's two-tone wall: red on the side it stops, green on the side
+     * it lets through. Drawn like every wall device, mounted on the SOUTH edge
+     * facing NORTH -- so the red band lies inside the square it faces into,
+     * and the green band sits on the edge itself, toward the open side. The
+     * wall under it is drawn by the wall layer as any `#` is. */
+    art: ctx => '<g class="pr-oneway">' +
+      '<rect x="4" y="87" width="92" height="7" rx="1.5" fill="' + ART.oneWayRed + '"/>' +
+      '<rect x="4" y="94" width="92" height="6" rx="1.5" fill="' + ART.oneWayGreen + '"/></g>',
+    /* a bar on the edge with teeth into the red side: the side it stops */
+    markup: ctx => mk("M 10 97 L 90 97 M 22 97 L 22 86 M 38 97 L 38 86 M 54 97 L 54 86 M 70 97 L 70 86 M 86 97 L 86 86",
+      MARK.device, 1.6)
+  },
+
   crusher: {
     /* The game's own press drawing -- a ram on a shaft with a bolt through it,
      * which is what the printed disc is in either box. One device, so one
