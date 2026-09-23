@@ -194,7 +194,7 @@ button[data-ruleset]{padding:8px 14px}
 .rulesets button .keys{display:block}
 .blurb{font-size:12px;color:var(--text);margin:6px 0 0;line-height:1.4}
 input[type=range]{accent-color:var(--accent);flex:1;min-width:120px;max-width:320px;margin:0 6px}
-input[type=number][data-num]{width:5ch;text-align:center}
+input[type=number][data-num]{width:7ch;text-align:center}
 .house{display:flex;flex-direction:column;gap:5px}
 .hr{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);position:relative}
 .hr label{display:flex;align-items:center;gap:8px;cursor:pointer}
