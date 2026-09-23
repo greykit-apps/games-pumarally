@@ -73,13 +73,16 @@ game rather than by none.
 
 ## Playing
 
-The new-game screen has a tab per way a course comes about: **Quick game**
-(one board, picked or drawn, laid at a random facing with three flags drawn
-from where it marks), **Quick course** (N boards and F flags on sliders, all
-drawn and stacked as the box stacks them), **Build course** (the workshop)
-and **Saved course** (every shipped course and every one you saved), plus
-**Settings** for the house rules, each explained, and the button that
-forgets everything. The rules and seats sit under whichever tab is open. Any
+The new-game screen is two columns under a tab per way a course comes
+about: **Quick game** (one board, picked or drawn, laid at a random facing
+with three flags drawn from where it marks), **Quick course** (N boards and F
+flags on sliders, all drawn and stacked as the box stacks them) and **Saved
+course** (every shipped course and every one you saved). The left column is
+a window onto the boards or courses the tab offers and scrolls on its own;
+the right column holds the rules, eight seats (Human, Bot or empty), the
+house rules, each explained behind its (i), and Start, and stays put. **Build
+a course** beside the tabs opens the workshop, and the gear at the top right
+holds the button that forgets everything. Any
 board plays under either book: what the other box printed works as its own
 book says (water slows, a swing door shuts, currents convey), and only the
 markings the chosen book uses are shown -- wrenches under classic, batteries
@@ -108,8 +111,8 @@ stays resumable until another race is started.
 
 ## Building courses
 
-The **course workshop** (`editor/index.html#course`, or the Build course
-tab) lays boards out, puts the flags on, and saves to this browser's
+The **course workshop** (`editor/index.html#course`, or the Build a course
+button on the new-game screen) lays boards out, puts the flags on, and saves to this browser's
 library, where the set-up screen offers the result under Saved course. A race
 needs eight starting squares: the docking bay board is the quick way to all
 eight, or place them one square at a time anywhere on the floor (**B** in the
