@@ -101,12 +101,12 @@
   },
   "board3B": {
     "art": {
-      "sha": "a559596a57ac3431",
-      "bytes": 60320
+      "sha": "42425ca28144446c",
+      "bytes": 64200
     },
     "markup": {
-      "sha": "fb15bb267c1932b9",
-      "bytes": 45695
+      "sha": "d8161267dfccae52",
+      "bytes": 51249
     }
   },
   "board4A": {
