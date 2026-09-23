@@ -16,7 +16,7 @@ drawings and the layouts are hand-transcribed tile data.
 No install. Vanilla ES modules, no build step, no dependencies, and no network
 at play time beyond fetching the boards.
 
-![Turn 4 of a six-robot race under the classic rules: a laser fires up the left edge and each robot's option cards sit in the panel](docs/screenshots/classic-laser.png)
+![Turn 4 of a six-robot race under the classic rules: a laser fires up the left edge and each robot's option cards sit in the panel](screenshots/classic-laser.png)
 
 *Classic rules, turn 4, register 1. Six robots on Crosscut (Cross and Pit
 Maze over the docking bay): a laser fires up the left edge, the three flags
@@ -25,10 +25,10 @@ the right.*
 
 | | |
 |---|---|
-| ![Programming registers under the classic rules: four cards placed, three left in hand](docs/screenshots/classic-program.png) | ![Programming under the 2016 rules: SPAM damage cards in the hand and upgrades bought with energy](docs/screenshots/modern-program.png) |
+| ![Programming registers under the classic rules: four cards placed, three left in hand](screenshots/classic-program.png) | ![Programming under the 2016 rules: SPAM damage cards in the hand and upgrades bought with energy](screenshots/modern-program.png) |
 | *Programming, classic: four registers filled, three cards left in the hand. The next card goes in by click, drag or its number key.* | *The same screen under the 2016 rules, on Four Quarters: SPAM in the hand, energy and upgrades under each robot.* |
 
-![The new-game screen: boards grouped by the box they came from on the left, rules, seats and house rules on the right](docs/screenshots/setup.png)
+![The new-game screen: boards grouped by the box they came from on the left, rules, seats and house rules on the right](screenshots/setup.png)
 
 *Set-up. Boards are shelved by the box they came out of; pick one, or let the
 game draw one, then fill up to eight seats with people and bots.*
@@ -73,7 +73,8 @@ game/                 the rebuilt game: engine, bots, simulation, screen
 editor/               the board and course workshop, and the data it writes
   data/               every board and course, as PRBoard and PRCourse JSON
   README.md           the format, the workshop, and what its first use found
-docs/screenshots/     the pictures in this file
+screenshots/          the pictures in this file
+icon.svg              the icon; og.png, the favicons and apple-touch-icon.png are rendered from it
 PLAN.md               the rebuild plan and its milestones
 EDITOR-REVIEW.md      the workshop review, findings ranked, and what remains
 ```
