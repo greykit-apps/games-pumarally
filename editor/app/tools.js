@@ -86,7 +86,7 @@ export function blankToolState() {
   return {
     tool: "el:conveyor",
     dir: N, digit: 1, pair: 1, damage: 1, reach: 1, level: 1,
-    regs: { pusher: [1, 3, 5], jet: [2, 4], door: [1, 3, 5], crusher: [2, 5], flamer: null },
+    regs: { pusher: [1, 3, 5], jet: [2, 4], door: [1, 3, 5], crusher: [2, 5], flamer: null, trapDoor: [2, 4] },
     arms: "."
   };
 }
@@ -392,8 +392,12 @@ function applyCeiling(board, st, tool, c, r) {
   if (ceilingAt(board, c, r, kind).length) {
     return { ok: false, why: "A " + def.name.toLowerCase() + " already hangs over " + at(c, r) + "." };
   }
-  const dev = { kind, c, r };
   const regs = st.regs[kind];
+  if (def.regs === "required" && (!regs || !regs.length || regs.length >= 5)) {
+    return { ok: false, why: "A " + def.name.toLowerCase() + " acts in some registers and not others: " +
+      (def.regsWhy || "pick the registers.") };
+  }
+  const dev = { kind, c, r };
   if (regs && regs.length) dev.regs = [...regs];
   board.ceilingDevices.push(dev);
   return { ok: true, changed: true, note: def.name + " over " + at(c, r) };

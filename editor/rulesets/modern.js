@@ -66,8 +66,24 @@ export default {
             "point is this step; the movement points land as the robot moves. A classic flame jet stands " +
             "in for a flamer and is resolved here, on this timing -- which has no point for merely " +
             "STAYING in the flame, where the classic book has one. See devices.js." },
+    { step: "waste", name: "Radioactive waste burns, then gives an Energy or an upgrade", settled: true,
+      note: "Contamination, on the classic timing -- ours, decided 2026-09-23, as no rulebook for " +
+            "the box is in hand. What it gives is what a review of Contamination says it gives." },
+    { step: "trapDoor", name: "Trap doors open under whatever is still on them", settled: true,
+      note: "Turn & Burn. At the end of each register printed on the door -- the author's reading, " +
+            "decided 2026-09-23 -- before the batteries and the checkpoints." },
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
+
+  /* What a square does once the five registers are over, for the inspector.
+   * The 2016 game has no end of turn; its round ends instead. */
+  endOfTurn: {
+    heading: "At the end of the round",
+    steps: [
+      { site: "radiation", name: "Radiation deals 1 damage card",
+        note: "Contamination, on the classic timing -- ours, decided 2026-09-23." }
+    ]
+  },
 
   flagForbids: ["pit", "belt", "gear", "oil", "portal", "dock", "water", "ramp",
                 "randomize", "teleport", "energy", "antenna", "reboot"]

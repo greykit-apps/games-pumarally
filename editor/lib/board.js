@@ -246,6 +246,31 @@ export function deviceOnEdge(board, edge) {
   return board.wallDevices.find(d => edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
 }
 
+/** Is there a repulsor field on this edge? From either side: the field is not one-sided. */
+export function repulsorOn(board, edge) {
+  const id = edgeId(edge.kind, edge.c, edge.r);
+  return board.wallDevices.some(d => d.kind === "repulsor" && edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+}
+
+/** The one-way wall devices on an edge -- one, or two if both sides are red. */
+export function oneWaysOn(board, edge) {
+  const id = edgeId(edge.kind, edge.c, edge.r);
+  return board.wallDevices.filter(d =>
+    d.kind === "oneWay" && edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+}
+
+/**
+ * Is (c,r) on the GREEN side of a one-way wall on `edge` -- the side it lets
+ * through? True only when the edge carries a one-way wall and none of its red
+ * faces is toward (c,r). Red on both sides is a plain wall, which is what it
+ * reads as here.
+ */
+export function greenSide(board, edge, c, r) {
+  const ways = oneWaysOn(board, edge);
+  if (!ways.length) return false;
+  return ways.every(d => { const cell = deviceCell(d); return !cell || cell[0] !== c || cell[1] !== r; });
+}
+
 /** The door device on an edge, or undefined. */
 export function doorOn(board, edge) {
   const id = edgeId(edge.kind, edge.c, edge.r);
@@ -260,13 +285,15 @@ export function ceilingAt(board, c, r, kind) {
 
 /**
  * Is movement out of (c,r) in direction d blocked in this register?
- * A wall always blocks. A door blocks unless it stands open in that register.
- * One function, so a mover and the validator cannot disagree about a door.
+ * A wall always blocks -- unless it is a one-way wall and (c,r) is on its
+ * green side. A door blocks unless it stands open in that register.
+ * One function, so a mover, a laser and the validator cannot disagree about
+ * a door or about which way a one-way wall lets things through.
  */
 export function blockedAt(board, c, r, d, register) {
   const edge = edgeOf(c, r, d);
   const code = edgeCodeAt(board, edge);
-  if (code === EDGE_WALL) return true;
+  if (code === EDGE_WALL) return !greenSide(board, edge, c, r);
   if (code !== EDGE_DOOR) return false;
   const door = doorOn(board, edge);
   if (!door) return true;               // a 'D' with no device is refused by the validator

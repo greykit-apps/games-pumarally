@@ -24,7 +24,7 @@ import {
 } from "./board.js";
 import { bayCharOf } from "./token.js";
 import { rotateBoard, rotatedDims } from "./rotate.js";
-import { EDGE_NONE, EDGE_WALL, EDGE_DOOR, wallAt } from "./edges.js";
+import { EDGE_NONE, EDGE_WALL, EDGE_DOOR, wallAt, edgeId } from "./edges.js";
 import { DC, DR, N, E, S, W } from "./dir.js";
 
 export const COURSE_FORMAT = "PRCourse";
@@ -84,6 +84,13 @@ export function assemble(course, library) {
   });
   grid.cells.fill("   ");
   const from = new Int16Array(grid.w * grid.h).fill(-1);
+  /* A ONE-WAY WALL MEETING A PLAIN ONE AT A SEAM: THE WALL WINS, as it wins
+   * over a door (mergeEdge). The lattice cannot say so -- both are `#` -- so
+   * this remembers each course edge some board prints as a plain wall, and a
+   * one-way marking another board puts on the same edge is dropped at the end.
+   * Otherwise a board laid beside a one-way rim would find its own printed
+   * wall letting robots through from the far side. */
+  const plainWalls = new Set();
 
   course.stamps.forEach((stamp, si) => {
     const src = library.get(stamp.board);
@@ -104,8 +111,8 @@ export function assemble(course, library) {
         if (!inBoard(grid, gc, gr)) continue;
         grid.sites.delete(gc + "," + gr);
         if (grid.levels) setLevel(grid, gc, gr, 0);
-        if (r > 0) { grid.wallH[gr * grid.w + gc] = EDGE_NONE; grid.rampH[gr * grid.w + gc] = 0; }
-        if (c > 0) { grid.wallV[gr * (grid.w + 1) + gc] = EDGE_NONE; grid.rampV[gr * (grid.w + 1) + gc] = 0; }
+        if (r > 0) { grid.wallH[gr * grid.w + gc] = EDGE_NONE; grid.rampH[gr * grid.w + gc] = 0; plainWalls.delete(edgeId("h", gc, gr)); }
+        if (c > 0) { grid.wallV[gr * (grid.w + 1) + gc] = EDGE_NONE; grid.rampV[gr * (grid.w + 1) + gc] = 0; plainWalls.delete(edgeId("v", gc, gr)); }
       }
     }
     const covered = (c, r) => c >= dx && c < dx + b.w && r >= dy && r < dy + b.h;
@@ -124,10 +131,12 @@ export function assemble(course, library) {
         if (has) grid.sites.set(gc + "," + gr, has.slice());
       }
     }
+    const oneWays = new Set(b.wallDevices.filter(d => d.kind === "oneWay").map(d => edgeId(d.edge.kind, d.edge.c, d.edge.r)));
     for (let r = 0; r <= b.h; r++) {
       for (let c = 0; c < b.w; c++) {
         const code = b.wallH[r * b.w + c];
         if (!code) continue;
+        if (code === EDGE_WALL && !oneWays.has(edgeId("h", c, r))) plainWalls.add(edgeId("h", c + dx, r + dy));
         const i = (r + dy) * grid.w + (c + dx);
         if (r + dy >= 0 && r + dy <= grid.h && c + dx >= 0 && c + dx < grid.w) {
           grid.wallH[i] = mergeEdge(grid.wallH[i], code);
@@ -138,6 +147,7 @@ export function assemble(course, library) {
       for (let c = 0; c <= b.w; c++) {
         const code = b.wallV[r * (b.w + 1) + c];
         if (!code) continue;
+        if (code === EDGE_WALL && !oneWays.has(edgeId("v", c, r))) plainWalls.add(edgeId("v", c + dx, r + dy));
         if (r + dy >= 0 && r + dy < grid.h && c + dx >= 0 && c + dx <= grid.w) {
           const i = (r + dy) * (grid.w + 1) + (c + dx);
           grid.wallV[i] = mergeEdge(grid.wallV[i], code);
@@ -165,6 +175,11 @@ export function assemble(course, library) {
       grid.ceilingDevices.push({ ...dev, c: dev.c + dx, r: dev.r + dy });
     }
   });
+
+  if (plainWalls.size) {
+    grid.wallDevices = grid.wallDevices.filter(d =>
+      d.kind !== "oneWay" || !plainWalls.has(edgeId(d.edge.kind, d.edge.c, d.edge.r)));
+  }
 
   /* THE COURSE'S OWN STARTING SQUARES. A docking bay board is the quick way
    * to eight bays; a course may instead, or as well, place bays one square

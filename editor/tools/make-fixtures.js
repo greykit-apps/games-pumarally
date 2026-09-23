@@ -79,6 +79,14 @@ function build() {
   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T..");
   setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 
+  /* RADIATION UNDER A TELEPORTER, which is why radiation is a marking and not
+   * an element: Reactor Core prints exactly that. Waste on plain floor beside
+   * it, so the fixture carries each colour of deck. */
+  setSites(b, 8, 5, ["radiation"]);
+  setSites(b, 10, 1, ["waste"]);
+  /* a chop shop, which is transcribed and does nothing in play yet */
+  setSites(b, 11, 1, ["chopShop"]);
+
   /* THREE levels, one of them BELOW the floor you walk in on, joined by the
    * only thing that may join them -- a ramp, which is an EDGE. The board's base is 0, so a fixture with
    * levels 0 and 1 alone exercises only half the format -- and the half it
@@ -107,6 +115,18 @@ function build() {
   b.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 8, r: 8 }, face: S, reach: 2, regs: [2, 4] });
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 6, r: 6 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 3, r: 7 }, regs: [2, 4] });
+  /* A one-way wall between (10,7) and (11,7), red toward (10,7): it stops a
+   * robot going east and lets one coming west through. It stands on a plain
+   * `#`, which is what the lattice says a one-way wall is. */
+  setWall(b, 10, 7, E, EDGE_WALL);
+  b.wallDevices.push({ kind: "oneWay", edge: { kind: "v", c: 11, r: 7 }, face: W });
+  /* A repulsor field on the south edge of (9,9), printed in (9,9), with a
+   * laser bolted to the same edge firing north through it -- which is how
+   * Back Stretch mounts its double beam, and why a repulsor edge must count as
+   * a wall for a laser mount. */
+  setWall(b, 9, 9, S, EDGE_WALL);
+  b.wallDevices.push({ kind: "repulsor", edge: { kind: "h", c: 9, r: 10 }, face: N });
+  b.wallDevices.push({ kind: "laser", edge: { kind: "h", c: 9, r: 10 }, face: N, damage: 1 });
   /* Both ceiling kinds there are: the disc (a press in one game and a crusher
    * in the other, one device either way) and the flamer, which is a different
    * printed thing and stays its own kind. Two discs on ONE square is what the
@@ -114,6 +134,7 @@ function build() {
   b.ceilingDevices.push({ kind: "crusher", c: 10, r: 10, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 3, r: 10, regs: [1, 5] });
   b.ceilingDevices.push({ kind: "flamer", c: 4, r: 10 });   // no regs: every register
+  b.ceilingDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });   // open at the end of 2 and 4
   return b;
 }
 

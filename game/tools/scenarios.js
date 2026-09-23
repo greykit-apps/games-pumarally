@@ -2240,6 +2240,180 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "a one-way wall stops a robot on its red side and lets one through from its green side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot pushed at a one-way wall's red side is stopped, and so is its pusher",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot on the green side pushes one through a one-way wall",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a one-way wall stops a laser from its red side and lets one through from its green side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a one-way wall round-trips through the picture and keeps its red side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "radioactive waste hurts a robot every register it ends there, and hands it an option card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "waste acts after the fire and before the flags, in both books",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a powered-down robot takes the waste's damage but no option card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot beside the waste is not touched by it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "2016 waste deals a damage card, then asks: an Energy or the top upgrade free",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "radiation hurts once, at the end of the turn, and not every register",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "radiation reaches a powered-down robot, and 2016 pays it in a damage card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a square is radiation or waste, never both",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door opens at the end of a register it lists, and a robot still on it falls",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot may step onto a trap door in the register before it opens, and off it in the register it opens",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot may cross a trap door in the very register it opens",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door is floor in the registers it does not list",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a conveyor that leaves a robot on an opening trap door drops it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "the trap doors are the board's last act, before the checkpoints, in both books",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door must name the registers it opens in",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot that drives into a repulsor field is thrown back as far as its card moves",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a Move 1 into a repulsor field throws the robot one square back",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field throws back from either side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot pushed into a repulsor field goes back as far as the pusher's card, and the pusher's move ends",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field stops a laser like a wall",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a belt that carries a robot into a repulsor field meets a wall and nothing more",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot cannot phase through a repulsor field",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a laser may be mounted on a repulsor field's edge",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a chop shop is marked on the board and does nothing in play yet",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 

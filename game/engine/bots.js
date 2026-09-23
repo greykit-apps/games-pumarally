@@ -7,8 +7,8 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween } from "./course.js";
-import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST } from "./cards.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorOpens, repulsorAt } from "./course.js";
+import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
 import { UPGRADE_DEFS, canInstall, costOf } from "./upgrades.js";
@@ -98,7 +98,11 @@ function ghostCard(st, C, g, cd) {
     if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr)) g.dead = true; return; }
   }
   let moved = 0;
-  for (let i = 0; i < n && !g.dead; i++) { ghostMove(st, C, g, dir); moved++; }
+  for (let i = 0; i < n && !g.dead; i++) {
+    /* a repulsor field ahead throws the ghost back as far as the card, and the move ends */
+    if (repulsorAt(C, g.c, g.r, dir)) { for (let k = 0; k < Math.abs(plan.dist) && !g.dead; k++) ghostMove(st, C, g, opposite(dir)); break; }
+    ghostMove(st, C, g, dir); moved++;
+  }
   if (moved > 0 && !g.dead && oilAt(C, g.c, g.r)) ghostSlide(st, C, g, dir);
 }
 
@@ -127,6 +131,8 @@ function ghostBoard(st, C, g) {
   if (g.dead) return;
   const t = gearAt(C, g.c, g.r);
   if (t) g.face = rot(g.face, t);
+  /* the board's last act: a trap door opening under the ghost is a pit */
+  if (trapDoorOpens(C, g.c, g.r, g.reg)) g.dead = true;
 }
 
 /* flags touched along the way count, so a program that clips flag N on
@@ -299,6 +305,12 @@ export function botAnswer(st, library, req) {
         if (req.tag === "facing") return bestFacing(st, C, p);
         if (req.tag === "remove") { const i = req.labels.findIndex(l => /^(SPAM|Haywire)$/.test(l)); return i >= 0 ? i : 0; }
         return 0;
+      }
+      /* Contamination's waste: a free upgrade while there is a slot to fit one
+       * in, and the Energy once the mat is full or the track is not */
+      if (req.card === "waste") {
+        const room = ["permanent", "temporary"].some(t => p.installed.filter(u => UPGRADE_DEFS[u.id].type === t).length < INSTALL_LIMIT[t]);
+        return room ? 1 : 0;
       }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */

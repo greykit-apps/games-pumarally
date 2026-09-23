@@ -9,8 +9,9 @@
 import { assemble } from "../../editor/lib/course.js";
 import {
   inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt,
-  deviceCell, blockedAt, laserPath
+  deviceCell, blockedAt, laserPath, repulsorOn
 } from "../../editor/lib/board.js";
+import { edgeOf } from "../../editor/lib/edges.js";
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
@@ -140,6 +141,9 @@ export function waterAt(C, c, r) { return !!propAt(C.grid, c, r, "water"); }
 export function currentAt(C, c, r) { return !!propAt(C.grid, c, r, "current"); }
 export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize"); }
 export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
+/* Radioactive's two colours of deck, markings rather than elements (sites.js) */
+export function radiationAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "radiation"); }
+export function wasteAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "waste"); }
 
 /* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two
  * squares differ in level, and a ramp is the one square that spans one ------ */
@@ -165,6 +169,11 @@ export function flamerFires(C, c, r, register) {
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }
 
+/** A repulsor field on the edge between (c,r) and its neighbour in `dir`. */
+export function repulsorAt(C, c, r, dir) {
+  return inBoard(C.grid, c, r) && repulsorOn(C.grid, edgeOf(c, r, dir));
+}
+
 /** A wall or a shut door between (c,r) and its neighbour in `dir`; register is 0-based. */
 export function wallBlocks(C, c, r, dir, register) {
   return blockedAt(C.grid, c, r, dir, (register | 0) + 1);
@@ -181,6 +190,11 @@ export function pusherAt(C, c, r, register) {
 
 export function crusherFires(C, c, r, register) {
   return ceilingAt(C.grid, c, r, "crusher").some(d => firesIn(d.regs || null, (register | 0) + 1));
+}
+
+/** A trap door under (c,r) that opens at the end of this 0-based register. */
+export function trapDoorOpens(C, c, r, register) {
+  return inBoard(C.grid, c, r) && ceilingAt(C.grid, c, r, "trapDoor").some(d => firesIn(d.regs || null, (register | 0) + 1));
 }
 
 /**

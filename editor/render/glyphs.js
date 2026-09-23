@@ -348,6 +348,35 @@ export const DEVICE_GLYPHS = {
     markup: ctx => mk("M 12 98 L 88 98", MARK.door, 2.2) + regsMark(ctx.regs, MARK.door)
   },
 
+  repulsor: {
+    /* As printed: a glass tube of blue lightning lying along the edge, with a
+     * red cap at each end. Drawn, as every wall device is, mounted on the SOUTH
+     * edge of the square it is printed in; the field is not one-sided, so the
+     * facing only says which square shows the capsule. */
+    art: ctx => '<g class="pr-repulsor">' +
+      '<rect x="16" y="84" width="68" height="12" rx="6" fill="#bfe6ff" fill-opacity=".25" stroke="#8fd0f0" stroke-width="1.5"/>' +
+      '<path d="M18 90 L28 86 L36 93 L46 85 L54 94 L64 86 L72 93 L82 90" fill="none" stroke="#e8f6ff" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<path d="M18 90 L28 86 L36 93 L46 85 L54 94 L64 86 L72 93 L82 90" fill="none" stroke="#5fb8ff" stroke-width="5" stroke-opacity=".35" stroke-linejoin="round"/>' +
+      '<circle cx="11" cy="90" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="11" cy="90" r="3" fill="#2a0c06"/>' +
+      '<circle cx="89" cy="90" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="89" cy="90" r="3" fill="#2a0c06"/></g>',
+    markup: ctx => mk("M 6 90 L 18 90 L 28 84 L 38 96 L 50 84 L 62 96 L 72 84 L 82 90 L 94 90 M 6 82 L 6 98 M 94 82 L 94 98",
+      MARK.device, 1.6)
+  },
+
+  oneWay: {
+    /* The print's two-tone wall: red on the side it stops, green on the side
+     * it lets through. Drawn like every wall device, mounted on the SOUTH edge
+     * facing NORTH -- so the red band lies inside the square it faces into,
+     * and the green band sits on the edge itself, toward the open side. The
+     * wall under it is drawn by the wall layer as any `#` is. */
+    art: ctx => '<g class="pr-oneway">' +
+      '<rect x="4" y="87" width="92" height="7" rx="1.5" fill="' + ART.oneWayRed + '"/>' +
+      '<rect x="4" y="94" width="92" height="6" rx="1.5" fill="' + ART.oneWayGreen + '"/></g>',
+    /* a bar on the edge with teeth into the red side: the side it stops */
+    markup: ctx => mk("M 10 97 L 90 97 M 22 97 L 22 86 M 38 97 L 38 86 M 54 97 L 54 86 M 70 97 L 70 86 M 86 97 L 86 86",
+      MARK.device, 1.6)
+  },
+
   crusher: {
     /* The game's own press drawing -- a ram on a shaft with a bolt through it,
      * which is what the printed disc is in either box. One device, so one
@@ -355,6 +384,21 @@ export const DEVICE_GLYPHS = {
     art: ctx => A.pressSvg(),
     markup: ctx => ceilingMark(ctx)
   },
+  trapDoor: {
+    /* As printed: a hazard-striped frame round two steel plates that meet in
+     * the middle along a notched seam, the dark of the shaft showing through
+     * the notch. The register stamp is drawn by the renderer, as for a crusher. */
+    art: ctx => '<g class="pr-trapdoor">' +
+      '<rect x="8" y="8" width="84" height="84" rx="3" fill="#05070f"/>' +
+      '<rect x="8" y="8" width="84" height="84" rx="3" fill="none" stroke="url(#pr-hz)" stroke-width="9" opacity=".8"/>' +
+      '<path d="M16 16H47V40L41 50L47 60V84H16Z" fill="url(#pr-steel-g)" stroke="#0b0d14" stroke-width="2"/>' +
+      '<path d="M84 16H53V40L59 50L53 60V84H84Z" fill="url(#pr-steel-g)" stroke="#0b0d14" stroke-width="2"/>' +
+      '<circle cx="31" cy="28" r="4" fill="#1b1f2a" stroke="#8d98b3" stroke-width="1.2"/>' +
+      '<circle cx="69" cy="28" r="4" fill="#1b1f2a" stroke="#8d98b3" stroke-width="1.2"/></g>',
+    markup: ctx => mk("M 18 18 L 82 18 L 82 82 L 18 82 Z M 50 18 L 50 40 L 44 50 L 50 60 L 50 82",
+      MARK.ceiling, 1.5) + regsMark(ctx.regs, MARK.ceiling, 22)
+  },
+
   flamer: {
     /* the game's grate-and-tongues drawing; see art.js for why it is not the
        jet's plume with the nozzle left off */
@@ -446,6 +490,20 @@ export function siteOverlay(has, mode) {
      * square's element, so a belt's arrow lies over it exactly as printed. */
     out += mk("M 50.0 2.0 L 61.5 22.3 L 83.9 16.1 L 77.7 38.5 L 98.0 50.0 L 77.7 61.5 L 83.9 83.9 L 61.5 77.7 L 50.0 98.0 L 38.5 77.7 L 16.1 83.9 L 22.3 61.5 L 2.0 50.0 L 22.3 38.5 L 16.1 16.1 L 38.5 22.3 Z", MARK.hazard, 1.6) + mkText("?", 50, 52, MARK.hazard, 30);
   }
+  if (has.indexOf("chopShop") >= 0) {
+    /* a grate with rods on it, as printed; in markup, the grate and three rods */
+    out += art ? A.chopShopSvg()
+      : mk("M 20 20 L 80 20 L 80 80 L 20 80 Z M 30 34 L 46 46 M 52 30 L 66 40 M 36 58 L 52 66", MARK.ground, 2.2);
+  }
+  if (!art && (has.indexOf("radiation") >= 0 || has.indexOf("waste") >= 0)) {
+    /* In markup, hatching over the whole square in the colour of things that
+     * hurt: single for radiation, crossed for waste, which hurts more often.
+     * In the play art they are the colour of the deck instead, washed on by
+     * the ground layer under the square's element. */
+    const one = "M 4 36 L 36 4 M 4 68 L 68 4 M 4 100 L 100 4 M 36 96 L 96 36 M 68 96 L 96 68";
+    const two = " M 4 64 L 36 96 M 4 32 L 68 96 M 4 4 L 96 96 M 32 4 L 96 68 M 64 4 L 96 36";
+    out += mk(has.indexOf("waste") >= 0 ? one + two : one, MARK.hazard, 1.4);
+  }
   if (flag) {
     /* Always the same corner at the same size. A flag LOCATION is a question
      * about the square -- somewhere a flag may go -- not a flag standing on it,
@@ -472,5 +530,7 @@ export function siteOverlay(has, mode) {
  */
 export function siteSwatch(key, mode) {
   if (key === "randomizer" && mode === "art") return A.randomizerSvg();
+  if (key === "radiation" && mode === "art") return A.radiationSvg();
+  if (key === "waste" && mode === "art") return A.wasteSvg();
   return siteOverlay([key], mode);
 }

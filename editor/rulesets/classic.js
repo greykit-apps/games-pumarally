@@ -82,8 +82,26 @@ export default {
       note: "After the lasers, alone among elements -- Crash and Burn states this outright. " +
             "It burns whatever fire the board carries: a 2016 flamer stands in for a jet and is " +
             "resolved here, on this timing. See devices.js." },
+    { step: "waste", name: "Radioactive waste burns, and may give an option card", settled: true,
+      note: "Radioactive. With the laser fire, and its option card at the checkpoints -- so after the " +
+            "burners and before the flags. From the Ultimate RoboRally Collection p.6, a fan compilation; " +
+            "no publisher's rulebook for the box is in the archive." },
+    { step: "trapDoor", name: "Trap doors open under whatever is still on them", settled: true,
+      note: "Grand Prix. At the end of each register printed on the door -- the author's reading, " +
+            "decided 2026-09-23 -- so it is the board's last act before the flags." },
     { step: "checkpoint", name: "Flags and repair sites are touched", settled: true }
   ],
+
+  /* What a square does once the five registers are over, for the inspector.
+   * Only what a square PRINTS belongs here -- radiation, which hurts at the end
+   * of the turn and not in any register. */
+  endOfTurn: {
+    heading: "At the end of the turn",
+    steps: [
+      { site: "radiation", name: "Radiation does 1 damage, before any repair",
+        note: "Radioactive. Ultimate RoboRally Collection p.4, a fan compilation." }
+    ]
+  },
 
   /* A flag may only stand on plain floor, and never on any of these. Each is a
    * square a robot cannot simply stand still on, so a flag there could not be

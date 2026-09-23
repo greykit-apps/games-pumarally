@@ -32,6 +32,7 @@ export const ART = {
   dock: "#233045", dockText: "#c8d4ea",
   wall: "#d8a52c", wallTop: "#f6cf6a", wallShadow: "#11141d",
   door: "#8fd0f0",
+  oneWayRed: "#d83a34", oneWayGreen: "#5fbf4a",
   laser: "#ff5f56", pusher: "#e8873c", jet: "#ff8a3c",
   crusher: "#c0c6d6", flamer: "#ff9a4a",
   text: "#c8d4ea", dim: "#8b8fa8"

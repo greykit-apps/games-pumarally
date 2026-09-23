@@ -378,8 +378,23 @@ export function renderInspector(el, st, hover, isCourse) {
         }
       }
     }
+    /* and once the registers are over: radiation hurts at the end of the turn
+     * (the round, in the 2016 game), which is no step of the board's turn */
+    for (const id of rulesetIds()) {
+      const eot = endOfTurnFor(rulesetFor(id), d);
+      if (!eot) continue;
+      html += "<h3>" + esc(eot.heading) + '</h3><div class="row"><span class="pill">' + esc(EDITIONS[id].name) + "</span></div>";
+      html += "<ol class='diag'>" + eot.steps.map(step).join("") + "</ol>";
+    }
   }
   el.innerHTML = html;
+}
+
+/** What this square does once the registers are over, under one ruleset, or null. */
+export function endOfTurnFor(rules, d) {
+  if (!rules || !rules.endOfTurn) return null;
+  const steps = rules.endOfTurn.steps.filter(s => d.sites.indexOf(s.site) >= 0).map(s => s.name);
+  return steps.length ? { heading: rules.endOfTurn.heading, steps } : null;
 }
 
 /** The board's turn, filtered to what this square actually carries. */
@@ -403,6 +418,8 @@ function orderFor(rules, d) {
   has.boardLaser = false;
   has.crusher = d.ceiling.some(x => x.kind === "crusher");
   has.flamer = d.ceiling.some(x => x.kind === "flamer");
+  has.waste = d.sites.indexOf("waste") >= 0;
+  has.trapDoor = d.ceiling.some(x => x.kind === "trapDoor");
   return rules.order
     .filter(s => has[s.step])
     .map(s => s.name + (s.settled === false ? " (where this falls is not settled by the sources)" : ""));

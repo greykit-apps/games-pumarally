@@ -19,7 +19,7 @@ import {
   edgeInBounds, setWall, wallAt, EDGE_WALL, EDGE_DOOR, setRamp, rampOn } from "../lib/edges.js";
 import {
   blankBoard, setCell, setLevel, levelAt, boardFromDocument, idx, deviceCell, laserPath,
-  docksOf, setSites, sitesAt, siteList
+  docksOf, setSites, sitesAt, siteList, blockedAt, greenSide
 } from "../lib/board.js";
 import { rotateBoard, rotateOnce, rotatedDims } from "../lib/rotate.js";
 import { boardJSON } from "../lib/canon.js";
@@ -157,14 +157,20 @@ for (const [id, s] of Object.entries(SETS)) {
 
 /* --- sites: markings a square carries as well as being floor ---------------- */
 {
-  eq(SITE_ORDER, ["repair", "upgrade", "battery", "randomizer", "flagspot"], "sites: canonical order");
+  eq(SITE_ORDER, ["repair", "upgrade", "chopShop", "battery", "randomizer", "radiation", "waste", "flagspot"], "sites: canonical order");
+  eq(checkSites(["repair", "chopShop"]).length, 1, "sites: a chop shop is its own printed square, never a wrench's");
+  eq(checkSites(["chopShop", "battery"]).length, 0, "sites: though a battery may share it, as it may any resting square");
+  eq(checkSites(["radiation", "waste"]).length, 1, "sites: a square is radiation or waste, not both");
+  eq(checkSites(["waste", "repair"]).length, 0, "sites: waste may carry a wrench, as any deck may");
   /* Placement is a fact about the marking, not about the layer: the four
    * collection markings need floor to come to rest on, the randomizer fires on
-   * the card reveal and so needs only somewhere a robot can be standing. */
+   * the card reveal and so needs only somewhere a robot can be standing, and
+   * radiation and waste are the colour of the deck under whatever stands on it
+   * -- Reactor Core prints a teleporter on radiation. */
   eq(SITE_ORDER.filter(k => SITES[k].place === "rest"),
-     ["repair", "upgrade", "battery", "flagspot"], "sites: the collection markings are floor-only");
-  eq(SITE_ORDER.filter(k => SITES[k].place === "standable"), ["randomizer"],
-     "sites: the randomizer is the one marking that may share a square with a belt");
+     ["repair", "upgrade", "chopShop", "battery", "flagspot"], "sites: the collection markings are floor-only");
+  eq(SITE_ORDER.filter(k => SITES[k].place === "standable"), ["randomizer", "radiation", "waste"],
+     "sites: the randomizer, radiation and waste may share a square with another element");
   eq(canonSites(["flagspot", "repair"]), ["repair", "flagspot"], "sites: a list has one spelling");
   eq(canonSites(["repair", "repair"]), ["repair"], "sites: and no repeats");
   eq(checkSites(["repair", "battery", "flagspot"]), [],
@@ -386,6 +392,49 @@ eq(docksOf(b), [{ c: 0, r: 3, n: 1 }], "board: docks are derived from the s cell
   setLevel(t, 3, 0, 0);
   setWall(t, 2, 0, E, EDGE_WALL);
   eq(laserPath(t, laser).length, 3, "laser: a beam stops at a wall");
+}
+
+/* --- one-way walls ------------------------------------------------------------
+ * A wall from the red side, nothing from the green. The device's face points
+ * into the red square. Asserted through blockedAt and laserPath, the two things
+ * every mover and every beam in the game go through. */
+{
+  const t = blankBoard({ id: "oneway", name: "One way", w: 5, h: 1 });
+  setWall(t, 2, 0, E, EDGE_WALL);                                   // the edge between (2,0) and (3,0)
+  const way = { kind: "oneWay", edge: { kind: "v", c: 3, r: 0 }, face: W };   // red toward (2,0)
+  t.wallDevices.push(way);
+  eq(deviceCell(way), [2, 0], "one-way: it stands in the red square it faces into");
+  eq(blockedAt(t, 2, 0, E, 1), true, "one-way: from the red side it is a wall");
+  eq(blockedAt(t, 3, 0, W, 1), false, "one-way: from the green side it is not there");
+  eq(greenSide(t, way.edge, 3, 0), true, "one-way: (3,0) is its green side");
+  eq(greenSide(t, way.edge, 2, 0), false, "one-way: (2,0) is its red side");
+
+  const east = { kind: "laser", edge: { kind: "v", c: 0, r: 0 }, face: E, damage: 1 };
+  setWall(t, 0, 0, W, EDGE_WALL);
+  t.wallDevices.push(east);
+  eq(laserPath(t, east).length, 3, "one-way: a beam coming at the red side stops there, like a wall");
+  const west = { kind: "laser", edge: { kind: "v", c: 5, r: 0 }, face: W, damage: 1 };
+  setWall(t, 4, 0, E, EDGE_WALL);
+  t.wallDevices.push(west);
+  eq(laserPath(t, west).length, 5, "one-way: a beam from the green side goes straight through");
+
+  const both = { kind: "oneWay", edge: { kind: "v", c: 3, r: 0 }, face: E };   // red toward (3,0) too
+  t.wallDevices.push(both);
+  eq(blockedAt(t, 3, 0, W, 1), true, "one-way: red on both sides is a plain wall");
+  t.wallDevices.pop();
+
+  /* the red side travels with the board: turn it a quarter and the square that
+   * was red is still the one stopped */
+  for (let q = 1; q < 4; q++) {
+    const rr = rotateBoard(t, q);
+    const moved = rr.wallDevices.find(d => d.kind === "oneWay");
+    const red = deviceCell(moved);
+    eq(moved.face, rot(W, q), "one-way: its face turns with the board");
+    const out = opposite(moved.face);                    // from the red square, the wall is behind the face
+    eq(blockedAt(rr, red[0], red[1], out, 1), true, "one-way: after " + q + " quarter turn(s) the red side still stops");
+    const far = [red[0] + (out === E ? 1 : out === W ? -1 : 0), red[1] + (out === S ? 1 : out === N ? -1 : 0)];
+    eq(blockedAt(rr, far[0], far[1], opposite(out), 1), false, "one-way: and the green side still lets through");
+  }
 }
 
 /* --- the closed schema ------------------------------------------------------ */

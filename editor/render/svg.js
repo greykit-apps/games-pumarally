@@ -64,12 +64,21 @@ function groundLayer(board, mode) {
       if (mode === "art" && def.key === "pit") continue;
       const body = glyph[mode](ctx);
       if (!body) continue;
+      /* radiation and waste are the colour of the deck: washed over the plate
+       * and under whatever element stands on it, as printed */
+      const wash = mode !== "art" ? ""
+        : hasSite(board, c, r, "radiation") ? g(at(c, r), A.radiationSvg())
+        : hasSite(board, c, r, "waste") ? g(at(c, r), A.wasteSvg()) : "";
       /* the floor first, unrotated, then the element standing on it */
-      if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt(ctx.level));
+      if (mode === "art" && def.key !== "floor") out += g(at(c, r), floorArt(ctx.level)) + wash;
       /* oil is a layer too -- one spill, not a tiling of puddles -- but unlike
        * a pit it lies ON the deck, so the deck has already gone in above */
       if (mode === "art" && def.key === "oil") continue;
       out += g(at(c, r) + spin(d), body);
+      if (def.key === "floor") out += wash;
+      /* an element that paints its whole square (a belt, water) hides the wash
+       * under it, so the deck's colour is repeated as a frame on top */
+      else if (wash) out += g(at(c, r), A.hazardFrameSvg(hasSite(board, c, r, "waste") ? "waste" : "radiation"));
       /* A RANDOMIZER FILLS THE SQUARE, as printed: the starburst goes over the
        * square's plate and bed, and whatever the element paints on top -- a
        * belt's arrow, a current's water -- is painted again over the burst,

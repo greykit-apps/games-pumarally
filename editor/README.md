@@ -24,6 +24,11 @@ thing the square, or is it standing on the square?**
 - a crusher comes down from above and **faces nowhere** — so no ceiling device
   has a `face` field at all, and a transcriber cannot fill one in wrongly
 
+A trap door is under the robot rather than over it, and still lives in the
+ceiling layer, because what that layer holds is the crusher's shape: one square,
+no facing, a register list. Its list is required, as a swing door's is — open in
+every register is a pit, and open in none is floor.
+
 ```json
 {
   "format": "PRBoard", "version": 1,
@@ -168,6 +173,14 @@ element, so the belt and the randomizer could not both be on the square. Keeping
 `z` as well would give one thing two spellings, and `propAt()` merges both
 layers, so nothing could tell which the board meant.
 
+**Radiation and radioactive waste are markings for the same reason.** They are
+the colour of the deck — dark green and bright mottled green — and the print lays
+other things on them: Reactor Core stands a teleporter on radiation. Both are
+`place: "standable"`, and a square is one or the other, never both. In the art
+they are washed over the plate under the square's element, with a frame on top
+where the element covers the whole square; in markup, hatching, crossed for
+waste.
+
 A marking never decides which book plays the board. The 2016 game meets a
 printed wrench and has no use for it; the classic game does the same with a
 battery; the randomizer works under either, drawing from the shared deck when
@@ -200,6 +213,19 @@ A wall device **anchors to an edge and names a face**, which must be one of that
 edge's two normals. The square it stands in is *derived* from the two — the old
 format stored the square as well, so a device could name one whose wall was on
 the wrong side of it. That is now unrepresentable.
+
+**A repulsor field is a plain `#` with a `repulsor` device bolted to it**, whose
+face says which square the capsule is printed in and nothing more: the field is
+a springy wall from both sides. To a beam and a laser mount it is a wall; the
+bounce is the engine's, in `playCard`.
+
+**A one-way wall is a plain `#` with a `oneWay` device bolted to it**, whose face
+points into the red square — the one it is placed in. From there the edge is a
+wall; from the green side beyond, robots and beams pass as if nothing were there.
+To anything that only asks whether an edge is walled (a laser mount, the ASCII
+picture) it is a wall, and `blockedAt` is the one place that reads its side. Red
+on both sides is a plain wall. Where boards meet, a plain wall the neighbour
+prints on the same edge wins, as it does over a door.
 
 ### Registers: one spelling of "always"
 
