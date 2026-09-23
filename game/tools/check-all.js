@@ -26,7 +26,7 @@ import upgradesData from "../data/upgrades.js";
 import liveriesData from "../data/liveries.js";
 import { board, courseOn, game, drive } from "./scenarios/harness.js";
 import { assertInvariants } from "../engine/sim.js";
-import { MODERN_CARDS, MODERN_DAMAGE_FIRST, MAX_ENERGY } from "../engine/cards.js";
+import { MODERN_CARDS, MODERN_DAMAGE_FIRST, MAX_ENERGY, HAND } from "../engine/cards.js";
 import { livesFor } from "../engine/state.js";
 
 const TABLES = { "cards.json": cardsData, "options.json": optionsData, "upgrades.json": upgradesData, "liveries.json": liveriesData };
@@ -108,6 +108,8 @@ const json = f => TABLES[f];
     drive(st, co.library, { cheat: "konami" });
     ok(p.energy === MAX_ENERGY, "cheat: the Konami code fills the Energy bar");
     ok(!hasDamage(p), "cheat: the Konami code scraps every damage card from the robot");
+    ok(p.hand.length === HAND + 2, "cheat: and deals a full hand plus two (" + p.hand.length + ")");
+    ok(!p.hand.some(i => i >= MODERN_DAMAGE_FIRST), "cheat: none of them damage");
     ok(st.waiting && st.waiting.kind === "program", "cheat: the player goes on programming after the code");
     assertInvariants(st, co.library);                 // conservation survives the purge
   }
@@ -124,6 +126,7 @@ const json = f => TABLES[f];
     drive(st, co.library, { cheat: "konami" });
     ok(p.lives === livesFor(1, 1), "cheat: the Konami code restores a classic robot's lives");
     ok(p.damage === 0, "cheat: the Konami code clears the classic damage track");
+    ok(p.hand.length === HAND + 2, "cheat: and deals a full hand plus two (" + p.hand.length + ")");
     assertInvariants(st, co.library);
   }
   console.log("cheat: the Konami code, both rulesets");

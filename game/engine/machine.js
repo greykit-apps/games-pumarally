@@ -91,10 +91,13 @@ function ask(st, player, kind, options, extra) {
  *   - classic: a full stock of lives back, and the damage track wiped;
  *   - modern: the Energy bar filled, and every damage card -- SPAM and Haywire
  *     alike -- scrapped out of the robot's hand, deck, discard, parked cards
- *     and registers, onto the damage discard where the count still finds them.
+ *     and registers, onto the damage discard where the count still finds them;
+ *   - either: the hand topped up to a full hand PLUS TWO, dealt from the top
+ *     of the shared deck (classic, reshuffling the discard if it runs dry) or
+ *     the robot's own (2016, as far as it has cards).
  * Modern never touches lives (the 2016 game keeps them all equal); classic has
  * no damage cards to scrap. The program step is re-run after, so the player
- * goes on programming with the cleaned-up hand. */
+ * goes on programming with the cleaned-up, bigger hand. */
 function konamiCheat(st, p) {
   if (isModern(st)) {
     gainEnergy(st, p, MAX_ENERGY, "konami");
@@ -116,6 +119,20 @@ function konamiCheat(st, p) {
     p.damage = 0;
     log(st, p.name + " enters the code -- lives and health restored");
   }
+  /* and a full hand, plus two */
+  const want = HAND + 2;
+  let dealt = 0;
+  while (p.hand.length < want) {
+    let i;
+    if (isModern(st)) i = drawOwn(st, p);
+    else {
+      if (!st.deck.length) { st.deck = shuffle(st, st.discard); st.discard = []; }
+      i = st.deck.length ? st.deck.pop() : null;
+    }
+    if (i === null || i === undefined) break;
+    p.hand.push(i); dealt++;
+  }
+  if (dealt) { st.events.push({ type: "dealt", player: p.id, count: dealt, konami: true }); log(st, p.name + " is dealt " + dealt + " more, for a hand of " + p.hand.length); }
   st.events.push({ type: "cheat", player: p.id, code: "konami" });
 }
 
