@@ -264,7 +264,12 @@ export async function mountCourse(root, wanted) {
       const x = (s.at[0] - b.x0) * 100, y = (s.at[1] - b.y0) * 100;
       html += '<div class="stampbox' + (i === st.sel ? " sel" : "") + (s.role === "dock" ? " dock" : "") +
         '" style="left:' + x + "px;top:" + y + "px;width:" + w * 100 + "px;height:" + h * 100 + 'px"></div>';
-      html += '<div class="stamplabel" style="left:' + (x + 6) + "px;top:" + (y + 6) + 'px;font-size:26px">' +
+      /* the label sits on the first square the board still shows; a board wholly under another gets none, and its dashed box is what remains of it */
+      let lc = -1, lr = -1;
+      for (let r = 0; r < h && lc < 0; r++) for (let c = 0; c < w; c++) {
+        if (asm.from[(s.at[1] - b.y0 + r) * asm.grid.w + (s.at[0] - b.x0 + c)] === i) { lc = c; lr = r; break; }
+      }
+      if (lc >= 0) html += '<div class="stamplabel" style="left:' + (x + lc * 100 + 6) + "px;top:" + (y + lr * 100 + 6) + 'px;font-size:26px">' +
         esc(src.name) + (s.rot ? " ↻" + (s.rot * 90) + "°" : "") + (s.role === "dock" ? " • start" : s.role === "course" ? " • whole course" : "") + "</div>";
       /* the selected board carries its own buttons: turn either way, take off */
       if (i === st.sel) {
@@ -389,7 +394,11 @@ export async function mountCourse(root, wanted) {
       const src = library.get(s.board);
       html += "<h3>Selected board</h3>";
       html += '<div class="row"><span class="pill">' + esc(src.name) + "</span>" +
-        '<span class="pill">at ' + s.at[0] + "," + s.at[1] + "</span></div>";
+        '<span class="pill">at ' + s.at[0] + "," + s.at[1] + "</span>" +
+        (under(st.sel) ? '<span class="pill">over ' + esc(under(st.sel)) + "</span>" : "") + "</div>";
+      if (under(st.sel) && st.sel < st.course.stamps.length - 1) {
+        html += '<div class="row"><span class="none">A later board lies on this one where they overlap. Drag it to lay it again on top.</span></div>';
+      }
       html += '<div class="row"><button data-act="turn-left">&#8630; Turn</button>' +
         '<button data-act="turn-right">Turn &#8631;</button>' +
         '<button data-act="drop">Take off</button></div>';
@@ -524,8 +533,8 @@ export async function mountCourse(root, wanted) {
     const [w, h] = stampDims(library.get(drag.board), drag.rot);
     drag.at = [Math.round(p.fx - drag.grab[0]), Math.round(p.fy - drag.grab[1])];
     drag.over = p.over;
-    const bad = overlapsAny(st.course, library, drag.at, w, h, drag.kind === "move" ? drag.index : -1) ||
-      (drag.role === "dock" && drag.kind === "new" && dockStamp(st.course));
+    /* the one thing a board cannot be laid on is a second docking bay board; over another board it goes on top */
+    const bad = drag.role === "dock" && drag.kind === "new" && dockStamp(st.course);
     drag.bad = !!bad;
     const el = drag.el;
     el.className = "dragbox" + (bad ? " bad" : "");
@@ -555,24 +564,38 @@ export async function mountCourse(root, wanted) {
     const d = drag;
     cancelDrag();
     if (!d.over || !d.at) { if (d.kind === "new") { st.hand = null; refresh(); } return; }
-    if (d.bad) { say(d.role === "dock" && dockStamp(st.course) && d.kind === "new" ? "A course has one docking bay." : "That would sit on top of a board already down.", "bad"); if (d.kind === "new") { st.hand = null; refresh(); } return; }
+    if (d.bad) { say("A course has one docking bay board.", "bad"); if (d.kind === "new") { st.hand = null; refresh(); } return; }
     snap();
     if (d.kind === "new") {
       const i = place(st.course, library, d.board, d.rot, d.at, d.role);
-      if (i < 0) { history.pop(); say("That would sit on top of a board already down.", "bad"); return; }
+      if (i < 0) { history.pop(); say("A course has one docking bay board.", "bad"); return; }
       st.sel = i;
       st.hand = null;
       /* the first board decides the scale: an empty course is a 1x1 grid
        * fitted at maximum zoom, and keeping that view put one corner of a
        * 12x12 on screen at 530% */
       refresh({ keepView: st.course.stamps.length > 1 });
-      say(library.get(d.board).name + " laid at " + st.course.stamps[i].at[0] + "," + st.course.stamps[i].at[1] + ".", "");
+      say(library.get(d.board).name + " laid at " + st.course.stamps[i].at[0] + "," + st.course.stamps[i].at[1] + (under(i) ? ", over " + under(i) : "") + ".", "");
     } else {
-      if (!moveStamp(st.course, library, d.index, d.at)) { history.pop(); say("That would sit on top of a board already down.", "bad"); return; }
-      st.sel = d.index;
+      const i = moveStamp(st.course, library, d.index, d.at);
+      if (i < 0) { history.pop(); return; }
+      st.sel = i;
       refresh();
-      say(library.get(d.board).name + " moved to " + st.course.stamps[d.index].at[0] + "," + st.course.stamps[d.index].at[1] + ".", "");
+      say(library.get(d.board).name + " moved to " + st.course.stamps[i].at[0] + "," + st.course.stamps[i].at[1] + (under(i) ? ", over " + under(i) : "") + ".", "");
     }
+  }
+
+  /** The names of the boards stamp `i` lies over, or "" when it covers nothing. */
+  function under(i) {
+    const s = st.course.stamps[i];
+    const f = stampFootprint(s, library.get(s.board));
+    const names = [];
+    st.course.stamps.forEach((o, j) => {
+      if (j === i) return;
+      const g = stampFootprint(o, library.get(o.board));
+      if (f.x0 <= g.x1 && g.x0 <= f.x1 && f.y0 <= g.y1 && g.y0 <= f.y1) names.push(library.get(o.board).name);
+    });
+    return names.join(" and ");
   }
 
   /* off the rail: a press that travels is a drag, a press that does not is the click below */
@@ -937,7 +960,7 @@ export async function mountCourse(root, wanted) {
 
   window.addEventListener("resize", () => layout(view, st));
   refresh({ keepView: false });
-  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, B starts, R tokens, W A S D pan, ` swaps the drawing.", "");
+  say("Drag a board off the rail onto the floor, or click one and click where it goes; over another board it goes on top. Drag a laid board to move it. Q E turn, F flags, B starts, R tokens, W A S D pan, ` swaps the drawing.", "");
   window.__EDC = { st, view, refresh, act, library, undo };
   return window.__EDC;
 }

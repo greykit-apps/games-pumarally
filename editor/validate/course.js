@@ -165,14 +165,17 @@ export function validateCourse(course, library, d) {
     }
   }
 
-  /* overlap */
+  /* overlap: allowed, the later stamp on top (issue #13), and said, since a
+   * board wholly under another is a board somebody may have forgotten */
   const boxes = course.stamps.map(s => ({ s, f: stampFootprint(s, library.get(s.board)) }));
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i].f, b = boxes[j].f;
       if (a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1) {
-        d.error("course.overlap", JSON.stringify(boxes[i].s.board) + " and " +
-          JSON.stringify(boxes[j].s.board) + " cover the same squares.", null, boxes[j].s._ptr);
+        const n = (Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) + 1) * (Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) + 1);
+        const all = n === (a.x1 - a.x0 + 1) * (a.y1 - a.y0 + 1);
+        d.warn("course.overlap", JSON.stringify(boxes[j].s.board) + " lies over " + (all ? "the whole of " : n + " square" + (n === 1 ? "" : "s") + " of ") +
+          JSON.stringify(boxes[i].s.board) + "; the squares underneath are out of play.", null, boxes[j].s._ptr);
       }
     }
   }

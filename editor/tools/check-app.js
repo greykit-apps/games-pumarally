@@ -584,7 +584,37 @@ const fresh = (w = 8, h = 8) =>
 
   const course = newCourse("beside");
   eq(place(course, lib, "big", 0, [0, 0]), 0, "compose: the first board goes down at the origin");
-  eq(place(course, lib, "big", 0, [6, 6]), -1, "compose: an overlapping placement is refused");
+  /* BOARDS MAY OVERLAP (issue #13): the later one goes on top and the squares
+   * under it are out of play, replaced by what it prints -- square, markings,
+   * level, the devices in it, the walls between two covered squares. A seam
+   * with a square outside the footprint stays a union, as between neighbours. */
+  {
+    const over = newCourse("over");
+    const olib = new Map([["big", big], ["small", small]]);
+    eq(place(over, olib, "big", 0, [0, 0]), 0, "overlay: the big board goes down first");
+    eq(place(over, olib, "small", 0, [3, 3]), 1, "overlay: and a 6x6 goes down ON it, not refused");
+    const a = assemble(over, olib);
+    const bare = a.grid.cells.filter((t, i) => { const c = i % a.grid.w, r = (i - c) / a.grid.w; return c >= 3 && c < 9 && r >= 3 && r < 9; });
+    eq(bare.length, 36, "overlay: the 6x6 covers thirty-six squares");
+    ok(bare.every(t => t === "..."), "overlay: every covered square is the small board's plain floor, whatever the big one printed there");
+    ok(![...a.grid.sites.keys()].some(k => { const [c, r] = k.split(",").map(Number); return c >= 3 && c < 9 && r >= 3 && r < 9; }), "overlay: the big board's markings under it are gone");
+    ok(!a.grid.wallDevices.some(dv => { const cell = deviceCell(dv); return cell && cell[0] >= 3 && cell[0] < 9 && cell[1] >= 3 && cell[1] < 9; }) &&
+       !a.grid.ceilingDevices.some(dv => dv.c >= 3 && dv.c < 9 && dv.r >= 3 && dv.r < 9), "overlay: and so are the devices standing in the covered squares");
+    let interior = 0;
+    for (let r = 4; r < 9; r++) for (let c = 3; c < 9; c++) interior += a.grid.wallH[r * a.grid.w + c];
+    for (let r = 3; r < 9; r++) for (let c = 4; c < 9; c++) interior += a.grid.wallV[r * (a.grid.w + 1) + c];
+    eq(interior, 0, "overlay: no wall of the big board survives between two covered squares");
+    ok([3, 4, 5, 6, 7, 8].every(c => a.from[3 * a.grid.w + c] === 1 && a.from[8 * a.grid.w + c] === 1), "overlay: the covered squares belong to the board on top");
+    eq(stampAt(over, olib, 5, 5), 1, "overlay: and a click there picks the board on top");
+    /* a board moved is laid again: it comes to the top */
+    eq(moveStamp(over, olib, 0, [1, 1]), 1, "overlay: moving the big board brings it to the top of the stack");
+    eq(over.stamps.map(s2 => s2.board), ["small", "big"], "overlay: the stacking order is the list order");
+    eq(stampAt(over, olib, 5, 5), 1, "overlay: and now the big board is what a click at (5,5) picks");
+    const d2 = sink();
+    validateCourse(courseFromDocument(JSON.parse(JSON.stringify(toDocument(over))), d2, "over"), olib, d2);
+    ok(d2.items.some(x => x.code === "course.overlap" && x.severity === "warning") && !d2.items.some(x => x.code === "course.overlap" && x.severity === "error"),
+       "overlay: the validator says so, as a warning and not a refusal");
+  }
   ok(place(course, lib, "dock6", 0, [6, 12], "dock") > 0, "compose: a 6x2 dock goes BESIDE the boards, not under them");
   ok(place(course, lib, "small", 0, [12, 12]) > 0, "compose: a 6x6 joins on beyond the dock");
   eq(place(course, lib, "dock6", 0, [0, 20], "dock"), -1, "compose: a second dock is refused");

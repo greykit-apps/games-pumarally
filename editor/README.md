@@ -353,6 +353,16 @@ course model knows the number twelve.** Boards of any size compose: 12×12, the
 12×4 docking bay, Master Builder's 6×6 and 6×2. The flag array index *is* the
 flag number, so inserting one renumbers everything after it.
 
+**Boards may overlap**, and the order of the stamp list is the stacking order:
+the last laid is on top, and the squares under it are out of play — replaced
+by what it prints: the square, its markings, its level, the devices standing
+in it, and the walls between two covered squares. An edge between a covered
+square and one outside the footprint is a seam, and a seam is a union, as
+between two boards laid side by side. Master Builder lays its small boards
+over the big ones this way; with arbitrary placement a full-size board may do
+the same. A board moved is laid again, so it comes to the top. The validator
+says where one board lies over another (`course.overlap`, a warning).
+
 A race needs **eight starting squares**, and the docking bay board is only the
 quick way to them. A course may instead, or as well, place its own with
 `starts: [[c, r], …]` — one square at a time, anywhere on plain floor, numbered

@@ -91,6 +91,27 @@ export function assemble(course, library) {
     const b = rotateBoard(src, stamp.rot || 0);
     const dx = stamp.at[0] - bounds.x0, dy = stamp.at[1] - bounds.y0;
 
+    /* BOARDS MAY OVERLAP, AND THE LAST LAID IS ON TOP (issue #13). The squares
+     * under it are out of play, replaced by the squares it prints: whatever
+     * an earlier stamp put on them -- a square, its markings, its level, the
+     * devices standing in it, the walls and ramps between two covered squares
+     * -- is cleared before this board paints. An edge between a covered
+     * square and one outside the footprint is a seam, and a seam is a union,
+     * as between two boards laid side by side. */
+    for (let r = 0; r < b.h; r++) {
+      for (let c = 0; c < b.w; c++) {
+        const gc = c + dx, gr = r + dy;
+        if (!inBoard(grid, gc, gr)) continue;
+        grid.sites.delete(gc + "," + gr);
+        if (grid.levels) setLevel(grid, gc, gr, 0);
+        if (r > 0) { grid.wallH[gr * grid.w + gc] = EDGE_NONE; grid.rampH[gr * grid.w + gc] = 0; }
+        if (c > 0) { grid.wallV[gr * (grid.w + 1) + gc] = EDGE_NONE; grid.rampV[gr * (grid.w + 1) + gc] = 0; }
+      }
+    }
+    const covered = (c, r) => c >= dx && c < dx + b.w && r >= dy && r < dy + b.h;
+    grid.wallDevices = grid.wallDevices.filter(dev => { const cell = deviceCell(dev); return !(cell && covered(cell[0], cell[1])); });
+    grid.ceilingDevices = grid.ceilingDevices.filter(dev => !covered(dev.c, dev.r));
+
     for (let r = 0; r < b.h; r++) {
       for (let c = 0; c < b.w; c++) {
         const gc = c + dx, gr = r + dy;
