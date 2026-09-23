@@ -75,6 +75,16 @@ export default {
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 
+  /* What a square does once the five registers are over, for the inspector.
+   * The 2016 game has no end of turn; its round ends instead. */
+  endOfTurn: {
+    heading: "At the end of the round",
+    steps: [
+      { site: "radiation", name: "Radiation deals 1 damage card",
+        note: "Contamination, on the classic timing -- ours, decided 2026-09-23." }
+    ]
+  },
+
   flagForbids: ["pit", "belt", "gear", "oil", "portal", "dock", "water", "ramp",
                 "randomize", "teleport", "energy", "antenna", "reboot"]
 };

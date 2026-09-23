@@ -378,8 +378,23 @@ export function renderInspector(el, st, hover, isCourse) {
         }
       }
     }
+    /* and once the registers are over: radiation hurts at the end of the turn
+     * (the round, in the 2016 game), which is no step of the board's turn */
+    for (const id of rulesetIds()) {
+      const eot = endOfTurnFor(rulesetFor(id), d);
+      if (!eot) continue;
+      html += "<h3>" + esc(eot.heading) + '</h3><div class="row"><span class="pill">' + esc(EDITIONS[id].name) + "</span></div>";
+      html += "<ol class='diag'>" + eot.steps.map(step).join("") + "</ol>";
+    }
   }
   el.innerHTML = html;
+}
+
+/** What this square does once the registers are over, under one ruleset, or null. */
+export function endOfTurnFor(rules, d) {
+  if (!rules || !rules.endOfTurn) return null;
+  const steps = rules.endOfTurn.steps.filter(s => d.sites.indexOf(s.site) >= 0).map(s => s.name);
+  return steps.length ? { heading: rules.endOfTurn.heading, steps } : null;
 }
 
 /** The board's turn, filtered to what this square actually carries. */

@@ -33,7 +33,8 @@ import { fileURLToPath } from "node:url";
 import { checkBoardDocument } from "../validate/index.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
-import { libraryHtml } from "../app/panels.js";
+import { libraryHtml, endOfTurnFor } from "../app/panels.js";
+import { rulesetFor } from "../rulesets/index.js";
 
 let passed = 0, failed = 0;
 const eq = (a, b, m) => {
@@ -934,6 +935,20 @@ const fresh = (w = 8, h = 8) =>
   const mainSrc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "app", "main.js"), "utf8");
   ok(/d\.openBoard|dataset\.openBoard/.test(mainSrc), "library: main.js reads data-open-board off a dataset");
   ok(mainSrc.indexOf('class="insp-lib"') >= 0, "library: and the shell has somewhere to draw it");
+}
+
+/* THE INSPECTOR'S END OF TURN. Radiation hurts once the registers are over,
+ * which is no step of the board's turn, so the square says so under its own
+ * heading -- the turn in the classic game, the round in the 2016 one -- and a
+ * square without radiation says nothing at all. */
+{
+  const hot = { sites: ["radiation"] }, cold = { sites: ["waste"] };
+  const c = endOfTurnFor(rulesetFor("classic"), hot), m = endOfTurnFor(rulesetFor("modern"), hot);
+  eq(c && c.heading, "At the end of the turn", "inspector: classic radiation is an end-of-turn effect");
+  eq(m && m.heading, "At the end of the round", "inspector: 2016 radiation is an end-of-round effect");
+  eq([c.steps.length, m.steps.length], [1, 1], "inspector: one line each");
+  eq([endOfTurnFor(rulesetFor("classic"), cold), endOfTurnFor(rulesetFor("modern"), cold)], [null, null],
+     "inspector: waste hurts every register, so it has no end-of-turn line");
 }
 
 /* A ONE-WAY WALL AT A SEAM. Board `a` prints one on its east rim, red toward

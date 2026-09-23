@@ -92,6 +92,17 @@ export default {
     { step: "checkpoint", name: "Flags and repair sites are touched", settled: true }
   ],
 
+  /* What a square does once the five registers are over, for the inspector.
+   * Only what a square PRINTS belongs here -- radiation, which hurts at the end
+   * of the turn and not in any register. */
+  endOfTurn: {
+    heading: "At the end of the turn",
+    steps: [
+      { site: "radiation", name: "Radiation does 1 damage, before any repair",
+        note: "Radioactive. Ultimate RoboRally Collection p.4, a fan compilation." }
+    ]
+  },
+
   /* A flag may only stand on plain floor, and never on any of these. Each is a
    * square a robot cannot simply stand still on, so a flag there could not be
    * reliably touched. */
