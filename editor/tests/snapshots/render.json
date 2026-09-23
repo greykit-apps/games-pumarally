@@ -501,12 +501,12 @@
   },
   "meeple": {
     "art": {
-      "sha": "ed54a18776d20531",
-      "bytes": 110690
+      "sha": "67ebf58ae7cbef3c",
+      "bytes": 113777
     },
     "markup": {
-      "sha": "e3c33e92ef4d1df9",
-      "bytes": 83165
+      "sha": "a417454baffe4b4d",
+      "bytes": 87412
     }
   },
   "mergers": {
