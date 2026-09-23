@@ -14,10 +14,13 @@
  *                 comes back here under Saved course
  *   Saved course  the shelf: every shipped course, and every course saved
  *                 from the workshop in this browser, with a delete on yours
+ *   Settings      the house rules, each with what it does, and the button
+ *                 that forgets everything this browser keeps
  *
- * The rules, the seats and the house rules sit under whichever tab is open
- * and do not move when a knob is turned. Seats are any count from one to
- * eight and any mix of humans and bots.
+ * The rules and the seats sit under whichever of the first four tabs is
+ * open and do not move when a knob is turned. Seats are any count from one
+ * to eight and any mix of humans and bots. Everything here is remembered
+ * between visits.
  */
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
@@ -36,8 +39,11 @@ const MODES = [
   ["quick", "Quick game"],
   ["multi", "Quick course"],
   ["build", "Build course"],
-  ["saved", "Saved course"]
+  ["saved", "Saved course"],
+  ["settings", "Settings"]
 ];
+/* the tabs that start a race, and so carry the rules, the seats and the button */
+const RACING = ["quick", "multi", "saved"];
 const ANY = "quick:*";
 
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* no storage */ } }
@@ -77,7 +83,8 @@ const workshopHref = new URL("../../editor/index.html#course", import.meta.url).
 function loadPrefs() {
   const prefs = read(SETUP_KEY, { course: null, ruleset: "classic", seats: [{ seat: "human", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }, { seat: "bot", skill: 1 }], house: {} });
   if (prefs.ruleset !== "modern") prefs.ruleset = "classic";
-  if (!prefs.quick || !Number.isInteger(prefs.quick.boards)) prefs.quick = { boards: 2, flags: quickDefaultFlags(2), unverified: false };
+  if (!prefs.quick || !Number.isInteger(prefs.quick.boards)) prefs.quick = { boards: 2, flags: quickDefaultFlags(2) };
+  delete prefs.quick.unverified;                                   // the knob that let unverified boards into the draw; there are none
   /* before the tabs, one `course` field held a quick game, a draw or a saved
    * course, and the boards knob decided which kind of quick game; read it
    * into a mode once, and the board apart from the course */
@@ -118,11 +125,11 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     quick.push({ id: "quick:" + row.id, board: b, spots: quickSpots(b, library).length, unverified: !!row.unverified,
       reads: rulesetsFor({ stamps: [{ board: row.id }, { board: DOCK_BOARD }] }, library) });
   }
-  /* the boards a draw may pick: verified unless asked, and read by the
-   * ruleset in force. A quick course stacks 12x12 boards only; a quick game
-   * on one board draws from the whole shelf. A hand-picked board is the
-   * player's own choice and is not filtered the same way. */
-  const drawn = q => (!q.unverified || prefs.quick.unverified) && q.reads.includes(prefs.ruleset);
+  /* the boards a draw may pick: verified, and read by the ruleset in
+   * force. A quick course stacks 12x12 boards only; a quick game on one
+   * board draws from the whole shelf. A hand-picked board is the player's
+   * own choice and is not filtered the same way. */
+  const drawn = q => !q.unverified && q.reads.includes(prefs.ruleset);
   const pool1 = () => quick.filter(drawn).map(q => q.board);
   const poolN = () => quick.filter(q => q.board.w === 12 && q.board.h === 12 && drawn(q)).map(q => q.board);
   const readable = () => shelf.filter(c => c.reads.includes(prefs.ruleset));
@@ -152,7 +159,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     const drawable = pool1().length;
     let html = "<p class='lead'>One board over the docking bay, laid at a random facing, with " + QUICK_FLAGS + " " + flagWord() +
       " drawn from the locations it marks. Pick the board, or let the draw. A fresh draw every start.</p>";
-    html += unverifiedBox();
     html += "<div class='courses'>";
     html += '<button class="course any" data-board="' + ANY + '" aria-label="Any board" aria-pressed="' + (prefs.quick.board === ANY) + '"' + (drawable ? "" : " disabled") + '>' +
       '<span class="name">Any board</span><span class="meta">drawn from ' + drawable + " at random</span></button>";
@@ -166,29 +172,29 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return html + "</div>";
   }
 
-  function multiTab() {
-    const n = prefs.quick.boards, [lo, hi] = quickFlagRange(n), drawable = poolN().length;
-    let html = "<p class='lead'>" + (n === 1 ? "One board" : n + " boards") + " drawn and " + (n === 1 ? "laid" : "stacked") + " over the docking bay, " +
+  /** The most boards a quick course can draw under these rules. */
+  const mostBoards = () => Math.min(QUICK_MAX_BOARDS, poolN().length);
+  function multiLead() {
+    const n = prefs.quick.boards;
+    return (n === 1 ? "One board" : n + " boards") + " drawn and " + (n === 1 ? "laid" : "stacked") + " over the docking bay, " +
       (n === 1 ? "at" : "each at") + " a random facing, with " + (n === 1 ? plural(prefs.quick.flags, flagWord().replace(/s$/, "")) + " drawn from where it marks" :
-      "a route of " + flagWord() + " through them: at least one a board, the rest handed out in turn") + ". A fresh draw every start.</p>";
-    html += "<div class='row'><label>Boards</label>";
-    for (let k = 1; k <= QUICK_MAX_BOARDS; k++) {
-      html += '<button data-quick-boards="' + k + '" aria-pressed="' + (n === k) + '"' + (k > drawable ? ' disabled title="Only ' + plural(drawable, "board") + ' can be drawn under these rules."' : "") + ">" + k + "</button>";
-    }
-    html += "</div><div class='row'><label>" + cap(flagWord()) + "</label>" +
-      '<button data-quick-flags="-1"' + (prefs.quick.flags <= lo ? " disabled" : "") + ' aria-label="one fewer">&minus;</button>' +
-      '<b class="knob">' + prefs.quick.flags + "</b>" +
-      '<button data-quick-flags="1"' + (prefs.quick.flags >= hi ? " disabled" : "") + ' aria-label="one more">+</button>' +
-      '<span class="keys">' + lo + " to " + hi + ": at least one a board, three at most</span></div>";
-    html += unverifiedBox();
-    html += "<p class='keys'>Drawn from the " + plural(drawable, "12&times;12 board") + " the " + esc(rulesetFor(prefs.ruleset).name) + " book reads" +
-      (prefs.quick.unverified ? "" : ", verified ones only") + ".</p>";
-    return html;
+      "a route of " + flagWord() + " through them: at least one a board, the rest handed out in turn") + ". A fresh draw every start.";
   }
-
-  function unverifiedBox() {
-    return "<div class='row'><label title=\"A board nobody has checked against its photograph yet. Left out of the draw unless you say so.\"><input type=\"checkbox\" data-quick-unverified" +
-      (prefs.quick.unverified ? " checked" : "") + "> Draw unverified boards too</label></div>";
+  /* a slider with the number beside it, and the number can be typed */
+  function slider(key, label, lo, hi, value, note) {
+    const off = hi < lo;
+    return "<div class='row'><label for='slide-" + key + "'>" + label + "</label>" +
+      '<input type="range" id="slide-' + key + '" data-slide="' + key + '" min="' + lo + '" max="' + Math.max(lo, hi) + '" value="' + value + '"' + (off ? " disabled" : "") + ">" +
+      '<input type="number" data-num="' + key + '" min="' + lo + '" max="' + Math.max(lo, hi) + '" value="' + value + '" aria-label="' + label + '"' + (off ? " disabled" : "") + ">" +
+      '<span class="keys" data-note="' + key + '">' + note + "</span></div>";
+  }
+  const boardsNote = () => { const m = mostBoards(); return m ? "1 to " + m + ": the " + plural(poolN().length, "12&times;12 board") + " the " + esc(rulesetFor(prefs.ruleset).name) + " book reads" : "No board can be drawn under these rules."; };
+  const flagsNote = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); return lo + " to " + hi + ": at least one a board, three at most"; };
+  function multiTab() {
+    const [lo, hi] = quickFlagRange(prefs.quick.boards);
+    return "<p class='lead'>" + multiLead() + "</p>" +
+      slider("boards", "Boards", 1, mostBoards(), prefs.quick.boards, boardsNote()) +
+      slider("flags", cap(flagWord()), lo, hi, prefs.quick.flags, flagsNote());
   }
 
   function buildTab() {
@@ -216,6 +222,33 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return html + "</div>";
   }
 
+  /* the house rules, each on a line with what it does. The keys are the
+   * engine's (state.js reads them into st.house); the explanations are
+   * what the engine actually does with each, not what a book says. */
+  const HOUSE = [
+    ["bumpers", "Bumpers", "A rail round the whole course. Nothing can be driven, pushed or carried off the edge of the floor: a robot that would leave it stops at the rail instead. Pits are still pits."],
+    ["flagTouch", "Crossing a flag counts", "The Euro rule. A robot touches a flag on any square it moves through during a register, not only the one it ends the register on. The English book wants you to end on it."],
+    ["humanPrivilege", "Human privilege", "The people at the keyboard pick their docking bays before the bots do, whatever priority everyone drew."]
+  ];
+  function settingsTab() {
+    let html = "<p class='lead'>House rules, remembered between visits along with everything else on this screen.</p>";
+    html += "<h2>House rules</h2><div class='rules'>";
+    for (const [k, label, what] of HOUSE) {
+      html += '<label class="rule"><input type="checkbox" data-house="' + k + '"' + (prefs.house[k] ? " checked" : "") + "><b>" + label + "</b><span class='keys'>" + esc(what) + "</span></label>";
+    }
+    html += '<label class="rule"><select data-house-n="startOptions" aria-label="Starting options">' +
+      [0, 1, 2, 3].map(n => '<option value="' + n + '"' + ((prefs.house.startOptions | 0) === n ? " selected" : "") + ">" + n + "</option>").join("") +
+      "</select><b>Starting options</b><span class='keys'>Classic rules only. Option cards dealt to everyone before the first turn. The printed route hands one out in about one game in fifty: a two-wrench site, taken instead of two points of repair.</span></label>";
+    html += "</div><p class='keys'>Under the 2016 rules every robot starts on 3 Energy with 3 upgrade cards, a robot that falls reboots at its last checkpoint, and the Priority Token starts with seat 1; none of that is a setting.</p>";
+    /* issue #6: everything this browser remembers, gone in one press. Not
+     * a per-key list, because a key added later would be a key this missed:
+     * the saved race, these settings, the mats' preferences, the speed, the
+     * workshop's autosave and its libraries of courses -- all of it. */
+    html += "<h2>Storage</h2><div class='row'><button data-act='reset'>Forget everything</button>" +
+      "<span class='keys'>Clears everything PumaRally keeps in this browser: the saved race, these settings, your courses, the workshop's autosave.</span></div>";
+    return html;
+  }
+
   /** Can the Start button start something, under this tab? */
   function startable() {
     if (prefs.mode === "quick") return prefs.quick.board === ANY ? pool1().length > 0 : quick.some(q => q.id === prefs.quick.board && q.reads.includes(prefs.ruleset));
@@ -234,10 +267,11 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     }
     html += "</div>";
     html += '<div class="tab" role="tabpanel" id="panel-' + prefs.mode + '" aria-labelledby="tab-' + prefs.mode + '">' +
-      (prefs.mode === "quick" ? quickTab() : prefs.mode === "multi" ? multiTab() : prefs.mode === "build" ? buildTab() : savedTab()) + "</div>";
+      (prefs.mode === "quick" ? quickTab() : prefs.mode === "multi" ? multiTab() : prefs.mode === "build" ? buildTab() : prefs.mode === "saved" ? savedTab() : settingsTab()) + "</div>";
 
-    /* the workshop takes the rules and the seats from the race it comes back to, so the build tab shows neither */
-    if (prefs.mode !== "build") {
+    /* the tabs that start a race carry the rules and the seats; the workshop
+     * takes both from the race it comes back to, and the settings are not a race */
+    if (RACING.includes(prefs.mode)) {
       html += "<h2>Rules</h2><div class='row'>";
       for (const id of ["classic", "modern"]) {
         const r = rulesetFor(id);
@@ -262,28 +296,9 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
       html += "</div><div class='row'><button data-act='add'" + (prefs.seats.length >= 8 ? " disabled" : "") + ">Add a seat</button>" +
         '<span class="keys">' + prefs.seats.filter(s => s.seat === "human").length + " human, " + prefs.seats.filter(s => s.seat === "bot").length + " bots. Any mix from one to eight.</span></div>";
 
-      html += "<h2>House rules</h2><div class='row'>";
-      for (const [k, label, note] of [["bumpers", "Bumpers", "a rail round the course: nothing can be driven off it"],
-        ["flagTouch", "Crossing a flag counts", "the Euro rule; the English book wants you to end a register on it"],
-        ["humanPrivilege", "Human privilege", "the people at the keyboard pick their bays before the bots"]]) {
-        html += '<label title="' + esc(note) + '"><input type="checkbox" data-house="' + k + '"' + (prefs.house[k] ? " checked" : "") + "> " + label + "</label>";
-      }
-      if (prefs.ruleset === "classic") {
-        html += '<label title="Option cards dealt to everyone at the start. The printed route, a two-wrench site instead of two points of repair, hands one out in about one game in fifty.">Starting options ' +
-          '<select data-house-n="startOptions">' + [0, 1, 2, 3].map(n => '<option value="' + n + '"' + ((prefs.house.startOptions | 0) === n ? " selected" : "") + ">" + n + "</option>").join("") + "</select></label>";
-      } else {
-        html += '<span class="keys">2016: every robot starts on 3 Energy with 3 upgrade cards; a robot that falls reboots at its last checkpoint; the Priority Token starts with seat 1.</span>';
-      }
-      html += "</div><div class='row'><button class='primary' data-act='start'" + (startable() ? "" : " disabled") + ">Start the race</button></div>";
+      html += "<div class='row'><button class='primary' data-act='start'" + (startable() ? "" : " disabled") + ">Start the race</button></div>";
     }
-
-    /* issue #6: everything this browser remembers, gone in one press. Not
-     * a per-key list, because a key added later would be a key this missed:
-     * the saved race, these settings, the mats' preferences, the speed, the
-     * workshop's autosave and its libraries of courses -- all of it. */
-    html += "<h2>Storage</h2><div class='row'><button data-act='reset'>Forget everything</button>" +
-      "<span class='keys'>Clears everything PumaRally keeps in this browser: the saved race, these settings, your courses, the workshop's autosave.</span></div></div>";
-    root.innerHTML = html;
+    root.innerHTML = html + "</div>";
   }
 
   /** The course this tab starts: a saved document, or a fresh draw. Throws when the draw cannot be met. */
@@ -310,14 +325,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (d.ruleset) { prefs.ruleset = d.ruleset; settle(); store(SETUP_KEY, prefs); render(); return; }
     if (d.board) { prefs.quick.board = d.board; store(SETUP_KEY, prefs); render(); return; }
     if (d.course) { prefs.course = d.course; store(SETUP_KEY, prefs); render(); return; }
-    if (d.quickBoards !== undefined) {
-      prefs.quick.boards = +d.quickBoards;
-      /* the default follows the boards until the knob is turned; the range always does */
-      prefs.quick.flags = quickDefaultFlags(prefs.quick.boards);
-      clampFlags();
-      store(SETUP_KEY, prefs); render(); return;
-    }
-    if (d.quickFlags !== undefined) { prefs.quick.flags += +d.quickFlags; clampFlags(); store(SETUP_KEY, prefs); render(); return; }
     if (d.drop !== undefined) { prefs.seats.splice(+d.drop, 1); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "add" && prefs.seats.length < 8) { prefs.seats.push({ seat: "bot", skill: 1 }); store(SETUP_KEY, prefs); render(); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
@@ -362,12 +369,32 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     store(SETUP_KEY, prefs); render();
     root.querySelector('[role="tab"][aria-selected="true"]').focus();
   };
+  /* a slider or its number sets the knob; the flags' range follows the
+   * boards (one a board to three a board) and the count is clamped into it */
+  function setKnob(key, value) {
+    const [lo, hi] = key === "boards" ? [1, mostBoards()] : quickFlagRange(prefs.quick.boards);
+    prefs.quick[key] = Math.min(Math.max(lo, hi), Math.max(lo, Math.round(+value) || lo));
+    clampFlags();
+    store(SETUP_KEY, prefs);
+  }
+  /* while a slider is dragged the screen is patched in place, not redrawn:
+   * redrawing would take the thumb out from under the pointer */
+  root.oninput = ev => {
+    const t = ev.target;
+    if (t.dataset.slide === undefined) return;
+    setKnob(t.dataset.slide, t.value);
+    const [lo, hi] = quickFlagRange(prefs.quick.boards);
+    for (const el of root.querySelectorAll('[data-slide="flags"], [data-num="flags"]')) { el.min = lo; el.max = hi; el.value = prefs.quick.flags; }
+    for (const el of root.querySelectorAll('[data-slide="boards"], [data-num="boards"]')) el.value = prefs.quick.boards;
+    root.querySelector('[data-note="flags"]').textContent = flagsNote();
+    root.querySelector(".lead").textContent = multiLead();
+  };
   root.onchange = ev => {
     const t = ev.target;
-    if (t.dataset.seat !== undefined) { prefs.seats[+t.dataset.seat].seat = t.value; store(SETUP_KEY, prefs); render(); }
+    if (t.dataset.slide !== undefined || t.dataset.num !== undefined) { setKnob(t.dataset.slide || t.dataset.num, t.value); render(); }
+    else if (t.dataset.seat !== undefined) { prefs.seats[+t.dataset.seat].seat = t.value; store(SETUP_KEY, prefs); render(); }
     else if (t.dataset.skill !== undefined) { prefs.seats[+t.dataset.skill].skill = +t.value; store(SETUP_KEY, prefs); }
     else if (t.dataset.house !== undefined) { prefs.house[t.dataset.house] = t.checked; store(SETUP_KEY, prefs); }
-    else if (t.dataset.quickUnverified !== undefined) { prefs.quick.unverified = t.checked; settle(); store(SETUP_KEY, prefs); render(); }
     else if (t.dataset.houseN !== undefined) { prefs.house[t.dataset.houseN] = +t.value; store(SETUP_KEY, prefs); }
   };
   render();
