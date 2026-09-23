@@ -10,6 +10,8 @@ import { blankBoard, setCell, setSites, setLevel } from "../../../editor/lib/boa
 import { usableFlagSpots, flagRefusal, assemble } from "../../../editor/lib/course.js";
 import { boardSVG, sitesShown } from "../../../editor/render/svg.js";
 import { readCourse } from "../../engine/library.js";
+import { courseFromDocument, validateCourse } from "../../../editor/validate/course.js";
+import { sink } from "../../../editor/validate/diagnostic.js";
 import { buildCourse } from "../../engine/course.js";
 import { quickCourse, quickSpots, canQuick, isBlank, seeded, QUICK_FLAGS, DOCK_BOARD,
   quickMulti, quickCells, routeOf, quickFlagCounts, quickFlagRange, quickDefaultFlags, QUICK_MAX_BOARDS } from "../../engine/quick.js";
@@ -122,6 +124,32 @@ export const TESTS = [
     assert(!isBlank(shot.b), "one laser: a board");
     const pressed = marked(FIVE, "pressed"); pressed.b.ceilingDevices.push({ kind: "press", at: [2, 2], regs: [1] });
     assert(!isBlank(pressed.b), "one press: a board");
+  }],
+  ["a course may place its own starting squares, and a race needs eight of them", () => {
+    /* the docking bay board is the quick way to eight bays; a course may
+     * instead put its starting squares anywhere on the floor, numbered in
+     * the order placed, and the engine docks robots on them as on a board's */
+    const { b, library } = marked(FIVE, "open");
+    const starts = [[0, 0], [7, 0], [0, 7], [7, 7], [3, 0], [0, 3], [7, 3], [3, 7]];
+    const doc = { format: "PRCourse", version: 1, id: "ring", name: "Ring", kind: "track",
+      stamps: [{ role: "board", board: b.id, rot: 0, at: [0, 0] }], starts, flags: FIVE.slice(0, 3), minPlayers: 1, maxPlayers: 8 };
+    /* the workshop's validator is what holds a course to the rule; the engine reads shape only */
+    const errors = d => { const s = sink(); const c = courseFromDocument(JSON.parse(JSON.stringify(d)), s, d.id); if (c) validateCourse(c, library, s); return s.items.filter(x => x.severity === "error").map(x => x.message); };
+    eq(errors(doc), [], "eight placed starting squares and no docking bay board is a course");
+    const C = buildCourse(readCourse(doc, library), library);
+    eq(C.docks.map(d => [d.c, d.r, d.n]), starts.map((s, i) => [s[0], s[1], i + 1]), "eight bays where the course put them, numbered in order");
+    /* seven is not a course, nor is a docking bay board and one more */
+    let e = errors({ ...doc, starts: starts.slice(0, 7) });
+    assert(e.some(m => /7 of the 8/.test(m)), "seven starting squares are refused, and the refusal counts them: " + e);
+    e = errors({ ...doc, stamps: doc.stamps.concat([{ role: "dock", board: DOCK_BOARD, rot: 0, at: [0, 8] }]), starts: [[3, 3]] });
+    assert(e.some(m => /9 starting squares/.test(m)), "a docking bay board and one more is nine, and refused: " + e);
+    /* a start on a flag's square is refused from the flag's side: the square is a bay now */
+    e = errors({ ...doc, flags: [starts[0]].concat(FIVE.slice(1, 3)) });
+    assert(e.some(m => /starting square/.test(m)), "a flag on a starting square is refused: " + e);
+    /* and a start in a pit, or on a belt, is not on floor */
+    setCell(b, 3, 3, "o..");
+    e = errors({ ...doc, starts: starts.slice(0, 7).concat([[3, 3]]) });
+    assert(e.some(m => /plain floor/.test(m)), "a start in a pit is refused: " + e);
   }],
   ["the race draws the markings its edition reads and no others", () => {
     const all = ["repair", "battery", "flagspot"];

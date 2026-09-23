@@ -7,8 +7,7 @@
 
 import {
   blankBoard, setCell, cellAt, levelAt, wallDevicesAt, ceilingAt, deviceCell,
-  sitesAt, setSites, flagSpots, propAt, cloneBoard
-} from "../lib/board.js";
+  sitesAt, setSites, flagSpots, propAt, cloneBoard, docksOf } from "../lib/board.js";
 import { wallAt, setWall, edgeOf, edgeCodeAt, EDGE_WALL, EDGE_DOOR, EDGE_NONE, setRamp, rampOn } from "../lib/edges.js";
 import { N, E, S, W, opposite, DC, DR, dirLetter } from "../lib/dir.js";
 import {
@@ -20,8 +19,7 @@ import { checkBoard } from "../validate/index.js";
 import { ELEMENTS } from "../rulesets/elements.js";
 import {
   newCourse, place, turn, remove, moveStamp, stampAt, snapTargets, nearestSnap,
-  normalise, addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit
-} from "../app/compose.js";
+  normalise, addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit, addStart } from "../app/compose.js";
 import {
   assemble, stampFootprint, stampDims, suggestFlags, usableFlagSpots, flagRefusal, wallsAround
 } from "../lib/course.js";
@@ -571,8 +569,14 @@ const fresh = (w = 8, h = 8) =>
   big.id = "big";
   const lib = new Map([["big", big]]);
 
+  /* The proving ground prints bays 1 and 2 itself (it carries every element),
+   * and every bay on the course counts now that a race is held to eight
+   * wherever they stand -- so this dock prints 3 to 6, and the course places
+   * the last two below. It used to print 1 to 6, which the validator let pass
+   * only because it looked inside the dock's box and nowhere else, while the
+   * engine took every bay on the grid. */
   const dock = blankBoard({ id: "dock6", name: "Dock", w: 6, h: 2, set: "authored", origin: "authored" });
-  for (let c = 0; c < 6; c++) setCell(dock, c, 0, "s" + (c + 1) + ".");
+  for (let c = 0; c < 4; c++) setCell(dock, c, 0, "s" + (c + 3) + ".");
   lib.set("dock6", dock);
 
   const small = blankBoard({ id: "small", name: "Small", w: 6, h: 6, set: "authored", origin: "authored" });
@@ -584,6 +588,12 @@ const fresh = (w = 8, h = 8) =>
   ok(place(course, lib, "dock6", 0, [6, 12], "dock") > 0, "compose: a 6x2 dock goes BESIDE the boards, not under them");
   ok(place(course, lib, "small", 0, [12, 12]) > 0, "compose: a 6x6 joins on beyond the dock");
   eq(place(course, lib, "dock6", 0, [0, 20], "dock"), -1, "compose: a second dock is refused");
+  /* a race needs eight starting squares and the boards print six: the
+   * course places the other two on the 6x6's floor, numbered 7 and 8 */
+  /* (14,13) and (15,16): floor on the 6x6, and not the two squares it marks
+   * as flag locations below, which a bay would take from the suggester */
+  ok(addStart(course, 14, 13) && addStart(course, 15, 16), "compose: two starting squares placed to make the boards' six up to eight");
+  eq(docksOf(assemble(course, lib).grid).map(b => b.n), [1, 2, 3, 4, 5, 6, 7, 8], "compose: the placed squares are bays 7 and 8 on the assembled course");
 
   const snaps = snapTargets(course, lib, "small", 0);
   ok(snaps.length > 3, "compose: snapping offers " + snaps.length + " edge-adjacent positions");

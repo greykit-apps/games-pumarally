@@ -20,7 +20,7 @@ export function newCourse(id = "untitled") {
   return {
     format: COURSE_FORMAT, version: COURSE_VERSION,
     id, name: "Untitled course", kind: "track", blurb: "",
-    stamps: [], flags: [], reboots: [], rebootDamage: null, minPlayers: 2, maxPlayers: 8
+    stamps: [], flags: [], reboots: [], starts: [], rebootDamage: null, minPlayers: 2, maxPlayers: 8
   };
 }
 
@@ -67,8 +67,9 @@ export function normalise(course, library) {
 function keepFlags(course, library, fn, rotate) {
   const b0 = courseBounds(course, library);
   if (!course.reboots) course.reboots = [];
-  /* the reboot tokens are squares of boards too, and turn with them */
-  const marks = course.flags.concat(course.reboots);
+  if (!course.starts) course.starts = [];
+  /* the reboot tokens and the starting squares are squares of boards too, and turn with them */
+  const marks = course.flags.concat(course.reboots, course.starts);
   const owners = marks.map(f => {
     const abs = [f[0] + b0.x0, f[1] + b0.y0];
     for (let i = course.stamps.length - 1; i >= 0; i--) {   // same precedence as stampAt
@@ -243,6 +244,29 @@ export function turnReboot(course, index, quarters) {
   return true;
 }
 
+/* --- the course's own starting squares: numbered by their order, placed like flags --- */
+
+export function startAt(course, c, r) {
+  return (course.starts || []).findIndex(s => s[0] === c && s[1] === r);
+}
+export function addStart(course, c, r) {
+  if (!course.starts) course.starts = [];
+  if (startAt(course, c, r) >= 0) return false;
+  course.starts.push([c, r]);
+  return true;
+}
+export function removeStart(course, index) {
+  if (!course.starts || index < 0 || index >= course.starts.length) return false;
+  course.starts.splice(index, 1);
+  return true;
+}
+export function moveStart(course, index, to) {
+  if (!course.starts || index < 0 || index >= course.starts.length) return false;
+  const [s] = course.starts.splice(index, 1);
+  course.starts.splice(Math.max(0, Math.min(course.starts.length, to)), 0, s);
+  return true;
+}
+
 export function flagAt(course, c, r) {
   return course.flags.findIndex(f => f[0] === c && f[1] === r);
 }
@@ -285,6 +309,7 @@ export function toDocument(course) {
   doc.stamps = course.stamps.map(s => ({ role: s.role, board: s.board, rot: s.rot, at: [s.at[0], s.at[1]] }));
   doc.flags = course.flags.map(f => [f[0], f[1]]);
   if (course.reboots && course.reboots.length) doc.reboots = course.reboots.map(t => [t[0], t[1], t[2]]);
+  if (course.starts && course.starts.length) doc.starts = course.starts.map(s => [s[0], s[1]]);
   if (Number.isInteger(course.rebootDamage)) doc.rebootDamage = course.rebootDamage;
   if (course.minPlayers !== undefined) doc.minPlayers = course.minPlayers;
   if (course.maxPlayers !== undefined) doc.maxPlayers = course.maxPlayers;

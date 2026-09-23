@@ -2155,6 +2155,12 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "a course may place its own starting squares, and a race needs eight of them",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "the boards stack as the box does: the column first, then the sides, never beyond three by three",
     "layer": "rules",
     "status": "ported",

@@ -22,6 +22,7 @@ import {
   blankBoard, idx, inBoard, isVoid, setCell, levelAt, setLevel, hasLevels, cellAt,
   elementAt, flagSpots, deviceCell, docksOf
 } from "./board.js";
+import { bayCharOf } from "./token.js";
 import { rotateBoard, rotatedDims } from "./rotate.js";
 import { EDGE_NONE, EDGE_WALL, EDGE_DOOR, wallAt } from "./edges.js";
 import { DC, DR, N, E, S, W } from "./dir.js";
@@ -144,7 +145,53 @@ export function assemble(course, library) {
     }
   });
 
-  return { grid, from, bounds };
+  /* THE COURSE'S OWN STARTING SQUARES. A docking bay board is the quick way
+   * to eight bays; a course may instead, or as well, place bays one square
+   * at a time anywhere on the floor, numbered after whatever the boards
+   * print. They are painted into the grid as bay squares, so the engine, the
+   * renderer and the bay checks see them exactly as they see a printed one.
+   * A start the validator will refuse is painted all the same: the refusal
+   * is about that square, and the numbering of the rest must not shift. */
+  const printed = docksOf(grid).length;
+  const painted = new Set();
+  (course.starts || []).forEach(([c, r], i) => {
+    const n = printed + i + 1;
+    if (n > 12 || !inBoard(grid, c, r) || isVoid(grid, c, r)) return;
+    /* only plain floor takes the paint: a start on a pit, a belt or a printed
+     * bay is left as it is, so the refusal can see what is really there */
+    const def = elementAt(grid, c, r);
+    if (!def || def.key !== "floor") return;
+    grid.cells[idx(grid, c, r)] = "s" + bayCharOf(n) + ".";
+    painted.add(c + "," + r);
+  });
+
+  return { grid, from, bounds, painted };
+}
+
+/** How many starting squares a race needs: the docking bay's eight, however they are made up. */
+export const STARTS_WANTED = 8;
+
+/**
+ * Why this square cannot take one of the course's own starting squares, or
+ * null when it can. ONE DEFINITION, used by the validator and the workshop.
+ * `asm` is the course assembled WITH its starts painted on (`painted` says
+ * which squares took the paint), so the bay on the start's own square is
+ * not in its own way; a bay the boards print, or another start, is.
+ */
+export function startRefusal(course, library, asm, c, r) {
+  const { grid, bounds, painted } = asm;
+  if (!inBoard(grid, c, r) || isVoid(grid, c, r)) {
+    return { code: "course.startOffCourse", why: "off the course" };
+  }
+  if (inBox(dockBox(course, library, bounds), c, r)) {
+    return { code: "course.startInDock", why: "on the docking bay board, which places its own" };
+  }
+  const def = elementAt(grid, c, r);
+  const itself = !!(painted && painted.has(c + "," + r));
+  if (!def || def.props.pit || (def.key !== "floor" && !itself)) {
+    return { code: "course.startNotFloor", why: "on " + (def ? def.name.toLowerCase() : "nothing") + "; a robot starts on plain floor" };
+  }
+  return null;
 }
 
 /**
@@ -247,6 +294,11 @@ export function dockBox(course, library, bounds) {
     if (!bays.length) return null;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const d of bays) { x0 = Math.min(x0, d.c); y0 = Math.min(y0, d.r); x1 = Math.max(x1, d.c); y1 = Math.max(y1, d.r); }
+    /* bays scattered round the floor (a course that placed its own, then
+     * flattened) make no block: the box would span most of the course and
+     * refuse flags everywhere inside it. A block is bays packed in a row or
+     * two; anything sparser is squares, and squares are checked one by one. */
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > 2 * bays.length + 2) return null;
     return { x0: f.x0 + x0 - bounds.x0, y0: f.y0 + y0 - bounds.y0, x1: f.x0 + x1 - bounds.x0, y1: f.y0 + y1 - bounds.y0 };
   }
   return { x0: f.x0 - bounds.x0, y0: f.y0 - bounds.y0, x1: f.x1 - bounds.x0, y1: f.y1 - bounds.y0 };
@@ -293,6 +345,9 @@ export function flagRefusal(course, library, asm, c, r) {
   if (!def || def.props.pit) {
     return { code: "course.flagNotFloor",
       why: "on " + (def ? def.name.toLowerCase() : "nothing") + ", and a flag cannot stand in one" };
+  }
+  if (def.props.dock) {
+    return { code: "course.flagInDock", why: "on a starting square" };
   }
   for (const dev of grid.wallDevices) {
     const cell = deviceCell(dev);
