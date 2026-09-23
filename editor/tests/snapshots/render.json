@@ -591,12 +591,12 @@
   },
   "reactorCore": {
     "art": {
-      "sha": "1ffb1f77465a56ed",
-      "bytes": 83515
+      "sha": "3a7633c036b582ae",
+      "bytes": 87090
     },
     "markup": {
-      "sha": "b7cdfa67c84900e3",
-      "bytes": 89893
+      "sha": "4e30a5e2abbcadf4",
+      "bytes": 96224
     }
   },
   "sampler": {

@@ -614,8 +614,7 @@
       "w": 12,
       "h": 12,
       "set": "radioactive",
-      "origin": "transcribed",
-      "unverified": true
+      "origin": "transcribed"
     },
     {
       "id": "sampler",
