@@ -7,8 +7,7 @@
   "h": 12,
   "set": "classic2005",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Unverified.",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Checked against the render, with energy spaces and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "... ... ... B^. ... ... B^. ... ... ... b^. ...",
@@ -25,12 +24,19 @@
       "... bv. ... ... ... ... b^. ... ... ... ... ..."
     ],
     "sites": [
-      { "at": [0, 0], "has": ["repair"] },
-      { "at": [5, 5], "has": ["upgrade"] },
-      { "at": [6, 5], "has": ["upgrade"] },
-      { "at": [5, 6], "has": ["upgrade"] },
-      { "at": [6, 6], "has": ["upgrade"] },
-      { "at": [11, 11], "has": ["repair"] }
+      { "at": [0, 0], "has": ["repair", "battery"] },
+      { "at": [2, 3], "has": ["flagspot"] },
+      { "at": [8, 3], "has": ["flagspot"] },
+      { "at": [4, 4], "has": ["flagspot"] },
+      { "at": [5, 5], "has": ["upgrade", "battery"] },
+      { "at": [6, 5], "has": ["upgrade", "battery"] },
+      { "at": [5, 6], "has": ["upgrade", "battery"] },
+      { "at": [6, 6], "has": ["upgrade", "battery"] },
+      { "at": [7, 7], "has": ["flagspot"] },
+      { "at": [3, 8], "has": ["flagspot"] },
+      { "at": [11, 8], "has": ["flagspot"] },
+      { "at": [5, 10], "has": ["flagspot"] },
+      { "at": [11, 11], "has": ["repair", "battery"] }
     ]
   },
   "wall": {
