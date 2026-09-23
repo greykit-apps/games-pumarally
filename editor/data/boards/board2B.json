@@ -1,0 +1,73 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "board2B",
+  "name": "2B",
+  "w": 10,
+  "h": 10,
+  "set": "modern2016",
+  "origin": "transcribed",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... ... ... ... b^. ...",
+      "b<. ... ... ... o.. ... ... ... ... B<.",
+      "... ... ... ... ... ... ... ... ... ...",
+      "... ... ... B>r B>. B>. Bvr ... ... ...",
+      "... ... ... B^. ... ... Bv. ... o.. ...",
+      "... o.. ... B^. r.. ... Bv. ... ... ...",
+      "... ... ... B^r B<. B<. B<r ... ... ...",
+      "... ... ... ... ... ... ... ... ... ...",
+      "B>. ... ... ... ... o.. ... ... ... b>.",
+      "... bv. ... ... ... ... ... ... B^. ..."
+    ],
+    "sites": [
+      { "at": [0, 0], "has": ["battery"] },
+      { "at": [2, 1], "has": ["flagspot"] },
+      { "at": [6, 1], "has": ["flagspot"] },
+      { "at": [1, 3], "has": ["flagspot"] },
+      { "at": [1, 4], "has": ["repair", "battery"] },
+      { "at": [4, 4], "has": ["flagspot"] },
+      { "at": [5, 5], "has": ["upgrade", "battery"] },
+      { "at": [8, 5], "has": ["repair", "battery"] },
+      { "at": [8, 6], "has": ["flagspot"] },
+      { "at": [4, 8], "has": ["flagspot"] },
+      { "at": [8, 8], "has": ["flagspot"] },
+      { "at": [9, 9], "has": ["battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "          ",
+      "          ",
+      "  #       ",
+      "       #  ",
+      "          ",
+      "          ",
+      "          ",
+      "  #       ",
+      "       #  ",
+      "          ",
+      "          "
+    ],
+    "vRows": [
+      "           ",
+      "           ",
+      "   #    #  ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "  #    #   ",
+      "           ",
+      "           "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:2,7", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:7,3", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "v:3,2", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,7", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

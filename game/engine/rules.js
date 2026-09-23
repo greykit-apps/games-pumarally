@@ -337,7 +337,9 @@ export function playCard(st, C, p, cd, plan) {
   let moved = 0;
   const hover = fire(st, p, "modifyMove", { kind: "hover", hover: false }).hover;
   for (let i = 0; i < n; i++) {
-    if (!p.alive) return;
+    /* a robot destroyed mid-move leaves no hover behind: the counter outlived
+     * the move once, and a Haywire sidestep after the reboot floated on it */
+    if (!p.alive) { p.hoverSteps = 0; return; }
     p.hoverSteps = hover ? n - i - 1 : 0;
     if (!stepRobot(st, C, p, dir, "card")) {                                // a wall: the rest of the move is lost
       p.hoverSteps = 0;

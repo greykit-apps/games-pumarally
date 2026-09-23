@@ -1,0 +1,76 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "spinZone",
+  "name": "Spin Zone",
+  "w": 12,
+  "h": 12,
+  "set": "classic2005",
+  "origin": "transcribed",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Checked against the render, with energy spaces and flag locations added, by the author: verified 2026-09-23.",
+  "ground": {
+    "rows": [
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... B>r B>. B>. Bvr ... ... B>r B>. B>. Bvr ...",
+      "... B^. r.. ... Bv. l.. ... B^. r.. ... Bv. ...",
+      "... B^. ... r.. Bv. ... ... B^. ... r.. Bv. ...",
+      "... B^r B<. B<. B<r ... l.. B^r B<. B<. B<r ...",
+      "... ... ... ... l.. ... ... ... ... l.. ... ...",
+      "... ... l.. ... ... ... ... l.. ... ... ... ...",
+      "... B>r B>. B>. Bvr l.. ... B>r B>. B>. Bvr ...",
+      "... B^. r.. ... Bv. ... ... B^. r.. ... Bv. ...",
+      "... B^. ... r.. Bv. ... l.. B^. ... r.. Bv. ...",
+      "... B^r B<. B<. B<r ... ... B^r B<. B<. B<r ...",
+      "... ... ... ... ... ... ... ... ... ... ... ..."
+    ],
+    "sites": [
+      { "at": [3, 2], "has": ["flagspot"] },
+      { "at": [9, 2], "has": ["flagspot"] },
+      { "at": [2, 3], "has": ["repair", "battery"] },
+      { "at": [8, 3], "has": ["upgrade", "battery"] },
+      { "at": [5, 5], "has": ["flagspot"] },
+      { "at": [3, 8], "has": ["upgrade", "battery"] },
+      { "at": [9, 8], "has": ["repair", "battery"] },
+      { "at": [2, 9], "has": ["flagspot"] },
+      { "at": [8, 9], "has": ["flagspot"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "  # #  # #  ",
+      "            ",
+      "            ",
+      "   #        ",
+      "            ",
+      "        #   ",
+      "            ",
+      "   #        ",
+      "            ",
+      "        #   ",
+      "            ",
+      "            ",
+      "  # #  # #  "
+    ],
+    "vRows": [
+      "             ",
+      "             ",
+      "#           #",
+      "     # #     ",
+      "#           #",
+      "             ",
+      "             ",
+      "#           #",
+      "     # #     ",
+      "#           #",
+      "             ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "laser", "edge": "h:3,7", "face": "N", "damage": 1 },
+      { "kind": "laser", "edge": "h:8,5", "face": "S", "damage": 1 },
+      { "kind": "laser", "edge": "v:5,8", "face": "E", "damage": 1 },
+      { "kind": "laser", "edge": "v:7,3", "face": "W", "damage": 1 }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

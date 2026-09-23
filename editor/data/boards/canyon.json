@@ -1,0 +1,118 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "canyon",
+  "name": "Canyon",
+  "w": 12,
+  "h": 12,
+  "set": "grandPrix",
+  "origin": "transcribed",
+  "unverified": true,
+  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. Unverified. The canyon (columns 1-10, rows 4-7) is read as one level BELOW the floor, from the shadow its rim casts inward; its six tabs are ramps down into it. The coloured hexes are read as portals: yellow (9,1)-(5,6), red (6,5)-(2,10).",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... bv. b^. ... ... ... B^. ...",
+      "... Bv. ... bvl b<. b<r b^r b<. b<l t5. B^R B<.",
+      "... Bv. ... bv. ... L.. ... ... b^. ... B^. ...",
+      "B>. BvR ... bv. ... L.. ... ... b^. ... B^. ...",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "r.. ... ... ... ... ... t9. ... ... ... ... r..",
+      "r.. ... ... ... ... t5. ... L.. L.. L.. ... r..",
+      "... ... ... ... ... ... ... ... ... ... ... ...",
+      "... Bv. ... bv. ... ... L.. ... b^. ... B^R B<.",
+      "... Bv. ... bv. ... ... L.. ... b^. ... B^. ...",
+      "B>. BvR t9. b>l b>. bvr b>r b>. b^l ... B^. ...",
+      "... Bv. ... ... ... bv. b^. ... ... ... B^. ..."
+    ],
+    "levels": [
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "0AAAAAAAAAA0",
+      "0AAAAAAAAAA0",
+      "0AAAAAAAAAA0",
+      "0AAAAAAAAAA0",
+      "000000000000",
+      "000000000000",
+      "000000000000",
+      "000000000000"
+    ],
+    "rampH": [
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "  R    R  R ",
+      "            ",
+      "            ",
+      "            ",
+      " R  R    R  ",
+      "            ",
+      "            ",
+      "            ",
+      "            "
+    ],
+    "rampV": [
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             "
+    ],
+    "sites": [
+      { "at": [7, 3], "has": ["upgrade"] },
+      { "at": [3, 5], "has": ["chopShop"] },
+      { "at": [4, 8], "has": ["upgrade"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "            ",
+      "        #   ",
+      "            ",
+      "            ",
+      "            ",
+      "     #      ",
+      " #        # ",
+      "      #     ",
+      "            ",
+      "            ",
+      "            ",
+      "   #        ",
+      "            "
+    ],
+    "vRows": [
+      "             ",
+      "   #         ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "             ",
+      "         #   ",
+      "             "
+    ],
+    "devices": [
+      { "kind": "repulsor", "edge": "h:1,6", "face": "N" },
+      { "kind": "repulsor", "edge": "h:3,11", "face": "S" },
+      { "kind": "repulsor", "edge": "h:5,5", "face": "S" },
+      { "kind": "repulsor", "edge": "h:6,7", "face": "N" },
+      { "kind": "repulsor", "edge": "h:8,1", "face": "N" },
+      { "kind": "repulsor", "edge": "h:10,6", "face": "S" },
+      { "kind": "repulsor", "edge": "v:3,1", "face": "W" },
+      { "kind": "repulsor", "edge": "v:9,10", "face": "E" }
+    ]
+  },
+  "ceiling": { "devices": [] }
+}

@@ -1,0 +1,67 @@
+{
+  "format": "PRBoard",
+  "version": 1,
+  "id": "board6A",
+  "name": "6A",
+  "w": 10,
+  "h": 10,
+  "set": "modern2016",
+  "origin": "transcribed",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render (tartarus.org/gareth/roborally), 2026-09-23. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
+  "ground": {
+    "rows": [
+      "... Bv. ... ... ... ... b>r b>. b^l ...",
+      "b<l B>l B>. B>. o.. ... b^. ... Bvl B<.",
+      "b^. ... ... ... ... ... b^. ... Bv. ...",
+      "b^r b<. b<. b<. ... ... b^. ... Bv. ...",
+      "... ... ... ... ... ... ... ... o.. ...",
+      "... o.. ... ... ... ... ... ... ... ...",
+      "... B^. ... bv. ... ... b>. b>. b>. bvr",
+      "... B^. ... bv. ... ... ... ... ... bv.",
+      "B>. B^l ... bv. ... o.. B<. B<. B<l b>l",
+      "... bvl b<. b<r ... ... ... ... B^. ..."
+    ],
+    "sites": [
+      { "at": [5, 0], "has": ["repair", "battery"] },
+      { "at": [7, 1], "has": ["flagspot"] },
+      { "at": [2, 2], "has": ["flagspot"] },
+      { "at": [2, 4], "has": ["flagspot"] },
+      { "at": [6, 4], "has": ["flagspot"] },
+      { "at": [0, 5], "has": ["repair", "battery"] },
+      { "at": [8, 5], "has": ["upgrade", "battery"] },
+      { "at": [2, 7], "has": ["flagspot"] },
+      { "at": [6, 7], "has": ["flagspot"] },
+      { "at": [2, 8], "has": ["upgrade", "battery"] },
+      { "at": [7, 9], "has": ["repair", "battery"] }
+    ]
+  },
+  "wall": {
+    "hRows": [
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          ",
+      "          "
+    ],
+    "vRows": [
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           ",
+      "           "
+    ],
+    "devices": []
+  },
+  "ceiling": { "devices": [] }
+}

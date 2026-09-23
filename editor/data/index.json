@@ -417,6 +417,237 @@
       "h": 12,
       "set": "armedAndDangerous",
       "origin": "transcribed"
+    },
+    {
+      "id": "backStretch",
+      "name": "Back Stretch",
+      "w": 12,
+      "h": 12,
+      "set": "grandPrix",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "board1A",
+      "name": "1A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board1B",
+      "name": "1B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board2A",
+      "name": "2A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board2B",
+      "name": "2B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board3A",
+      "name": "3A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board3B",
+      "name": "3B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board4A",
+      "name": "4A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board4B",
+      "name": "4B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board5A",
+      "name": "5A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board5B",
+      "name": "5B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board6A",
+      "name": "6A",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "board6B",
+      "name": "6B",
+      "w": 10,
+      "h": 10,
+      "set": "modern2016",
+      "origin": "transcribed"
+    },
+    {
+      "id": "canyon",
+      "name": "Canyon",
+      "w": 12,
+      "h": 12,
+      "set": "grandPrix",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "chess",
+      "name": "Chess",
+      "w": 12,
+      "h": 12,
+      "set": "classic2005",
+      "origin": "transcribed"
+    },
+    {
+      "id": "chopShop",
+      "name": "Chop Shop",
+      "w": 12,
+      "h": 12,
+      "set": "classic2005",
+      "origin": "transcribed"
+    },
+    {
+      "id": "concentric",
+      "name": "Concentric",
+      "w": 12,
+      "h": 12,
+      "set": "thirtieth",
+      "origin": "transcribed"
+    },
+    {
+      "id": "falling",
+      "name": "Falling",
+      "w": 12,
+      "h": 12,
+      "set": "thirtieth",
+      "origin": "transcribed"
+    },
+    {
+      "id": "kingOfTheHill",
+      "name": "King of the Hill",
+      "w": 12,
+      "h": 12,
+      "set": "origins99",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "links",
+      "name": "Links",
+      "w": 12,
+      "h": 12,
+      "set": "thirtieth",
+      "origin": "transcribed"
+    },
+    {
+      "id": "meeple",
+      "name": "Meeple",
+      "w": 12,
+      "h": 12,
+      "set": "thirtieth",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "pinwheel",
+      "name": "Pinwheel",
+      "w": 12,
+      "h": 12,
+      "set": "radioactive",
+      "origin": "transcribed"
+    },
+    {
+      "id": "pitRow",
+      "name": "Pit Row",
+      "w": 12,
+      "h": 12,
+      "set": "grandPrix",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "reactorCore",
+      "name": "Reactor Core",
+      "w": 12,
+      "h": 12,
+      "set": "radioactive",
+      "origin": "transcribed"
+    },
+    {
+      "id": "sampler",
+      "name": "Sampler",
+      "w": 12,
+      "h": 12,
+      "set": "thirtieth",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "shakeNBake",
+      "name": "Shake 'N' Bake",
+      "w": 12,
+      "h": 12,
+      "set": "radioactive",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "spinZone",
+      "name": "Spin Zone",
+      "w": 12,
+      "h": 12,
+      "set": "classic2005",
+      "origin": "transcribed"
+    },
+    {
+      "id": "vault",
+      "name": "Vault",
+      "w": 12,
+      "h": 12,
+      "set": "classic2005",
+      "origin": "transcribed"
     }
   ],
   "courses": [
