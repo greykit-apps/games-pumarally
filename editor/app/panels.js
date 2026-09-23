@@ -443,14 +443,15 @@ export function libraryHtml(rows, currentId) {
   return html + "</div>";
 }
 
-export function renderDiagnostics(el, st) {
+/** `what` names the thing checked: a board in the board workshop, a course in the course workshop. */
+export function renderDiagnostics(el, st, what = "board") {
   const errs = st.diagnostics.filter(d => d.severity === "error");
   const warns = st.diagnostics.filter(d => d.severity === "warning");
   let html = "<h3>Problems" +
     (errs.length ? ' <span class="bad">' + errs.length + "</span>" : "") +
     (warns.length ? ' <span class="warn">' + warns.length + "</span>" : "") + "</h3>";
   if (!st.diagnostics.length) {
-    html += '<p class="none ok">Nothing wrong with this board.</p>';
+    html += '<p class="none ok">Nothing wrong with this ' + what + '.</p>';
   } else {
     html += '<ul class="diag">';
     for (const d of st.diagnostics.slice(0, 40)) {

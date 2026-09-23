@@ -23,7 +23,7 @@ import { ALL_CODES } from "../validate/diagnostic.js";
 import { checkBoardDocument } from "../validate/index.js";
 import { validateLibrary } from "../validate/library.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
-import { blankBoard } from "../lib/board.js";
+import { blankBoard, cloneBoard } from "../lib/board.js";
 import { sink } from "../validate/diagnostic.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -219,7 +219,12 @@ LIB.set(FIXTURE, checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board);
 /* A tiny docking bay of its own, so a dock case does not depend on any shipped
  * board being 12x4 or on the fixtures carrying bays in a particular place. */
 {
-  const bay = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
+  /* A DOCKING BAY WITH BAYS 3 TO 8. The fixture carries every element, bays 1
+   * and 2 among them, and every bay on the course counts now that a race is
+   * held to eight wherever they stand -- so the dock prints the other six.
+   * It used to be the fixture itself, and the rule "as many as the seats". */
+  const bay = blankBoard({ id: "bay", name: "Bay", w: 12, h: 4, set: "authored", origin: "authored" });
+  for (let i = 0; i < 6; i++) bay.cells[1 * bay.w + i + 2] = "s" + (i + 3) + ".";
   LIB.set("bay", bay);
 }
 
@@ -260,7 +265,14 @@ const COURSE_CASES = [
   ["course.twoDocks", c => { c.stamps.push({ role: "dock", board: "bay", rot: 0, at: [12, 0] }); }],
   ["course.noDock", c => { c.stamps = [c.stamps[0]]; }],
   ["course.bayNumbering", c => { c.stamps[1].board = "bayGap"; }],
-  ["course.bayCount", c => { c.maxPlayers = 8; }],
+  ["course.bayCount", c => { c.stamps[1].board = "baySix"; }],           // six of the eight a race needs
+  /* the course's own starting squares, placed like flags and numbered after the printed bays */
+  ["course.startOffCourse", c => { c.starts = [[99, 99]]; }],
+  ["course.startNotFloor", c => { c.starts = [[1, 3]]; }],                 // the fixture's pit
+  ["course.startInDock", c => { c.starts = [[0, 13]]; }],                  // floor, and on the docking bay board
+  ["course.startDuplicate", c => { c.starts = [[4, 6], [4, 6]]; }],
+  /* eight placed squares and no docking bay board is a course; nine is not */
+  ["course.bayCount", c => { c.stamps = [c.stamps[0]]; c.starts = [[4, 6], [5, 6], [4, 7], [5, 7], [6, 6], [6, 7], [7, 6]]; }],   // the fixture's two and seven more: nine
   ["course.bayTrapped", c => { c.stamps[1].board = "bayWalled"; }],
   ["course.noFlags", c => { c.flags = []; }],
   ["course.flagOffCourse", c => { c.flags[0] = [99, 99]; }],
@@ -307,19 +319,24 @@ const COURSE_CASES = [
   ["course.fewFlagSpots", c => { c.stamps = [c.stamps[0]]; }]
 ];
 
-/* two dock variants the cases above need */
+/* three dock variants the cases above need, each the eight-bay dock with one thing wrong */
 {
-  const gap = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
-  gap.cells[11 * gap.w + 1] = "s3.";          // bays 1 and 3, no 2
+  const gap = cloneBoard(LIB.get("bay"));
+  gap.cells[1 * gap.w + 3] = "s5.";           // bays 3, 5, 5, 6, 7, 8: no 4, and 5 twice
   LIB.set("bayGap", gap);
 
-  const walled = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
-  /* wall bay 1 in on all four sides */
-  walled.wallH[11 * walled.w + 0] = 1;
-  walled.wallH[12 * walled.w + 0] = 1;
-  walled.wallV[11 * (walled.w + 1) + 0] = 1;
-  walled.wallV[11 * (walled.w + 1) + 1] = 1;
+  const walled = cloneBoard(LIB.get("bay"));
+  /* wall bay 3, at (2,1), in on all four sides */
+  walled.wallH[1 * walled.w + 2] = 1;
+  walled.wallH[2 * walled.w + 2] = 1;
+  walled.wallV[1 * (walled.w + 1) + 2] = 1;
+  walled.wallV[1 * (walled.w + 1) + 3] = 1;
   LIB.set("bayWalled", walled);
+
+  const six = cloneBoard(LIB.get("bay"));
+  six.cells[1 * six.w + 6] = "...";
+  six.cells[1 * six.w + 7] = "...";           // bays 3..6: six on the course with the fixture's two
+  LIB.set("baySix", six);
 
   const cornered = checkBoardDocument(JSON.parse(raw(FIXTURE)), FIXTURE).board;
   cornered.wallH[6 * cornered.w + 4] = 1;            // N of (4,6)

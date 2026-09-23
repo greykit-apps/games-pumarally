@@ -106,9 +106,13 @@ stays resumable until another race is started.
 
 The **course workshop** (`editor/index.html#course`, or the Build course
 tab) lays boards out, puts the flags on, and saves to this browser's
-library, where the set-up screen offers the result under Saved course. The
-two blank Master Builder boards, Blueprint and Tabula Rasa, are for building
-on: they are in the workshop's palette and off the quick-game shelf. To ship a course as a default, **Download**
+library, where the set-up screen offers the result under Saved course. A race
+needs eight starting squares: the docking bay board is the quick way to all
+eight, or place them one square at a time anywhere on the floor (**B** in the
+workshop). A board's flag marks are its suggestions and what Suggest picks
+from; a flag you place yourself may stand on any floor square. The two blank
+Master Builder boards, Blueprint and Tabula Rasa, are for building on: they
+are in the workshop's palette and off the quick-game shelf. To ship a course as a default, **Download**
 it from the workshop, drop the file into `editor/data/courses/`, and run
 `node editor/tools/build-index.js`. See `editor/README.md`.
 

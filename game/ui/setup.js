@@ -201,7 +201,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return "<p class='lead'>The course workshop lays boards out on the floor: drag them in, turn them, put the " + flagWord() + " where you want them, " +
       "and edit any board square by square, or the whole course as one board. Save it and it appears under Saved course, ready to race.</p>" +
       '<div class="row"><a class="primary" href="' + esc(workshopHref) + '" role="button" style="display:inline-block;padding:8px 14px;border:1px solid var(--accent);border-radius:3px;color:var(--accent);text-decoration:none">Open the course workshop &rarr;</a>' +
-      "<span class='keys'>Opens in this tab; the workshop's Play button brings you back here.</span></div>";
+      "<span class='keys'>Opens in this tab. Save the course there, come back here, and it is under Saved course.</span></div>";
   }
 
   function savedTab() {

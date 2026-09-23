@@ -353,6 +353,17 @@ course model knows the number twelve.** Boards of any size compose: 12×12, the
 12×4 docking bay, Master Builder's 6×6 and 6×2. The flag array index *is* the
 flag number, so inserting one renumbers everything after it.
 
+A race needs **eight starting squares**, and the docking bay board is only the
+quick way to them. A course may instead, or as well, place its own with
+`starts: [[c, r], …]` — one square at a time, anywhere on plain floor, numbered
+after whatever the boards print (Master Builder's 6×2 dock prints six, so a
+course laying it places two more). `assemble` paints them into the grid as bay
+squares, so the engine, the renderer and the bay checks see them exactly as
+they see a printed one; the validator holds the total to eight
+(`course.bayCount`) unless the course names the bays it uses with `bays`. In
+the workshop the tool is **B**; a start the validator refuses (a pit, a belt,
+the docking bay board's own footprint) says why at the square.
+
 | the old rule | what it was trying to say |
 |---|---|
 | boards sit on a 12-square lattice | snapping, in the pointer handling only |

@@ -10,13 +10,15 @@ import { injectCSS } from "./style.js";
 import { makeView, draw, layout, fit, zoomAbout, hit, cellRect } from "./view.js";
 import {
   assemble, stampFootprint, stampDims, dockStamp, dockBox, courseBounds,
-  suggestFlags, usableFlagSpots
+  suggestFlags, usableFlagSpots, startRefusal, STARTS_WANTED
 } from "../lib/course.js";
 import {
   newCourse, place, turn, remove, moveStamp, stampAt, normalise, overlapsAny,
   addFlag, removeFlag, moveFlag, flagAt, toDocument, flagWouldFit,
-  addReboot, removeReboot, rebootAt, turnReboot
+  addReboot, removeReboot, rebootAt, turnReboot,
+  addStart, removeStart, moveStart, startAt
 } from "./compose.js";
+import { docksOf } from "../lib/board.js";
 import { courseFromDocument, validateCourse } from "../validate/course.js";
 import { boardFromDocument } from "../lib/board.js";
 import { sink } from "../validate/diagnostic.js";
@@ -49,6 +51,7 @@ const SHELL = `
         <div class="overlay"></div>
       </div>
       <div class="ghost" style="display:none"></div>
+      <div class="empty" hidden>Drag a board off the rail onto the floor, or click one and click here.<br>Then the docking bay under it, or eight starting squares on it, and the flags.</div>
     </div>
   </div>
   <aside class="insp" aria-label="Inspector">
@@ -87,6 +90,8 @@ const PALETTE_PC = 13;
 
 const EXTRA_CSS = `
 .overlay{position:absolute;left:0;top:0;pointer-events:none}
+.empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(60%,420px);text-align:center;
+  color:var(--dim);font-size:13px;line-height:1.6;pointer-events:none}
 .stampbox{position:absolute;border:1px dashed rgba(200,212,234,.28);border-radius:2px}
 .stampbox.sel{border:2px solid var(--hot);background:rgba(53,224,255,.06)}
 .stampbox.dock{border-color:rgba(57,255,136,.45)}
@@ -98,6 +103,9 @@ const EXTRA_CSS = `
 .reboot{position:absolute;display:grid;place-items:center;border-radius:12px;
   background:rgba(57,255,136,.85);color:#0b0d14;border:2px solid #0b0d14;box-shadow:0 0 0 2px rgba(57,255,136,.35)}
 .reboot svg{width:70%;height:70%}
+/* a starting square the course placed itself: the bay is painted into the art; the ring says it is the course's, not a board's */
+.start{position:absolute;border:3px dashed rgba(57,255,136,.8);border-radius:50%;box-shadow:0 0 0 2px rgba(5,7,15,.6)}
+.startlist .n{background:#39ff88}
 /* The board rail is wider in course mode than in the board workshop: its palette
  * shows whole boards, not tool icons, and a 12x12 wants the room. Every board is
  * drawn at ONE scale -- PALETTE_PC pixels a cell -- so a 6x6 shows at half the
@@ -166,6 +174,7 @@ export async function mountCourse(root, wanted) {
     handRot: 0,
     sel: -1,             // a placed stamp
     flagMode: false,
+    startMode: false,    // placing the course's own starting squares
     rebootMode: false,   // placing the 2016 Reboot Tokens
     tokenFace: 0,        // the arrow on the next token placed
     zoom: 1, offX: 0, offY: 0,
@@ -233,7 +242,7 @@ export async function mountCourse(root, wanted) {
     drawOverlay();
     renderRail();
     renderInspector();
-    renderDiagnostics(diagEl, st);
+    renderDiagnostics(diagEl, st, "course");
     zoomEl.textContent = Math.round(st.zoom * 100) + "%";
     root.querySelector('[data-act="undo"]').disabled = !history.length;
     if (!keepView) fit(view, st);
@@ -242,6 +251,8 @@ export async function mountCourse(root, wanted) {
   function drawOverlay() {
     let html = "";
     const b = asm.bounds;
+    /* an empty course says what to do, in the viewport rather than the world, so it is not scaled with the one empty square */
+    root.querySelector(".empty").hidden = st.course.stamps.length > 0;
     st.course.stamps.forEach((s, i) => {
       const src = library.get(s.board);
       if (!src) return;
@@ -263,6 +274,9 @@ export async function mountCourse(root, wanted) {
       html += '<div class="flag" style="left:' + (c * 100 + 18) + "px;top:" + (r * 100 + 18) +
         'px;width:64px;height:64px;font-size:38px">' + (i + 1) + "</div>";
     });
+    (st.course.starts || []).forEach(([c, r]) => {
+      html += '<div class="start" style="left:' + (c * 100 + 10) + "px;top:" + (r * 100 + 10) + 'px;width:80px;height:80px"></div>';
+    });
     /* the reboot tokens: a green tile with the arrow a moved-aside robot goes along */
     (st.course.reboots || []).forEach(([c, r, face]) => {
       html += '<div class="reboot" style="left:' + (c * 100 + 14) + "px;top:" + (r * 100 + 14) + 'px;width:72px;height:72px">' +
@@ -274,10 +288,24 @@ export async function mountCourse(root, wanted) {
   }
 
   function renderRail() {
-    let html = "<h3>Flags</h3>";
+    /* The docking bay FIRST. It used to sit under "Start" at the foot of a
+     * rail fifty boards long, where nobody scrolling for a floor ever found
+     * it -- and a course without one cannot be saved. A course has one dock
+     * and it is not interchangeable with a floor, so it is not in the palette. */
+    let html = "<h3>Docking bay</h3><div class='palette'>";
+    for (const row of index.boards) {
+      const b = library.get(row.id);
+      if (b && isDock(b)) html += paletteButton(row, b, "dock");
+    }
+    html += "</div>";
+    html += "<h3>Flags</h3>";
     html += '<button class="tool" data-flagmode aria-pressed="' + st.flagMode + '">' +
       '<span class="sw"><svg viewBox="0 0 100 100"><path d="M 32 88 L 32 14 L 74 28 L 32 44" fill="#ff5f56" stroke="#ff5f56" stroke-width="6" stroke-linejoin="round"/></svg></span>' +
       "<span>Place flags</span><span class='hot'>F</span></button>";
+    html += "<h3>Starting squares</h3>";
+    html += '<button class="tool" data-startmode aria-pressed="' + st.startMode + '" title="Where the robots start, one square at a time, anywhere on the floor: a race needs ' + STARTS_WANTED + '. The docking bay board above is the quick way to all eight; these go round the course. Click a floor square to place the next one; right-click one to take it off.">' +
+      '<span class="sw"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="34" fill="none" stroke="#39ff88" stroke-width="8"/><text x="50" y="62" text-anchor="middle" font-size="36" font-weight="700" fill="#39ff88" font-family="ui-monospace,monospace">1</text></svg></span>' +
+      "<span>Place starts</span><span class='hot'>B</span></button>";
     html += "<h3>Reboot tokens</h3>";
     html += '<button class="tool" data-rebootmode aria-pressed="' + st.rebootMode + '" title="The 2016 game\'s Reboot Tokens, one per board: where a robot that fell returns. Click to place one facing the arrow chosen below; click a token to turn it; right-click to take it off.">' +
       '<span class="sw"><svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" rx="14" fill="#39ff88"/><path d="M50 78V26M32 42L50 26L68 42" fill="none" stroke="#0b0d14" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
@@ -285,18 +313,12 @@ export async function mountCourse(root, wanted) {
     html += "<h3>Boards</h3><div class='palette'>";
     /* Full-size boards first, the smaller ones grouped together below. Sort by
      * cell count, descending; the sort is stable, so boards of one size keep
-     * their library order. The docking bay is offered under Start, not here: a
-     * course has one and it is not interchangeable with a floor. */
+     * their library order. The docking bay is offered above, not here. */
     const boards = index.boards
       .map(row => ({ row, b: library.get(row.id) }))
       .filter(({ b }) => b && b.origin !== "course" && !isDock(b))
       .sort((a, z) => (z.b.w * z.b.h) - (a.b.w * a.b.h));
     for (const { row, b } of boards) html += paletteButton(row, b);
-    html += "</div><h3>Start</h3><div class='palette'>";
-    for (const row of index.boards) {
-      const b = library.get(row.id);
-      if (b && isDock(b)) html += paletteButton(row, b, "dock");
-    }
     html += "</div>";
     railEl.innerHTML = html;
   }
@@ -321,7 +343,7 @@ export async function mountCourse(root, wanted) {
     html += '<div class="row"><label>Id</label><input type="text" data-cmeta="id" value="' + esc(st.course.id) + '"></div>';
     html += '<div class="row"><span class="pill">' + st.course.stamps.length + " board(s)</span>" +
       '<span class="pill">' + st.board.w + " x " + st.board.h + "</span>" +
-      '<span class="pill">' + (dock ? "start block" : "no start block") + "</span></div>";
+      '<span class="pill">' + (dock ? "docking bay board" : "no docking bay board") + "</span></div>";
     html += '<div class="row"><label>View</label>' +
       [["art", "Board art"], ["markup", "Markup"]].map(([k, label]) =>
         '<button data-view="' + k + '" aria-pressed="' + (st.mode === k) + '">' + label + "</button>").join("") +
@@ -363,6 +385,29 @@ export async function mountCourse(root, wanted) {
         '<button data-act="drop">Take off</button></div>';
     }
 
+    /* WHERE THE ROBOTS START. The boards' printed bays and the course's own
+     * squares make one set of eight; the printed ones are counted, the placed
+     * ones are listed, since only those can be changed here. */
+    const printed = asm ? docksOf(asm.grid).length - (st.course.starts || []).length : 0;
+    const placed = (st.course.starts || []).length;
+    html += "<h3>Starting squares</h3>";
+    html += '<div class="row"><span class="pill' + (printed + placed === STARTS_WANTED ? "" : " bad") + '">' + (printed + placed) + " of " + STARTS_WANTED + "</span>" +
+      '<span class="none">' + printed + " on the boards" + (placed ? ", " + placed + " placed" : "") + ".</span></div>";
+    if (printed + placed < STARTS_WANTED) {
+      html += '<div class="row"><span class="none">A race needs ' + STARTS_WANTED + ". Lay the docking bay board for all eight at once, or pick the start tool (B) and click floor squares for the rest, in bay order.</span></div>";
+    }
+    if (placed) {
+      html += '<ul class="flaglist startlist">';
+      st.course.starts.forEach(([c, r], i) => {
+        html += '<li><span class="n">' + (printed + i + 1) + "</span><span>(" + c + "," + r + ")</span>" +
+          '<span class="grow"></span>' +
+          '<button data-startup="' + i + '" title="Earlier"' + (i === 0 ? " disabled" : "") + ">&uarr;</button>" +
+          '<button data-startdown="' + i + '" title="Later"' + (i === placed - 1 ? " disabled" : "") + ">&darr;</button>" +
+          '<button data-startoff="' + i + '" title="Take off">&times;</button></li>';
+      });
+      html += "</ul>";
+    }
+
     /* WHAT THE BOARDS MARK, and what this race uses. A board says where a flag
      * MAY go; a course says where the flags ARE. Premade courses set them by
      * hand and so can you -- the marks are what the computer chooses from when
@@ -372,15 +417,15 @@ export async function mountCourse(root, wanted) {
     html += "<h3>Flags, in race order</h3>";
     html += '<div class="row"><span class="none">' +
       (spots.length
-        ? spots.length + " square" + (spots.length === 1 ? " is" : "s are") + " marked as possible flag locations."
-        : "No board here marks a flag location, so there is nothing to choose from.") +
+        ? spots.length + " square" + (spots.length === 1 ? " is" : "s are") + " marked as possible flag locations. The marks are the boards' suggestions, and what Suggest picks from; a flag you place yourself may stand on any floor square outside the docking bay."
+        : "No board here marks a flag location, so there is nothing for Suggest to choose from; a flag you place yourself may stand on any floor square outside the docking bay.") +
       "</span></div>";
     html += '<div class="row"><label>Suggest</label>' +
       [3, 4, 5].map(n => '<button data-suggest="' + n + '"' + (spots.length ? "" : " disabled") +
         '>' + n + "</button>").join("") +
       '<button data-suggest="each"' + (spots.length ? "" : " disabled") +
       '" title="one from each board that marks any">one per board</button></div>';
-    if (!st.course.flags.length) html += '<p class="none">None yet. Pick the flag tool and click a floor square, or ask for a suggestion.</p>';
+    if (!st.course.flags.length) html += '<p class="none">None yet. Pick the flag tool (F) and click a floor square, in race order; right-click a flag to take it off. Or ask for a suggestion.</p>';
     else {
       html += '<ul class="flaglist">';
       st.course.flags.forEach(([c, r], i) => {
@@ -405,7 +450,7 @@ export async function mountCourse(root, wanted) {
     }
     if (broken) {
       html += '<div class="row"><span class="none bad">Fix the problems below before saving. ' +
-        'A course that will not build is one the wizard would fall over on.</span></div>';
+        'A course that will not build is one the game cannot lay.</span></div>';
     }
     html += '<div class="row"><button data-act="clear">Start again</button></div>';
 
@@ -427,7 +472,8 @@ export async function mountCourse(root, wanted) {
     html += '<div class="row"><select data-shipped><option value="">Open one&hellip;</option>' +
       index.courses.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>").join("") +
       "</select></div>";
-    html += '<div class="row"><a href="./" style="color:var(--hot)">&larr; Board workshop</a></div>';
+    html += '<div class="row"><a href="./" style="color:var(--hot)">&larr; Board workshop</a>' +
+      '<a href="../index.html" style="color:var(--hot);margin-left:12px">New-game screen &rarr;</a></div>';
     mainEl.innerHTML = html;
   }
 
@@ -586,6 +632,23 @@ export async function mountCourse(root, wanted) {
       return;
     }
 
+    if (st.startMode) {
+      const i = startAt(st.course, h.c, h.r);
+      if (ev.button === 2) {
+        if (i >= 0) { snap(); removeStart(st.course, i); refresh(); say("Starting square taken off; the rest renumbered.", ""); }
+        return;
+      }
+      if (i >= 0) { say("There is already a starting square there. Right-click takes it off.", "bad"); return; }
+      const bad = startRefusal(st.course, library, asm, h.c, h.r);
+      if (bad) { say("A robot cannot start there: " + bad.why + ".", "bad"); return; }
+      snap();
+      addStart(st.course, h.c, h.r);
+      refresh();
+      const n = docksOf(asm.grid).length;
+      say("Starting square " + n + " at (" + h.c + "," + h.r + ")." + (n < STARTS_WANTED ? " " + (STARTS_WANTED - n) + " more to place." : n === STARTS_WANTED ? " That is all eight." : " That is more than a race has."), n > STARTS_WANTED ? "bad" : "");
+      return;
+    }
+
     if (st.flagMode) {
       if (ev.button === 2) {
         const i = flagAt(st.course, h.c, h.r);
@@ -667,13 +730,17 @@ export async function mountCourse(root, wanted) {
       cancelDrag();
       st.hand = st.hand === d.place ? null : d.place;
       st.handRole = d.role;
-      st.flagMode = false; st.rebootMode = false;
+      st.flagMode = false; st.rebootMode = false; st.startMode = false;
       st.sel = -1;
       refresh();
       return;
     }
-    if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.rebootMode = false; st.hand = null; refresh(); return; }
-    if (d.rebootmode !== undefined) { st.rebootMode = !st.rebootMode; st.flagMode = false; st.hand = null; refresh(); return; }
+    if (d.flagmode !== undefined) { st.flagMode = !st.flagMode; st.rebootMode = false; st.startMode = false; st.hand = null; refresh(); return; }
+    if (d.startmode !== undefined) { st.startMode = !st.startMode; st.flagMode = false; st.rebootMode = false; st.hand = null; refresh(); return; }
+    if (d.rebootmode !== undefined) { st.rebootMode = !st.rebootMode; st.flagMode = false; st.startMode = false; st.hand = null; refresh(); return; }
+    if (d.startup !== undefined) { snap(); moveStart(st.course, +d.startup, +d.startup - 1); refresh(); return; }
+    if (d.startdown !== undefined) { snap(); moveStart(st.course, +d.startdown, +d.startdown + 1); refresh(); return; }
+    if (d.startoff !== undefined) { snap(); removeStart(st.course, +d.startoff); refresh(); return; }
     if (d.tokenface !== undefined) { st.tokenFace = +d.tokenface; refresh(); return; }
     if (d.rebootdamage !== undefined) { snap(); st.course.rebootDamage = +d.rebootdamage === 2 ? null : +d.rebootdamage; refresh(); return; }
     if (d.handrot !== undefined) { st.handRot = +d.handrot; refresh(); return; }
@@ -720,12 +787,29 @@ export async function mountCourse(root, wanted) {
     if (sel.dataset.shipped !== undefined && sel.value) { location.hash = "#course=" + sel.value; location.reload(); }
   });
 
+  /* THE ID FOLLOWS THE NAME until it is typed by hand. Every new course used
+   * to be saved as "untitled", so the second one built overwrote the first
+   * unless somebody thought to edit a field that looks like bookkeeping. */
+  const slug = name => {
+    const words = String(name).replace(/[^A-Za-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+    const id = words.map((w, i) => i ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()).join("");
+    return /^[A-Za-z]/.test(id) ? id : id ? "c" + id : "";
+  };
   root.addEventListener("input", ev => {
     const t = ev.target;
     if (!t.dataset.cmeta) return;
     if (t.dataset.cmeta === "id") {
+      st.idTyped = true;
       if (/^[A-Za-z][A-Za-z0-9_]*$/.test(t.value.trim())) st.course.id = t.value.trim();
-    } else st.course.name = t.value;
+    } else {
+      st.course.name = t.value;
+      if (!st.idTyped && (st.course.id === "untitled" || st.course.id === st.idFromName)) {
+        const id = slug(t.value) || "untitled";
+        st.course.id = id; st.idFromName = id;
+        const idEl = mainEl.querySelector('[data-cmeta="id"]');
+        if (idEl) idEl.value = id;
+      }
+    }
   });
 
   window.addEventListener("keydown", ev => {
@@ -733,11 +817,12 @@ export async function mountCourse(root, wanted) {
     const k = ev.key.toLowerCase();
     if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); undo(); return; }
     if (ev.ctrlKey || ev.metaKey) return;
-    if (k === "escape") { cancelDrag(); st.hand = null; st.sel = -1; st.flagMode = false; st.rebootMode = false; refresh(); return; }
+    if (k === "escape") { cancelDrag(); st.hand = null; st.sel = -1; st.flagMode = false; st.rebootMode = false; st.startMode = false; refresh(); return; }
     if (drag && k === "q") { turnDrag(-1); return; }
     if (drag && k === "e") { turnDrag(1); return; }
-    if (k === "f") { cancelDrag(); st.flagMode = !st.flagMode; st.rebootMode = false; st.hand = null; refresh(); return; }
-    if (k === "r") { cancelDrag(); st.rebootMode = !st.rebootMode; st.flagMode = false; st.hand = null; refresh(); return; }
+    if (k === "f") { cancelDrag(); st.flagMode = !st.flagMode; st.rebootMode = false; st.startMode = false; st.hand = null; refresh(); return; }
+    if (k === "b") { cancelDrag(); st.startMode = !st.startMode; st.flagMode = false; st.rebootMode = false; st.hand = null; refresh(); return; }
+    if (k === "r") { cancelDrag(); st.rebootMode = !st.rebootMode; st.flagMode = false; st.startMode = false; st.hand = null; refresh(); return; }
     if (st.rebootMode && k === "q") { st.tokenFace = (st.tokenFace + 3) % 4; refresh(); return; }
     if (st.rebootMode && k === "e") { st.tokenFace = (st.tokenFace + 1) % 4; refresh(); return; }
     if (k === "q" && st.sel >= 0) { act("turn-left"); return; }
@@ -786,7 +871,7 @@ export async function mountCourse(root, wanted) {
         }
         if (saveCourse(st.course.id, toDocument(st.course))) {
           refresh();
-          say("Saved as " + st.course.id + ". Open it again from the library below.", "ok");
+          say("Saved as " + st.course.id + ". It is on the new-game screen under Saved course, and in the library below.", "ok");
         } else say("Could not save -- this browser is not keeping local storage.", "bad");
         break;
       }
@@ -811,6 +896,7 @@ export async function mountCourse(root, wanted) {
     const doc = {
       format: st.course.format, version: st.course.version, id, name: st.course.name, kind: st.course.kind,
       stamps: [{ role: "course", board: id, rot: 0, at: [0, 0] }],
+      /* the placed starting squares are painted into the flattened board, so the course no longer lists them */
       flags: st.course.flags.map(f => [f[0], f[1]]),
       minPlayers: st.course.minPlayers, maxPlayers: st.course.maxPlayers
     };
@@ -847,7 +933,7 @@ export async function mountCourse(root, wanted) {
 
   window.addEventListener("resize", () => layout(view, st));
   refresh({ keepView: false });
-  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, R tokens, W A S D pan, ` swaps the drawing.", "");
+  say("Drag a board off the rail onto the floor, or click one and click where it goes. Drag a laid board to move it. Q E turn, F flags, B starts, R tokens, W A S D pan, ` swaps the drawing.", "");
   window.__EDC = { st, view, refresh, act, library, undo };
   return window.__EDC;
 }

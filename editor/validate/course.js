@@ -15,7 +15,8 @@
 
 import {
   COURSE_FORMAT, COURSE_VERSION, ROLES, assemble, courseBounds, stampFootprint,
-  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal, wallsAround
+  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal, wallsAround,
+  startRefusal, STARTS_WANTED
 } from "../lib/course.js";
 import { checkBelts } from "./board.js";
 import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
@@ -40,7 +41,9 @@ const COURSE_KEYS = new Set([
    * and a course's own reboot cost (Cry Havoc draws 3 damage instead of 2) */
   "reboots", "rebootDamage",
   /* the bays a course uses ("Robots should not start in the spaces covered by Energy cubes") */
-  "bays"
+  "bays",
+  /* the course's own starting squares, placed like flags: [c, r] each, numbered after the printed bays */
+  "starts"
 ]);
 const STAMP_KEYS = new Set(["role", "board", "rot", "at", "note"]);
 const at = (c, r) => "(" + c + "," + r + ")";
@@ -76,7 +79,7 @@ export function courseFromDocument(doc, d, expectId) {
   const course = {
     format: COURSE_FORMAT, version: COURSE_VERSION,
     id: doc.id, name: doc.name || "", kind: doc.kind || "track", blurb: doc.blurb || "",
-    stamps: [], flags: [], reboots: [], rebootDamage: doc.rebootDamage === undefined ? null : doc.rebootDamage,
+    stamps: [], flags: [], reboots: [], starts: [], rebootDamage: doc.rebootDamage === undefined ? null : doc.rebootDamage,
     bays: doc.bays === undefined ? null : doc.bays,
     minPlayers: doc.minPlayers, maxPlayers: doc.maxPlayers
   };
@@ -123,6 +126,14 @@ export function courseFromDocument(doc, d, expectId) {
     course.stamps.push({ role: raw.role, board: raw.board, rot: rot | 0, at: [raw.at[0], raw.at[1]], _ptr: ptr });
   });
 
+  if (doc.starts !== undefined) {
+    if (!Array.isArray(doc.starts)) d.error("course.startOffCourse", "`starts` must be an array.", null, "/starts");
+    else doc.starts.forEach((s, i) => {
+      if (!Array.isArray(s) || s.length !== 2 || !Number.isInteger(s[0]) || !Number.isInteger(s[1])) {
+        d.error("course.startOffCourse", "Starting square " + (i + 1) + " is not a [c, r] pair.", null, "/starts/" + i);
+      } else course.starts.push([s[0], s[1]]);
+    });
+  }
   if (doc.flags !== undefined) {
     if (!Array.isArray(doc.flags)) d.error("course.noFlags", "`flags` must be an array.", null, "/flags");
     else doc.flags.forEach((f, i) => {
@@ -166,7 +177,7 @@ export function validateCourse(course, library, d) {
     }
   }
 
-  const { grid, from, bounds } = assemble(course, library);
+  const { grid, from, bounds, painted } = assemble(course, library);
 
   /* connectivity */
   const parts = components(grid);
@@ -182,13 +193,14 @@ export function validateCourse(course, library, d) {
    * that catches it inside a board */
   checkBelts(grid, d);
 
-  /* the dock */
+  /* where the robots start: a docking bay board, the course's own squares, or both */
   const docks = course.stamps.filter(s => s.role === "dock" || s.role === "course");
   if (docks.length > 1) {
-    d.error("course.twoDocks", "A course has one docking bay; this one has " + docks.length + ".", null, "/stamps");
-  } else if (!docks.length) {
-    d.error("course.noDock", "This course has no docking bay, so there is nowhere for robots to start.", null, "/stamps");
+    d.error("course.twoDocks", "A course has one docking bay board; this one has " + docks.length + ".", null, "/stamps");
+  } else if (!docks.length && !course.starts.length) {
+    d.error("course.noDock", "This course has nowhere for robots to start: lay a docking bay board, or place " + STARTS_WANTED + " starting squares.", null, "/stamps");
   } else {
+    checkStarts(course, library, { grid, from, bounds, painted }, d);
     checkDock(course, library, grid, bounds, d);
   }
 
@@ -205,9 +217,12 @@ export function validateCourse(course, library, d) {
   return d;
 }
 
+/* The starting squares as one set, however they were made: the docking bay
+ * board's, a whole-course board's, and the ones the course placed itself
+ * (painted into the grid by assemble, numbered after the printed ones). */
 function checkDock(course, library, grid, bounds, d) {
   const box = dockBox(course, library, bounds);
-  const bays = docksOf(grid).filter(b => inBox(box, b.c, b.r));
+  const bays = docksOf(grid);
   const seen = bays.map(b => b.n).sort((a, b) => a - b);
   for (let i = 0; i < seen.length; i++) {
     if (seen[i] !== i + 1) {
@@ -223,17 +238,29 @@ function checkDock(course, library, grid, bounds, d) {
     if (missing.length) d.error("course.bayCount", "This course uses bay" + (missing.length === 1 ? " " : "s ") + missing.join(", ") + ", which the docking bay does not have.", null, "/bays");
     usable = course.bays.filter(n => seen.includes(n)).length;
   }
+  /* A RACE NEEDS EIGHT STARTING SQUARES, however they are made up: the docking
+   * bay board's eight, Master Builder's six and two placed, or eight placed
+   * round the floor. A course that names the bays it uses (the 2023 books,
+   * where Energy cubes cover the rest) is held to its seats instead. */
   const seats = course.maxPlayers;
-  if (Number.isInteger(seats) && usable < seats) {
-    d.error("course.bayCount", "This course seats " + seats + " but has " + usable +
-      " docking bay(s)" + (course.bays ? " in use" : "") + ".", null, "/maxPlayers");
+  if (course.bays) {
+    if (Number.isInteger(seats) && usable < seats) {
+      d.error("course.bayCount", "This course seats " + seats + " but has " + usable + " docking bay(s) in use.", null, "/maxPlayers");
+    }
+  } else if (usable < STARTS_WANTED) {
+    d.error("course.bayCount", "This course has " + usable + " of the " + STARTS_WANTED + " starting squares a race needs. " +
+      "Lay a docking bay board, or place the rest square by square.", null, "/stamps");
+  } else if (usable > STARTS_WANTED) {
+    d.error("course.bayCount", "This course has " + usable + " starting squares; a race has " + STARTS_WANTED + ".", null, "/starts");
   }
 
   /* Every bay must be able to get OUT of the dock. This replaces "the column
    * above the block must be filled" with the thing that rule was trying to say,
    * and it works for a dock on any side, in a notch, or surrounded. A door
-   * counts as a way out if it stands open in any register. */
+   * counts as a way out if it stands open in any register. A placed start
+   * stands in no block, so it has nothing to get out of. */
   for (const bay of bays) {
+    if (!inBox(box, bay.c, bay.r)) continue;
     if (!escapes(grid, box, bay.c, bay.r)) {
       d.error("course.bayTrapped", "Docking bay " + bay.n + " at " + at(bay.c, bay.r) +
         " has no unblocked way out of the block.", at(bay.c, bay.r), "/stamps");
@@ -301,6 +328,24 @@ function checkReboots(course, library, grid, from, bounds, d) {
       d.warn("course.rebootMissing", JSON.stringify(s.board) + " has no Reboot token; the 2016 book wants one on every board but the docking bay. A robot that falls from it reboots at its archive.", null, s._ptr);
     });
   }
+}
+
+/* The course's own starting squares: on the floor, not on the docking bay
+ * board, one to a square. ONE DEFINITION of where one may stand, shared with
+ * the workshop in lib/course.js. */
+function checkStarts(course, library, asm, d) {
+  const seen = new Map();
+  course.starts.forEach(([c, r], i) => {
+    const n = i + 1, ptr = "/starts/" + i;
+    const key = c + "," + r;
+    if (seen.has(key)) {
+      d.error("course.startDuplicate", "Starting squares " + seen.get(key) + " and " + n + " are both on " + at(c, r) + ".", at(c, r), ptr);
+      return;
+    }
+    seen.set(key, n);
+    const bad = startRefusal(course, library, asm, c, r);
+    if (bad) d.error(bad.code, "Starting square " + n + " at " + at(c, r) + " is " + bad.why + ".", at(c, r), ptr);
+  });
 }
 
 function checkFlags(course, library, grid, from, bounds, d) {
