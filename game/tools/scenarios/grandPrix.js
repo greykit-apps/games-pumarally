@@ -160,5 +160,21 @@ export const TESTS = [
       bb.wallDevices.push({ kind: "laser", edge: { kind: "v", c: 1, r: 0 }, face: E, damage: 1 });
     });
     eq(codes(b), [], "the validator takes the repulsor's edge as the wall the laser needs");
+  }],
+
+  /* --- chop shops ----------------------------------------------------------- */
+  ["a chop shop is marked on the board and does nothing in play yet", () => {
+    /* the author's decision: it waits for the Armed and Dangerous ammunition
+     * cards its refill needs; until then it is the floor it sits on */
+    for (const ruleset of ["classic", "modern"]) {
+      const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
+      const st = game(co, [{ c: 3, r: 3, face: N, damage: 2 }], { ruleset });
+      const p = st.players[0];
+      const before = JSON.stringify([p.damage, p.options, p.energy, p.installed, p.shelf, p.archive]);
+      if (ruleset === "classic") give(st, p, 0, "left");
+      else p.registers[0] = p.deck.splice(p.deck.findIndex(ci => card(st, ci).kind === "left"), 1)[0];
+      runRegister(st, co.library);
+      eq(JSON.stringify([p.damage, p.options, p.energy, p.installed, p.shelf, p.archive]), before, ruleset + ": nothing changed");
+    }
   }]
 ];

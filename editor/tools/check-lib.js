@@ -157,7 +157,9 @@ for (const [id, s] of Object.entries(SETS)) {
 
 /* --- sites: markings a square carries as well as being floor ---------------- */
 {
-  eq(SITE_ORDER, ["repair", "upgrade", "battery", "randomizer", "radiation", "waste", "flagspot"], "sites: canonical order");
+  eq(SITE_ORDER, ["repair", "upgrade", "chopShop", "battery", "randomizer", "radiation", "waste", "flagspot"], "sites: canonical order");
+  eq(checkSites(["repair", "chopShop"]).length, 1, "sites: a chop shop is its own printed square, never a wrench's");
+  eq(checkSites(["chopShop", "battery"]).length, 0, "sites: though a battery may share it, as it may any resting square");
   eq(checkSites(["radiation", "waste"]).length, 1, "sites: a square is radiation or waste, not both");
   eq(checkSites(["waste", "repair"]).length, 0, "sites: waste may carry a wrench, as any deck may");
   /* Placement is a fact about the marking, not about the layer: the four
@@ -166,7 +168,7 @@ for (const [id, s] of Object.entries(SETS)) {
    * radiation and waste are the colour of the deck under whatever stands on it
    * -- Reactor Core prints a teleporter on radiation. */
   eq(SITE_ORDER.filter(k => SITES[k].place === "rest"),
-     ["repair", "upgrade", "battery", "flagspot"], "sites: the collection markings are floor-only");
+     ["repair", "upgrade", "chopShop", "battery", "flagspot"], "sites: the collection markings are floor-only");
   eq(SITE_ORDER.filter(k => SITES[k].place === "standable"), ["randomizer", "radiation", "waste"],
      "sites: the randomizer, radiation and waste may share a square with another element");
   eq(canonSites(["flagspot", "repair"]), ["repair", "flagspot"], "sites: a list has one spelling");

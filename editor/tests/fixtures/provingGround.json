@@ -68,6 +68,7 @@
     ],
     "sites": [
       { "at": [10, 1], "has": ["waste"] },
+      { "at": [11, 1], "has": ["chopShop"] },
       { "at": [4, 3], "has": ["repair"] },
       { "at": [5, 3], "has": ["upgrade"] },
       { "at": [8, 3], "has": ["battery"] },

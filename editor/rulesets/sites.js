@@ -79,6 +79,21 @@ export const SITES = {
    * game's currency -- a point of damage is a damage card, and waste's option
    * card is an Energy or the top upgrade card installed free, which is what a
    * review of Contamination says that box gives. */
+  /* A CHOP SHOP IS HERE SO THE BOARDS CAN BE TRANSCRIBED, and does nothing in
+   * play yet -- the author's decision, 2026-09-23. Its classic rule (Ultimate
+   * RoboRally Collection p.6, a fan compilation) offers a choice of scrapping an
+   * option card for a new one, drawing one if you have none, or refilling an
+   * option's ammunition, and that last is the point of the thing: it only makes
+   * sense with Armed and Dangerous's ammunition cards, none of which is built.
+   * The 2016 reprint Turn & Burn gives an Energy, an upgrade or a swapped
+   * permanent upgrade, by a review's account. Until then a chop shop is marked
+   * where it is printed and plays as the floor it sits on. */
+  chopShop: {
+    name: "Chop shop", short: "a chop shop", printedIn: BOTH,
+    place: "rest", props: { chopShop: true },
+    source: "Grand Prix; Turn & Burn; the 30th Anniversary boards. Transcribable, and no effect in " +
+            "play yet: it waits for the Armed and Dangerous ammunition cards its refill needs."
+  },
   radiation: {
     name: "Radiation", short: "radiation", printedIn: BOTH,
     place: "standable", props: { radiation: true },
@@ -110,14 +125,15 @@ export function restsOn(def) {
 }
 
 /** Canonical order, so a `has` list has exactly one spelling. */
-export const SITE_ORDER = ["repair", "upgrade", "battery", "randomizer", "radiation", "waste", "flagspot"];
+export const SITE_ORDER = ["repair", "upgrade", "chopShop", "battery", "randomizer", "radiation", "waste", "flagspot"];
 
 /* A square is printed with one wrench or two, never both -- they are the same
  * marking at two strengths. Radiation and waste are two colours of floor, and
- * a square is printed one colour. Everything else stacks: a battery may share a
+ * a square is printed one colour. A chop shop is its own printed square, never
+ * a wrench's. Everything else stacks: a battery may share a
  * square with either wrench, because the two games print different things in
  * the same place, and a flag location may sit on any of them. */
-export const EXCLUSIVE = [["repair", "upgrade"], ["radiation", "waste"]];
+export const EXCLUSIVE = [["repair", "upgrade"], ["radiation", "waste"], ["repair", "chopShop"], ["upgrade", "chopShop"]];
 
 export function siteOf(key) { return SITES[key]; }
 

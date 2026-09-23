@@ -490,6 +490,11 @@ export function siteOverlay(has, mode) {
      * square's element, so a belt's arrow lies over it exactly as printed. */
     out += mk("M 50.0 2.0 L 61.5 22.3 L 83.9 16.1 L 77.7 38.5 L 98.0 50.0 L 77.7 61.5 L 83.9 83.9 L 61.5 77.7 L 50.0 98.0 L 38.5 77.7 L 16.1 83.9 L 22.3 61.5 L 2.0 50.0 L 22.3 38.5 L 16.1 16.1 L 38.5 22.3 Z", MARK.hazard, 1.6) + mkText("?", 50, 52, MARK.hazard, 30);
   }
+  if (has.indexOf("chopShop") >= 0) {
+    /* a grate with rods on it, as printed; in markup, the grate and three rods */
+    out += art ? A.chopShopSvg()
+      : mk("M 20 20 L 80 20 L 80 80 L 20 80 Z M 30 34 L 46 46 M 52 30 L 66 40 M 36 58 L 52 66", MARK.ground, 2.2);
+  }
   if (!art && (has.indexOf("radiation") >= 0 || has.indexOf("waste") >= 0)) {
     /* In markup, hatching over the whole square in the colour of things that
      * hurt: single for radiation, crossed for waste, which hurts more often.

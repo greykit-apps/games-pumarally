@@ -84,6 +84,8 @@ function build() {
    * it, so the fixture carries each colour of deck. */
   setSites(b, 8, 5, ["radiation"]);
   setSites(b, 10, 1, ["waste"]);
+  /* a chop shop, which is transcribed and does nothing in play yet */
+  setSites(b, 11, 1, ["chopShop"]);
 
   /* THREE levels, one of them BELOW the floor you walk in on, joined by the
    * only thing that may join them -- a ramp, which is an EDGE. The board's base is 0, so a fixture with

@@ -140,6 +140,21 @@ export function repairSvg(upgrade) {
     upgrade ? "pr-upgrade" : "pr-repair");
 }
 
+/* A chop shop as printed: a steel grate with shells of orange rods lying on
+ * it and a lever at one corner. Drawn on a plate like a repair site's, which is
+ * what it is in kind -- somewhere a robot rests to have something done. */
+export function chopShopSvg() {
+  const rods = [[30, 30, 44, 44], [40, 26, 50, 42], [54, 32, 66, 40], [34, 52, 48, 60], [56, 50, 62, 64], [42, 64, 56, 70]];
+  return svg('<rect class="pr-plate" x="12" y="12" width="76" height="76" rx="4"/>' +
+             '<rect x="20" y="20" width="60" height="60" rx="2" fill="#12151f" stroke="#05070f" stroke-width="2"/>' +
+             '<path d="M24 28H76M24 36H76M24 44H76M24 52H76M24 60H76M24 68H76M24 76H76" stroke="#3a4152" stroke-width="2.5"/>' +
+             rods.map(([x1, y1, x2, y2]) => '<path d="M' + x1 + " " + y1 + "L" + x2 + " " + y2 +
+               '" stroke="#e8873c" stroke-width="6" stroke-linecap="round"/><path d="M' + x1 + " " + y1 + "L" + x2 + " " + y2 +
+               '" stroke="#ffc07a" stroke-width="2" stroke-linecap="round"/>').join("") +
+             '<path d="M72 74L82 60" stroke="#8d98b3" stroke-width="4" stroke-linecap="round"/>' +
+             '<circle cx="83" cy="58" r="4" fill="#d8452e"/>', "pr-chop");
+}
+
 export function pitSvg() {
   return svg('<rect class="pr-hazard-frame" x="5" y="5" width="90" height="90" rx="3"/>' +
              '<rect class="pr-shaft" x="16" y="16" width="68" height="68" rx="2"/>' +
