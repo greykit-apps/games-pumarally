@@ -171,6 +171,7 @@ button[data-ruleset]{padding:8px 14px}
 .tab{display:flex;flex-direction:column;gap:12px}
 .tab>p{margin:0}
 .tab .lead{font-size:14px;color:var(--text);max-width:64ch}
+.blurb{font-size:13px;color:var(--text);max-width:64ch;margin:6px 0 0}
 input[type=range]{accent-color:var(--accent);flex:1;min-width:120px;max-width:320px;margin:0 6px}
 input[type=number][data-num]{width:5ch;text-align:center}
 .rules{display:flex;flex-direction:column;gap:10px}
