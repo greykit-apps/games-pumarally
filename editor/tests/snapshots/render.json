@@ -591,12 +591,12 @@
   },
   "reactorCore": {
     "art": {
-      "sha": "3a7633c036b582ae",
-      "bytes": 87090
+      "sha": "3ba9b9ad90dd618a",
+      "bytes": 84992
     },
     "markup": {
-      "sha": "4e30a5e2abbcadf4",
-      "bytes": 96224
+      "sha": "a479a4ffd230cf37",
+      "bytes": 95912
     }
   },
   "sampler": {
@@ -611,12 +611,12 @@
   },
   "shakeNBake": {
     "art": {
-      "sha": "e8cc1d7ef1f58fe3",
-      "bytes": 73252
+      "sha": "e18b6929f79b049d",
+      "bytes": 70992
     },
     "markup": {
-      "sha": "90c362b32477393a",
-      "bytes": 55869
+      "sha": "0418cfda1dc3f451",
+      "bytes": 55301
     }
   },
   "sidewinder": {
@@ -801,12 +801,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "cd321ab56cd96e96",
-      "bytes": 72009
+      "sha": "dc667d03b9cf4c5b",
+      "bytes": 71852
     },
     "markup": {
-      "sha": "7e187c8a88a4e3a4",
-      "bytes": 47424
+      "sha": "ff56b713b20e1a36",
+      "bytes": 47400
     }
   }
 }

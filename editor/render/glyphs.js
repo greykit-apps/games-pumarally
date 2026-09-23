@@ -369,15 +369,17 @@ export const DEVICE_GLYPHS = {
 
   oneWay: {
     /* The print's two-tone wall: red on the side it stops, green on the side
-     * it lets through. Drawn like every wall device, mounted on the SOUTH edge
-     * facing NORTH -- so the red band lies inside the square it faces into,
-     * and the green band sits on the edge itself, toward the open side. The
-     * wall under it is drawn by the wall layer as any `#` is. */
+     * it lets through. It IS the wall, so it is drawn where a wall is drawn --
+     * astride the lattice line, the red band on the red side and the green
+     * band beyond it, running the full length of the edge -- and the wall
+     * layer draws no masonry under it. Drawn like every wall device, on the
+     * SOUTH edge of the square it is printed in, facing NORTH, so the red band
+     * lies inside the square it faces into. */
     art: ctx => '<g class="pr-oneway">' +
-      '<rect x="4" y="87" width="92" height="7" rx="1.5" fill="' + ART.oneWayRed + '"/>' +
-      '<rect x="4" y="94" width="92" height="6" rx="1.5" fill="' + ART.oneWayGreen + '"/></g>',
+      '<rect x="0" y="91" width="100" height="9" fill="' + ART.oneWayRed + '"/>' +
+      '<rect x="0" y="100" width="100" height="9" fill="' + ART.oneWayGreen + '"/></g>',
     /* a bar on the edge with teeth into the red side: the side it stops */
-    markup: ctx => mk("M 10 97 L 90 97 M 22 97 L 22 86 M 38 97 L 38 86 M 54 97 L 54 86 M 70 97 L 70 86 M 86 97 L 86 86",
+    markup: ctx => mk("M 0 100 L 100 100 M 22 100 L 22 89 M 38 100 L 38 89 M 54 100 L 54 89 M 70 100 L 70 89 M 86 100 L 86 89",
       MARK.device, 1.6)
   },
 

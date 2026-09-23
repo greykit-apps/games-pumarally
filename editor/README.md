@@ -227,7 +227,9 @@ points into the red square — the one it is placed in. From there the edge is a
 wall; from the green side beyond, robots and beams pass as if nothing were there.
 To anything that only asks whether an edge is walled (a laser mount, the ASCII
 picture) it is a wall, and `blockedAt` is the one place that reads its side. Red
-on both sides is a plain wall. Where boards meet, a plain wall the neighbour
+on both sides is a plain wall. It is drawn where a wall is drawn: the red and
+green bands lie astride the lattice line, red on the side it stops, and the
+wall layer draws no plain masonry under them. Where boards meet, a plain wall the neighbour
 prints on the same edge wins, as it does over a door.
 
 ### Registers: one spelling of "always"
