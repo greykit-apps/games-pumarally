@@ -7,8 +7,7 @@
   "h": 12,
   "set": "thirtieth",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "First pass by eye from Gareth Taylor's 600px render, 2026-09-23. Unverified. ILLEGIBLE at this size, and placeholders to confirm: the registers of every pusher, crusher, trap door and fire, and the arms of the curved belts and currents (each read from the arrow's shape and the belt feeding it). The raised platform at (8,2)-(8,3) is read as level 1 and the square pen at (2,8)-(4,10) as level -1, from the shadows. The two capsules at (3,2) and (3,4) are repulsors with a double beam between them, one beam each way, as on Back Stretch. The red starburst at (1,7) is a randomizer; the twin cells are batteries; the black spills are oil.",
+  "notes": "First pass by eye from Gareth Taylor's 600px render, 2026-09-23. Illegible at this size: the registers of every pusher, crusher, trap door and fire, and the arms of the curved belts and currents (each read from the arrow's shape and the belt feeding it). The raised platform at (8,2)-(8,3) is read as level 1 and the square pen at (2,8)-(4,10) as level -1, from the shadows. The two capsules at (3,2) and (3,4) are repulsors with a double beam between them, one beam each way, as on Back Stretch. The red starburst at (1,7) is a randomizer; the twin cells are batteries; the black spills are oil. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "o.. Bv. ... ... ... Bv. b^. ... bv. ... B^. ...",
@@ -68,12 +67,19 @@
       "             "
     ],
     "sites": [
-      { "at": [3, 0], "has": ["battery"] },
+      { "at": [3, 0], "has": ["repair", "battery"] },
+      { "at": [7, 2], "has": ["flagspot"] },
+      { "at": [8, 3], "has": ["flagspot"] },
       { "at": [10, 4], "has": ["chopShop"] },
+      { "at": [1, 5], "has": ["flagspot"] },
       { "at": [1, 7], "has": ["randomizer"] },
-      { "at": [7, 7], "has": ["battery"] },
+      { "at": [7, 7], "has": ["upgrade", "battery"] },
+      { "at": [9, 8], "has": ["flagspot"] },
       { "at": [3, 9], "has": ["battery"] },
-      { "at": [1, 10], "has": ["battery"] }
+      { "at": [6, 9], "has": ["flagspot"] },
+      { "at": [1, 10], "has": ["repair", "battery"] },
+      { "at": [4, 10], "has": ["flagspot"] },
+      { "at": [9, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {

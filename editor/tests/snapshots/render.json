@@ -601,12 +601,12 @@
   },
   "sampler": {
     "art": {
-      "sha": "482279918de6b6e1",
-      "bytes": 110013
+      "sha": "43b6b3a70792fec9",
+      "bytes": 113073
     },
     "markup": {
-      "sha": "20c0f0e268053dfc",
-      "bytes": 80327
+      "sha": "35ef7c5dcbe521db",
+      "bytes": 84902
     }
   },
   "shakeNBake": {
