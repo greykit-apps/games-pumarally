@@ -5,7 +5,7 @@
   "name": "Flood Zone",
   "w": 12,
   "h": 12,
-  "set": "wetAndWild",
+  "set": "armedAndDangerous",
   "origin": "transcribed",
   "ground": {
     "rows": [

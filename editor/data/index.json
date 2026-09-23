@@ -151,7 +151,7 @@
       "name": "Circuit Trap",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     },
     {
@@ -191,7 +191,7 @@
       "name": "Coliseum",
       "w": 12,
       "h": 12,
-      "set": "wetAndWild",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     },
     {
@@ -231,7 +231,7 @@
       "name": "Laser Maze",
       "w": 12,
       "h": 12,
-      "set": "modernBase",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     },
     {
@@ -279,7 +279,7 @@
       "name": "Transition",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "wetAndWild",
       "origin": "transcribed"
     },
     {
@@ -359,7 +359,7 @@
       "name": "Flood Zone",
       "w": 12,
       "h": 12,
-      "set": "wetAndWild",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     },
     {
@@ -375,7 +375,7 @@
       "name": "Gear Box",
       "w": 12,
       "h": 12,
-      "set": "chaosAndCarnage",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     },
     {
@@ -415,7 +415,7 @@
       "name": "Chasm",
       "w": 12,
       "h": 12,
-      "set": "chaosAndCarnage",
+      "set": "armedAndDangerous",
       "origin": "transcribed"
     }
   ],

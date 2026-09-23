@@ -22,20 +22,19 @@ export const SETS = {
   armedAndDangerous: { name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous" },
   crashAndBurn:      { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn" },
 
-  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2016)" },
+  modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)" },   // the named boards; the 2016 box's are lettered 1A-6B and none is transcribed
   wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild" },
   chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage" },
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills" },
   masterBuilder:     { name: "Master Builder",     edition: "modern", box: "Master Builder" },
 
-  /* The 2016 boards were filed by what is printed on them, against the
-   * expansions' own reference sheets (rules/MANIFEST.md): water, drains,
-   * currents, ledges and ramps are Wet and Wild's; teleporters and randomizers
-   * are Chaos and Carnage's; portals, oil and flamers are Thrills and Spills';
-   * a board with none of those is the base game's. Crushers are on both the
-   * Wet and Wild and the Chaos and Carnage sheets, so a board whose only
-   * expansion element is a crusher (Circuit Trap, Transition) cannot be filed
-   * that way and sits here until the box says. */
+  /* Where a board came out of is taken from Gareth's list of the official
+   * boards by expansion, https://tartarus.org/gareth/roborally/boards/official
+   * (the author's reference for this, 2026-09-23), not inferred from what
+   * is printed on it: Chasm and Gear Box carry teleporters but are Armed and
+   * Dangerous boards, Coliseum has levels but is not Wet and Wild's. Nothing
+   * sits here now; the row stays for a board photographed before its box is
+   * looked up. */
   modernUnfiled:     { name: "Modern, box unrecorded", edition: "modern", box: "Not established" }
 };
 
