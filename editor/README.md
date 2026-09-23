@@ -217,7 +217,10 @@ the wrong side of it. That is now unrepresentable.
 **A repulsor field is a plain `#` with a `repulsor` device bolted to it**, whose
 face says which square the capsule is printed in and nothing more: the field is
 a springy wall from both sides. To a beam and a laser mount it is a wall; the
-bounce is the engine's, in `playCard`.
+bounce is the engine's, in `playCard`. It is drawn where a wall is drawn --
+the capsule lies astride the lattice line, and the wall layer draws no
+masonry under it -- not set back into the square like a laser or a pusher
+mounted on the wall behind it, which read as a wall with a gadget on it.
 
 **A one-way wall is a plain `#` with a `oneWay` device bolted to it**, whose face
 points into the red square — the one it is placed in. From there the edge is a

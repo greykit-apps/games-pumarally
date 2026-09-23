@@ -349,17 +349,21 @@ export const DEVICE_GLYPHS = {
   },
 
   repulsor: {
-    /* As printed: a glass tube of blue lightning lying along the edge, with a
-     * red cap at each end. Drawn, as every wall device is, mounted on the SOUTH
-     * edge of the square it is printed in; the field is not one-sided, so the
-     * facing only says which square shows the capsule. */
+    /* As printed: a glass tube of blue lightning with a red cap at each end,
+     * lying ON the edge -- astride the lattice line, half in each square, where
+     * a wall's masonry would be. It is a field and not a fitting, so it is not
+     * set back into the square the way a laser or a pusher is mounted on the
+     * wall behind it; the wall layer draws no bar under it. Drawn, as every
+     * wall device is, on the SOUTH edge of the square it is printed in and
+     * turned by the facing; the field is not one-sided, so the facing only
+     * says which square shows the capsule. */
     art: ctx => '<g class="pr-repulsor">' +
-      '<rect x="16" y="84" width="68" height="12" rx="6" fill="#bfe6ff" fill-opacity=".25" stroke="#8fd0f0" stroke-width="1.5"/>' +
-      '<path d="M18 90 L28 86 L36 93 L46 85 L54 94 L64 86 L72 93 L82 90" fill="none" stroke="#e8f6ff" stroke-width="2.4" stroke-linejoin="round"/>' +
-      '<path d="M18 90 L28 86 L36 93 L46 85 L54 94 L64 86 L72 93 L82 90" fill="none" stroke="#5fb8ff" stroke-width="5" stroke-opacity=".35" stroke-linejoin="round"/>' +
-      '<circle cx="11" cy="90" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="11" cy="90" r="3" fill="#2a0c06"/>' +
-      '<circle cx="89" cy="90" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="89" cy="90" r="3" fill="#2a0c06"/></g>',
-    markup: ctx => mk("M 6 90 L 18 90 L 28 84 L 38 96 L 50 84 L 62 96 L 72 84 L 82 90 L 94 90 M 6 82 L 6 98 M 94 82 L 94 98",
+      '<rect x="16" y="94" width="68" height="12" rx="6" fill="#bfe6ff" fill-opacity=".25" stroke="#8fd0f0" stroke-width="1.5"/>' +
+      '<path d="M18 100 L28 96 L36 103 L46 95 L54 104 L64 96 L72 103 L82 100" fill="none" stroke="#e8f6ff" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<path d="M18 100 L28 96 L36 103 L46 95 L54 104 L64 96 L72 103 L82 100" fill="none" stroke="#5fb8ff" stroke-width="5" stroke-opacity=".35" stroke-linejoin="round"/>' +
+      '<circle cx="11" cy="100" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="11" cy="100" r="3" fill="#2a0c06"/>' +
+      '<circle cx="89" cy="100" r="8" fill="#d8452e" stroke="#5a1a10" stroke-width="2"/><circle cx="89" cy="100" r="3" fill="#2a0c06"/></g>',
+    markup: ctx => mk("M 6 100 L 18 100 L 28 94 L 38 106 L 50 94 L 62 106 L 72 94 L 82 100 L 94 100 M 6 92 L 6 108 M 94 92 L 94 108",
       MARK.device, 1.6)
   },
 

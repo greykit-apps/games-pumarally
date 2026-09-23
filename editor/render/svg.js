@@ -18,7 +18,7 @@ import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SITES } from "../rulesets/sites.js";
 import { ARM_CODES } from "../lib/token.js";
 import {
-  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList, hasSite
+  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList, hasSite, repulsorOn
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
 import { isLedge, levelStep, rampsOf } from "../lib/levels.js";
@@ -299,17 +299,24 @@ const WT = CELL * 0.19;
 function wallLayer(board, mode) {
   const bars = [], doors = [];
   const push = (list, x, y, w, h, vertical) => list.push({ x, y, w, h, vertical });
+  /* A REPULSOR FIELD IS THE WALL'S OWN PICTURE, as a door's dashes are the
+   * door's. The lattice carries a `#` under it, because to a mover, a beam and
+   * a laser mount the edge IS walled -- but the print shows a capsule of
+   * lightning lying on the edge and no masonry, and the capsule is drawn
+   * astride the edge by the device layer. Drawing the bar as well put a wall
+   * directly behind the field, which read as a wall with a gadget on it. */
+  const field = (kind, c, r) => repulsorOn(board, { kind, c, r });
   for (let r = 0; r <= board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       const code = board.wallH[r * board.w + c];
-      if (!code) continue;
+      if (!code || field("h", c, r)) continue;
       push(code === EDGE_DOOR ? doors : bars, c * CELL, r * CELL - WT / 2, CELL, WT, false);
     }
   }
   for (let r = 0; r < board.h; r++) {
     for (let c = 0; c <= board.w; c++) {
       const code = board.wallV[r * (board.w + 1) + c];
-      if (!code) continue;
+      if (!code || field("v", c, r)) continue;
       push(code === EDGE_DOOR ? doors : bars, c * CELL - WT / 2, r * CELL, WT, CELL, true);
     }
   }
