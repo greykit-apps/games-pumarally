@@ -30,7 +30,7 @@
       { "at": [5, 4], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [5, 5], "has": ["flagspot"] },
       { "at": [8, 5], "has": ["flagspot"] },
-      { "at": [7, 7], "has": ["repair", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
+      { "at": [7, 7], "has": ["upgrade", "battery"], "note": "authored repair -- the swap rule: a battery on every wrench, a wrench on every battery; not printed" },
       { "at": [4, 8], "has": ["flagspot"] },
       { "at": [11, 8], "has": ["flagspot"] },
       { "at": [8, 10], "has": ["flagspot"] },
