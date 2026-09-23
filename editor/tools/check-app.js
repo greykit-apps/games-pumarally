@@ -382,7 +382,7 @@ const fresh = (w = 8, h = 8) =>
   refused(apply(b, st, 2, 2, { face: E }), "ramp: refused under a wall");
   ok(apply(b, st, 0, 0, { face: N }).changed && rampOn(b, 0, 0, N), "ramp: laid on the rim -- it meets whatever board is laid beside this one");
   eq(levelAt(b, 0, 0), 0, "ramp: a rim ramp raises nothing");
-  ok(!checkBoard(b).diagnostics.some(x => x.code === "level.rampGradient" && x.severity === "error"), "ramp: a rim ramp is not an error");
+  ok(!checkBoard(b).diagnostics.some(x => /^(ramp|level)\./.test(x.code) && x.severity === "error"), "ramp: a rim ramp is not an error");
   ok(apply(b, st, 4, 4, { face: S }).changed && apply(b, st, 4, 4, { face: W }).changed, "ramp: a square may carry ramps on two sides");
   eq(describe(b, 4, 4).ramps.length, 2, "ramp: and lists both");
 }
@@ -687,9 +687,10 @@ const fresh = (w = 8, h = 8) =>
     const asm = assemble(course, lib);
     const usable = usableFlagSpots(course, lib, asm);
     ok(usable.length >= 6, "suggest: " + usable.length + " marked squares are usable");
-    ok(!usable.some(s2 => s2.c === 0 && s2.r === 0),
-       "suggest: a mark in a board's corner is not offered -- the validator would refuse it");
-    ok(flagRefusal(course, lib, asm, 0, 0), "suggest: and the refusal says why");
+    /* a board's corner is floor like any other: the book's corner rule (p.9)
+     * is about walls, and the outer-corner refusal that used to sit here was ours */
+    ok(usable.some(s2 => s2.c === 0 && s2.r === 0), "suggest: a mark in a board's corner is offered like any other");
+    eq(flagRefusal(course, lib, asm, 0, 0), null, "suggest: and the validator takes a flag there");
     /* the 12x12's bottom-right corner has the 6x2 dock lying under it: a board
      * corner another board lies against is floor like any other, since the
      * book's corner rule (p.9) is about walls, not where the cardboard ends */

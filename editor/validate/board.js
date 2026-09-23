@@ -246,8 +246,6 @@ function checkWallLattice(board, d) {
 }
 
 function checkWallDevices(board, d) {
-  const pusherCells = new Map();
-  const jetCover = new Map();
 
   for (const dev of board.wallDevices) {
     const def = DEVICE_KINDS[dev.kind];
@@ -315,14 +313,9 @@ function checkWallDevices(board, d) {
         " is " + (code === EDGE_DOOR ? "a door" : "empty") + ".", cell ? at(cell[0], cell[1]) : null, ptr);
     }
 
-    if (dev.kind === "pusher" && cell) {
-      const key = cell.join(",");
-      if (pusherCells.has(key)) {
-        d.error("device.duplicatePusher", "Two pushers stand in " + at(cell[0], cell[1]) + ".",
-          at(cell[0], cell[1]), ptr);
-      }
-      pusherCells.set(key, dev);
-    }
+    /* Two pushers into one square, and two flame jets over one square, were
+     * each refused here. Neither is in a book, and both are things a board
+     * could print; gone 2026-09-23. */
 
     /* A laser walled in on its firing side lights only the square it stands
      * in. That used to draw a warning; it is not one. The printed boards do
@@ -332,7 +325,6 @@ function checkWallDevices(board, d) {
 
     if (dev.kind === "jet" && cell) {
       const reach = dev.reach === undefined ? 1 : dev.reach;
-      const covered = [];
       let [cc, rr] = cell;
       for (let i = 0; i < reach; i++) {
         if (!inBoard(board, cc, rr) || isVoid(board, cc, rr)) {
@@ -340,20 +332,12 @@ function checkWallDevices(board, d) {
             " is off the board.", at(cell[0], cell[1]), ptr);
           break;
         }
-        covered.push(cc + "," + rr);
         if (i + 1 < reach && blockedAt(board, cc, rr, dev.face, 1)) {
           d.error("jet.blockedReach", label + " at " + at(cell[0], cell[1]) + " reaches " + reach +
             " squares but a wall stops the flame after " + (i + 1) + ".", at(cell[0], cell[1]), ptr);
           break;
         }
         cc += DC[dev.face]; rr += DR[dev.face];
-      }
-      for (const key of covered) {
-        if (jetCover.has(key)) {
-          const [x, y] = key.split(",");
-          d.error("jet.overlap", "Two flame jets play over " + at(+x, +y) + ".", at(+x, +y), ptr);
-        }
-        jetCover.set(key, dev);
       }
       let walls = 0;
       for (const dd of DIRS) if (wallAt(board, cell[0], cell[1], dd) === EDGE_WALL) walls++;
@@ -377,10 +361,7 @@ function checkCeiling(board, d) {
       continue;
     }
     checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr);
-    if (propAt(board, dev.c, dev.r, "pit")) {
-      d.error("ceiling.overPit", def.name + " at " + at(dev.c, dev.r) +
-        " hangs over a pit, and there is nothing under it to come down on.", at(dev.c, dev.r), ptr);
-    }
+    /* a press over a pit used to be refused; no book says so, and it harms nothing (gone 2026-09-23) */
     const key = dev.kind + "|" + dev.c + "," + dev.r;
     if (seen.has(key)) {
       d.error("ceiling.duplicate", "Two " + def.name.toLowerCase() + "s over " + at(dev.c, dev.r) + ".",
@@ -432,25 +413,14 @@ function checkLevels(board, d) {
         ". A ramp is the way between levels; raise one side, or take the ramp off.", where, ptr);
       continue;
     }
-    /* THIS ONE IS A WARNING BECAUSE NOTHING HAS BEEN FOUND THAT STATES IT.
-     * `rules/MANIFEST.md` quotes Wet and Wild on ramps -- "the only way between
-     * levels", an extra space of floor going up, slide back if you stop on one,
-     * ignored entirely going down -- and says nothing about how far one climbs.
-     * It stays, because a ramp that breaks it is worth looking at, and it
-     * warns, because being worth looking at is not the same as being wrong.
-     * Promote it the moment the sentence behind it is found.
-     *
-     * `level.rampFoot` used to sit beside it -- a ramp's foot is level with the
-     * floor it is approached from -- and is GONE (2026-09-22). The author was
-     * asked and it is not a rule: the printed boards step a ramp's foot away
-     * from the floor behind it, and the check was flagging four ramps across
-     * Water Park and Coliseum that are simply what the print shows. An uncited
-     * rule enforced against the boards it describes is exactly what
-     * `level.notContiguous` was. */
-    if (ramp.top.level !== ramp.foot.level + 1) {
-      d.warn("level.rampGradient", "The ramp " + between + " climbs from level " + ramp.foot.level + " to level " + ramp.top.level +
-        ". A ramp is expected to climb exactly one level -- though no rulebook text has been found saying so.", where, ptr);
-    }
+    /* HOW FAR A RAMP CLIMBS IS NOT CHECKED. `rules/MANIFEST.md` quotes Wet
+     * and Wild on ramps -- "the only way between levels", an extra space of
+     * floor going up, slide back if you stop on one, ignored entirely going
+     * down -- and says nothing about how far one climbs. `level.rampGradient`
+     * warned when it was not exactly one level, admitting it was uncited, and
+     * is gone (2026-09-23); `level.rampFoot` went before it (2026-09-22), and
+     * `level.notContiguous` before that. An uncited rule enforced against the
+     * boards it describes is what each of them was. */
     climbs.push(ramp);
   }
   for (let grew = true; grew; ) {

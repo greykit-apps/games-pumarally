@@ -95,11 +95,10 @@ export const TESTS = [
     const own = marked(FIVE, "own");
     setCell(own.b, 0, 7, "s1.");
     assert(!canQuick(own.b, own.library), "a board with its own bays is not a quick game");
-    /* a mark in an outer corner of the course is not a location a race can
-     * use: the board's two top corners are, its two bottom ones stand on the
-     * docking bay and are not */
+    /* a mark in a board's corner is a location like any other: the book's
+     * corner rule is about walls, and the outer-corner refusal was ours */
     const corners = marked([[0, 0], [7, 0], [0, 7], [7, 7], [3, 3]]);
-    eq(quickSpots(corners.b, corners.library).map(s => [s.c, s.r]), [[5, 3], [2, 7], [9, 7]], "the marks off the course's outer corners, where the board lies");
+    eq(quickSpots(corners.b, corners.library).map(s => [s.c, s.r]), [[2, 0], [9, 0], [5, 3], [2, 7], [9, 7]], "every mark, where the board lies over the dock");
   }],
   ["a blank board is told from a board by its floor, not its markings", () => {
     /* issue #11: Blueprint and Tabula Rasa are open floor with flag

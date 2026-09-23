@@ -15,22 +15,16 @@
 
 import {
   COURSE_FORMAT, COURSE_VERSION, ROLES, assemble, courseBounds, stampFootprint,
-  components, dockStamp, dockBox, inBox, boardLocal, inBoardCorner, flagRefusal, wallsAround,
+  components, dockStamp, dockBox, inBox, boardLocal, flagRefusal, wallsAround,
   startRefusal, STARTS_WANTED
 } from "../lib/course.js";
-import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt, flagSpots } from "../lib/board.js";
+import { inBoard, isVoid, cellAt, elementAt, docksOf, deviceCell, blockedAt } from "../lib/board.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 /* The classic rulebook's guideline on how far apart flags may be. Kept here
  * rather than on a ruleset because the editor has no ruleset in force -- it
  * reports the guideline and lets the designer decide. */
 const FLAG_GAP_GUIDE = 12;
 
-/* How many squares a map should MARK as possible flag locations. A race uses
- * about three; marking five or six leaves the engine something to choose
- * between, so the same course does not run identically every time. A guideline,
- * so it is a warning -- and it counts what the assembled boards mark between
- * them, because that is what the engine will be choosing from. */
-const FLAG_SPOTS_WANTED = 5;
 import { DC, DR, N, E, S, W } from "../lib/dir.js";
 import { REGISTERS } from "../lib/registers.js";
 
@@ -181,11 +175,12 @@ export function validateCourse(course, library, d) {
 
   const { grid, from, bounds, painted } = assemble(course, library);
 
-  /* connectivity */
+  /* connectivity: worth saying, not refusing -- an area nothing can drive to
+   * is odd, and no book forbids it (a warning since 2026-09-23) */
   const parts = components(grid);
   if (parts.length > 1) {
     const sizes = parts.map(p => p.length).sort((a, b) => b - a);
-    d.error("course.disconnected", "This course is " + parts.length + " separate areas (" +
+    d.warn("course.disconnected", "This course is " + parts.length + " separate areas (" +
       sizes.join(", ") + " squares). Boards that meet only at a corner are not joined: " +
       "nothing can drive between them.", null, "/stamps");
   }
@@ -204,13 +199,8 @@ export function validateCourse(course, library, d) {
   checkFlags(course, library, grid, from, bounds, d);
   checkReboots(course, library, grid, from, bounds, d);
 
-  const spots = flagSpots(grid).length;
-  if (spots < FLAG_SPOTS_WANTED) {
-    d.warn("course.fewFlagSpots", "This course marks " + spots + " flag location" +
-      (spots === 1 ? "" : "s") + ". A race uses about three, and marking " + FLAG_SPOTS_WANTED +
-      " or six leaves the engine something to choose between so the same course does not " +
-      "run identically every time.", null, "/stamps");
-  }
+  /* `course.fewFlagSpots` -- fewer than five marked flag locations -- was a
+   * guideline of ours, and is gone (2026-09-23): the marks are suggestions. */
   return d;
 }
 
@@ -251,15 +241,16 @@ function checkDock(course, library, grid, bounds, d) {
     d.error("course.bayCount", "This course has " + usable + " starting squares; a race has " + STARTS_WANTED + ".", null, "/starts");
   }
 
-  /* Every bay must be able to get OUT of the dock. This replaces "the column
-   * above the block must be filled" with the thing that rule was trying to say,
-   * and it works for a dock on any side, in a notch, or surrounded. A door
-   * counts as a way out if it stands open in any register. A placed start
-   * stands in no block, so it has nothing to get out of. */
+  /* A bay that cannot get OUT of the dock is worth saying. This replaced "the
+   * column above the block must be filled", which was never cited, so it is a
+   * warning (since 2026-09-23): it works for a dock on any side, in a notch,
+   * or surrounded, a door counts as a way out if it stands open in any
+   * register, and a placed start stands in no block, so has nothing to get
+   * out of. */
   for (const bay of bays) {
     if (!inBox(box, bay.c, bay.r)) continue;
     if (!escapes(grid, box, bay.c, bay.r)) {
-      d.error("course.bayTrapped", "Docking bay " + bay.n + " at " + at(bay.c, bay.r) +
+      d.warn("course.bayTrapped", "Docking bay " + bay.n + " at " + at(bay.c, bay.r) +
         " has no unblocked way out of the block.", at(bay.c, bay.r), "/stamps");
     }
   }
