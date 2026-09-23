@@ -49,9 +49,6 @@ export const CODES = Object.freeze({
   "ground.pairCount":     "a paired element's colour does not appear exactly twice",
   "ground.voidNotAllowed":"a void token on a board that does not allow them",
 
-  /* --- ground geometry -------------------------------------------------- */
-  "belt.intoWall":        "a conveyor runs out into a wall",
-
   /* --- wall lattice ----------------------------------------------------- */
   "wall.doorGlyphNoDevice":"a 'D' in the lattice with no door device on that edge",
   "wall.doorDeviceNoGlyph":"a door device on an edge whose lattice character is not 'D'",
@@ -123,11 +120,10 @@ export const CODES = Object.freeze({
   "library.duplicateBoard":"two boards with identical ground, wall and site layers",
 
   /* --- course -------------------------------------------------------------
-   * The belt geometry checks are run over the ASSEMBLED grid, so belt.intoWall
-   * fires at a seam the same way it fires inside a board, from the same code. A
-   * second code for the same fault would be a check that can never be the one
-   * that fires. (Opposed belts meeting head-on are legal and unchecked, at a
-   * seam as anywhere else.) */
+   * There is no conveyor geometry check, at a seam or anywhere else: a belt
+   * into a wall, head-on into another, or across a level change is what the
+   * printed boards do, and the engine resolves each at play time. Three such
+   * codes have been invented and removed here; see checkGround's note. */
   "course.unknownBoard":  "a stamp naming a board that is not in the library",
   "course.badRotation":   "a stamp rotation that is not 0-3",
   "course.badPlacement":  "a stamp position that is missing or negative",

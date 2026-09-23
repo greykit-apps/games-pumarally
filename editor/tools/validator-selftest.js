@@ -89,7 +89,6 @@ const CASES = [
   ["ground.voidNotAllowed", FIXTURE, d => { setTok(d, 0, 0, "   "); }],
 
   /* ground geometry */
-  ["belt.intoWall", FIXTURE, d => { setEdgeGlyph(d, "v", 2, 1, "#"); }],
 
   /* wall lattice */
   ["wall.doorGlyphNoDevice", FIXTURE, d => {
