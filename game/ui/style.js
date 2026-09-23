@@ -164,6 +164,13 @@ button[data-ruleset]{padding:8px 14px}
 .curtain{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:10;flex-direction:column;gap:14px}
 .curtain p{font-size:18px;color:var(--text)}
 .setup{max-width:900px;margin:0 auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:1px solid transparent;border-bottom:0;border-radius:4px 4px 0 0;background:none;color:var(--dim);padding:8px 14px;margin-bottom:-1px}
+.tabs button:hover:not(:disabled){border-color:var(--line);color:var(--text)}
+.tabs button[aria-selected=true]{color:var(--accent);border-color:var(--line);background:var(--bg);box-shadow:0 1px 0 var(--bg)}
+.tab{display:flex;flex-direction:column;gap:12px}
+.tab>p{margin:0}
+.tab .lead{font-size:14px;color:var(--text);max-width:64ch}
 .courses{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .course{border:1px solid var(--line);border-radius:4px;padding:6px;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;gap:4px;text-align:left}
 .course[aria-pressed=true]{border-color:var(--accent)}

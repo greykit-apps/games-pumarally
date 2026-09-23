@@ -10,7 +10,7 @@
  * quick game under whichever rulesets read its squares.
  */
 import { stampDims, usableFlagSpots } from "../../editor/lib/course.js";
-import { docksOf } from "../../editor/lib/board.js";
+import { docksOf, hasLevels, hasRamps } from "../../editor/lib/board.js";
 
 export const QUICK_FLAGS = 3;
 export const DOCK_BOARD = "dockingBay";
@@ -45,6 +45,25 @@ export function quickSpots(board, library) {
 /** Does the board make a quick game: not a docking bay, and enough marked locations for the flags? */
 export function canQuick(board, library) {
   return quickSpots(board, library).length >= QUICK_FLAGS;
+}
+
+/**
+ * A blank board: open floor and nothing else -- no walls, no devices, no
+ * levels or ramps. Markings do not count, since a template board prints
+ * flag locations and a wrench or two precisely so that a course can be
+ * built on it. Master Builder's Blueprint and Tabula Rasa are the two
+ * shipped, and they are for building courses with, not for racing on bare:
+ * the setup screen leaves them off the quick-game shelf and out of the
+ * draw (issue #11), and the sim skips them for the same reason. That is
+ * the OFFER's rule, not the engine's -- a bare floor with three marks is a
+ * quick game to quickCourse, and the tests build their fixtures that way.
+ */
+export function isBlank(board) {
+  if (board.cells.some(t => t !== "...")) return false;
+  if (board.wallH.some(x => x) || board.wallV.some(x => x)) return false;
+  if (board.wallDevices.length || board.ceilingDevices.length) return false;
+  if (hasLevels(board) || hasRamps(board)) return false;
+  return true;
 }
 
 /**

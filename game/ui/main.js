@@ -134,9 +134,11 @@ function openScreen() {
     speedOf: () => SPEEDS[speed],
     speedName: () => speed,
     cycleSpeed: () => { speed = speed === "slow" ? "normal" : speed === "normal" ? "fast" : "slow"; try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* */ } },
-    toSetup: () => toSetup(),
     debugDump: () => downloadDump(),
-    newGame: () => { clearGame(); toSetup(); }
+    /* issue #10: one way out of the race, and it does not throw the race
+     * away. The setup screen offers "Back to the race" while a save stands,
+     * and starting another is what replaces it. */
+    newGame: () => toSetup()
   });
   screen.show(st);
 }

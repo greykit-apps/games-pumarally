@@ -15,15 +15,16 @@
  */
 import { loadLibraryFromDisk, readCourse, rulesetsFor } from "../engine/library.js";
 import { runSim } from "../engine/sim.js";
-import { quickCourse, quickMulti, canQuick, seeded, quickDefaultFlags } from "../engine/quick.js";
+import { quickCourse, quickMulti, canQuick, isBlank, seeded, quickDefaultFlags } from "../engine/quick.js";
 
 const games = parseInt(process.argv[2], 10) || 20;
 const only = process.argv[3] || null;
 const { library, courses } = await loadLibraryFromDisk();
 /* the quick games: the setup screen offers every board that makes one, and
- * a board nobody has raced on is a board nobody has seen crash */
+ * a board nobody has raced on is a board nobody has seen crash. The two
+ * blank template boards are left out here as they are there (issue #11). */
 [...library.values()].sort((a, b) => a.id.localeCompare(b.id)).forEach((b, k) => {
-  if (!canQuick(b, library)) return;
+  if (!canQuick(b, library) || isBlank(b)) return;
   const q = quickCourse(b, library, { rnd: seeded(1000 + k) });
   courses.set(q.id, q);
 });
@@ -31,7 +32,7 @@ const { library, courses } = await loadLibraryFromDisk();
  * as the setup screen draws them: a stack the sims have never seen crash
  * is a stack somebody will start a race on */
 {
-  const pool = [...library.values()].filter(b => b.w === 12 && b.h === 12 && !b.unverified && canQuick(b, library)).sort((a, b) => a.id.localeCompare(b.id));
+  const pool = [...library.values()].filter(b => b.w === 12 && b.h === 12 && !b.unverified && canQuick(b, library) && !isBlank(b)).sort((a, b) => a.id.localeCompare(b.id));
   for (const n of [2, 3, 5]) {
     if (pool.length < n) break;
     const q = quickMulti(pool, n, quickDefaultFlags(n), library, { rnd: seeded(2000 + n) });
