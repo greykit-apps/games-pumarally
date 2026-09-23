@@ -7,8 +7,7 @@
   "h": 12,
   "set": "thirtieth",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "First pass from Gareth Taylor's 600px render (the page's 'only a small version'), 2026-09-23. Every wall was read by eye at that resolution. The twin-cell markings are read as batteries, which is a guess to confirm. Unverified.",
+  "notes": "First pass from Gareth Taylor's 600px render (the page's 'only a small version'), 2026-09-23. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "... ... ... ... ... ... ... ... l.. ... ... ...",
@@ -25,10 +24,17 @@
       "... ... ... ... ... ... ... ... ... ... ... r.."
     ],
     "sites": [
-      { "at": [2, 2], "has": ["battery"] },
-      { "at": [9, 2], "has": ["battery"] },
-      { "at": [8, 8], "has": ["battery"] },
-      { "at": [2, 9], "has": ["battery"] }
+      { "at": [2, 2], "has": ["upgrade", "battery"] },
+      { "at": [4, 2], "has": ["flagspot"] },
+      { "at": [8, 2], "has": ["flagspot"] },
+      { "at": [9, 2], "has": ["repair", "battery"] },
+      { "at": [2, 4], "has": ["flagspot"] },
+      { "at": [5, 6], "has": ["flagspot"] },
+      { "at": [8, 7], "has": ["flagspot"] },
+      { "at": [8, 8], "has": ["upgrade", "battery"] },
+      { "at": [2, 9], "has": ["repair", "battery"] },
+      { "at": [6, 9], "has": ["flagspot"] },
+      { "at": [2, 10], "has": ["flagspot"] }
     ]
   },
   "wall": {

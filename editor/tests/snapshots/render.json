@@ -471,12 +471,12 @@
   },
   "links": {
     "art": {
-      "sha": "8a69c646df0a35c7",
-      "bytes": 54624
+      "sha": "25c99c7fce51ab65",
+      "bytes": 58291
     },
     "markup": {
-      "sha": "1c8e8a05224e40ac",
-      "bytes": 39082
+      "sha": "789fee7ef0076f0a",
+      "bytes": 44189
     }
   },
   "locked": {
