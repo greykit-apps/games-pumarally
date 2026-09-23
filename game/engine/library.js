@@ -8,7 +8,6 @@
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { courseFromDocument } from "../../editor/validate/course.js";
 import { sink } from "../../editor/validate/diagnostic.js";
-import { playableIn, rulesetIds } from "../../editor/rulesets/index.js";
 
 /** Node only: the library from disk, with the course index. Throws on a bad board. */
 export async function loadLibraryFromDisk() {
@@ -69,14 +68,4 @@ export function readCourse(doc, library, expectId) {
  * its own. Nor does fire: a flame jet and a flamer stand in for each other,
  * so a board printing either plays under both books (devices.js).
  */
-export function rulesetsFor(doc, library) {
-  let out = rulesetIds();
-  for (const s of doc.stamps || []) {
-    const b = library.get(s.board);
-    if (!b) continue;
-    const plays = playableIn(b);
-    out = out.filter(id => plays.indexOf(id) >= 0);
-  }
-  return out;
-}
 

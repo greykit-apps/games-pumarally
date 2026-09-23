@@ -13,7 +13,8 @@
  * crashes" cannot tell a working engine from one whose win condition is
  * unreachable.
  */
-import { loadLibraryFromDisk, readCourse, rulesetsFor } from "../engine/library.js";
+import { loadLibraryFromDisk, readCourse } from "../engine/library.js";
+import { rulesetIds } from "../../editor/rulesets/index.js";
 import { runSim } from "../engine/sim.js";
 import { quickCourse, quickMulti, canQuick, isBlank, seeded, quickDefaultFlags } from "../engine/quick.js";
 
@@ -46,8 +47,8 @@ for (const [id, doc] of courses) {
   let course;
   try { course = readCourse(doc, library, id); } catch (e) { console.error("  skip " + id + ": " + e.message); continue; }
   const seats = [{ seat: "human" }, { seat: "bot", skill: 1 }, { seat: "human", skill: 2 }, { seat: "bot", skill: 2 }];
-  /* every ruleset whose book reads the course's squares plays it */
-  for (const ruleset of rulesetsFor(course, library)) {
+  /* every course under both books (issue #14): a board the other box printed plays as its own book says */
+  for (const ruleset of rulesetIds()) {
     const t0 = Date.now();
     /* classic: half the games with three option cards dealt to everyone at
      * the start, so the hooks and their questions are exercised on every

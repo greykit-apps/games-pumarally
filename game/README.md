@@ -260,10 +260,10 @@ robot holds and not what is in its deck; reboot instead of death, off the
 board until register 1 of the next round, two SPAM and the programme
 cancelled; Energy from batteries at the end of a register, capped at ten;
 the floor in the reference card's order, blue belts twice then green once.
-Forty-two 2016 scenarios pass by name. Every course is simulated under every
-ruleset its squares are readable by (`rulesetsFor`), with the table's
-conservation laws armed: each robot's twenty, the forty damage cards and the
-forty upgrades counted apart.
+Forty-two 2016 scenarios pass by name. Every course is simulated under both
+rulesets -- every board plays under either book (issue #14) -- with the
+table's conservation laws armed: each robot's twenty, the forty damage cards
+and the forty upgrades counted apart.
 
 Reboot Tokens are built (pp.15, 20, 30; IMG_1261, IMG_1264, IMG_1269): a
 course places them like flags (`reboots: [[c, r, facing]]` on the document,

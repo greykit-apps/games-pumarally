@@ -6,9 +6,9 @@
  *   Quick game    one board -- picked off the shelf, or drawn -- laid at a
  *                 random facing over the docking bay, three flags drawn from
  *                 the locations it marks (game/engine/quick.js)
- *   Quick course  N boards and F flags, all drawn: 12x12 boards the ruleset
- *                 reads, stacked as the box stacks them, a route of flags
- *                 through them (quickMulti)
+ *   Quick course  N boards and F flags, all drawn: 12x12 boards stacked as
+ *                 the box stacks them, a route of flags through them
+ *                 (quickMulti)
  *   Build course  the course workshop, where boards are dragged in, turned,
  *                 flagged, edited square by square, and saved; a saved course
  *                 comes back here under Saved course
@@ -25,7 +25,7 @@
 import { boardSVG } from "../../editor/render/svg.js";
 import { esc } from "../../editor/render/theme.js";
 import { assemble } from "../../editor/lib/course.js";
-import { readCourse, rulesetsFor } from "../engine/library.js";
+import { readCourse } from "../engine/library.js";
 import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
@@ -111,9 +111,9 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   for (const row of index.courses) {
     const doc = courses.get(row.id);
     if (!doc) continue;
-    try { const d = readCourse(doc, library, row.id); shelf.push({ id: row.id, doc: d, kind: row.kind, blurb: row.blurb, reads: rulesetsFor(d, library) }); } catch (e) { /* skip a course that will not build */ }
+    try { const d = readCourse(doc, library, row.id); shelf.push({ id: row.id, doc: d, kind: row.kind, blurb: row.blurb }); } catch (e) { /* skip a course that will not build */ }
   }
-  const mine = workshopCourses(library).map(c => ({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop.", reads: rulesetsFor(c.doc, library) }));
+  const mine = workshopCourses(library).map(c => ({ id: c.id, doc: c.doc, kind: "mine", blurb: "Saved from the course workshop." }));
   shelf.unshift(...mine);
   /* the quick games: every board with enough marked flag locations, in the
    * palette's order -- less the blank template boards, which are for
@@ -122,21 +122,19 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   for (const row of index.boards) {
     const b = library.get(row.id);
     if (!b || !canQuick(b, library) || isBlank(b)) continue;
-    quick.push({ id: "quick:" + row.id, board: b, spots: quickSpots(b, library).length, unverified: !!row.unverified,
-      reads: rulesetsFor({ stamps: [{ board: row.id }, { board: DOCK_BOARD }] }, library) });
+    quick.push({ id: "quick:" + row.id, board: b, spots: quickSpots(b, library).length, unverified: !!row.unverified });
   }
-  /* the boards a draw may pick: verified, and read by the ruleset in
-   * force. A quick course stacks 12x12 boards only; a quick game on one
-   * board draws from the whole shelf. A hand-picked board is the player's
-   * own choice and is not filtered the same way. */
-  const drawn = q => !q.unverified && q.reads.includes(prefs.ruleset);
+  /* the boards a draw may pick: verified. Every board plays under either
+   * book (issue #14), so the rules in force filter nothing. A quick course
+   * stacks 12x12 boards only; a quick game on one board draws from the
+   * whole shelf. A hand-picked board is the player's own choice. */
+  const drawn = q => !q.unverified;
   const pool1 = () => quick.filter(drawn).map(q => q.board);
   const poolN = () => quick.filter(q => q.board.w === 12 && q.board.h === 12 && drawn(q)).map(q => q.board);
-  const readable = () => shelf.filter(c => c.reads.includes(prefs.ruleset));
-  /* what the ruleset cannot read is not what is picked */
+  /* what is no longer on the shelf is not what is picked */
   function settle() {
-    if (prefs.quick.board !== ANY && !quick.some(q => q.id === prefs.quick.board && q.reads.includes(prefs.ruleset))) prefs.quick.board = ANY;
-    if (!readable().some(c => c.id === prefs.course)) prefs.course = readable().length ? readable()[0].id : null;
+    if (prefs.quick.board !== ANY && !quick.some(q => q.id === prefs.quick.board)) prefs.quick.board = ANY;
+    if (!shelf.some(c => c.id === prefs.course)) prefs.course = shelf.length ? shelf[0].id : null;
   }
   settle();
 
@@ -147,8 +145,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (!thumbs.has(k)) thumbs.set(k, boardSVG(grid, { mode: "art", background: true, sites: prefs.ruleset, flagspots: false }));
     return thumbs.get(k);
   }
-  const notRead = reads => ' disabled title="' + esc("Its boards print things only the " + (reads[0] ? rulesetFor(reads[0]).name : "other") + " book reads.") + '"';
-  const onlyRead = reads => " &middot; " + esc(reads.length ? rulesetFor(reads[0]).name + " only" : "no book reads it");
   const flagWord = () => prefs.ruleset === "modern" ? "checkpoints" : "flags";
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
@@ -163,11 +159,10 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     html += '<button class="course any" data-board="' + ANY + '" aria-label="Any board" aria-pressed="' + (prefs.quick.board === ANY) + '"' + (drawable ? "" : " disabled") + '>' +
       '<span class="name">Any board</span><span class="meta">drawn from ' + drawable + " at random</span></button>";
     for (const q of quick) {
-      const ok = q.reads.includes(prefs.ruleset);
-      html += '<button class="course" data-board="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + (prefs.quick.board === q.id) + '"' +
-        (ok ? "" : notRead(q.reads)) + ">" + thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span>" +
+      html += '<button class="course" data-board="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + (prefs.quick.board === q.id) + '">' +
+        thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span>" +
         '<span class="meta">' + q.board.w + "&times;" + q.board.h + " &middot; " + q.spots + " flag locations" +
-        (q.unverified ? " &middot; unverified" : "") + (ok ? "" : onlyRead(q.reads)) + "</span></button>";
+        (q.unverified ? " &middot; unverified" : "") + "</span></button>";
     }
     return html + "</div>";
   }
@@ -188,7 +183,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
       '<input type="number" data-num="' + key + '" min="' + lo + '" max="' + Math.max(lo, hi) + '" value="' + value + '" aria-label="' + label + '"' + (off ? " disabled" : "") + ">" +
       '<span class="keys" data-note="' + key + '">' + note + "</span></div>";
   }
-  const boardsNote = () => { const m = mostBoards(); return m ? "1 to " + m + ": the " + plural(poolN().length, "12&times;12 board") + " the " + esc(rulesetFor(prefs.ruleset).name) + " book reads" : "No board can be drawn under these rules."; };
+  const boardsNote = () => { const m = mostBoards(); return m ? "1 to " + m + ": drawn from the " + plural(poolN().length, "12&times;12 board") + " on the shelf" : "No 12&times;12 board to draw from."; };
   const flagsNote = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); return lo + " to " + hi + ": at least one a board, three at most"; };
   function multiTab() {
     const [lo, hi] = quickFlagRange(prefs.quick.boards);
@@ -209,14 +204,13 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (!shelf.length) return html + "<p class='keys'>Nothing on the shelf yet.</p>";
     html += "<div class='courses'>";
     for (const c of shelf) {
-      const ok = c.reads.includes(prefs.ruleset);
       const boards = c.doc.stamps.filter(s => s.role !== "dock").length;
       /* a course of yours can be taken out of the library; a shipped one cannot, so it gets no button */
       html += (c.kind === "mine" ? '<div class="tile">' : "") +
-        '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '"' +
-        (ok ? "" : notRead(c.reads)) + ">" + thumb(c.id, assemble(c.doc, library).grid) + '<span class="name">' + esc(c.doc.name) + "</span>" +
+        '<button class="course" data-course="' + esc(c.id) + '" aria-label="' + esc(c.doc.name) + '" aria-pressed="' + (prefs.course === c.id) + '">' +
+        thumb(c.id, assemble(c.doc, library).grid) + '<span class="name">' + esc(c.doc.name) + "</span>" +
         '<span class="meta">' + esc(c.kind === "mine" ? "yours" : c.kind) + " &middot; " + plural(boards, "board") +
-        " &middot; " + (c.doc.flags || []).length + " " + flagWord() + (ok ? "" : onlyRead(c.reads)) + "</span></button>" +
+        " &middot; " + (c.doc.flags || []).length + " " + flagWord() + "</span></button>" +
         (c.kind === "mine" ? '<button class="forget" data-forget="' + esc(c.id) + '" title="Delete this course from the library" aria-label="Delete ' + esc(c.doc.name) + '">&times;</button></div>' : "");
     }
     return html + "</div>";
@@ -251,9 +245,9 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
 
   /** Can the Start button start something, under this tab? */
   function startable() {
-    if (prefs.mode === "quick") return prefs.quick.board === ANY ? pool1().length > 0 : quick.some(q => q.id === prefs.quick.board && q.reads.includes(prefs.ruleset));
+    if (prefs.mode === "quick") return prefs.quick.board === ANY ? pool1().length > 0 : quick.some(q => q.id === prefs.quick.board);
     if (prefs.mode === "multi") return poolN().length >= prefs.quick.boards;
-    if (prefs.mode === "saved") return readable().some(c => c.id === prefs.course);
+    if (prefs.mode === "saved") return shelf.some(c => c.id === prefs.course);
     return false;
   }
 
@@ -273,6 +267,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
      * takes both from the race it comes back to, and the settings are not a race */
     if (RACING.includes(prefs.mode)) {
       html += "<h2>Rules</h2><div class='row'>";
+      /* every board plays under either book (issue #14): the choice is which rules, never which boards */
       for (const id of ["classic", "modern"]) {
         const r = rulesetFor(id);
         html += '<button data-ruleset="' + id + '" aria-pressed="' + (prefs.ruleset === id) + '" title="' +

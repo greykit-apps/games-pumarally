@@ -377,7 +377,8 @@ export const SCENARIOS = [
   {
     "name": "a course's rulebooks come from its squares, not from its box",
     "layer": "rules",
-    "status": "ported"
+    "status": "dropped",
+    "reason": "issue #14: no board belongs to a book; every board plays under either, and what one book has no rule for takes the other's"
   },
   {
     "name": "Energize is a 2016 board, and the classic rules refuse it by name",
@@ -388,7 +389,8 @@ export const SCENARIOS = [
   {
     "name": "the docking bay belongs to both games, and a real mix is still refused",
     "layer": "rules",
-    "status": "ported"
+    "status": "dropped",
+    "reason": "issue #14: nothing is refused to a book any more"
   },
   {
     "name": "d",
@@ -1715,7 +1717,20 @@ export const SCENARIOS = [
   {
     "name": "a board printing the expansion floor is a 2016 board",
     "layer": "rules",
-    "status": "ported"
+    "status": "dropped",
+    "reason": "issue #14: the expansion floor plays under the classic book too; see the scenario of that name"
+  },
+  {
+    "name": "the expansion floor plays under the classic book too, as the 2016 book plays it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a swing door shuts under the 2016 book as it does under the classic",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   },
   {
     "name": "the damage deck is twenty-three SPAM and seventeen Haywire, every face once and each with its steps",
@@ -2216,6 +2231,12 @@ export const SCENARIOS = [
   },
   {
     "name": "fire does not decide which book a board belongs to, and nothing else is widened",
+    "layer": "rules",
+    "status": "dropped",
+    "reason": "issue #14: no board belongs to a book; the substitute's declaration is asserted by the scenario that follows"
+  },
+  {
+    "name": "a flame jet and a flamer each stand in for the other, and the table says so",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"

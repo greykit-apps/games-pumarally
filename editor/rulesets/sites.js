@@ -39,22 +39,22 @@ const MODERN = ["modern"];
 export const SITES = {
   repair: {
     name: "Repair site", short: "one wrench", printedIn: CLASSIC,
-    place: "rest", playsIn: BOTH, props: { repair: 1 },
+    place: "rest", props: { repair: 1 },
     source: "Classic pp.28-29. Removed from the 2016 boards, which print energy here instead."
   },
   upgrade: {
     name: "Upgrade site", short: "two wrenches", printedIn: CLASSIC,
-    place: "rest", playsIn: BOTH, props: { repair: 2, option: true },
+    place: "rest", props: { repair: 2, option: true },
     source: "Classic p.36: repair two, or take an option card."
   },
   battery: {
     name: "Energy space", short: "a battery", printedIn: MODERN,
-    place: "rest", playsIn: BOTH, props: { energy: 1 },
+    place: "rest", props: { energy: 1 },
     source: "Modern Game Guide. Take an energy cube for ending a register on it."
   },
   flagspot: {
     name: "Flag location", short: "a flag may go here", printedIn: BOTH,
-    place: "rest", playsIn: BOTH, props: { flagspot: true },
+    place: "rest", props: { flagspot: true },
     source: "Ours. The board says where a flag MAY stand; the engine picks which ones a race uses."
   },
   randomizer: {
@@ -66,14 +66,12 @@ export const SITES = {
   }
 };
 
-/* `playsIn` is which books can RESOLVE the marking, and it is wider than
- * `printedIn` for the four collection markings: a 2016 game meets a printed
- * wrench and simply has no use for it, and a classic game does the same with a
- * battery, so neither narrows the board to one book. That is what the swap rule
- * relies on. THE RANDOMIZER IS DIFFERENT and declares no `playsIn`, so it falls
- * back to printedIn: the classic book has no rule for it at all, and a board
- * carrying one is a 2016 board. Same shape as a device's `playsIn` in
- * devices.js, and read the same way by playableIn(). */
+/* A MARKING NEVER DECIDES WHICH BOOK PLAYS THE BOARD (issue #14). A 2016
+ * game meets a printed wrench and has no use for it; a classic game does the
+ * same with a battery; the randomizer works under either, drawing from the
+ * shared deck when there is no deck of one's own. Which markings are DRAWN is
+ * the renderer's question, asked per ruleset (`sitesShown`), so a race under
+ * one book sees only what that book uses. */
 
 /** Whether a collection marking may be printed on an element: somewhere a
  *  robot comes to rest. Floor; or still water -- not a current, which carries

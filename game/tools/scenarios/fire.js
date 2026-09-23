@@ -14,7 +14,6 @@ import { jetPass, flamerPass } from "../../engine/rules.js";
 import { card, isDamage } from "../../engine/cards.js";
 import { step, tick, applyAnswer } from "../../engine/machine.js";
 import { botAnswer } from "../../engine/bots.js";
-import { rulesetsFor } from "../../engine/library.js";
 import { DEVICE_KINDS } from "../../../editor/rulesets/devices.js";
 import { setWall, EDGE_WALL, EDGE_DOOR } from "../../../editor/lib/edges.js";
 
@@ -110,27 +109,12 @@ export const TESTS = [
     eq([st.players[0].c, st.players[0].damage], [5, 1], "drove through the flame and out the far side");
   }],
 
-  ["fire does not decide which book a board belongs to, and nothing else is widened", () => {
-    const hot = courseOn(board(6, 6, b => jet(b, 2, 2, [1])));
-    eq(rulesetsFor(hot.doc, hot.library), ["classic", "modern"], "a flame jet is printed in one box and played by both books");
-    const lit = courseOn(board(6, 6, b => flamer(b, 2, 2, [1])));
-    eq(rulesetsFor(lit.doc, lit.library), ["classic", "modern"], "and so is a flamer, the other way round");
-    const both = courseOn(board(6, 6, b => { jet(b, 2, 2, [1]); flamer(b, 4, 4, [1]); }));
-    eq(rulesetsFor(both.doc, both.library), ["classic", "modern"], "a board carrying both kinds of fire is still a board both books play");
-
-    /* THE GUARD. A substitute that quietly widened everything would pass every
-     * assertion above and be worthless, so: the swing door is the one thing
-     * left that only one book has, and it still narrows a board to it. */
-    const swing = courseOn(board(6, 6, b => door(b, 2, 2, [1, 3, 5])));
-    eq(rulesetsFor(swing.doc, swing.library), ["classic"], "a swing door still belongs to the classic book alone; the 2016 game has no door for it to stand in for");
-    const mixed = courseOn(board(6, 6, (b, t) => { t.setCell(2, 2, "~.."); door(b, 4, 4, [2]); }));
-    eq(rulesetsFor(mixed.doc, mixed.library), [], "and water beside a swing door is still a board nobody's book reads");
-
-    /* the widening is declared in the data, not inferred from the behaviour */
-    for (const k of ["jet", "flamer"]) {
-      eq(DEVICE_KINDS[k].playsIn, ["classic", "modern"], k + ": the device says both books play it");
-      assert(DEVICE_KINDS[k].substitute, k + ": and says, in the table, that this is a substitute of ours");
-    }
-    eq(DEVICE_KINDS.door.playsIn, undefined, "the door claims no substitute, so it plays where it is printed");
+  ["a flame jet and a flamer each stand in for the other, and the table says so", () => {
+    /* the substitute is declared in the data, not inferred from the behaviour,
+     * and it is the only one: everything else on a board works as its own
+     * book says under either set of rules (issue #14) */
+    for (const k of ["jet", "flamer"]) assert(DEVICE_KINDS[k].substitute, k + ": says, in the table, that this is a substitute of ours");
+    eq(Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].substitute).sort(), ["flamer", "jet"], "and nothing else claims to stand in for anything");
+    for (const k of Object.keys(DEVICE_KINDS)) assert(DEVICE_KINDS[k].playsIn === undefined, k + ": the old playsIn field is gone");
   }]
 ];
