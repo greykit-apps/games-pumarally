@@ -5,6 +5,12 @@
  * it appears in -- which is the whole reason one board serves many courses, and
  * exactly how it works in the box.
  *
+ * BOARDS MAY OVERLAP (issue #13), and the order of the list is the stacking
+ * order: the last laid is on top, and the squares under it are out of play.
+ * Master Builder lays its small boards over the big ones this way, and with
+ * arbitrary placement there is no reason a full-size board may not do the
+ * same. A board moved is a board laid again, so it comes to the top.
+ *
  * Placement is free integer positioning with SNAPPING IN THE POINTER HANDLING
  * ONLY. Boards of any dimensions compose; nothing here knows the number twelve.
  * The snap offers positions edge-adjacent to something already down, which
@@ -161,12 +167,10 @@ export function nearestSnap(course, library, boardId, rot, cx, cy) {
   return best;
 }
 
-/** Add a board. Returns the stamp index, or -1 when it would overlap. */
+/** Add a board, on top of whatever it covers. Returns the stamp index, or -1 for a second docking bay. */
 export function place(course, library, boardId, rot, at, role = "board") {
   const b = library.get(boardId);
   if (!b) return -1;
-  const [w, h] = stampDims(b, rot);
-  if (overlapsAny(course, library, at, w, h, -1)) return -1;
   if (role === "dock" && dockStamp(course)) return -1;
   return keepFlags(course, library, () => {
     course.stamps.push({ role, board: boardId, rot, at: [at[0], at[1]] });
@@ -186,15 +190,13 @@ export function stampAt(course, library, c, r) {
   return -1;
 }
 
-/** Turn a placed board a quarter, in place, keeping its top-left corner. */
+/** Turn a placed board a quarter, in place, keeping its top-left corner and its place in the stack. */
 export function turn(course, library, index, quarters = 1) {
   const s = course.stamps[index];
   if (!s) return false;
   const src = library.get(s.board);
   if (!src) return false;
   const next = (((s.rot + quarters) % 4) + 4) % 4;
-  const [w, h] = stampDims(src, next);
-  if (overlapsAny(course, library, s.at, w, h, index)) return false;
   /* the flags on it turn with it: a flag is a square of a board, not a place
    * in the grid the board happens to be covering */
   return keepFlags(course, library, () => { s.rot = next; return true; }, { stamp: s, quarters });
@@ -205,14 +207,16 @@ export function remove(course, library, index) {
   return keepFlags(course, library, () => { course.stamps.splice(index, 1); return true; });
 }
 
-/** Move a placed board. Refuses an overlap rather than shuffling things aside. */
+/** Move a placed board. It is laid again, so it comes to the top of the stack; returns its new index, or -1. */
 export function moveStamp(course, library, index, at) {
   const s = course.stamps[index];
-  if (!s) return false;
-  const src = library.get(s.board);
-  const [w, h] = stampDims(src, s.rot);
-  if (overlapsAny(course, library, at, w, h, index)) return false;
-  return keepFlags(course, library, () => { s.at = [at[0], at[1]]; return true; });
+  if (!s) return -1;
+  return keepFlags(course, library, () => {
+    s.at = [at[0], at[1]];
+    course.stamps.splice(index, 1);
+    course.stamps.push(s);
+    return course.stamps.length - 1;
+  });
 }
 
 /* --- flags -------------------------------------------------------------------

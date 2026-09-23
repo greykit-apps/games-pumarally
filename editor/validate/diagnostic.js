@@ -132,7 +132,7 @@ export const CODES = Object.freeze({
   "course.badRotation":   "a stamp rotation that is not 0-3",
   "course.badPlacement":  "a stamp position that is missing or negative",
   "course.badRole":       "a stamp role that is not board or dock",
-  "course.overlap":       "two stamps covering the same square",
+  "course.overlap":       "a board laid over another, whose covered squares are out of play",
   "course.disconnected":  "the course is not one connected area",
   "course.twoDocks":      "more than one docking bay",
   "course.noDock":        "a course with no docking bay board and no starting squares of its own",
