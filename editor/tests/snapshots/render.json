@@ -371,12 +371,12 @@
   },
   "falling": {
     "art": {
-      "sha": "f21f81029e0a0aef",
-      "bytes": 116394
+      "sha": "edd2744c0e4a7705",
+      "bytes": 119453
     },
     "markup": {
-      "sha": "5b5bd868db266eaf",
-      "bytes": 70989
+      "sha": "fe58b26e835865de",
+      "bytes": 75563
     }
   },
   "fireballFactory": {
