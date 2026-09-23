@@ -311,8 +311,9 @@ export const TESTS = [
      * Board lasers and robot lasers fire at one instant, so the two ruleset
      * steps are one pass. */
     const printed = rulesetFor("classic").order.map(s => s.step);
-    eq(printed, ["expressConveyor", "conveyor", "pusher", "gear", "crusher", "boardLaser", "robotLaser", "jet", "checkpoint"], "the printed order");
-    const pass = { expressConveyor: "express", conveyor: "belts", pusher: "pushers", gear: "gears", crusher: "presses",
+    /* the currents are Wet and Wild's, taken into the classic order under issue #14; the rest is the classic book's */
+    eq(printed, ["expressConveyor", "conveyor", "current", "pusher", "gear", "crusher", "boardLaser", "robotLaser", "jet", "checkpoint"], "the printed order");
+    const pass = { expressConveyor: "express", conveyor: "belts", current: "currents", pusher: "pushers", gear: "gears", crusher: "presses",
       boardLaser: "lasers", robotLaser: "lasers", jet: "burners", checkpoint: "touch" };
     const want = []; for (const s of printed) if (want[want.length - 1] !== pass[s]) want.push(pass[s]);
     eq(CLASSIC_ORDER.map(x => x[0]), want, "the engine walks the printed order");

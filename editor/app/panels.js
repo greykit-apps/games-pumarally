@@ -14,7 +14,7 @@ import { cellAt } from "../lib/board.js";
 import { bayNumberOf } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
-import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn, playableIn } from "../rulesets/index.js";
+import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
 import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
@@ -214,10 +214,8 @@ export function renderInspector(el, st, hover, isCourse) {
     html += '<div class="row"><span class="none">Carries ' +
       (one ? "a " + esc(one.what.toLowerCase()) + (one.where ? " at " + esc(one.where) : "") : "something") +
       ", which only " + esc(EDITIONS[printings[0]].name) + " prints." +
-      /* and provenance is not playability: fire is printed in one box and
-       * played by both, so a board saying only "Classic prints this" would
-       * read as a board the 2016 game cannot race, which it is not */
-      (playableIn(st.board).length > 1 ? " Both books play it." : "") + "</span></div>";
+      /* and provenance is not playability: every board plays under either book (issue #14) */
+      " Either book plays it.</span></div>";
   } else if (printings.length > 1) {
     html += '<div class="row"><span class="none">Carries things only ' +
       printings.map(e => esc(EDITIONS[e].name)).join(" and only ") +

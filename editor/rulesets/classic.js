@@ -66,6 +66,11 @@ export default {
   order: [
     { step: "expressConveyor", name: "Express conveyors move one", settled: true },
     { step: "conveyor", name: "All conveyors move one", settled: true },
+    /* Wet and Wild's currents, under the classic rules (issue #14): the
+     * classic book has no rule for them, so they take the 2016 one -- a
+     * step of their own after the belts. Ours, not the book's. */
+    { step: "current", name: "Currents convey", settled: true,
+      note: "A 2016 element the classic book never printed; it conveys as the 2016 book says, after the belts." },
     { step: "pusher", name: "Pushers shove", settled: true },
     { step: "gear", name: "Gears turn a quarter", settled: true },
     /* The same device the modern order calls a crusher, in the same slot. The

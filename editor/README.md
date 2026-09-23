@@ -168,12 +168,11 @@ element, so the belt and the randomizer could not both be on the square. Keeping
 `z` as well would give one thing two spellings, and `propAt()` merges both
 layers, so nothing could tell which the board meant.
 
-`playsIn` is a second per-site fact, read by `playableIn()` exactly as a device's
-is. The four collection markings declare **both** books, which is why a printed
-wrench does not narrow a board to the classic game — the 2016 game meets it and
-simply has no use for it, and that is what the swap rule relies on. The
-randomizer declares none and so falls back to `printedIn`: the classic book has
-no rule for it at all, and a board carrying one is a 2016 board.
+A marking never decides which book plays the board. The 2016 game meets a
+printed wrench and has no use for it; the classic game does the same with a
+battery; the randomizer works under either, drawing from the shared deck when
+there is no deck of one's own. Which markings are *drawn* is asked per ruleset
+(`sitesShown`), so a race under one book sees only what that book uses.
 Turning a marked square into anything but floor is refused rather than silently
 dropping the marking, which is how a board ends up carrying data nothing can see.
 
@@ -418,34 +417,35 @@ Conveyors are deliberately **not** split that way. The difference there is one o
 resolution *order*, which belongs entirely to the ruleset reading the board, so
 splitting them would double the legend and record no extra fact.
 
-### What is printed and what plays: `printedIn`, `playsIn`
+### What is printed, and who plays it: `printedIn`
 
 Every element and device records `printedIn` — which box prints the thing. That
-is **provenance and never moves**, because it is transcription. The question the
-*game* asks is a different one: is there anything on this board the edition in
-force has no rule for? That is `playsIn`, which defaults to `printedIn` and is
-read by `playableIn(board)`. The inspector shows the first; the setup screen
-offers a board on the second.
+is **provenance and never moves**, because it is transcription. It is not a
+verdict on who may play it: **every board plays under either book** (issue #14).
+An element the other box printed works as its own book says it does — water
+costs a space of movement under the classic rules too, a swing door shuts in
+its printed registers under the 2016 rules too, currents convey in a step of
+their own after the belts under both — and what a book has no use for simply
+does not show: a wrench under 2016, a battery under classic. There was once a
+second field, `playsIn`, read by a `playableIn(board)` that decided which books
+the setup screen offered a board to; both are gone, and the inspector line
+"Carries a *thing*, which only *Classic* prints" is now provenance and nothing
+more.
 
-The two answers part company in exactly one place, **declared in `devices.js`
-and ours rather than either book's**: a Crash and Burn flame jet and a Thrills
-and Spills flamer stand in for each other. Both are fire over a square doing one
-point of damage, and neither rulebook says a word about the other's, so three
-shipped boards would otherwise be refused to the edition that did not print
-their fire. They stay **two device kinds**, because the pictures differ in a way
-a transcriber has to record — a jet is bolted to a wall, faces, and reaches one
-square or two; a flamer hangs over a single square and faces nowhere — and only
-the *reading* is shared. **The timing is not.** Each edition burns by its own
-book: classic on the way through, again for not leaving, and again at the
-burner's own step after the lasers; 2016 on the way in, and once more at the end
-of the register.
-
-That is the press and the crusher's conclusion one step further on. There, two
-names turned out to be one device and merged. Here, two devices turn out to be
-one thing *happening*, which is a weaker claim, so it is declared instead of
-merged and `check-lib.js` asserts both halves: that fire is widened, and that
-**nothing else is** — a substitute that quietly spread would make every board
-play under every book and pass every test written about fire.
+One reading is shared, **declared in `devices.js` and ours rather than either
+book's**: a Crash and Burn flame jet and a Thrills and Spills flamer stand in
+for each other. Both are fire over a square doing one point of damage, and
+neither rulebook says a word about the other's. They stay **two device kinds**,
+because the pictures differ in a way a transcriber has to record — a jet is
+bolted to a wall, faces, and reaches one square or two; a flamer hangs over a
+single square and faces nowhere — and only the *reading* is shared. **The
+timing is not.** Each edition burns by its own book: classic on the way
+through, again for not leaving, and again at the burner's own step after the
+lasers; 2016 on the way in, and once more at the end of the register. That is
+the press and the crusher's conclusion one step further on: there, two names
+turned out to be one device and merged; here, two devices turn out to be one
+thing *happening*, which is a weaker claim, so it is declared instead of
+merged, and `check-lib.js` asserts that the two declare it and nothing else does.
 
 **View** switches how the board is *drawn* — board art, or markup line work — and
 is the only view control there is. Backtick does the same.

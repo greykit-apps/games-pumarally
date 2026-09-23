@@ -28,7 +28,7 @@ import { sink } from "../validate/diagnostic.js";
 import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SETS, EDITIONS } from "../rulesets/sets.js";
-import { rulesetFor, rulesetIds, playableIn, printingsOn } from "../rulesets/index.js";
+import { rulesetFor, rulesetIds, printingsOn } from "../rulesets/index.js";
 import { SITES, SITE_ORDER, canonSites, checkSites, siteProps } from "../rulesets/sites.js";
 
 let passed = 0, failed = 0;
@@ -123,48 +123,21 @@ for (const [k, d] of Object.entries(DEVICE_KINDS)) {
   /* `playsIn` may be WIDER than `printedIn` and may never be narrower: a book
    * always resolves what it prints. Widening it is a substitute of ours, and
    * one that does not say so in the table is one nobody will find again. */
-  const plays = d.playsIn || d.printedIn;
-  ok(plays.every(id => EDITIONS[id]), "devices: " + k + " plays in real printings");
-  ok(d.printedIn.every(id => plays.indexOf(id) >= 0), "devices: " + k + " plays in every edition that prints it");
-  ok(plays.length === d.printedIn.length || d.substitute,
-     "devices: " + k + " -- a device played outside the box that prints it declares the substitute");
+  ok(d.printedIn.every(id => EDITIONS[id]), "devices: " + k + " is printed in real printings");
+  ok(d.playsIn === undefined, "devices: " + k + " declares no playsIn -- every board plays under either book (issue #14)");
 }
 
 /* THE FIRE SUBSTITUTE, asserted as a whole rather than device by device. A
- * flame jet and a flamer stand in for each other; nothing else stands in for
- * anything. The second half is the half worth keeping: a widening that spread
- * would pass every test about fire and quietly make every board play under
- * every book. */
+ * flame jet and a flamer stand in for each other, and the table says so on
+ * both; nothing else claims to stand in for anything. (Which book may PLAY a
+ * board is no longer a question the data answers -- issue #14 -- so the old
+ * guard against a widening that spread has nothing left to guard.) */
 {
-  eq(DEVICE_KINDS.jet.playsIn, ["classic", "modern"], "fire: both books play a flame jet");
-  eq(DEVICE_KINDS.flamer.playsIn, ["classic", "modern"], "fire: and both play a flamer");
-  const wide = t => Object.entries(t).filter(([, d]) => (d.playsIn || d.printedIn).length > d.printedIn.length).map(([k]) => k).sort();
-  eq(wide(DEVICE_KINDS), ["flamer", "jet"], "fire: and no other device is played outside its own box");
-  eq(wide(ELEMENTS), [], "fire: no element stands in for another at all");
-  eq(DEVICE_KINDS.door.playsIn, undefined, "fire: the swing door claims nothing, so it plays where it is printed");
+  for (const k of ["jet", "flamer"]) ok(!!DEVICE_KINDS[k].substitute, "fire: " + k + " declares its substitute");
+  eq(Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].substitute).sort(), ["flamer", "jet"], "fire: and nothing else stands in for anything");
+  eq(Object.keys(ELEMENTS).filter(k => ELEMENTS[k].substitute), [], "fire: no element stands in for another at all");
 }
 
-/* `playableIn` answers a different question from `printingsOn`, and the fire
- * substitute is where the two answers part company. */
-{
-  const hot = blankBoard({ id: "hot", name: "Hot", w: 4, h: 4, set: "authored", origin: "authored" });
-  setWall(hot, 1, 1, N, EDGE_WALL);
-  hot.wallDevices.push({ kind: "jet", edge: { kind: "h", c: 1, r: 1 }, face: S, regs: [1] });
-  eq(printingsOn(hot), ["classic"], "playableIn: the jet is still printed in the classic box alone");
-  eq(playableIn(hot), ["classic", "modern"], "playableIn: and is still played by both books");
-
-  const shut = blankBoard({ id: "shut", name: "Shut", w: 4, h: 4, set: "authored", origin: "authored" });
-  setWall(shut, 1, 1, E, EDGE_DOOR);
-  shut.wallDevices.push({ kind: "door", edge: { kind: "v", c: 2, r: 1 }, regs: [1, 3, 5] });
-  eq(playableIn(shut), ["classic"], "playableIn: a swing door still narrows a board to one book");
-
-  const wet = blankBoard({ id: "wet", name: "Wet", w: 4, h: 4, set: "authored", origin: "authored" });
-  setCell(wet, 2, 2, "~..");
-  eq(playableIn(wet), ["modern"], "playableIn: water still narrows it the other way");
-  setWall(wet, 1, 1, E, EDGE_DOOR);
-  wet.wallDevices.push({ kind: "door", edge: { kind: "v", c: 2, r: 1 }, regs: [1, 3, 5] });
-  eq(playableIn(wet), [], "playableIn: and one of each is a board no book can play");
-}
 for (const [id, s] of Object.entries(SETS)) {
   ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real printing");
 }

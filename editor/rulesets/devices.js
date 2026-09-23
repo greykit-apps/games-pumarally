@@ -19,16 +19,16 @@ const BOTH = ["classic", "modern"];
 const CLASSIC = ["classic"];
 const MODERN = ["modern"];
 
-/* WHAT IS PRINTED AND WHAT PLAYS ARE TWO QUESTIONS.
+/* `printedIn` IS PROVENANCE AND NEVER MOVES: it says which box prints the
+ * thing, and it is transcription. It is not a verdict on who may play it.
+ * Every board plays under either book (issue #14), and a device the other
+ * box printed works as its own book says it does -- a swing door shuts in
+ * the registers printed on it under the 2016 rules too. (There was once a
+ * second field, `playsIn`, and a board was offered to a book only when
+ * every device on it declared that book. Gone.)
  *
- * `printedIn` is provenance and never moves: it says which box prints the
- * thing, and it is transcription. `playsIn` says which editions' RULES can
- * resolve it, and is the question the game asks when it decides whether a
- * board is raceable. It defaults to `printedIn`, because normally a book can
- * only resolve what it prints.
- *
- * It is wider in exactly one case, DECLARED HERE AND OURS, not either book's:
- * the flame jet and the flamer. Both are fire over a square and both do one
+ * One reading is shared, DECLARED HERE AND OURS, not either book's: the
+ * flame jet and the flamer. Both are fire over a square and both do one
  * point of damage to a robot in it. They stay two device kinds because the
  * pictures differ in a way a transcriber has to record -- the jet is bolted to
  * a wall, faces, and reaches one square or two; the flamer hangs over a single
@@ -73,7 +73,7 @@ export const DEVICE_KINDS = {
   jet: {
     layer: "wall", name: "Flame jet", faced: true, needsWall: true,
     regs: REGS_OPTIONAL, fields: { reach: { min: 1, max: 2, default: 1 } },
-    printedIn: CLASSIC, playsIn: BOTH,
+    printedIn: CLASSIC,
     substitute: "The 2016 game prints no flame jet and reads this one as a flamer: " +
                 "fire over a square, on the 2016 timing. Ours, not the book's.",
     source: "Crash and Burn. Board G prints one that reaches two squares."
@@ -116,7 +116,7 @@ export const DEVICE_KINDS = {
   flamer: {
     layer: "ceiling", name: "Flamer", faced: false,
     regs: REGS_OPTIONAL, fields: {},
-    printedIn: MODERN, playsIn: BOTH,
+    printedIn: MODERN,
     substitute: "The classic game prints no flamer and reads this one as a flame jet: " +
                 "fire over a square, on the classic timing. Ours, not the book's.",
     source: "Thrills and Spills. Damages rather than destroys, which is why it is not a crusher."

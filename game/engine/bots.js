@@ -90,9 +90,9 @@ function ghostCard(st, C, g, cd) {
   const dir = plan.dist > 0 ? g.face : opposite(g.face);
   let n = Math.abs(plan.dist);
   if (n > 0 && oilAt(C, g.c, g.r)) n--;
-  if (n > 0 && isModern(st) && waterAt(C, g.c, g.r)) n--;
+  if (n > 0 && waterAt(C, g.c, g.r)) n--;
   /* a teleporter throws the ghost forward the way it throws the robot */
-  if (isModern(st) && teleporterAt(C, g.c, g.r) && plan.dist !== 0) {
+  if (teleporterAt(C, g.c, g.r) && plan.dist !== 0) {
     const jump = plan.dist > 0 ? plan.dist + 2 : 2;
     const [tc, tr] = [g.c + [0, 1, 0, -1][g.face] * jump, g.r + [-1, 0, 1, 0][g.face] * jump];
     if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr)) g.dead = true; return; }

@@ -13,10 +13,7 @@
 import classic from "./classic.js";
 import modern from "./modern.js";
 import { EDITIONS } from "./sets.js";
-import { hasLevels, hasRamps } from "../lib/board.js";
 import { ELEMENTS } from "./elements.js";
-import { SITES } from "./sites.js";
-import { siteList } from "../lib/board.js";
 import { DEVICE_KINDS } from "./devices.js";
 
 export const RULESETS = { classic, modern };
@@ -51,33 +48,12 @@ export function printingsOn(board) {
   return [...seen].sort();
 }
 
-/**
- * The editions whose RULES can resolve everything on this board, ascending.
- *
- * NOT `printingsOn`. That one is provenance -- which box printed the things on
- * the board -- and is shown to a transcriber. This is the question the game
- * asks before it offers a board: is there anything here the edition in force
- * has no rule for? The two answers differ wherever a device declares a
- * `playsIn` wider than its `printedIn`, which today is the fire substitute
- * (see devices.js). Empty means no book can play it.
- */
-export function playableIn(board) {
-  let out = rulesetIds();
-  const narrow = def => { if (def) out = out.filter(id => (def.playsIn || def.printedIn).indexOf(id) >= 0); };
-  for (const tok of board.cells) narrow(ELEMENTS[tok.charAt(0)]);
-  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) narrow(DEVICE_KINDS[dev.kind]);
-  /* Levels and ramps are Wet and Wild's, and neither is an element: a level is
-   * a property of the floor and a ramp is an edge. A board that steps up or
-   * down anywhere, or climbs anywhere, is floor the classic book has no rule
-   * for, exactly as its water is. */
-  if (hasLevels(board) || hasRamps(board)) out = out.filter(id => id === "modern");
-  /* Sites narrow too, and the four collection markings declare a `playsIn` of
-   * both books precisely so that they do not -- a wrench is something the 2016
-   * game has no use for rather than something it cannot read. A randomizer
-   * declares none, so it narrows to the book that has a rule for it. */
-  for (const s of siteList(board)) for (const k of s.has) narrow(SITES[k]);
-  return out.sort();
-}
+/* THERE IS NO "PLAYABLE IN" ANY MORE (issue #14). Every board plays under
+ * either book: an element the other box printed works as its own book says
+ * it does -- water costs a space of movement under the classic rules too, a
+ * swing door shuts under the 2016 rules too -- and what a book has no use
+ * for it simply does not show (a wrench under 2016, a battery under
+ * classic). `printingsOn` above is provenance and stays. */
 
 /**
  * The first thing on the board that only the OTHER printing prints, as a short

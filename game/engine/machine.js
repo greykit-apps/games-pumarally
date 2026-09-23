@@ -32,10 +32,13 @@ import { step as stepCell, rot } from "../../editor/lib/dir.js";
 
 /* The board's turn, in the classic printed order. Each name is a pass in
  * rules.js; the table is the order, so the sequence can be read rather than
- * traced through eight functions that each name the next. */
+ * traced through eight functions that each name the next. Wet and Wild's
+ * currents have no classic rule, so they take the 2016 one under either
+ * book (issue #14): a step of their own after the belts. */
 export const CLASSIC_ORDER = [
   ["express", (st, C) => beltPass(st, C, 2, 2)],
-  ["belts", (st, C) => beltPass(st, C, 1, 2)],
+  ["belts", (st, C) => beltPass(st, C, 1, 2, null, (C2, c, r) => !currentAt(C2, c, r))],
+  ["currents", (st, C) => beltPass(st, C, 1, 1, null, currentAt)],
   ["pushers", pusherPass],
   ["gears", gearPass],
   ["presses", crusherPass],
@@ -766,6 +769,20 @@ const STEPS = {
         }
         if (!p.alive) { st.queue.shift(); continue; }
         if (!isModern(st)) {
+          /* Chaos and Carnage's randomizer under the classic rules (issue
+           * #14): the classic game deals from one shared deck and a robot
+           * owns none, so the shared one stands in for "your own deck", as
+           * it does for a Scrambler. Once per register, whatever questions
+           * the card then asks: a question re-enters this loop. */
+          const mark = st.turn + ":" + st.register;
+          if (randomizerAt(C, p.c, p.r) && p.registers[st.register] !== null && p.randomized !== mark) {
+            st.discard.push(p.registers[st.register]);
+            if (!st.deck.length) st.deck = st.discard.splice(0);
+            p.registers[st.register] = st.deck.pop();
+            p.randomized = mark;
+            st.events.push({ type: "randomized", player: p.id, register: st.register });
+            log(st, p.name + "'s card is randomized");
+          }
           const i = programCardOf(st, p, st.register);
           if (i === null) { st.queue.shift(); continue; }
           const cd = card(st, i);
@@ -773,6 +790,26 @@ const STEPS = {
           if (plan.pending) { st.waiting = plan.ask; return; }
           st.queue.shift();
           if (i !== p.registers[st.register]) log(st, p.name + " runs " + st.players[p.controlledBy].name + "'s card by remote control");
+          /* Chaos and Carnage's teleporter under the classic rules (issue #14),
+           * as below for the 2016 game: a revealed Move throws the robot two
+           * squares further than the card says, over everything, and does
+           * nothing at all when the arrival square is taken or off the course */
+          const jumps = { move1: 3, move2: 4, move3: 5, back: 2 };
+          if (jumps[cd.kind] && teleporterAt(C, p.c, p.r)) {
+            const n = jumps[cd.kind];
+            const to = [p.c + [0, 1, 0, -1][p.face] * n, p.r + [-1, 0, 1, 0][p.face] * n];
+            if (inCourse(C, to[0], to[1]) && !robotAt(st, to[0], to[1])) {
+              p.pushed = []; p.lastMove = null;
+              st.events.push({ type: "revealed", player: p.id, card: cd, register: st.register });
+              const from = [p.c, p.r];
+              p.c = to[0]; p.r = to[1];
+              p.trail = [[p.c, p.r]];
+              st.events.push({ type: "teleported", player: p.id, from, to: [p.c, p.r], n });
+              log(st, p.name + " teleports " + n + " forward");
+              arrived(st, C, p);
+              continue;
+            }
+          }
           playCard(st, C, p, cd, plan);
           continue;
         }
@@ -799,9 +836,18 @@ const STEPS = {
             st.act.flipped = true;
           }
           if (randomizerAt(C, p.c, p.r) && p.registers[st.register] !== null && st.act.hw === undefined) {
-            putAway(st, p, p.registers[st.register], true);
-            if (p.crab[st.register] !== null) { putAway(st, p, p.crab[st.register], true); p.crab[st.register] = null; }
-            p.registers[st.register] = drawOwn(st, p);
+            if (isModern(st)) {
+              putAway(st, p, p.registers[st.register], true);
+              if (p.crab[st.register] !== null) { putAway(st, p, p.crab[st.register], true); p.crab[st.register] = null; }
+              p.registers[st.register] = drawOwn(st, p);
+            } else {
+              /* the classic game deals from one shared deck and a robot owns
+               * none, so the shared one stands in for "your own deck", as it
+               * does for a Scrambler (issue #14: a 2016 marking under classic rules) */
+              st.discard.push(p.registers[st.register]);
+              if (!st.deck.length) st.deck = st.discard.splice(0);
+              p.registers[st.register] = st.deck.pop();
+            }
             st.events.push({ type: "randomized", player: p.id, register: st.register });
             log(st, p.name + "'s card is randomized");
           }

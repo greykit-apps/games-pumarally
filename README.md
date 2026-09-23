@@ -79,7 +79,11 @@ from where it marks), **Quick course** (N boards and F flags on sliders, all
 drawn and stacked as the box stacks them), **Build course** (the workshop)
 and **Saved course** (every shipped course and every one you saved), plus
 **Settings** for the house rules, each explained, and the button that
-forgets everything. The rules and seats sit under whichever tab is open. Each turn
+forgets everything. The rules and seats sit under whichever tab is open. Any
+board plays under either book: what the other box printed works as its own
+book says (water slows, a swing door shuts, currents convey), and only the
+markings the chosen book uses are shown -- wrenches under classic, batteries
+under 2016. Each turn
 you are dealt `9 − damage` cards; put five into your registers and press
 Run. Then the five registers execute in order: every robot's card in
 priority order, then the floor in the printed order.

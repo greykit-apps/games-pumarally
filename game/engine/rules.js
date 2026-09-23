@@ -327,7 +327,7 @@ export function playCard(st, C, p, cd, plan) {
   const dir = plan.lateral ? rot(p.face, plan.lateral) : plan.dist > 0 ? p.face : opposite(p.face);
   let n = Math.abs(plan.dist);
   if (n > 0 && oilAt(C, p.c, p.r)) n--;               // wheels spin on oil: one square less
-  if (n > 0 && isModern(st) && waterAt(C, p.c, p.r)) n--;   // Wet and Wild: leaving water costs a space, once per Move card
+  if (n > 0 && waterAt(C, p.c, p.r)) n--;               // Wet and Wild: leaving water costs a space, once per Move card -- under either book (issue #14)
   let moved = 0;
   const hover = fire(st, p, "modifyMove", { kind: "hover", hover: false }).hover;
   for (let i = 0; i < n; i++) {

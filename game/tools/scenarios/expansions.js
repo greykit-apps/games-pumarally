@@ -4,14 +4,13 @@
  * IMG_1251). Portals and oil were built with Crash and Burn; the rest is
  * here, on authored boards, since no shipped board prints any of it yet.
  */
-import { board, courseOn, game, N, E, S, W } from "./harness.js";
+import { board, courseOn, game, give, runRegister, N, E, S, W } from "./harness.js";
 import { stepRobot, beltPass, laserPass, firstRobotAlong, flamerPass, ledgeUp } from "../../engine/rules.js";
-import { step, tick, applyAnswer, MODERN_ORDER } from "../../engine/machine.js";
+import { step, tick, applyAnswer, MODERN_ORDER, CLASSIC_ORDER } from "../../engine/machine.js";
 import { card, isDamage } from "../../engine/cards.js";
 import { newInstalled, temporaryOffers } from "../../engine/upgrades.js";
 import { assertInvariants } from "../../engine/sim.js";
 import { botAnswer } from "../../engine/bots.js";
-import { rulesetsFor } from "../../engine/library.js";
 import { setLevel } from "../../../editor/lib/board.js";
 import { setRamp } from "../../../editor/lib/edges.js";
 import { setWall } from "../../../editor/lib/edges.js";
@@ -75,10 +74,6 @@ export const TESTS = [
     st = mgame(co, [{ c: 1, r: 5, face: E }, { c: 2, r: 5, face: N }]);
     stepRobot(st, co.C, st.players[0], E, "card");
     eq(st.players[1].c, 3, "a robot shoved out of water goes the whole way");
-    /* and the classic game knows nothing of it */
-    const cst = game(co, [{ c: 2, r: 5, face: E }]);
-    stepRobot(cst, co.C, cst.players[0], E, "card");
-    eq(cst.players[0].c, 3, "classic: water is floor");
   }],
   ["drains are pits, in every way", () => {
     const co = far((b, t) => t.setCell(2, 5, "D.."));
@@ -273,36 +268,45 @@ export const TESTS = [
     st.register = 0; flamerPass(st, co.C);
     eq(dmg(st, p), 1, "and not when register 1 does");
   }],
-  ["a board printing the expansion floor is a 2016 board", () => {
-    for (const tok of ["~..", "D..", "C>."]) {
-      const co = courseOn(board(6, 6, (b, t) => t.setCell(2, 2, tok)));
-      eq(rulesetsFor(co.doc, co.library), ["modern"], tok + " is read by the 2016 book alone");
-    }
-    /* levels and ramps are not elements: a level is a property of the floor and
-     * a ramp an edge, and either alone makes the board Wet and Wild's */
-    const lv = courseOn(board(6, 6, b => setLevel(b, 2, 2, 1)));
-    eq(rulesetsFor(lv.doc, lv.library), ["modern"], "a raised square is read by the 2016 book alone");
-    const rp = courseOn(board(6, 6, b => { setRamp(b, 2, 2, N, true); setLevel(b, 2, 1, 1); }));
-    eq(rulesetsFor(rp.doc, rp.library), ["modern"], "a ramp is read by the 2016 book alone");
-    /* A MARKING NARROWS A BOARD TOO. The randomizer is a site now, and sites
-     * were excluded from this question on the grounds that a wrench and a
-     * battery on one square is just the swap rule -- true of those four, and
-     * not of this one: the classic book has no randomizer rule at all. The
-     * four collection markings declare playsIn: both so they go on not
-     * narrowing, which is what keeps the swap rule working. */
-    {
-      const co = courseOn(board(6, 6, (b, t) => t.sites(2, 2, ["randomizer"])));
-      eq(rulesetsFor(co.doc, co.library), ["modern"], "a randomizer is read by the 2016 book alone");
-    }
-    for (const mark of ["repair", "upgrade", "battery", "flagspot"]) {
-      const co = courseOn(board(6, 6, (b, t) => t.sites(2, 2, [mark])));
-      eq(rulesetsFor(co.doc, co.library), ["classic", "modern"],
-        "a " + mark + " narrows nothing -- the other book has no use for it, which is not the same as no rule");
-    }
-    /* the FLAMER is the exception, and not because it is expansion floor: it
-     * stands in for a classic flame jet, so both books play a board with one.
-     * scenarios/fire.js holds that substitute to what it claims. */
-    const fl = courseOn(board(6, 6, b => b.ceilingDevices.push({ kind: "flamer", c: 2, r: 2, regs: [1] })));
-    eq(rulesetsFor(fl.doc, fl.library), ["classic", "modern"], "a flamer is the one piece of expansion floor both books play");
+  ["the expansion floor plays under the classic book too, as the 2016 book plays it", () => {
+    /* issue #14: no board belongs to a book. Water, ledges, currents, the
+     * randomizer and the teleporter have no classic rule, so under the
+     * classic rules they take the 2016 one -- and what the classic game has
+     * instead of a deck of one's own is the shared deck. */
+    let co = far((b, t) => { t.setCell(2, 5, "~.."); t.setCell(3, 5, "~.."); });
+    let st = game(co, [{ c: 2, r: 5, face: E }]), p = st.players[0];
+    give(st, p, 0, "move3");
+    runRegister(st, co.library);
+    eq(p.c, 4, "classic: a Move 3 from water goes two, as under the 2016 book");
+    co = terraced();
+    st = game(co, [{ c: 1, r: 3, face: N }]); p = st.players[0];
+    assert(!stepRobot(st, co.C, p, N, "card"), "classic: a ledge cannot be climbed");
+    st = game(co, [{ c: 1, r: 2, face: S }]); p = st.players[0];
+    stepRobot(st, co.C, p, S, "card");
+    eq(p.damage, 2, "classic: the drop off a ledge is two damage, on the track");
+    /* currents convey in a step of their own after the belts, under either book */
+    const names = CLASSIC_ORDER.map(x => x[0]);
+    eq(names.indexOf("currents"), names.indexOf("belts") + 1, "classic: currents have their own step, after the belts");
+    co = far((b, t) => t.setCell(2, 5, "C>."));
+    st = game(co, [{ c: 2, r: 5, face: N }]); p = st.players[0];
+    CLASSIC_ORDER.find(x => x[0] === "belts")[1](st, co.C);
+    eq(p.c, 2, "classic: the belt step leaves a robot on a current where it is");
+    CLASSIC_ORDER.find(x => x[0] === "currents")[1](st, co.C);
+    eq(p.c, 3, "classic: and the current step carries it one square");
+    /* a randomizer replaces the revealed card from the shared deck, and the cards are conserved */
+    co = far((b, t) => t.sites(2, 5, ["randomizer"]));
+    st = game(co, [{ c: 2, r: 5, face: E }]); p = st.players[0];
+    give(st, p, 0, "move1");
+    const deck = st.deck.length, was = p.registers[0];
+    runRegister(st, co.library);
+    eq(st.deck.length, deck - 1, "classic: the randomizer draws the replacement from the shared deck");
+    assert(st.discard.includes(was), "classic: and the card it replaced is on the shared discard");
+    assertInvariants(st, co.library);
+    /* a teleporter throws a revealed Move further, under either book */
+    co = far((b, t) => t.setCell(2, 5, "T.."));
+    st = game(co, [{ c: 2, r: 5, face: E }]); p = st.players[0];
+    give(st, p, 0, "move1");
+    runRegister(st, co.library);
+    eq(p.c, 5, "classic: a Move 1 revealed on a teleporter goes three");
   }]
 ];
