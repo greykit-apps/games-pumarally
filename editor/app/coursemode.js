@@ -106,6 +106,10 @@ const EXTRA_CSS = `
 /* a starting square the course placed itself: the bay is painted into the art; the ring says it is the course's, not a board's */
 .start{position:absolute;border:3px dashed rgba(57,255,136,.8);border-radius:50%;box-shadow:0 0 0 2px rgba(5,7,15,.6)}
 .startlist .n{background:#39ff88}
+.save{width:100%;font-size:14px;font-weight:700;letter-spacing:.04em;padding:10px 12px;margin:4px 0;
+  background:var(--hot);color:#05070f;border:1px solid var(--hot);border-radius:4px}
+.save:hover:not(:disabled){background:#7deeff;border-color:#7deeff}
+.save:disabled{background:none;color:var(--dim);border-style:dashed}
 /* The board rail is wider in course mode than in the board workshop: its palette
  * shows whole boards, not tool icons, and a 12x12 wants the room. Every board is
  * drawn at ONE scale -- PALETTE_PC pixels a cell -- so a 6x6 shows at half the
@@ -341,6 +345,12 @@ export async function mountCourse(root, wanted) {
     let html = "<h3>Course</h3>";
     html += '<div class="row"><label>Name</label><input type="text" data-cmeta="name" value="' + esc(st.course.name) + '"></div>';
     html += '<div class="row"><label>Id</label><input type="text" data-cmeta="id" value="' + esc(st.course.id) + '"></div>';
+    /* THE SAVE BUTTON, first and unmissable: saving is what the workshop is
+     * for, and the button used to sit two screens down among the exports */
+    const broken = st.diagnostics.some(x => x.severity === "error");
+    html += '<div class="row"><button class="save" data-act="save"' + (broken ? " disabled" : "") +
+      ' title="' + esc(broken ? "Fix the problems listed under Problems first." : "Save this course to the library. It appears on the new-game screen under Saved course.") + '">Save to library</button></div>';
+    if (broken) html += '<div class="row"><span class="none bad">Fix the problems below before saving. A course that will not build is one the game cannot lay.</span></div>';
     html += '<div class="row"><span class="pill">' + st.course.stamps.length + " board(s)</span>" +
       '<span class="pill">' + st.board.w + " x " + st.board.h + "</span>" +
       '<span class="pill">' + (dock ? "docking bay board" : "no docking bay board") + "</span></div>";
@@ -439,18 +449,12 @@ export async function mountCourse(root, wanted) {
     }
 
     html += "<h3>This course</h3>";
-    const broken = st.diagnostics.some(x => x.severity === "error");
-    html += '<div class="row"><button data-act="save"' + (broken ? " disabled" : "") +
-      '>Save to library</button><button data-act="export">Export JSON</button></div>';
+    html += '<div class="row"><button data-act="export">Export JSON</button></div>';
     /* the whole course as one board, square by square, in the board workshop */
     html += '<div class="row"><button data-act="flatten"' + (st.course.stamps.length ? "" : " disabled") +
       ' title="Lay the whole course out as one board and open it in the board workshop, to edit square by square. It comes back to this library as a single board, and it can be played from there.">Edit as one board &rarr;</button></div>';
     if (st.course.stamps.some(s => s.role === "course")) {
       html += '<div class="row"><span class="none">This course is one flattened board. Flags are set here; the floor is edited in the board workshop.</span></div>';
-    }
-    if (broken) {
-      html += '<div class="row"><span class="none bad">Fix the problems below before saving. ' +
-        'A course that will not build is one the game cannot lay.</span></div>';
     }
     html += '<div class="row"><button data-act="clear">Start again</button></div>';
 
