@@ -7,8 +7,7 @@
   "h": 12,
   "set": "grandPrix",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. Unverified. The black spills with a tipped barrel are read as oil. The pusher at (5,4) prints its numbers upside down and half-legible: read as 2 4, check. The double beam on row 7 is two 1-damage lasers, one from each repulsor capsule, per the author.",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. The black spills with a tipped barrel are read as oil. The double beam on row 7 is two 1-damage lasers, one from each repulsor capsule, per the author. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "o.. Bv. ... ... ... Bv. ... ... Bv. ... ... o..",
@@ -26,12 +25,20 @@
     ],
     "sites": [
       { "at": [3, 0], "has": ["chopShop"] },
-      { "at": [0, 1], "has": ["upgrade"] },
-      { "at": [4, 4], "has": ["upgrade"] },
+      { "at": [0, 1], "has": ["upgrade", "battery"] },
+      { "at": [5, 2], "has": ["flagspot"] },
+      { "at": [9, 2], "has": ["flagspot"] },
+      { "at": [4, 4], "has": ["upgrade", "battery"] },
       { "at": [9, 4], "has": ["chopShop"] },
+      { "at": [9, 5], "has": ["flagspot"] },
+      { "at": [2, 6], "has": ["flagspot"] },
       { "at": [2, 7], "has": ["chopShop"] },
-      { "at": [5, 9], "has": ["upgrade"] },
-      { "at": [11, 10], "has": ["upgrade"] }
+      { "at": [4, 7], "has": ["flagspot"] },
+      { "at": [4, 9], "has": ["flagspot"] },
+      { "at": [5, 9], "has": ["upgrade", "battery"] },
+      { "at": [7, 9], "has": ["flagspot"] },
+      { "at": [2, 10], "has": ["flagspot"] },
+      { "at": [11, 10], "has": ["upgrade", "battery"] }
     ]
   },
   "wall": {
