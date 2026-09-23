@@ -231,12 +231,12 @@
   },
   "chess": {
     "art": {
-      "sha": "c5357818bdfe2ce7",
-      "bytes": 60845
+      "sha": "a0b2b9c0f600d600",
+      "bytes": 64588
     },
     "markup": {
-      "sha": "66dddd24f1cddd1f",
-      "bytes": 46727
+      "sha": "e7705f303b86dfb3",
+      "bytes": 52732
     }
   },
   "chopShop": {
