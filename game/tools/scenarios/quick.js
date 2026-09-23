@@ -6,12 +6,12 @@
  * way the rule tests do, so what they say about a square is what the
  * validator says.
  */
-import { blankBoard, setCell, setSites } from "../../../editor/lib/board.js";
+import { blankBoard, setCell, setSites, setLevel } from "../../../editor/lib/board.js";
 import { usableFlagSpots, flagRefusal, assemble } from "../../../editor/lib/course.js";
 import { boardSVG, sitesShown } from "../../../editor/render/svg.js";
 import { readCourse } from "../../engine/library.js";
 import { buildCourse } from "../../engine/course.js";
-import { quickCourse, quickSpots, canQuick, seeded, QUICK_FLAGS, DOCK_BOARD,
+import { quickCourse, quickSpots, canQuick, isBlank, seeded, QUICK_FLAGS, DOCK_BOARD,
   quickMulti, quickCells, routeOf, quickFlagCounts, quickFlagRange, quickDefaultFlags, QUICK_MAX_BOARDS } from "../../engine/quick.js";
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -98,6 +98,30 @@ export const TESTS = [
      * docking bay and are not */
     const corners = marked([[0, 0], [7, 0], [0, 7], [7, 7], [3, 3]]);
     eq(quickSpots(corners.b, corners.library).map(s => [s.c, s.r]), [[5, 3], [2, 7], [9, 7]], "the marks off the course's outer corners, where the board lies");
+  }],
+  ["a blank board is told from a board by its floor, not its markings", () => {
+    /* issue #11: Blueprint and Tabula Rasa are open floor with flag
+     * locations (and, on one, two wrenches) printed on them so a course can
+     * be built there. The setup screen keeps them off the quick-game shelf;
+     * the engine itself still takes a bare marked floor, which is what every
+     * fixture in this file is. */
+    const blank = marked(FIVE, "blank");
+    setSites(blank.b, 1, 1, ["repair", "battery", "flagspot"]);
+    assert(isBlank(blank.b), "open floor with markings is blank");
+    assert(canQuick(blank.b, blank.library), "and still a quick game to the engine: leaving it out is the offer's rule");
+    /* any one thing on the floor and it is a board: a wall, a belt, a device, a level, a ramp */
+    const walled = marked(FIVE, "walled"); walled.b.wallH[walled.b.w * 3 + 3] = 1;
+    assert(!isBlank(walled.b), "one wall: a board");
+    const belted = marked(FIVE, "belted"); setCell(belted.b, 0, 0, "bv.");
+    assert(!isBlank(belted.b), "one belt: a board");
+    const raised = marked(FIVE, "raised"); setLevel(raised.b, 3, 3, 1);
+    assert(!isBlank(raised.b), "one raised square: a board");
+    const ramped = marked(FIVE, "ramped"); ramped.b.rampV[5] = 1;
+    assert(!isBlank(ramped.b), "one ramp: a board");
+    const shot = marked(FIVE, "shot"); shot.b.wallDevices.push({ kind: "laser", edge: "h:2,0", face: "S", damage: 1 });
+    assert(!isBlank(shot.b), "one laser: a board");
+    const pressed = marked(FIVE, "pressed"); pressed.b.ceilingDevices.push({ kind: "press", at: [2, 2], regs: [1] });
+    assert(!isBlank(pressed.b), "one press: a board");
   }],
   ["the race draws the markings its edition reads and no others", () => {
     const all = ["repair", "battery", "flagspot"];

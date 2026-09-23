@@ -2149,6 +2149,12 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "a blank board is told from a board by its floor, not its markings",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "the boards stack as the box does: the column first, then the sides, never beyond three by three",
     "layer": "rules",
     "status": "ported",

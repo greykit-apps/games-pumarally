@@ -73,10 +73,15 @@ game rather than by none.
 
 ## Playing
 
-Pick a course and seats on the set-up screen. Each turn you are dealt
-`9 − damage` cards; put five into your registers and press Run. Then the
-five registers execute in order: every robot's card in priority order, then
-the floor in the printed order.
+The new-game screen has four tabs, one per way a course comes about:
+**Quick game** (one board, picked or drawn, laid at a random facing with
+three flags drawn from where it marks), **Quick course** (N boards and F
+flags, all drawn and stacked as the box stacks them), **Build course** (the
+workshop) and **Saved course** (every shipped course and every one you saved).
+The rules, seats and house rules sit under whichever tab is open. Each turn
+you are dealt `9 − damage` cards; put five into your registers and press
+Run. Then the five registers execute in order: every robot's card in
+priority order, then the floor in the printed order.
 
 | Key | |
 |---|---|
@@ -92,13 +97,17 @@ everyone up to three at the start, because the printed route hands one out
 in about one game in fifty.
 
 Drag a card onto a register to place it there instead. Set-up remembers your
-seats and house rules; the game autosaves every step and resumes.
+seats and house rules; the game autosaves every step and resumes. **New game**
+on the race screen goes back to set-up without throwing the race away: it
+stays resumable until another race is started.
 
 ## Building courses
 
-The **course workshop** (`editor/index.html#course`) lays boards out, puts
-the flags on, and saves to this browser's library, where the set-up screen
-offers the result as a course. To ship a course as a default, **Download**
+The **course workshop** (`editor/index.html#course`, or the Build course
+tab) lays boards out, puts the flags on, and saves to this browser's
+library, where the set-up screen offers the result under Saved course. The
+two blank Master Builder boards, Blueprint and Tabula Rasa, are for building
+on: they are in the workshop's palette and off the quick-game shelf. To ship a course as a default, **Download**
 it from the workshop, drop the file into `editor/data/courses/`, and run
 `node editor/tools/build-index.js`. See `editor/README.md`.
 
