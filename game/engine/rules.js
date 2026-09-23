@@ -10,7 +10,7 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorOpens
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorOpens, repulsorAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
@@ -92,17 +92,23 @@ function tread(p) {
  */
 const has = (p, id) => !!(p.installed && p.installed.some(u => u.id === id));
 
+/* Where the last refused step was stopped: the square at the head of the chain
+ * whose edge refused it. Read by playCard straight after, to tell a repulsor
+ * field from a plain wall; transient, and never part of the state. */
+let lastBlock = null;
+
 export function stepRobot(st, C, p, dir, cause) {
   const chain = [p];
   let c = p.c, r = p.r;
   let blocked = false;
+  lastBlock = null;
   for (let guard = 0; guard < 10; guard++) {
     if (blockedMove(st, C, c, r, dir)) {
-      /* Phasing: "During your movement this register, you may pass through exactly 1 wall." Its own move, and a wall, not a ledge */
-      if (chain.length === 1 && cause === "card" && p.phasing > 0 && wallBlocks(C, c, r, dir, st.register) && !ledgeUp(C, c, r, dir) && !railed(st, C, c, r, dir)) {
+      /* Phasing: "During your movement this register, you may pass through exactly 1 wall." Its own move, and a wall, not a ledge -- nor a repulsor field, which is a field and not a wall to phase through (ours) */
+      if (chain.length === 1 && cause === "card" && p.phasing > 0 && wallBlocks(C, c, r, dir, st.register) && !ledgeUp(C, c, r, dir) && !railed(st, C, c, r, dir) && !repulsorAt(C, c, r, dir)) {
         p.phasing = 0;
         log(st, p.name + " phases through the wall");
-      } else { blocked = true; break; }
+      } else { blocked = true; lastBlock = { c, r, head: chain[chain.length - 1] }; break; }
     }
     const [nc, nr] = stepCell(c, r, dir);
     if (!inGrid(C, nc, nr)) break;                    // the head walks off the edge
@@ -333,7 +339,12 @@ export function playCard(st, C, p, cd, plan) {
   for (let i = 0; i < n; i++) {
     if (!p.alive) return;
     p.hoverSteps = hover ? n - i - 1 : 0;
-    if (!stepRobot(st, C, p, dir, "card")) { p.hoverSteps = 0; break; }      // a wall: the rest of the move is lost
+    if (!stepRobot(st, C, p, dir, "card")) {                                // a wall: the rest of the move is lost
+      p.hoverSteps = 0;
+      const blk = lastBlock;
+      if (blk && repulsorAt(C, blk.c, blk.r, dir)) repulse(st, C, p, blk.head, dir, Math.abs(plan.dist));
+      break;
+    }
     moved++;
   }
   p.hoverSteps = 0;
@@ -352,6 +363,28 @@ export function playCard(st, C, p, cd, plan) {
    * momentum it never had cannot carry it */
   if (moved > 0 && p.alive && oilAt(C, p.c, p.r)) oilSlide(st, C, p, dir);
   stayedInFlame(st, C, p, start);
+}
+
+/**
+ * A repulsor field throws back what its card drove into it. "A robot moving
+ * into a repulsor field is pushed directly away from the field a number of
+ * spaces equal to its movement card and loses any remaining movement from that
+ * card. A robot pushed into a repulsor moves a number of spaces equal to the
+ * pusher's movement card and the pusher loses any remaining movement" (Ultimate
+ * RoboRally Collection p.12, a fan compilation).
+ *
+ * `head` is the robot that met the field: the mover itself, or the far end of
+ * the chain it was pushing. It goes back one square at a time, and each square
+ * is an ordinary push -- so a robot bounced back through its pusher shoves the
+ * pusher back too, and a pit, a wall or the board's edge behind does what it
+ * always does. `n` is the card's printed distance, not what oil or water left
+ * of it: the book counts the card.
+ */
+function repulse(st, C, p, head, dir, n) {
+  const back = opposite(dir);
+  log(st, head.name + " is thrown back by the repulsor field");
+  st.events.push({ type: "repulsed", player: head.id, dir: back, n });
+  for (let k = 0; k < n && head.alive; k++) if (!stepRobot(st, C, head, back, "repulsor")) break;
 }
 
 /**

@@ -118,6 +118,13 @@ function build() {
    * `#`, which is what the lattice says a one-way wall is. */
   setWall(b, 10, 7, E, EDGE_WALL);
   b.wallDevices.push({ kind: "oneWay", edge: { kind: "v", c: 11, r: 7 }, face: W });
+  /* A repulsor field on the south edge of (9,9), printed in (9,9), with a
+   * laser bolted to the same edge firing north through it -- which is how
+   * Back Stretch mounts its double beam, and why a repulsor edge must count as
+   * a wall for a laser mount. */
+  setWall(b, 9, 9, S, EDGE_WALL);
+  b.wallDevices.push({ kind: "repulsor", edge: { kind: "h", c: 9, r: 10 }, face: N });
+  b.wallDevices.push({ kind: "laser", edge: { kind: "h", c: 9, r: 10 }, face: N, damage: 1 });
   /* Both ceiling kinds there are: the disc (a press in one game and a crusher
    * in the other, one device either way) and the flamer, which is a different
    * printed thing and stays its own kind. Two discs on ONE square is what the

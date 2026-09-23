@@ -214,6 +214,11 @@ edge's two normals. The square it stands in is *derived* from the two — the ol
 format stored the square as well, so a device could name one whose wall was on
 the wrong side of it. That is now unrepresentable.
 
+**A repulsor field is a plain `#` with a `repulsor` device bolted to it**, whose
+face says which square the capsule is printed in and nothing more: the field is
+a springy wall from both sides. To a beam and a laser mount it is a wall; the
+bounce is the engine's, in `playCard`.
+
 **A one-way wall is a plain `#` with a `oneWay` device bolted to it**, whose face
 points into the red square — the one it is placed in. From there the edge is a
 wall; from the green side beyond, robots and beams pass as if nothing were there.

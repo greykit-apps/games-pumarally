@@ -246,6 +246,12 @@ export function deviceOnEdge(board, edge) {
   return board.wallDevices.find(d => edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
 }
 
+/** Is there a repulsor field on this edge? From either side: the field is not one-sided. */
+export function repulsorOn(board, edge) {
+  const id = edgeId(edge.kind, edge.c, edge.r);
+  return board.wallDevices.some(d => d.kind === "repulsor" && edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+}
+
 /** The one-way wall devices on an edge -- one, or two if both sides are red. */
 export function oneWaysOn(board, edge) {
   const id = edgeId(edge.kind, edge.c, edge.r);

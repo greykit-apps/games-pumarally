@@ -9,8 +9,9 @@
 import { assemble } from "../../editor/lib/course.js";
 import {
   inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt,
-  deviceCell, blockedAt, laserPath
+  deviceCell, blockedAt, laserPath, repulsorOn
 } from "../../editor/lib/board.js";
+import { edgeOf } from "../../editor/lib/edges.js";
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
@@ -167,6 +168,11 @@ export function flamerFires(C, c, r, register) {
 
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }
+
+/** A repulsor field on the edge between (c,r) and its neighbour in `dir`. */
+export function repulsorAt(C, c, r, dir) {
+  return inBoard(C.grid, c, r) && repulsorOn(C.grid, edgeOf(c, r, dir));
+}
 
 /** A wall or a shut door between (c,r) and its neighbour in `dir`; register is 0-based. */
 export function wallBlocks(C, c, r, dir, register) {

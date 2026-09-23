@@ -2360,6 +2360,54 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "a robot that drives into a repulsor field is thrown back as far as its card moves",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a Move 1 into a repulsor field throws the robot one square back",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field throws back from either side",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot pushed into a repulsor field goes back as far as the pusher's card, and the pusher's move ends",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field stops a laser like a wall",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a belt that carries a robot into a repulsor field meets a wall and nothing more",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot cannot phase through a repulsor field",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a laser may be mounted on a repulsor field's edge",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 

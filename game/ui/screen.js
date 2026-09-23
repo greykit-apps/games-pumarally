@@ -484,6 +484,9 @@ export function mountScreen(root, ctx) {
         return { dur: T.slide, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, d.show, true); }]] };
       case "turned":
         return { dur: T.turn, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, e.face, d.show, true); }]] };
+      /* the bounce is ordinary moves and pushes; this only says why */
+      case "repulsed":
+        return { dur: 0, acts: [[0, () => tagPiece(p.id, "Repulsed")]] };
       case "portal": case "teleported":
         /* in one end and out of the other: no glide across the floor between */
         return { dur: T.vanish + T.appear, acts: [

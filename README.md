@@ -61,6 +61,7 @@ game draw one, then fill up to eight seats with people and bots.*
 | Flag locations marked on the boards, for the engine to choose among | done |
 | One-way walls (Radioactive, and its 2016 reprint Contamination) | done, 5 scenarios by name; the rule is from the Ultimate RoboRally Collection, a fan compilation, as no publisher's rulebook is in the archive |
 | Trap doors (Grand Prix; Turn & Burn; the 30th Anniversary boards) | done, 7 scenarios by name; a pit in the registers printed on it, opening at the END of the register -- the author's reading, so a robot may cross it or step off it in the register it opens |
+| Repulsor fields (Grand Prix; Turn & Burn; the 30th Anniversary boards) | done, 8 scenarios by name; a springy wall, always on and from both sides (the author's ruling): a robot's own card throws it back as far as the card moves, a pushed robot goes back as far as its pusher's card, and a belt or a pusher meets a plain wall (ours) |
 | Radiation and radioactive waste (Radioactive; Contamination) | done, 8 scenarios by name; classic rule from the same fan compilation, and the 2016 reading ours: the classic timing, a damage card for a point, and an Energy or a free upgrade for waste's option card |
 
 ## How it is put together
