@@ -82,6 +82,10 @@ export default {
       note: "After the lasers, alone among elements -- Crash and Burn states this outright. " +
             "It burns whatever fire the board carries: a 2016 flamer stands in for a jet and is " +
             "resolved here, on this timing. See devices.js." },
+    { step: "waste", name: "Radioactive waste burns, and may give an option card", settled: true,
+      note: "Radioactive. With the laser fire, and its option card at the checkpoints -- so after the " +
+            "burners and before the flags. From the Ultimate RoboRally Collection p.6, a fan compilation; " +
+            "no publisher's rulebook for the box is in the archive." },
     { step: "checkpoint", name: "Flags and repair sites are touched", settled: true }
   ],
 

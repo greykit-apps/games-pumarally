@@ -8,7 +8,7 @@
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
 import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween } from "./course.js";
-import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST } from "./cards.js";
+import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
 import { UPGRADE_DEFS, canInstall, costOf } from "./upgrades.js";
@@ -299,6 +299,12 @@ export function botAnswer(st, library, req) {
         if (req.tag === "facing") return bestFacing(st, C, p);
         if (req.tag === "remove") { const i = req.labels.findIndex(l => /^(SPAM|Haywire)$/.test(l)); return i >= 0 ? i : 0; }
         return 0;
+      }
+      /* Contamination's waste: a free upgrade while there is a slot to fit one
+       * in, and the Energy once the mat is full or the track is not */
+      if (req.card === "waste") {
+        const room = ["permanent", "temporary"].some(t => p.installed.filter(u => UPGRADE_DEFS[u.id].type === t).length < INSTALL_LIMIT[t]);
+        return room ? 1 : 0;
       }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */

@@ -127,11 +127,15 @@ const CASES = [
   ["site.unknown", FIXTURE, d => { d.ground.sites[0].has = ["trapdoor"]; }],
   ["site.repeated", FIXTURE, d => { d.ground.sites[0].has = ["repair", "repair"]; }],
   ["site.exclusive", FIXTURE, d => { d.ground.sites[0].has = ["repair", "upgrade"]; }],
+  /* a square is printed one colour of deck: radiation or waste, not both */
+  ["site.exclusive", FIXTURE, d => { d.ground.sites[0].has = ["radiation", "waste"]; }],
   ["site.empty", FIXTURE, d => { d.ground.sites[0].has = []; }],
   /* a collection marking sits on plain floor: the pit at (1,3) is not somewhere
-   * a robot rests -- and (1,0) is a conveyor, which is not either */
-  ["site.notFloor", FIXTURE, d => { d.ground.sites[0].at = [1, 3]; }],
-  ["site.notFloor", FIXTURE, d => { d.ground.sites[0].at = [1, 1]; }],
+   * a robot rests -- and (1,1) is a conveyor, which is not either. The wrench is
+   * found by what it is, not by position: the first marking in the list is waste
+   * now, which may stand on a belt. */
+  ["site.notFloor", FIXTURE, d => { d.ground.sites.find(s => s.has.includes("repair")).at = [1, 3]; }],
+  ["site.notFloor", FIXTURE, d => { d.ground.sites.find(s => s.has.includes("repair")).at = [1, 1]; }],
   /* a randomizer needs only a square a robot can be standing on, so a belt is
    * fine and a PIT is not -- there is nobody standing in a pit to reveal a card */
   ["site.notStandable", FIXTURE, d => {

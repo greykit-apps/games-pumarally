@@ -2270,6 +2270,54 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "radioactive waste hurts a robot every register it ends there, and hands it an option card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "waste acts after the fire and before the flags, in both books",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a powered-down robot takes the waste's damage but no option card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a robot beside the waste is not touched by it",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "2016 waste deals a damage card, then asks: an Energy or the top upgrade free",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "radiation hurts once, at the end of the turn, and not every register",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "radiation reaches a powered-down robot, and 2016 pays it in a damage card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a square is radiation or waste, never both",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 

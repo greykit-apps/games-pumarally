@@ -67,11 +67,13 @@
       "             "
     ],
     "sites": [
+      { "at": [10, 1], "has": ["waste"] },
       { "at": [4, 3], "has": ["repair"] },
       { "at": [5, 3], "has": ["upgrade"] },
       { "at": [8, 3], "has": ["battery"] },
       { "at": [2, 5], "has": ["randomizer"] },
       { "at": [4, 5], "has": ["randomizer"] },
+      { "at": [8, 5], "has": ["radiation"] },
       { "at": [4, 9], "has": ["flagspot"] },
       { "at": [5, 9], "has": ["repair", "battery", "flagspot"] },
       { "at": [6, 9], "has": ["upgrade", "battery"] },

@@ -23,7 +23,8 @@ import { shuffle } from "./rng.js";
 import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "./state.js";
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
-  checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint } from "./rules.js";
+  checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
+  wastePass, radiationPass } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
@@ -44,6 +45,9 @@ export const CLASSIC_ORDER = [
   ["presses", crusherPass],
   ["lasers", laserPass],
   ["burners", jetPass],
+  /* Radioactive's waste hurts with the laser fire and pays out at the
+   * checkpoints; after the burners and before the flags is both at once */
+  ["waste", wastePass],
   ["touch", checkpointPass]
 ];
 
@@ -63,6 +67,9 @@ export const MODERN_ORDER = [
   ["crushers", crusherPass],
   ["lasers", laserPass],
   ["flamers", flamerPass],
+  /* Contamination's waste, on the classic timing (ours): with the end-of-
+   * register damage, before the batteries and the checkpoints */
+  ["waste", wastePass],
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -76,7 +83,7 @@ export const PASS_LABELS = {
   express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
   lasers: "Lasers", burners: "Flame jets", touch: "Flags",
   blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
-  flamers: "Flamers", batteries: "Energy"
+  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste"
 };
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }
@@ -991,11 +998,19 @@ const STEPS = {
       for (const p of st.players) { p.phasing = 0; p.opposite = null; p.substitute = null; }
       st.register++;
       if (st.register < REGISTERS) { go(st, "exec", "reveal"); return; }
-      go(st, "cleanup", isModern(st) ? "endRound" : "repair");
+      go(st, "cleanup", "radiation");
     }
   },
 
   cleanup: {
+    /* Radioactive: "A robot on a radiation square receives 1 point of damage"
+     * at the end of the turn, before the repairs. Its own step, so the steps
+     * after it can ask and re-run without anybody taking it twice. The 2016
+     * game takes it at the end of the round (ours). */
+    radiation(st, C) {
+      radiationPass(st, C);
+      go(st, "cleanup", isModern(st) ? "endRound" : "repair");
+    },
     /* "Robots on a repair site or checkpoint may now repair 1 point of damage,
      * and robots on a two-wrench repair site may either repair 2 points of
      * damage or receive an option card." */

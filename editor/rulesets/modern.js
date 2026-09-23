@@ -66,6 +66,9 @@ export default {
             "point is this step; the movement points land as the robot moves. A classic flame jet stands " +
             "in for a flamer and is resolved here, on this timing -- which has no point for merely " +
             "STAYING in the flame, where the classic book has one. See devices.js." },
+    { step: "waste", name: "Radioactive waste burns, then gives an Energy or an upgrade", settled: true,
+      note: "Contamination, on the classic timing -- ours, decided 2026-09-23, as no rulebook for " +
+            "the box is in hand. What it gives is what a review of Contamination says it gives." },
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 

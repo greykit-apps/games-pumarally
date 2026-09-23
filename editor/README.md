@@ -168,6 +168,14 @@ element, so the belt and the randomizer could not both be on the square. Keeping
 `z` as well would give one thing two spellings, and `propAt()` merges both
 layers, so nothing could tell which the board meant.
 
+**Radiation and radioactive waste are markings for the same reason.** They are
+the colour of the deck — dark green and bright mottled green — and the print lays
+other things on them: Reactor Core stands a teleporter on radiation. Both are
+`place: "standable"`, and a square is one or the other, never both. In the art
+they are washed over the plate under the square's element, with a frame on top
+where the element covers the whole square; in markup, hatching, crossed for
+waste.
+
 A marking never decides which book plays the board. The 2016 game meets a
 printed wrench and has no use for it; the classic game does the same with a
 battery; the randomizer works under either, drawing from the shared deck when

@@ -460,6 +460,15 @@ export function siteOverlay(has, mode) {
      * square's element, so a belt's arrow lies over it exactly as printed. */
     out += mk("M 50.0 2.0 L 61.5 22.3 L 83.9 16.1 L 77.7 38.5 L 98.0 50.0 L 77.7 61.5 L 83.9 83.9 L 61.5 77.7 L 50.0 98.0 L 38.5 77.7 L 16.1 83.9 L 22.3 61.5 L 2.0 50.0 L 22.3 38.5 L 16.1 16.1 L 38.5 22.3 Z", MARK.hazard, 1.6) + mkText("?", 50, 52, MARK.hazard, 30);
   }
+  if (!art && (has.indexOf("radiation") >= 0 || has.indexOf("waste") >= 0)) {
+    /* In markup, hatching over the whole square in the colour of things that
+     * hurt: single for radiation, crossed for waste, which hurts more often.
+     * In the play art they are the colour of the deck instead, washed on by
+     * the ground layer under the square's element. */
+    const one = "M 4 36 L 36 4 M 4 68 L 68 4 M 4 100 L 100 4 M 36 96 L 96 36 M 68 96 L 96 68";
+    const two = " M 4 64 L 36 96 M 4 32 L 68 96 M 4 4 L 96 96 M 32 4 L 96 68 M 64 4 L 96 36";
+    out += mk(has.indexOf("waste") >= 0 ? one + two : one, MARK.hazard, 1.4);
+  }
   if (flag) {
     /* Always the same corner at the same size. A flag LOCATION is a question
      * about the square -- somewhere a flag may go -- not a flag standing on it,
@@ -486,5 +495,7 @@ export function siteOverlay(has, mode) {
  */
 export function siteSwatch(key, mode) {
   if (key === "randomizer" && mode === "art") return A.randomizerSvg();
+  if (key === "radiation" && mode === "art") return A.radiationSvg();
+  if (key === "waste" && mode === "art") return A.wasteSvg();
   return siteOverlay([key], mode);
 }

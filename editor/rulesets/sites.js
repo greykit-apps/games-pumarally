@@ -63,6 +63,35 @@ export const SITES = {
     source: "Chaos and Carnage. Reveal a card in a register while standing on one and that " +
             "register is discarded and replaced with the top card of your own deck. It fires on " +
             "the reveal rather than on coming to rest, which is why it may be printed on a belt."
+  },
+  /* RADIATION AND WASTE ARE MARKINGS, NOT ELEMENTS, for the randomizer's
+   * reason: the print lays them UNDER other things. Reactor Core stands a
+   * teleporter on radiation, and one ground token holds one element, so as
+   * elements that square would have had no spelling. They are the colour of the
+   * floor -- dark green for radiation, bright mottled green for waste -- and a
+   * square is one or the other, never both.
+   *
+   * No publisher's rulebook for Radioactive or for its 2016 reprint,
+   * Contamination, is in the archive. The classic rules are the Ultimate
+   * RoboRally Collection's (Justin Alexander, a fan compilation):
+   * manual1/roborally-ultimate-collection-rulebook.pdf, pp.4 and 6. The 2016
+   * reading is OURS, decided 2026-09-23: the classic timing, paid in the 2016
+   * game's currency -- a point of damage is a damage card, and waste's option
+   * card is an Energy or the top upgrade card installed free, which is what a
+   * review of Contamination says that box gives. */
+  radiation: {
+    name: "Radiation", short: "radiation", printedIn: BOTH,
+    place: "standable", props: { radiation: true },
+    source: "Radioactive; Contamination. One damage to a robot on it at the end of the turn " +
+            "(classic) or the round (2016, ours). Ultimate RoboRally Collection p.4, a fan compilation."
+  },
+  waste: {
+    name: "Radioactive waste", short: "radioactive waste", printedIn: BOTH,
+    place: "standable", props: { waste: true },
+    source: "Radioactive; Contamination. One damage to a robot on it each register, with the " +
+            "lasers and fire; then, classic, it may draw an option card, and 2016 (ours, after a " +
+            "review of Contamination) it gains an Energy or installs the top upgrade card free. " +
+            "Ultimate RoboRally Collection p.6, a fan compilation."
   }
 };
 
@@ -81,13 +110,14 @@ export function restsOn(def) {
 }
 
 /** Canonical order, so a `has` list has exactly one spelling. */
-export const SITE_ORDER = ["repair", "upgrade", "battery", "randomizer", "flagspot"];
+export const SITE_ORDER = ["repair", "upgrade", "battery", "randomizer", "radiation", "waste", "flagspot"];
 
 /* A square is printed with one wrench or two, never both -- they are the same
- * marking at two strengths. Everything else stacks: a battery may share a
+ * marking at two strengths. Radiation and waste are two colours of floor, and
+ * a square is printed one colour. Everything else stacks: a battery may share a
  * square with either wrench, because the two games print different things in
  * the same place, and a flag location may sit on any of them. */
-export const EXCLUSIVE = [["repair", "upgrade"]];
+export const EXCLUSIVE = [["repair", "upgrade"], ["radiation", "waste"]];
 
 export function siteOf(key) { return SITES[key]; }
 

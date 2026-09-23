@@ -215,6 +215,31 @@ export function randomizerSvg() {
              '<path class="pr-rand-burst" d="M 59.6 14.3 L 61.0 30.9 L 76.2 23.8 L 69.1 39.0 L 85.7 40.4 L 72.0 50.0 L 85.7 59.6 L 69.1 61.0 L 76.2 76.2 L 61.0 69.1 L 59.6 85.7 L 50.0 72.0 L 40.4 85.7 L 39.0 69.1 L 23.8 76.2 L 30.9 61.0 L 14.3 59.6 L 28.0 50.0 L 14.3 40.4 L 30.9 39.0 L 23.8 23.8 L 39.0 30.9 L 40.4 14.3 L 50.0 28.0 Z"/>', "pr-rand");
 }
 
+/* RADIATION AND WASTE ARE THE COLOUR OF THE FLOOR, as printed: a wash over the
+ * plate, under whatever element stands on the square, so a teleporter or a
+ * belt on radiation reads as that thing on green. Radiation is the print's
+ * dark, even green; waste is its bright, mottled one, and the two must read
+ * apart at a glance because one hurts every register and the other once a turn. */
+export function radiationSvg() {
+  return svg('<rect x="0" y="0" width="100" height="100" fill="#3d5a1f" fill-opacity=".78"/>' +
+             '<rect x="3" y="3" width="94" height="94" rx="3" fill="none" stroke="#6b8f3a" stroke-opacity=".35" stroke-width="2"/>', "pr-radiation");
+}
+
+export function wasteSvg() {
+  return svg('<rect x="0" y="0" width="100" height="100" fill="#6fae2c" fill-opacity=".82"/>' +
+             '<path d="M18 22c8-6 18-2 20 6s-6 14-14 12-12-12-6-18zM60 14c10-2 18 6 14 14s-16 8-18 0 0-12 4-14zM30 62c10-4 20 4 18 12s-14 12-20 6-8-14 2-18zM70 56c8 0 14 8 10 14s-14 6-16-2 0-12 6-12z" fill="#a8dc4a" fill-opacity=".7"/>' +
+             '<path d="M44 40c5-2 10 2 8 7s-9 5-10 0 0-6 2-7zM82 86c4 0 6 4 4 6s-7 2-7-1 1-5 3-5zM12 84c4-2 8 1 7 5s-7 4-8 0 0-4 1-5z" fill="#2f5a12" fill-opacity=".6"/>', "pr-waste");
+}
+
+/* The same two colours as a frame round a square whose element covers the
+ * wash -- a belt's bed is opaque edge to edge, and radiation under a belt was
+ * invisible in the art. Drawn OVER the element, inside the square's edge, so
+ * the element stays legible and the deck's colour still shows. */
+export function hazardFrameSvg(kind) {
+  const hue = kind === "waste" ? "#8fd23c" : "#4f7a26";
+  return svg('<rect x="4" y="4" width="92" height="92" rx="4" fill="none" stroke="' + hue + '" stroke-width="7" stroke-opacity=".9"/>', "pr-" + kind + "-frame");
+}
+
 /* ONE HUE, because a teleporter has no colour to match. The portal below takes
  * its hue from the pair it belongs to; this one belongs to nothing, so a
  * per-instance colour would be inventing a distinction the print does not make.

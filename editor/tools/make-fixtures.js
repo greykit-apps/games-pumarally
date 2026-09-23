@@ -79,6 +79,12 @@ function build() {
   setCell(b, 5, 5, "@^.");   setCell(b, 6, 5, "T..");
   setCell(b, 8, 5, "T..");   setCell(b, 9, 5, "t1.");
 
+  /* RADIATION UNDER A TELEPORTER, which is why radiation is a marking and not
+   * an element: Reactor Core prints exactly that. Waste on plain floor beside
+   * it, so the fixture carries each colour of deck. */
+  setSites(b, 8, 5, ["radiation"]);
+  setSites(b, 10, 1, ["waste"]);
+
   /* THREE levels, one of them BELOW the floor you walk in on, joined by the
    * only thing that may join them -- a ramp, which is an EDGE. The board's base is 0, so a fixture with
    * levels 0 and 1 alone exercises only half the format -- and the half it

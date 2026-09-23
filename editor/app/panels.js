@@ -403,6 +403,7 @@ function orderFor(rules, d) {
   has.boardLaser = false;
   has.crusher = d.ceiling.some(x => x.kind === "crusher");
   has.flamer = d.ceiling.some(x => x.kind === "flamer");
+  has.waste = d.sites.indexOf("waste") >= 0;
   return rules.order
     .filter(s => has[s.step])
     .map(s => s.name + (s.settled === false ? " (where this falls is not settled by the sources)" : ""));

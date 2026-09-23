@@ -140,6 +140,9 @@ export function waterAt(C, c, r) { return !!propAt(C.grid, c, r, "water"); }
 export function currentAt(C, c, r) { return !!propAt(C.grid, c, r, "current"); }
 export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize"); }
 export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
+/* Radioactive's two colours of deck, markings rather than elements (sites.js) */
+export function radiationAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "radiation"); }
+export function wasteAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "waste"); }
 
 /* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two
  * squares differ in level, and a ramp is the one square that spans one ------ */

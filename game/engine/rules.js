@@ -10,13 +10,13 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
-import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS } from "./cards.js";
+import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
 import { alive, log } from "./state.js";
-import { fire, OPTION_DEFS, discardOption } from "./options.js";
-import { gainEnergy, bindRuleHooks } from "./upgrades.js";
+import { fire, OPTION_DEFS, discardOption, drawOption } from "./options.js";
+import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, UPGRADE_DEFS } from "./upgrades.js";
 import { receiveHaywire } from "./haywire.js";
 import { stampAt as stampOf, rebootTokenOn } from "./course.js";
 
@@ -975,6 +975,96 @@ export function batteryPass(st, C) {
     const n = energyAt(C, p.c, p.r);
     if (!n) continue;
     if (gainEnergy(st, p, n, "battery")) log(st, p.name + " charges " + n + " Energy");
+  }
+}
+
+/* --- Radioactive: waste and radiation ----------------------------------------
+ *
+ * No publisher's rulebook for Radioactive or its 2016 reprint, Contamination,
+ * is in the archive. The classic rule is the Ultimate RoboRally Collection's
+ * (Justin Alexander, a fan compilation; manual1/roborally-ultimate-collection-
+ * rulebook.pdf pp.4 and 6); the 2016 reading is ours, decided 2026-09-23 --
+ * the classic timing, paid in the 2016 game's currency. */
+
+export const WASTE_CHOICES = ["Gain an Energy", "Install the top upgrade card free"];
+
+/**
+ * "A robot on radioactive waste receives 1 point of damage" with the laser fire,
+ * "and may draw an option card" at the checkpoints (p.6). One pass, after the
+ * lasers and the fire and before the flags, so it lands where both halves do.
+ *
+ * Classic: the draw is taken. The book says MAY, and a free option card is never
+ * worse than none -- the hand limit is trimmed at the end of the turn, as for any
+ * draw -- so asking every register a robot stands in the waste would be a
+ * question with one sensible answer. Ours.
+ * 2016 (ours, after a review of Contamination): an Energy, or the top upgrade
+ * card installed free. Asked, keyed, so the pass can re-run for the answer
+ * without hurting anybody twice.
+ *
+ * Not while powered down or shut down: the reward is a checkpoint's, and a
+ * robot that is down touches no checkpoint. The damage lands regardless -- the
+ * waste is under it either way.
+ */
+export function wastePass(st, C) {
+  for (const p of alive(st)) {
+    if (!wasteAt(C, p.c, p.r)) continue;
+    const key = st.turn + ":" + st.register + ":waste:" + p.id;
+    if (!st.answers[key + ":hurt"]) {
+      st.answers[key + ":hurt"] = true;
+      log(st, p.name + " is standing in radioactive waste");
+      damage(st, C, p, 1, "waste");
+    }
+    if (!p.alive || p.poweredDown || p.rebooting || st.answers[key + ":paid"]) continue;
+    if (!isModern(st)) {
+      st.answers[key + ":paid"] = true;
+      drawOption(st, p);
+      continue;
+    }
+    const a = st.answers[key];
+    if (a === undefined) {
+      return { player: p.id, kind: "cardChoice", key, card: "waste", labels: WASTE_CHOICES.slice(), options: [0, 1],
+        prompt: p.name + " ends the register in radioactive waste. Gain an Energy, or install the top upgrade card free?" };
+    }
+    st.answers[key + ":paid"] = true;
+    if (a === 1 && wasteUpgrade(st, p)) continue;
+    if (gainEnergy(st, p, 1, "waste")) log(st, p.name + " charges an Energy from the waste");
+  }
+  return null;
+}
+
+/* The top upgrade card, installed at no Energy cost when a slot for its type is
+ * free; otherwise it goes to the robot's shelf, to be installed later at its
+ * price. Whether a full mat refuses the card or takes it anyway is not in
+ * anything we have; the shelf is ours. False when the deck is empty. */
+function wasteUpgrade(st, p) {
+  const id = drawUpgrade(st);
+  if (id === null) return false;
+  const def = UPGRADE_DEFS[id];
+  if (installedOfType(p, def.type) < INSTALL_LIMIT[def.type]) {
+    p.installed.push(newInstalled(id));
+    st.events.push({ type: "upgrade", player: p.id, card: id, how: "installed" });
+    log(st, p.name + " installs " + def.name + " from the waste, free" + (def.built ? "" : " (its effect is not built)"));
+  } else {
+    p.shelf.push(id);
+    st.events.push({ type: "upgrade", player: p.id, card: id, how: "drawn" });
+    log(st, p.name + " draws " + def.name + " from the waste, with no slot free for it");
+  }
+  return true;
+}
+
+/**
+ * "A robot on a radiation square receives 1 point of damage" at the end of the
+ * turn (p.4), before any repair. The 2016 game has no end of turn; the end of
+ * the round stands in for it (ours). A shut-down or powered-down robot is still
+ * standing in it, and Power Down Shield does not keep it out (p.17 of the same
+ * book: the shield "does not block against Radiation"), which the shield's
+ * hook already honours by absorbing lasers only.
+ */
+export function radiationPass(st, C) {
+  for (const p of alive(st)) {
+    if (p.rebooting || !radiationAt(C, p.c, p.r)) continue;
+    log(st, p.name + " is standing in radiation");
+    damage(st, C, p, 1, "radiation");
   }
 }
 

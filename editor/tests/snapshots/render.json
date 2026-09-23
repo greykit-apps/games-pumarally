@@ -521,12 +521,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "dfd94503c4c99bb0",
-      "bytes": 66831
+      "sha": "6cdf87e70ea1b0cf",
+      "bytes": 67816
     },
     "markup": {
-      "sha": "3fd97a035c0e1e0b",
-      "bytes": 43847
+      "sha": "efdfcd80a34163cd",
+      "bytes": 44984
     }
   }
 }
