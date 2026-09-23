@@ -107,6 +107,10 @@ function loadPrefs() {
     } else prefs.mode = prefs.course ? "saved" : "quick";
   }
   if (typeof prefs.quick.board !== "string") prefs.quick.board = ANY;
+  /* the boards left out of a quick course's draw, by the player: kept as the
+   * ones turned off, so a board that joins the shelf later is in the draw */
+  if (!Array.isArray(prefs.quick.off)) prefs.quick.off = [];
+  prefs.quick.off = prefs.quick.off.filter(x => typeof x === "string");
   if (prefs.quick.boards < 1) prefs.quick.boards = 1;
   if (prefs.quick.boards > QUICK_MAX_BOARDS) prefs.quick.boards = QUICK_MAX_BOARDS;
   /* eight seat rows, always: the seats saved before there were empty rows
@@ -147,10 +151,17 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
    * whole shelf. A hand-picked board is the player's own choice. */
   const drawn = q => !q.unverified;
   const pool1 = () => quick.filter(drawn).map(q => q.board);
-  const poolN = () => quick.filter(q => q.board.w === 12 && q.board.h === 12 && drawn(q)).map(q => q.board);
+  /* the boards a quick course may draw: every verified 12x12 one, less the
+   * ones the player has turned off in the pool (a quick game on one board
+   * is always the player's own pick, so the list does not reach it) */
+  const stackable = q => q.board.w === 12 && q.board.h === 12 && drawn(q);
+  const isOff = q => prefs.quick.off.includes(q.id);
+  const poolAll = () => quick.filter(stackable);
+  const poolN = () => poolAll().filter(q => !isOff(q)).map(q => q.board);
   /* what is no longer on the shelf is not what is picked */
   function settle() {
     if (prefs.quick.board !== ANY && !quick.some(q => q.id === prefs.quick.board)) prefs.quick.board = ANY;
+    prefs.quick.off = prefs.quick.off.filter(id => quick.some(q => q.id === id && stackable(q)));
     if (!shelf.some(c => c.id === prefs.course)) prefs.course = shelf.length ? shelf[0].id : null;
   }
   settle();
@@ -172,7 +183,9 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   function boardTile(q, pressed, pool) {
     /* the shelf is 12x12 boards only, so the size is not worth a tile's one line of meta */
     const meta = q.spots + " flag locations" + (q.unverified ? " &middot; unverified" : "");
-    if (pool) return '<div class="course pool" aria-hidden="true">' + thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + '</span><span class="meta">' + meta + "</span></div>";
+    /* a pool tile is a toggle: lit, the board is in the draw; dimmed, it is left out */
+    if (pool) return '<button class="course pool" data-pool="' + esc(q.id) + '" aria-pressed="' + pressed + '" aria-label="' + esc(q.board.name) + ' in the draw" title="' + esc(q.board.name) + ': click to ' + (pressed ? "leave out of" : "put back in") + ' the draw">' +
+      thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + "</span></button>";
     return '<button class="course" data-board="' + esc(q.id) + '" aria-label="' + esc(q.board.name) + '" aria-pressed="' + pressed + '">' +
       thumb(q.id, q.board) + '<span class="name">' + esc(q.board.name) + '</span><span class="meta">' + meta + "</span></button>";
   }
@@ -196,16 +209,16 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
       '<input type="number" data-num="' + key + '" min="' + lo + '" max="' + Math.max(lo, hi) + '" value="' + value + '" aria-label="' + label + '"' + (off ? " disabled" : "") + ">" +
       '<span class="keys" data-note="' + key + '">' + note + "</span></div>";
   }
-  const boardsNote = () => { const m = mostBoards(); return m ? "1 to " + m + ": drawn from the " + plural(poolN().length, "12&times;12 board") + " on the shelf" : "No 12&times;12 board to draw from."; };
+  const boardsNote = () => { const m = mostBoards(); return m ? "1 to " + m + ": drawn from the " + plural(poolN().length, "12&times;12 board") + " in the pool" : "No board in the pool to draw from."; };
+  const poolHeading = () => { const n = poolN().length, all = poolAll().length; return "The draw pool &middot; " + (n === all ? "" : n + " of ") + plural(all, "board"); };
   const flagsNote = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); return lo + " to " + hi + ": at least one a board, three at most"; };
   function multiMap() {
     const [lo, hi] = quickFlagRange(prefs.quick.boards);
-    const pool = quick.filter(q => q.board.w === 12 && q.board.h === 12 && drawn(q));
-    /* the pool is shown, dimmed, so the window is not bare in the one mode where nothing is picked */
+    /* the pool is every board the draw may pick, each a toggle; the player's choices are remembered */
     return "<div class='knobs'>" + slider("boards", "Boards", 1, mostBoards(), prefs.quick.boards, boardsNote()) +
       slider("flags", cap(flagWord()), lo, hi, prefs.quick.flags, flagsNote()) + "</div>" +
-      "<h2>The draw pool &middot; " + plural(pool.length, "board") + "</h2>" +
-      "<div class='win'><div class='courses small'>" + pool.map(q => boardTile(q, false, true)).join("") + "</div></div>";
+      "<h2 data-pool-heading>" + poolHeading() + "</h2>" +
+      "<div class='win'><div class='courses small'>" + poolAll().map(q => boardTile(q, !isOff(q), true)).join("") + "</div></div>";
   }
 
   function savedMap() {
@@ -373,6 +386,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (d.ruleset) { prefs.ruleset = d.ruleset; settle(); store(SETUP_KEY, prefs); renderSide(); renderMap(); return; }
     if (d.board) { prefs.quick.board = d.board; press("board", d.board); return; }
     if (d.course) { prefs.course = d.course; press("course", d.course); return; }
+    if (d.pool !== undefined) { togglePool(d.pool, b); return; }
     if (d.act === "gear") { openPop(el(".pop").hidden); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
     if (d.forget !== undefined) {
@@ -432,6 +446,25 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     for (const e of root.querySelectorAll('[data-slide="boards"], [data-num="boards"]')) e.value = prefs.quick.boards;
     el('[data-note="flags"]').textContent = flagsNote();
     syncStart();
+  }
+  /** One board in or out of the draw: the tile, the heading and the boards knob follow, in place. */
+  function togglePool(id, tile) {
+    const q = quick.find(x => x.id === id);
+    if (!q) return;
+    const on = isOff(q);
+    prefs.quick.off = on ? prefs.quick.off.filter(x => x !== id) : prefs.quick.off.concat([id]);
+    tile.setAttribute("aria-pressed", on);
+    tile.title = q.board.name + ": click to " + (on ? "leave out of" : "put back in") + " the draw";
+    el("[data-pool-heading]").innerHTML = poolHeading();
+    /* a course cannot draw more boards than are in the pool: the knob's ceiling moves, and the knob with it */
+    const m = mostBoards();
+    if (m && prefs.quick.boards > m) prefs.quick.boards = m;
+    clampFlags();
+    for (const e of root.querySelectorAll('[data-slide="boards"], [data-num="boards"]')) { e.max = Math.max(1, m); e.disabled = m < 1; }
+    for (const e of root.querySelectorAll('[data-slide="flags"], [data-num="flags"]')) e.disabled = m < 1;
+    el('[data-note="boards"]').innerHTML = boardsNote();
+    store(SETUP_KEY, prefs);
+    patchKnobs();
   }
   root.oninput = ev => {
     const t = ev.target;

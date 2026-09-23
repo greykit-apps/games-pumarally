@@ -214,8 +214,9 @@ input[type=number][data-num]{width:5ch;text-align:center}
 .course.any{justify-content:center;align-items:center;min-height:80px;border-style:dashed;text-align:center}
 .course.any .name{font-size:13px;white-space:normal}
 .course.any .meta{white-space:normal}
-.course.pool{opacity:.55;cursor:default}
-.course.pool .meta{display:none}
+.course.pool[aria-pressed=false]{opacity:.35}
+.course.pool[aria-pressed=false]:hover{opacity:.6}
+.course.pool[aria-pressed=true]{border-color:var(--accent);box-shadow:none}
 .row>label{color:var(--dim);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-right:4px;min-width:11ch}
 .tile{position:relative;display:flex}
 .tile>.course{flex:1}
