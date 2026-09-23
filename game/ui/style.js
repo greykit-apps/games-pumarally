@@ -211,7 +211,9 @@ input[type=number][data-num]{width:5ch;text-align:center}
 .course svg{width:100%;height:auto;display:block;background:var(--bg)}
 .course .name{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .course .meta{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.course.any{justify-content:center;align-items:center;min-height:80px;border-style:dashed;text-align:center}
+.courses .shelf{grid-column:1/-1;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
+.courses .shelf:first-child{margin-top:0;padding-top:0;border-top:0}
+.course.any{grid-column:1/-1;flex-direction:row;justify-content:center;align-items:baseline;gap:10px;min-height:0;padding:8px;border-style:dashed;text-align:center}
 .course.any .name{font-size:13px;white-space:normal}
 .course.any .meta{white-space:normal}
 .course.pool[aria-pressed=false]{opacity:.35}

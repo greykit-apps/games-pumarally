@@ -71,7 +71,7 @@
       "name": "Energize",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -79,7 +79,7 @@
       "name": "Steps",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -87,7 +87,7 @@
       "name": "The Keep",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -95,7 +95,7 @@
       "name": "Tempest",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -103,7 +103,7 @@
       "name": "In & Out",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -111,7 +111,7 @@
       "name": "Cactus",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -119,7 +119,7 @@
       "name": "Misdirection",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -127,7 +127,7 @@
       "name": "The \"O\" Ring",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -143,7 +143,7 @@
       "name": "Sidewinder",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -191,7 +191,7 @@
       "name": "Coliseum",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "wetAndWild",
       "origin": "transcribed"
     },
     {
@@ -231,7 +231,7 @@
       "name": "Laser Maze",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "modernBase",
       "origin": "transcribed"
     },
     {
@@ -319,7 +319,7 @@
       "name": "Water Park",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "wetAndWild",
       "origin": "transcribed"
     },
     {
@@ -327,7 +327,7 @@
       "name": "Pushy",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "chaosAndCarnage",
       "origin": "transcribed"
     },
     {
@@ -335,7 +335,7 @@
       "name": "Labyrinth",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "chaosAndCarnage",
       "origin": "transcribed"
     },
     {
@@ -343,7 +343,7 @@
       "name": "Black Gold",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -351,7 +351,7 @@
       "name": "Fireball Factory",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -359,7 +359,7 @@
       "name": "Flood Zone",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "wetAndWild",
       "origin": "transcribed"
     },
     {
@@ -367,7 +367,7 @@
       "name": "Gauntlet of Fire",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -375,7 +375,7 @@
       "name": "Gear Box",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "chaosAndCarnage",
       "origin": "transcribed"
     },
     {
@@ -383,7 +383,7 @@
       "name": "Locked",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -391,7 +391,7 @@
       "name": "Portal Palace",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "thrillsAndSpills",
       "origin": "transcribed"
     },
     {
@@ -399,7 +399,7 @@
       "name": "Stop & Go",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "chaosAndCarnage",
       "origin": "transcribed"
     },
     {
@@ -407,7 +407,7 @@
       "name": "Trench Run",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "wetAndWild",
       "origin": "transcribed"
     },
     {
@@ -415,7 +415,7 @@
       "name": "Chasm",
       "w": 12,
       "h": 12,
-      "set": "modernUnfiled",
+      "set": "chaosAndCarnage",
       "origin": "transcribed"
     }
   ],

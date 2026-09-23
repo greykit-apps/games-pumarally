@@ -32,6 +32,7 @@ import { assemble } from "../../editor/lib/course.js";
 import { readCourse } from "../engine/library.js";
 import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
+import { SETS, EDITIONS } from "../../editor/rulesets/sets.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
 import { quickCourse, quickMulti, quickSpots, canQuick, isBlank, quickFlagRange, quickDefaultFlags, QUICK_FLAGS, QUICK_MAX_BOARDS, DOCK_BOARD } from "../engine/quick.js";
@@ -143,7 +144,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   for (const row of index.boards) {
     const b = library.get(row.id);
     if (!b || !canQuick(b, library) || isBlank(b) || row.set === "masterBuilder") continue;
-    quick.push({ id: "quick:" + row.id, board: b, spots: quickSpots(b, library).length, unverified: !!row.unverified });
+    quick.push({ id: "quick:" + row.id, board: b, spots: quickSpots(b, library).length, unverified: !!row.unverified, set: row.set });
   }
   /* the boards a draw may pick: verified. Every board plays under either
    * book (issue #14), so the rules in force filter nothing. A quick course
@@ -180,6 +181,22 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
 
   /* --- the map window, one per mode ---------------------------------------- */
 
+  /* the shelves: boards grouped by the box they came out of, in the order
+   * the set table declares (classic boxes, then modern), each under a
+   * heading; a box with nothing on the shelf gets no heading */
+  const shelfName = id => {
+    const s = SETS[id];
+    if (!s) return "Unfiled";
+    return s.name === "Base Game" ? EDITIONS[s.edition].name + " base game" : s.name;
+  };
+  function shelves(list) {
+    const order = Object.keys(SETS);
+    const by = new Map();
+    for (const q of list) { const k = order.includes(q.set) ? q.set : "?"; if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
+    return order.concat(["?"]).filter(k => by.has(k)).map(k => [shelfName(k), by.get(k)]);
+  }
+  const shelfHTML = (list, tile) => shelves(list).map(([name, qs]) => "<h2 class='shelf'>" + esc(name) + "</h2>" + qs.map(tile).join("")).join("");
+
   function boardTile(q, pressed, pool) {
     /* the shelf is 12x12 boards only, so the size is not worth a tile's one line of meta */
     const meta = q.spots + " flag locations" + (q.unverified ? " &middot; unverified" : "");
@@ -195,7 +212,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     let html = "<div class='win'><div class='courses'>";
     html += '<button class="course any" data-board="' + ANY + '" aria-label="Any board" aria-pressed="' + (prefs.quick.board === ANY) + '"' + (drawable ? "" : " disabled") + '>' +
       '<span class="name">Any board</span><span class="meta">drawn from ' + drawable + " at random</span></button>";
-    for (const q of quick) html += boardTile(q, prefs.quick.board === q.id, false);
+    html += shelfHTML(quick, q => boardTile(q, prefs.quick.board === q.id, false));
     return html + "</div></div>";
   }
 
@@ -218,7 +235,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return "<div class='knobs'>" + slider("boards", "Boards", 1, mostBoards(), prefs.quick.boards, boardsNote()) +
       slider("flags", cap(flagWord()), lo, hi, prefs.quick.flags, flagsNote()) + "</div>" +
       "<h2 data-pool-heading>" + poolHeading() + "</h2>" +
-      "<div class='win'><div class='courses small'>" + poolAll().map(q => boardTile(q, !isOff(q), true)).join("") + "</div></div>";
+      "<div class='win'><div class='courses small'>" + shelfHTML(poolAll(), q => boardTile(q, !isOff(q), true)) + "</div></div>";
   }
 
   function savedMap() {

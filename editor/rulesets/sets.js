@@ -28,9 +28,14 @@ export const SETS = {
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills" },
   masterBuilder:     { name: "Master Builder",     edition: "modern", box: "Master Builder" },
 
-  /* Twenty-six 2016 boards are photographed and named but nothing records which
-   * box each came out of. A guess there would be indistinguishable from a fact,
-   * so they sit here until something settles it. */
+  /* The 2016 boards were filed by what is printed on them, against the
+   * expansions' own reference sheets (rules/MANIFEST.md): water, drains,
+   * currents, ledges and ramps are Wet and Wild's; teleporters and randomizers
+   * are Chaos and Carnage's; portals, oil and flamers are Thrills and Spills';
+   * a board with none of those is the base game's. Crushers are on both the
+   * Wet and Wild and the Chaos and Carnage sheets, so a board whose only
+   * expansion element is a crusher (Circuit Trap, Transition) cannot be filed
+   * that way and sits here until the box says. */
   modernUnfiled:     { name: "Modern, box unrecorded", edition: "modern", box: "Not established" }
 };
 

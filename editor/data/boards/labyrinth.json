@@ -5,7 +5,7 @@
   "name": "Labyrinth",
   "w": 12,
   "h": 12,
-  "set": "modernUnfiled",
+  "set": "chaosAndCarnage",
   "origin": "transcribed",
   "ground": {
     "rows": [

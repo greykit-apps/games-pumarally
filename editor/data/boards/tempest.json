@@ -5,7 +5,7 @@
   "name": "Tempest",
   "w": 12,
   "h": 12,
-  "set": "modernUnfiled",
+  "set": "modernBase",
   "origin": "transcribed",
   "notes": "Transcribed from the photograph. Squares and belt directions measured by maps/boardscan.py; walls and beams measured; the six push panels and three lasers read at 300px per cell.",
   "ground": {
