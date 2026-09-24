@@ -167,12 +167,22 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   }
   settle();
 
-  /* thumbnails are drawn once per ruleset: the markings shown are the ones that edition reads */
+  /* thumbnails are drawn once per ruleset: the markings shown are the ones that edition reads.
+   * Each is shown as an image of the drawing rather than the drawing itself: a board is
+   * over a thousand elements with blurred glows, and fifty of them inline made the shelves
+   * stutter on every scroll. The drawing carries its own palette and styles, so the image
+   * is identical, and the browser rasterizes it once. */
   const thumbs = new Map();
   function thumb(key, grid) {
     const k = key + ":" + prefs.ruleset;
-    if (!thumbs.has(k)) thumbs.set(k, boardSVG(grid, { mode: "art", background: true, sites: prefs.ruleset, flagspots: false }));
-    return thumbs.get(k);
+    if (!thumbs.has(k)) {
+      const svg = boardSVG(grid, { mode: "art", background: true, sites: prefs.ruleset, flagspots: false });
+      /* its own proportions up front, so a tile holds its place before the image loads */
+      const vb = /viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"/.exec(svg);
+      thumbs.set(k, { url: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), w: vb ? vb[1] : 1, h: vb ? vb[2] : 1 });
+    }
+    const t = thumbs.get(k);
+    return '<img class="thumb" src="' + t.url + '" width="' + t.w + '" height="' + t.h + '" alt="" loading="lazy" decoding="async">';
   }
   const flagWord = () => prefs.ruleset === "modern" ? "checkpoints" : "flags";
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
