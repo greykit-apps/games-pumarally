@@ -1,14 +1,25 @@
-# The game, rebuilt on the workshop's foundation
+# The game
 
-This directory is the rebuild described in `PLAN.md`. It is ES modules, no
-bundler, no dependencies, and it reads the boards and courses the workshop
-writes under `editor/data/`. The old single-file game it replaces is gone;
-the tag `classic-monolith` holds it.
+The rules engine, the bots, the headless simulation and the screen. ES
+modules, no bundler, no dependencies. It reads the boards and courses the
+workshop writes under `editor/data/` and assembles them through the
+workshop's own library (`editor/lib/course.js`).
 
-**This file is the contract, written before the code.** Every handler in
-`engine/` is held to it, and the shape below is what the UI, the bots and the
-simulations all see. If the code and this file disagree, the file is the
-one that was reviewed.
+```
+game/index.html       the game page (the repo root's index.html is the same game)
+game/engine/          pure rules over plain-JSON state
+  machine.js          step(), the request kinds, the floor order tables
+  rules.js            movement, pushing and every floor pass
+  state.js            new-game state, house rules, declared substitutes
+  options.js          classic option cards: behaviour rows and hooks
+  upgrades.js         2016 upgrade cards: behaviour rows
+  haywire.js          2016 Haywire damage cards
+  bots.js             bot answers to every request kind
+  quick.js            quick games and quick courses
+game/ui/              the screen, drawn from the pending request and nothing else
+game/data/            card tables transcribed from the physical cards
+game/tools/           check-all.js, sim.js, replay-dump.js, the scenario tests
+```
 
 ## One function
 
@@ -34,9 +45,8 @@ The engine advances on its own until it needs an answer, then returns with
 `waiting` set. The caller supplies `answer` on the next call. **There is no
 other way in.** Whether a player may press something is exactly whether
 `waiting.player` is them and `waiting.kind` is the thing the control does.
-No second predicate exists anywhere, and this is what kills the class of bug
-that stopped the old game three times in one day: a control drawn live that
-answered nothing.
+No second predicate exists anywhere, so a control can never be drawn live
+while answering nothing.
 
 A bot is a function from a request to an answer. A human is the same function
 with a person inside it. A simulation seats any mix of the two and drives
@@ -70,8 +80,7 @@ cannot answer a request is a failure the sims report by name.
 `repaired`, `fell`, `destroyed`, `respawned`, `rebooted`, `flag`, `dealt`,
 `programmed`, `revealed`, `register`, `turnStart`, `turnEnd`, `poweredDown`,
 `won`, `log`. Each names the player it concerns and the squares it involves.
-The old game diffed a board signature to decide whether to animate; here the
-events are the record and the screen draws from them.
+The events are the record, and the screen animates from them.
 
 ### State
 
@@ -97,62 +106,86 @@ events are the record and the screen draws from them.
 Everything the screen needs beyond this is derived, on every render, from
 `state` and the assembled course. Nothing derived is stored.
 
-## Rulesets are data
+## The floor order
 
-`editor/rulesets/classic.js` and `modern.js` already carry the activation
-order as a table and the resolution flags as fields. The engine walks
-`ruleset.order` and dispatches each step to a handler keyed by the square's
-**properties** (`belt`, `gear`, `pit`, `laser`, `repair`, `energy`), read
-through `propAt()`, which is how the workshop's inspector already answers
-"what would a robot standing here meet". Adding an element is a handler and a
-row, never an edit to the register loop.
+The board's turn is a table, not a chain of calls: `CLASSIC_ORDER` and
+`MODERN_ORDER` in `engine/machine.js` list each pass by name in the order the
+book resolves it, and each name is a function in `engine/rules.js`.
+`PASS_LABELS` beside them is what the screen captions each pass as while it
+replays. A pass finds its squares by **property** (`belt`, `gear`, `pit`,
+`laser`, `repair`, `energy`, ...), read through `propAt()`, never by the
+character a board uses to spell the element.
 
-## Quick games, and what a race draws on a board
+Where the two editions resolve the same printed tile differently, the
+difference is a field on the ruleset in `editor/rulesets/classic.js` and
+`modern.js` (`oilSlideAfter`, `portalBlockedBy`, ...) rather than a branch in
+the engine.
 
-A **quick game** is *N boards, F flags*, drawn rather than chosen
-(`game/engine/quick.js`; issue #9). On one board it is any shipped board with
-three marked flag locations (`editor/rulesets/sites.js`: the board says where a
-flag *may* go), picked from the palette or drawn, at a random facing over the
-docking bay, with F flags drawn from its marks. On several it is boards drawn
-from the verified 12×12 ones the ruleset reads (unverified ones only when
-asked), laid as the box stacks them -- the docking bay at the bottom, board 1
-above it, boards 2 and 3 up the column, any more to either side where they
-touch the most boards already down, never beyond three by three -- and then
-one route of flags through them: **every board gets at least one, and the
-extras go one per board in turn** (3 boards, 5 flags is 2-2-1), a board's
-flags come in a row before the race moves on, and consecutive flags keep to
-the classic book's twelve squares wherever their boards touch. Turning F up
-makes the same course a denser race. There are no race types: anything else
-is a custom course, which the workshop makes easy. The draw is an ordinary
-PRCourse document and it is what the save carries, so a resumed game plays
-the layout it started on. There is no course file for a quick game; the
-shipped course files are the hand-laid tracks. The simulator plays a seeded
-quick game on every board, and on stacks of two, three and five, as well as
-every track.
+## Quick games
 
-A race draws only the markings its edition reads: under the classic rules a
-square shows its wrench and not its battery, under the 2016 rules its
-battery and not its wrench, and neither draws the flag *locations*, since
-the course has already said where the flags *are*. That is the renderer's
-`sites` and `flagspots` options (`editor/render/svg.js`); the workshop passes
-neither and shows everything printed.
+`engine/quick.js` turns *N boards, F flags* into an ordinary `PRCourse`
+document, which is what the save carries, so a resumed game plays the layout
+it started on.
 
-## What is lifted from the old game, verbatim
+- **One board**: any shipped board that marks at least three flag locations,
+  at a random facing over the docking bay, with F flags drawn from its marks.
+- **Several boards**: drawn from the verified 12×12 boards, stacked as the box
+  stacks them (docking bay at the bottom, boards up the column, extras to
+  either side, never beyond three by three), then one route of flags through
+  them: every board gets at least one, extras go one per board in turn, and
+  consecutive flags keep to the classic book's twelve squares where boards
+  touch.
 
-`data/cards.json`, `data/options.json`, `data/upgrades.json`,
-`data/liveries.json`. Card text, deck compositions and prices are
-transcriptions of the physical cards and are copied, not retyped. The gaps
-travelled with them: sixteen option cards of twenty-six, forty upgrades of
-which eleven had effects, a damage deck with no Haywire. All three gaps are
-closed now from photographs: the eleven AMIGO option cards (with their German
-text alongside the English), the forty upgrade effects, and Haywire.
+A race draws only the markings its edition reads: the renderer's `sites` and
+`flagspots` options (`editor/render/svg.js`) hide the other book's markings
+and the flag *locations*, since the course has already placed the flags.
 
-## Sequence
+## Declared substitutes
 
-`PLAN.md` M1 onward. Classic first: engine headless, then the UI, then
-cutover, then modern. `tools/scenarios.js` carries every rule the old suite
-asserted, as pending until the new engine passes it, so the count that
-matters is visible from the first commit.
+Where the book's material is missing or silent, the engine decides, and says
+so in a named constant with a scenario on it, so changing the decision flags
+everything that assumed it:
+
+- `MODERN_REBOOT_POINT` (`engine/state.js`): a 2016 course that places no
+  Reboot Tokens re-enters a rebooting robot at its archive.
+- `MODERN_FIRST_PRIORITY`: the Priority Token starts with seat 1 (the book
+  says the youngest player).
+- Fire: a Crash and Burn flame jet and a Thrills and Spills flamer stand in
+  for each other, each on its own book's timing (`playsIn` in
+  `editor/rulesets/devices.js`).
+
+Individual card readings are stated on the card's row in `engine/options.js`
+and `engine/upgrades.js`.
+
+## Extending the rules
+
+Everything goes through data rows and named hooks; nothing new gets a branch
+in the register loop.
+
+**A floor element or device.** Add it to the format first (see
+`editor/README.md`: a row in `editor/rulesets/elements.js` or `devices.js`,
+its art, its validator coverage). Then, in the engine, either give it a
+property an existing pass already reads, or write a pass in `engine/rules.js`
+and add it to `CLASSIC_ORDER` and/or `MODERN_ORDER` (and `PASS_LABELS`) at the
+point the book resolves it.
+
+**An option card or upgrade.** Transcribe the card into `data/options.js` or
+`data/upgrades.js`, then add its behaviour to the `BEHAVIOUR` table in
+`engine/options.js` or `engine/upgrades.js`, bound to one of the `HOOKS`.
+Hooks mutate the context they are given, never the state; a *you may* card
+calls `ctx.pick()` and the step that fired it asks through the request door.
+A card that needs a moment no hook covers gets a new hook. `check-all`
+asserts every card names a real hook and every hook has a card.
+
+**A new question for the player.** Add a request kind in `engine/machine.js`,
+an answer for it in `engine/bots.js` (the sims fail on a request a bot cannot
+answer), and a control in `ui/`. Add the row to the table above.
+
+**Tests.** Rule tests live in `tools/scenarios/<area>.js` as
+`[name, fn]` pairs built on `tools/scenarios/harness.js` (`board`, `courseOn`,
+`game`, `give`, `runRegister`, `drive`). Every name must also appear in
+`tools/scenarios.js` marked `ported`, and a new file must be imported in
+`tools/check-all.js`; the runner holds the two lists to each other.
 
 ## Debug dumps, and replaying one
 
@@ -190,299 +223,3 @@ lives in the output and never only in a README. `sim` seats two bots and two
 randomly-answered "humans" on every course and fails if any game crashes, a
 conservation law breaks, a request goes unanswerable, or no game is ever won.
 CI runs both after the editor's checks.
-
-## Status
-
-Haywire is built (M5, third part), from the rule on p.18 of the rulebook
-(`manual1/IMG_1263`) and the deck laid out and photographed face by face
-(`IMG_1343` to `IMG_1348`): twenty-three SPAM and seventeen Haywire, every
-face once. A Haywire taken during a register slides face down under that
-register, one per register and the rest to the damage discard; at the end
-of the round it stays; next round that register is not programmed, and when
-it comes up the card is revealed and its text resolved, one step at a time
-through the same request door as everything else (`cardChoice`, card
-`haywire`, with a `tag` naming the question: facing, rotate, pay, install,
-remove, order, side). Its text takes precedence: a Move 5 that hits a wall
-costs a card, the token it takes stays at the end of the round, the upgrade
-it installs is free and goes back at the end of the round, the laser it
-charges deals two, the two cards it reveals resolve in the order chosen. A
-shutdown scraps face-down Haywires; a reboot sends them to the table and
-slides the first new one under the register the robot fell in. Rewire and
-Lucky Booster act now, so all forty upgrades do. The random policy and the
-bots programme a Rewired Haywire, as the card requires. Nine scenarios.
-Found on the way: a hovering robot whose move a wall cut short over a pit
-was left standing in it; it falls now, as the card says.
-
-The three 2016 expansions' floor is built (M5, second part), read off the
-Factory Floor Guides in `manual1/` (Wet and Wild `IMG_1236` to `IMG_1239`,
-Chaos and Carnage `IMG_1243`, Thrills and Spills `IMG_1248` to `IMG_1251`):
-water that costs a space on the way out of it, once per card and only on the
-robot's own card; drains as pits; ledges, which cannot be climbed and cost
-two damage on the way down, one into water, and which no weapon or board
-laser fires across; ramps, an extra space on the way up that slides a robot
-back down if it stops there, and no space at all on the way down; currents,
-green belts that run at the board's third step and are water; randomizers,
-which swap the card a robot reveals for the top of its deck; teleporters,
-which throw a Move card two squares further forward, ignoring everything
-between, and do nothing when the arrival square is taken; and flamers,
-active for the whole of their registers, one damage on the way in or through
-and one for ending the register in them. Eleven scenarios on authored
-boards, since no shipped board prints any of it yet: the readers see these
-elements (`editor/rulesets/elements.js`) and a course laying one is a 2016
-course. Two readings are declared where the sheets are silent: a ramp's
-slide-back is for the robot's own card, and a teleporter whose arrival
-square is off the course does not operate.
-
-All forty upgrade cards have their effect (M5, first part), read off the
-rulebook pp.21-23 (`manual1/IMG_1264`, `IMG_1265`): the twenty-nine that
-were installable and inert now act, through the same hooks as option cards
-where they are passive and through two new moments where they are not. A
-2016 robot's activation is three moments -- before its card, the card, after
-it -- and a temporary upgrade is offered at the moment the book gives it
-(movement upgrades "immediately before or after", the rest "at any time",
-read as before programming and at either side of the card), used once, and
-discarded as the answer lands. Two stay inert and say so: Lucky Booster and
-Rewire need Haywire cards, which are not photographed. Thirty-nine scenarios
-cover them. Also on this pass: a push a wall stops is still a push for
-Ramming Gear and Spiky, and older saves are normalised on load.
-
-The 2016 rules are built (M4), read off the 2023-printing rulebook and its
-reference card (`manual1/IMG_1252` to `IMG_1269`), and chosen at set-up:
-every robot its own deck of twenty (counted off `IMG_1308`), a hand of nine
-drawn from it, leftovers to its own discard; the Priority Token deciding the
-order within a register and passing left each round; Power Up and Again; the
-upgrade phase with the forty transcribed cards, eleven of them with effects
-fired through the same hooks as option cards and the other twenty-nine
-installable and inert, saying so; damage as forty SPAM cards drawn one at a
-time into the robot's own discard, and a SPAM revealed in a register thrown
-away for the top of the deck; shutdown for the round, scrapping the damage a
-robot holds and not what is in its deck; reboot instead of death, off the
-board until register 1 of the next round, two SPAM and the programme
-cancelled; Energy from batteries at the end of a register, capped at ten;
-the floor in the reference card's order, blue belts twice then green once.
-Forty-two 2016 scenarios pass by name. Every course is simulated under both
-rulesets -- every board plays under either book (issue #14) -- with the
-table's conservation laws armed: each robot's twenty, the forty damage cards
-and the forty upgrades counted apart.
-
-Reboot Tokens are built (pp.15, 20, 30; IMG_1261, IMG_1264, IMG_1269): a
-course places them like flags (`reboots: [[c, r, facing]]` on the document,
-one per board, none on the docking bay; or the token element on a flattened
-floor), and a rebooting robot re-enters on the token of the board it fell
-from, a robot standing there moved one square along the token's arrow; a
-robot that fell off the docking bay re-enters at its archive, which under
-these rules stays on the bay. A course's `rebootDamage` is what a reboot
-draws: Cry Havoc's "3 damage cards instead of the normal 2". One substitute
-remains, declared in `engine/state.js`: a course that places no tokens
-re-enters the robot at its archive, which then follows the checkpoints; and
-the Priority Token starts with seat 1 (the book says the youngest player).
-
-Crash and Burn's floor is built, read off the AMIGO Spielanleitung
-photographed into `manual1/` (pp.6-9 and the two reference cards): swing
-doors that are walls except in their printed registers, for beams as well as
-robots; portals that drop a robot out of the same-coloured twin on the same
-board and carry on with the move, off while anyone stands on either end;
-oil that costs a square at the start of a card and skids a robot on at its
-end until it finds dry floor, a wall or a robot with grip, shoving one on the
-same slick; unnumbered presses that come down every register; burners that
-scorch a robot on the way in and again when they act, and a robot that does
-not leave one; and lives that scale with seats and boards. What the two
-editions do differently with the same printed tile is read from the ruleset
-tables (`oilSlideAfter`, `portalBlockedBy` in `editor/rulesets/`), so the
-2016 game is a change of table. Twenty-nine scenarios by name; simulated
-games on board G, O-Ring, Cannery Row and board H hop, skid, sit in flames
-and get crushed with the invariants armed.
-
-Option cards are built under the classic rules: all twenty-seven of the two
-printings (sixteen English, eleven more from the AMIGO box, which lacks Crab
-Legs), each a data row bound to one of thirteen hooks in `engine/options.js`,
-fired through one dispatcher. A card's *you may* asks through the same
-request door as everything else (`cardChoice`), keyed so the step that asked
-re-runs and finds the answer; a two-wrench site asks repair-or-card
-(`siteChoice`); a wrecked robot chooses the card it loses at the end of the
-register (`dropOption`), and so does a robot holding a fourth. The option
-exchange, a card sacrificed to absorb a point of damage as it lands, is
-offered on laser damage after the automatic absorbers have acted. Not on
-burner or ramming damage: those land mid-move where nothing can ask, and the
-book's "at the time the damage is received" is not met there yet. Twenty-nine
-option scenarios pass by name; half the simulated games deal three cards to
-everyone at the start so every hook and every question runs on every course.
-The starting hand is dealt through the same door as a drawn card, so a coat
-dealt at the start has its three charges; the invariants now refuse a held
-card without its state and a damage total that is not an integer.
-
-The expansion upgrades are built from IMG_1350-1353 and Master Builder's
-five from IMG_1446-1447: eighteen more cards on the same table, in the deck
-with the forty (`set` on each row says which box). Four of them decide
-something where this engine cannot ask, deep inside a move, and each says
-so on its row: Repulsion Field pays 1 Energy (the smallest X) and throws the
-pusher back one, Anchor pays whenever it can, Bunny Hop hops whenever it
-can, Calculated Odds keeps the SPAM when its two cards differ. Controlled
-Chaos moves the Haywire when the robot next programs, the first moment a
-question can be asked; Memory Transfer asks at the round's end; Top Heavy is
-asked before the belts move anything; Splash Damage costs X, the number of
-foes, at most four. Leaching, Chaos and Carnage's fifth card, is legible in
-no photograph and is not built. Twenty scenarios by name.
-
-The AMIGO eleven (manual1/IMG_1334-1342, German text kept on each data row)
-brought three new moments and a few readings, each stated on the card's row
-in `engine/options.js`. Reverse Gear and Fourth Gear are Brakes' shape. Turbo
-Blaster is an optional weapon with five charges: one damage through the
-target's absorbers, then a shove. Remote Control is an optional weapon too
-(p.36-37: used when the main laser could fire, instead of it; the Turret
-names it among them), range six, and "the program" is read as the rest of
-this turn: the target runs the controller's card in each later register.
-Shield names a direction without saying which; read as the front, one point
-a register. Turret lets the main shot, and the optional weapons riding on
-it, aim any way, asked only when a robot is in line off the bow. Fire
-Control rides on a main-laser hit (p.36 files it with the extra weapons) and
-lands with the damage: the shooter must lock a register, which holds its
-card through the next turn as a damage lock would, or destroy an option
-card. Command in Reserve parks a sixth card after programming and offers it
-as each register's card is about to be revealed, so the card swapped in sets
-the priority; Emergency Switch is offered at the same moment and, once
-thrown, replaces every later card that turn from the deck; both leave a
-locked register alone. Flywheel parks a card past the reshuffle into next
-turn's hand. Circuit Breaker trips at the end of a turn on three damage. The
-program cards lying on the option cards are counted by the conservation law
-and go back to the table with the option card, or with the wreck. Building
-Turret found that a laser pass asking two questions re-ran the first
-robot's hook and lost its choice (a Pressor Beam next to a Tractor Beam
-shot instead of shoving); the pass now keeps each shooter's decision as it
-is made. Twenty-two more scenarios by name.
-
-M3, the cutover, is done: the repository root's `index.html` is this game,
-and `pumarally.js`, `pumarally-boards.js` and the tools that read them are
-deleted. The tree has one engine, one format, one renderer and one editor.
-The tag `classic-monolith` marks the last commit before the rebuild.
-
-M2, the classic game on screen, is built at `game/index.html`: set-up with
-the workshop's course shelf (shipped courses and any saved from the course
-workshop in this browser), any mix of one to eight human and bot seats, the
-three house rules; the draft with colours and lit bays; programming by click,
-keys and drag; the floor animated from the engine's events; the panel drawn
-from the pending request and nothing else; a hot-seat curtain between human
-seats; autosave and resume. Verified in the browser through the draft, two
-full turns, a two-human hand-over and a reload mid-game.
-
-The replay is a schedule, register by register (issue #5). The events of a
-batch are cut into phases -- the register mark, the cards, then each
-board-element pass -- and each phase starts when the one before it has
-ended, so the register's structure is on screen: a caption over the board
-names the register and then each pass as it plays, and the card a robot
-reveals floats over the piece. Within the card phase the robots overlap,
-staggered across half a second in priority order, and a board pass plays
-every event at once, because every belt does move at once; a group waits
-only for a robot an earlier group is still moving, so a push and a card
-played from a pushed square keep the engine's order. The card phase is a
-fixed slot, the stagger plus a Move 3, so a register of Move 3s and a
-register of rotates take the same time. The pieces are drawn from a record
-of where they were drawn last, never from the state mid-replay: the state
-is already at the end of the batch, which is how a Move followed by a Rotate
-used to play as a turn and then a move, and a robot wrecked in register 5
-vanished in register 1. Leaving a race stops its replay at the next beat,
-so the loop cannot go on holding the new race's turn.
-
-The replay keeps time with its own transitions (issue #2): a slide and a
-turn are CSS transitions whose durations scale with the speed setting, and
-the wait after each event outlasts the transition it started, so a belt's
-curve turns the robot after it has arrived. And the replay cannot wedge the
-game (issue #1): whatever throws inside it, or inside the engine loop, is
-caught, the pieces are put where the state says, and the panel comes back
-with the request that is waiting and a line saying what happened.
-
-A robot that is off the board is drawn as a ghost on the square it comes
-back to (the 2016 Reboot Token or archive, the classic archive), and the
-programming panel says so, so its player programs from the right square
-before the facing is chosen at register 1.
-
-The panel's robot rows are mats. Each carries pip bars (lives in blue under
-the classic rules, flags in yellow, Energy in green under the 2016 rules,
-damage in red: the track, or the damage cards a robot carries), then the
-robot's option cards and fitted upgrades as card faces (`ui/kitart.js` draws
-the kind of thing each is: weapon, armour, drive, program, chassis, power)
-with a themed hover box giving the printed text, the German where there is
-one, charges, and the card's switch. A human's mat is live at every moment,
-the floor moving or not, and answers the routine questions so the player is
-not asked at every phase: a Shutdown button under the registers (Power down
-under the classic rules, waiting for a point of damage as the book requires)
-declares the shutdown for this turn and is otherwise taken as no; a damage
-button says whether the option exchange pays a card or takes the point.
-A card's questions are answered two ways, by where they come from
-(`engine/asks.js`): a card that acts on the programmed card itself (Brakes,
-Fourth Gear, an Emergency Switch at the reveal, a Power Slide after the
-move, a temporary used before or after your card) asks about a register
-whose contents the player already knows, so it has a button under each
-register slot, armed per register, a single-use card in one register only;
-a card that reacts to the floor (a Tractor Beam when somebody is in line,
-the Turret's aim, Fire Control on a hit, a temporary used after the deal)
-asks about a situation nobody can see while programming, so it has only the
-switch. Every card that asks has the on/off switch on its face: off takes
-its first option without asking, on asks the player each time the card
-could be used, so two Move 3s can be run with Fourth Gear engaged for one of
-them. An armed register is a standing yes and asks nothing, unless the
-question has more than two answers (which register to lock, which way to
-aim), which is always put to the player. The cards on a mat
-can be dragged into an order, and the first card is the one paid for damage
-or lost to a wreck or the hand limit. The preferences live in the screen and
-localStorage, never in the state: `autoAnswer` is consulted by the loop
-before a human sees a request, and answers through the same door a click
-does. A robot already down is still asked whether to stay down.
-
-M1, the classic engine headless, is built: draft, deal, programming, the five
-registers in the printed order, damage and locking, destruction and return,
-power down as three moments, repair at cleanup, checkpoints and the win, the
-bots ported, and the bumpers and flag-touch house rules.
-
-The 2016 docking rules (pp.3, 15, 24) are built ahead of the courses that
-need them: a course may list the `bays` it uses (the rest are covered by
-Energy cubes and nobody starts there), a robot placed in a bay faces off the
-docking bay toward the course, a bay is numbered to twelve, and a checkpoint
-or Reboot Token switches off the board element under it, walls and lasers
-excepted, so it may stand on a belt as the printed courses have it.
-
-Virtual robots (classic pp.8 and 15, IMG_1199 and IMG_1202) are built: a
-robot returning to its archive square while another robot stands there
-comes back on the square, virtual. It meets no robot: it pushes none and is
-pushed by none, shoots none and is shot by none, while walls, pits, belts,
-gears and board lasers act on it as on anything. Alone on its square at the
-end of a turn, it becomes real. Every robot-to-robot question in the rules
-goes through one function, `solidAt`, which is where the exception lives.
-The start of the race stays on the docking bays, one robot to a bay.
-
-The fire substitute is the one place a board plays outside the box that printed
-it. Crash and Burn's flame jet and Thrills and Spills' flamer are fire over a
-square, one point of damage, and neither rulebook mentions the other's; rather
-than refuse Board G, Board H and The "O" Ring to the edition that did not print
-their fire, each edition resolves whatever fire the board carries. The engine
-asks one question, `fireAt`, and the callers gate on the BOOK rather than on the
-device, so the timings stay apart: classic burns a robot passing through, again
-for not leaving the flame, and again at the burner's step after the lasers; 2016
-burns it on the way in and once more at the end of the register, with no point
-at all for standing still. Declared in `editor/rulesets/devices.js` as `playsIn`
-against `printedIn`, and held by three scenarios, one of which is only there to
-fail if the widening ever spreads past fire.
-
-## Open, and recorded here rather than solved in passing
-
-- **Deploy caching — verified, with one trap left behind.** The host serves
-  `.js` for thirty days without revalidation, and this is thirty modules. The
-  repo root's `.htaccess` sets every script and data file to revalidate like
-  the page, and the host **does** honour it: every `.js`, `.json` and `.svg`
-  under `games/pumarally/` came back `Cache-Control: max-age=60,
-  must-revalidate` on 2026-09-16, the page and the modules and the board data
-  alike. The hashed-directory fallback is not needed.
-
-  **But it only protects caches filled after the `.htaccess` landed**, which
-  was the cutover on 2026-09-15. A browser that visited before that stored
-  the modules under the host's old default — thirty days, no revalidation —
-  and will go on running them from disk into mid-October **without ever asking
-  the server**, so no amount of deploying reaches it and an ordinary reload
-  does not either. It needs a hard reload, or a private window to prove it.
-  This is not hypothetical: it is what "the site only shows one board" turned
-  out to be, and the tell is that a brand-new file (a board added since) loads
-  correctly while everything older is a month stale — which reads exactly like
-  a broken deploy, and is not one.
-- **Reboot tokens and the priority antenna** are placed at setup, so they are
-  course-level data like flags, and the modern engine will want them on the
-  `PRCourse` document. Not before M4.
