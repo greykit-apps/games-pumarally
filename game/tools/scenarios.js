@@ -2320,43 +2320,55 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
-    "name": "a trap door opens at the end of a register it lists, and a robot still on it falls",
+    "name": "a trap door pit activates at the start of a register it lists, and a robot on it is lost before it can move",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a robot may step onto a trap door in the register before it opens, and off it in the register it opens",
+    "name": "a robot lost to a trap door pit at the start of register 1 does not land again that round",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a robot may cross a trap door in the very register it opens",
+    "name": "a robot cannot cross a trap door pit in a register it is active",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a trap door is floor in the registers it does not list",
+    "name": "a trap door pit is open floor in the registers it does not list",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a conveyor that leaves a robot on an opening trap door drops it",
+    "name": "a conveyor that carries a robot onto an active trap door pit drops it",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "the trap doors are the board's last act, before the checkpoints, in both books",
+    "name": "a robot pushed onto an active trap door pit falls",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a trap door must name the registers it opens in",
+    "name": "trap door pits are not a step of the board's turn, in either book",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door pit must name the registers it is active in",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door pit is the floor of its square",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"

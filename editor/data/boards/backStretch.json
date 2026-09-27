@@ -39,6 +39,11 @@
       { "at": [7, 9], "has": ["flagspot"] },
       { "at": [2, 10], "has": ["flagspot"] },
       { "at": [11, 10], "has": ["upgrade", "battery"] }
+    ],
+    "devices": [
+      { "kind": "trapDoor", "at": [4, 2], "regs": [2, 4] },
+      { "kind": "trapDoor", "at": [9, 6], "regs": [1, 2, 4, 5] },
+      { "kind": "trapDoor", "at": [2, 9], "regs": [1, 4] }
     ]
   },
   "wall": {
@@ -84,11 +89,5 @@
       { "kind": "repulsor", "edge": "v:12,7", "face": "W" }
     ]
   },
-  "ceiling": {
-    "devices": [
-      { "kind": "trapDoor", "at": [4, 2], "regs": [2, 4] },
-      { "kind": "trapDoor", "at": [9, 6], "regs": [1, 2, 4, 5] },
-      { "kind": "trapDoor", "at": [2, 9], "regs": [1, 4] }
-    ]
-  }
+  "ceiling": { "devices": [] }
 }

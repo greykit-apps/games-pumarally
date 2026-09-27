@@ -372,6 +372,38 @@ function checkCeiling(board, d) {
   }
 }
 
+/* A trap door IS its square: "When not active, it is treated as open floor"
+ * (Turn & Burn, manual1/IMG_1465). So the square it is printed on is plain
+ * floor, and anything else written there -- a belt, a gear, a pit -- is a
+ * square that would be two things at once. */
+function checkFloor(board, d) {
+  const seen = new Set();
+  for (const dev of board.floorDevices) {
+    const def = DEVICE_KINDS[dev.kind];
+    const ptr = dev._ptr;
+    if (!inBoard(board, dev.c, dev.r)) {
+      d.error("floor.offBoard", def.name + " at " + at(dev.c, dev.r) + " is off a " +
+        board.w + "x" + board.h + " board.", at(dev.c, dev.r), ptr);
+      continue;
+    }
+    checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr, def.regsWhy);
+    const tok = cellAt(board, dev.c, dev.r);
+    if (tok !== "...") {
+      const el = elementAt(board, dev.c, dev.r);
+      d.error("floor.notFloor", def.name + " at " + at(dev.c, dev.r) + " is printed on " +
+        (el ? "a " + el.name.toLowerCase() : "no floor at all") + ". It is the floor of its square, " +
+        "and open floor when it is not active, so the square under it must be plain floor.",
+        at(dev.c, dev.r), ptr);
+    }
+    const key = dev.c + "," + dev.r;
+    if (seen.has(key)) {
+      d.error("floor.duplicate", "Two floor devices at " + at(dev.c, dev.r) + "; a square has one floor.",
+        at(dev.c, dev.r), ptr);
+    }
+    seen.add(key);
+  }
+}
+
 function checkLevels(board, d) {
   const used = levelsUsed(board);
 
@@ -447,6 +479,7 @@ export function validateBoard(board, d) {
   checkWallLattice(board, d);
   checkWallDevices(board, d);
   checkCeiling(board, d);
+  checkFloor(board, d);
   checkLevels(board, d);
   return d;
 }

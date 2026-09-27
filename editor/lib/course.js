@@ -118,6 +118,7 @@ export function assemble(course, library) {
     const covered = (c, r) => c >= dx && c < dx + b.w && r >= dy && r < dy + b.h;
     grid.wallDevices = grid.wallDevices.filter(dev => { const cell = deviceCell(dev); return !(cell && covered(cell[0], cell[1])); });
     grid.ceilingDevices = grid.ceilingDevices.filter(dev => !covered(dev.c, dev.r));
+    grid.floorDevices = grid.floorDevices.filter(dev => !covered(dev.c, dev.r));
 
     for (let r = 0; r < b.h; r++) {
       for (let c = 0; c < b.w; c++) {
@@ -173,6 +174,9 @@ export function assemble(course, library) {
     }
     for (const dev of b.ceilingDevices) {
       grid.ceilingDevices.push({ ...dev, c: dev.c + dx, r: dev.r + dy });
+    }
+    for (const dev of b.floorDevices) {
+      grid.floorDevices.push({ ...dev, c: dev.c + dx, r: dev.r + dy });
     }
   });
 

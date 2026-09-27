@@ -11,7 +11,8 @@
  * scenarios.js, and the runner holds the two lists to each other.
  */
 import { board, courseOn, game, give, runRegister, E, W, N } from "./harness.js";
-import { trapDoorPass, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
+import { trapDoorsActivate, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
+import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { CLASSIC_ORDER, MODERN_ORDER } from "../../engine/machine.js";
 import { card } from "../../engine/cards.js";
 import { validateBoard } from "../../../editor/validate/board.js";
@@ -21,11 +22,18 @@ const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(msg + ": got " + JSON.stringify(a) + ", expected " + JSON.stringify(b)); };
 const codes = b => { const d = sink(); validateBoard(b, d); return d.errors.map(e => e.code); };
 
-/* a trap door at (c,r) that opens at the end of `regs` */
+/* a trap door pit at (c,r), active in `regs` */
 function trapDoor(b, c, r, regs) {
   const dev = { kind: "trapDoor", c, r };
   if (regs) dev.regs = regs;
-  b.ceilingDevices.push(dev);
+  b.floorDevices.push(dev);
+}
+/* a card into a register, under either book */
+function put(st, p, reg, kind) {
+  if (st.ruleset !== "modern") return give(st, p, reg, kind);
+  const i = p.deck.findIndex(ci => card(st, ci).kind === kind);
+  if (i < 0) throw new Error("no " + kind + " in the deck");
+  p.registers[reg] = p.deck.splice(i, 1)[0];
 }
 const plain = edit => courseOn(board(8, 8, edit));
 /* a repulsor field on the east edge of (c,r), its capsule printed in (c,r) */
@@ -35,67 +43,90 @@ function repulsor(b, t, c, r) {
 }
 
 export const TESTS = [
-  /* --- trap doors ---------------------------------------------------------- */
-  ["a trap door opens at the end of a register it lists, and a robot still on it falls", () => {
+  /* --- trap door pits ------------------------------------------------------
+   * Turn & Burn's Factory Floor Guide (manual1/IMG_1464-1465): a pit during
+   * the registers printed on it, from the START of each, and open floor
+   * otherwise. The same under the classic book, by the author's ruling. */
+  ["a trap door pit activates at the start of a register it lists, and a robot on it is lost before it can move", () => {
+    /* the sheet's own example: a robot ends register 3 on a door marked 4 */
     for (const ruleset of ["classic", "modern"]) {
-      const co = plain(b => trapDoor(b, 3, 3, [1]));
-      const st = game(co, [{ c: 3, r: 3, face: N }], { ruleset });
+      const co = plain(b => trapDoor(b, 3, 3, [2]));
+      const st = game(co, [{ c: 2, r: 3, face: E }], { ruleset });
       const p = st.players[0];
       const lives = p.lives;
-      if (ruleset === "classic") give(st, p, 0, "left");
+      put(st, p, 0, "move1"); put(st, p, 1, "move1");
       runRegister(st, co.library);
-      assert(!p.alive || p.rebooting, ruleset + ": it fell through");
+      eq([p.c, p.alive], [3, true], ruleset + ": register 1, onto the door, which is floor then");
+      st.register = 1;
+      runRegister(st, co.library);
+      assert(!p.alive || p.rebooting, ruleset + ": register 2, lost as the door activates");
+      assert(!st.events.some(e => e.type === "moved" && e.player === p.id), ruleset + ": before its card could move it");
       if (ruleset === "classic") eq(p.lives, lives - 1, "classic: a life, as into a pit");
+      else assert(p.rebooting, "modern: it must reboot");
     }
   }],
-  ["a robot may step onto a trap door in the register before it opens, and off it in the register it opens", () => {
-    /* the author's reading: the door changes state at the END of a register */
-    const co = plain(b => trapDoor(b, 3, 3, [2]));
-    const st = game(co, [{ c: 2, r: 3, face: E }]);
-    const p = st.players[0];
-    give(st, p, 0, "move1");
-    runRegister(st, co.library);
-    eq([p.c, p.alive], [3, true], "register 1: onto the door, which is shut, and safe");
-    give(st, p, 1, "move1");
-    runRegister(st, co.library);
-    eq([p.c, p.alive], [4, true], "register 2: off it before it opens at the end of the register");
-  }],
-  ["a robot may cross a trap door in the very register it opens", () => {
+  ["a robot lost to a trap door pit at the start of register 1 does not land again that round", () => {
     const co = plain(b => trapDoor(b, 3, 3, [1]));
-    const st = game(co, [{ c: 2, r: 3, face: E }]);
+    const st = game(co, [{ c: 3, r: 3, face: N }], { ruleset: "modern" });
     const p = st.players[0];
-    give(st, p, 0, "move2");
+    put(st, p, 0, "move1");
     runRegister(st, co.library);
-    eq([p.c, p.alive], [4, true], "over it and beyond: it is floor until the register ends");
+    assert(p.rebooting && !p.alive, "still off the board, rebooting, after register 1");
   }],
-  ["a trap door is floor in the registers it does not list", () => {
+  ["a robot cannot cross a trap door pit in a register it is active", () => {
+    for (const ruleset of ["classic", "modern"]) {
+      const co = plain(b => trapDoor(b, 3, 3, [1]));
+      const st = game(co, [{ c: 2, r: 3, face: E }], { ruleset });
+      const p = st.players[0];
+      put(st, p, 0, "move2");
+      runRegister(st, co.library);
+      assert(!p.alive || p.rebooting, ruleset + ": it fell in on the first square, as into a pit");
+    }
+  }],
+  ["a trap door pit is open floor in the registers it does not list", () => {
     const co = plain(b => trapDoor(b, 3, 3, [2, 4]));
     const st = game(co, [{ c: 3, r: 3, face: N }]);
     for (const reg of [0, 2, 4]) {
       st.register = reg;
-      trapDoorPass(st, co.C);
+      trapDoorsActivate(st, co.C);
       assert(st.players[0].alive, "register " + (reg + 1) + ": it stays shut");
     }
     st.register = 1;
-    trapDoorPass(st, co.C);
-    assert(!st.players[0].alive, "register 2: it opens");
+    trapDoorsActivate(st, co.C);
+    assert(!st.players[0].alive, "register 2: it activates");
+    /* and crossing it while it is shut is crossing floor */
+    const co2 = plain(b => trapDoor(b, 3, 3, [2]));
+    const st2 = game(co2, [{ c: 2, r: 3, face: E }]);
+    put(st2, st2.players[0], 0, "move2");
+    runRegister(st2, co2.library);
+    eq([st2.players[0].c, st2.players[0].alive], [4, true], "over it in register 1, when it is floor");
   }],
-  ["a conveyor that leaves a robot on an opening trap door drops it", () => {
+  ["a conveyor that carries a robot onto an active trap door pit drops it", () => {
     const co = plain((b, t) => { t.setCell(2, 3, "b>."); trapDoor(b, 3, 3, [1]); });
     const st = game(co, [{ c: 2, r: 3, face: N }]);
-    give(st, st.players[0], 0, "left");
+    put(st, st.players[0], 0, "left");
     runRegister(st, co.library);
-    assert(!st.players[0].alive, "the belt carried it on, and the door opened under it");
+    assert(!st.players[0].alive, "the belt carried it into the pit");
   }],
-  ["the trap doors are the board's last act, before the checkpoints, in both books", () => {
-    const c = CLASSIC_ORDER.map(x => x[0]), m = MODERN_ORDER.map(x => x[0]);
-    eq(c.slice(c.indexOf("trapDoors")), ["trapDoors", "touch"], "classic: then only the flags");
-    eq(m.slice(m.indexOf("trapDoors")), ["trapDoors", "batteries", "touch"], "2016: then the batteries and the checkpoints");
+  ["a robot pushed onto an active trap door pit falls", () => {
+    const co = plain(b => trapDoor(b, 4, 3, [1]));
+    const st = game(co, [{ c: 2, r: 3, face: E }, { c: 3, r: 3, face: N }]);
+    put(st, st.players[0], 0, "move1");
+    runRegister(st, co.library);
+    assert(!st.players[1].alive, "shoved into the open pit");
+    assert(st.players[0].alive, "and the pusher stops short of it");
   }],
-  ["a trap door must name the registers it opens in", () => {
-    eq(codes(board(4, 2, b => trapDoor(b, 1, 0))).includes("regs.missing"), true, "open in every register is a pit");
+  ["trap door pits are not a step of the board's turn, in either book", () => {
+    for (const order of [CLASSIC_ORDER, MODERN_ORDER]) assert(!order.some(x => /trap/i.test(x[0])), "no end-of-register trap door pass");
+    for (const id of ["classic", "modern"]) assert(!rulesetFor(id).order.some(x => /trap/i.test(x.step)), id + ": no trap door step in the printed order");
+  }],
+  ["a trap door pit must name the registers it is active in", () => {
+    eq(codes(board(4, 2, b => trapDoor(b, 1, 0))).includes("regs.missing"), true, "active in every register is a pit");
     eq(codes(board(4, 2, b => trapDoor(b, 1, 0, [1, 2, 3, 4, 5]))).includes("regs.missing"), true, "and all five spelled out is the same pit");
     eq(codes(board(4, 2, b => trapDoor(b, 1, 0, [3]))), [], "one register is a trap door");
+  }],
+  ["a trap door pit is the floor of its square", () => {
+    eq(codes(board(4, 2, (b, t) => { t.setCell(1, 0, "b>."); trapDoor(b, 1, 0, [3]); })), ["floor.notFloor"], "not a door over a belt");
   }],
 
   /* --- repulsor fields ------------------------------------------------------ */

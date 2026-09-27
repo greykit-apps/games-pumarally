@@ -134,7 +134,9 @@ function build() {
   b.ceilingDevices.push({ kind: "crusher", c: 10, r: 10, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 3, r: 10, regs: [1, 5] });
   b.ceilingDevices.push({ kind: "flamer", c: 4, r: 10 });   // no regs: every register
-  b.ceilingDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });   // open at the end of 2 and 4
+  /* The one floor kind: a trap door, which is the plain floor it is printed
+   * on until the registers it lists, and a pit through each of them. */
+  b.floorDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });
   return b;
 }
 
@@ -145,7 +147,7 @@ const board = build();
  * leaves it with no negative tests and no positive one either. */
 const covered = new Set();
 for (const tok of board.cells) covered.add(tok.charAt(0));
-for (const dev of [...board.wallDevices, ...board.ceilingDevices]) covered.add("dev:" + dev.kind);
+for (const dev of [...board.wallDevices, ...board.floorDevices, ...board.ceilingDevices]) covered.add("dev:" + dev.kind);
 for (const has of board.sites.values()) for (const k of has) covered.add("site:" + k);
 const missing = [
   ...Object.keys(ELEMENTS).filter(ch => !covered.has(ch)).map(ch => "element " + JSON.stringify(ch)),

@@ -61,7 +61,7 @@ export function canQuick(board, library) {
 export function isBlank(board) {
   if (board.cells.some(t => t !== "...")) return false;
   if (board.wallH.some(x => x) || board.wallV.some(x => x)) return false;
-  if (board.wallDevices.length || board.ceilingDevices.length) return false;
+  if (board.wallDevices.length || board.floorDevices.length || board.ceilingDevices.length) return false;
   if (hasLevels(board) || hasRamps(board)) return false;
   return true;
 }

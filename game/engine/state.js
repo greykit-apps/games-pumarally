@@ -106,6 +106,10 @@ export function newGame(opts) {
      * card and player; cleared at the end of every turn */
     answers: {},
     elem: 0,
+    /* the register whose START has run -- its header, and the trap doors
+     * that open under whoever stands on them -- as "turn:register", so a
+     * reveal re-entered after a question does not run it twice */
+    opened: null,
     laser: null,
     log: [],
     events: [],

@@ -84,6 +84,8 @@ export function rotateOnce(board) {
 
   out.ceilingDevices = board.ceilingDevices.map(dev =>
     ({ ...dev, c: board.h - 1 - dev.r, r: dev.c }));
+  out.floorDevices = board.floorDevices.map(dev =>
+    ({ ...dev, c: board.h - 1 - dev.r, r: dev.c }));
 
   return out;
 }

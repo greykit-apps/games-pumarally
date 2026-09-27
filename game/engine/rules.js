@@ -10,7 +10,7 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorOpens, repulsorAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorActive, repulsorAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
@@ -123,7 +123,7 @@ export function stepRobot(st, C, p, dir, cause) {
     /* Bunny Hop: "you may hop over it to the next adjacent empty space if possible instead" -- its own card, one robot, the square beyond free */
     if (cause === "card" && chain.length === 2 && has(p, "bunnyHop")) {
       const [hc, hr] = stepCell(first.c, first.r, dir);
-      if (inGrid(C, hc, hr) && !isHole(C, hc, hr) && !solidAt(st, hc, hr, p) && !blockedMove(st, C, first.c, first.r, dir)) {
+      if (inGrid(C, hc, hr) && !holeNow(st, C, hc, hr) && !solidAt(st, hc, hr, p) && !blockedMove(st, C, first.c, first.r, dir)) {
         const from = [p.c, p.r];
         p.c = hc; p.r = hr;
         tread(p);
@@ -177,7 +177,7 @@ export function stepRobot(st, C, p, dir, cause) {
      * it, when that square is free floor. */
     if (chain.length === 1 && rampDownAt(C, m.c, m.r, dir)) {
       const [bc, br] = stepCell(tc, tr, dir);
-      if (inGrid(C, bc, br) && !isHole(C, bc, br) && !solidAt(st, bc, br, m) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
+      if (inGrid(C, bc, br) && !holeNow(st, C, bc, br) && !solidAt(st, bc, br, m) && !wallBlocks(C, tc, tr, dir, st.register)) { tc = bc; tr = br; }
     }
     m.c = tc; m.r = tr;
     tread(m);
@@ -191,7 +191,7 @@ export function stepRobot(st, C, p, dir, cause) {
       pushHooks(st, chain[i - 1], m, dir, cause, false, hurt);
       if (cause === "card") { if (!p.pushed) p.pushed = []; if (!p.pushed.includes(m.id)) p.pushed.push(m.id); }
     }
-    if (isHole(C, m.c, m.r)) {
+    if (holeNow(st, C, m.c, m.r)) {
       /* a hovering robot passes over a pit, and falls in only where its move ends */
       if (i === 0 && m.hoverSteps > 0 && inGrid(C, m.c, m.r)) { log(st, m.name + " hovers over the pit"); }
       else { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
@@ -351,7 +351,7 @@ export function playCard(st, C, p, cd, plan) {
   }
   p.hoverSteps = 0;
   /* Hover Unit: "falls in if it ends its move on one" -- including a move a wall cut short over a pit */
-  if (hover && p.alive && isHole(C, p.c, p.r)) destroy(st, C, p, "into a pit");
+  if (hover && p.alive && holeNow(st, C, p.c, p.r)) destroy(st, C, p, "into a pit");
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
   /* "If a robot stops on this virtual ramp space, the robot slides back to the
    * lower level, which will push a robot occupying that space." The ramp space
@@ -466,7 +466,7 @@ export function beltPass(st, C, lo, hi, only, squares) {
     b.c = m.to[0]; b.r = m.to[1];
     tread(b);
     st.events.push({ type: "conveyed", player: b.id, from, to: m.to, dir: m.dir });
-    if (isHole(C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
+    if (holeNow(st, C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
     /* "When a robot crosses over a ledge from an upper level to a lower level,
      * draw 2 damage" -- a belt carrying it over is a crossing like any other */
     if (levelStepAt(C, from[0], from[1], m.dir) < 0 && !rampBetween(C, from[0], from[1], m.dir)) {
@@ -516,20 +516,32 @@ export function pusherPass(st, C) {
 }
 
 /**
- * Grand Prix's trap door, and Turn & Burn's. It opens at the END of each
- * register printed on it (the author's reading, 2026-09-23): a robot may cross
- * it or stand on it through that register and step off at the start of the
- * next, and one still standing on it when the register ends falls, as into a
- * pit. So this is the last thing the board does, after the fire and the waste
- * and before any checkpoint is touched -- a robot that has fallen through the
- * floor touches nothing.
+ * A hole right now: a pit, the void, or a trap door active in the register
+ * being run. Outside the registers a trap door is floor. One question for
+ * every mover, so a card, a push, a belt and a hover cannot disagree about it.
  */
-export function trapDoorPass(st, C) {
+export function holeNow(st, C, c, r) {
+  return isHole(C, c, r, st.phase === "exec" ? st.register : undefined);
+}
+
+/**
+ * Turn & Burn's trap door pits, at the START of each register printed on them
+ * (manual1/IMG_1465): a robot in the space when the door activates is lost,
+ * and cannot escape it. The sheet's own example is a robot that ends
+ * register 3 on a door marked 4: it is lost at the start of register 4,
+ * before it can move away. Through the rest of the register the door is a pit
+ * to anything that enters it, which `holeNow` answers. The same timing under
+ * the classic book, by the author's ruling (2026-09-27).
+ */
+export function trapDoorsActivate(st, C) {
+  const fell = [];
   for (const p of alive(st)) {
-    if (!trapDoorOpens(C, p.c, p.r, st.register)) continue;
-    log(st, p.name + " is still standing on the trap door when it opens");
+    if (!trapDoorActive(C, p.c, p.r, st.register)) continue;
+    log(st, p.name + " is standing on a trap door pit as it opens");
     destroy(st, C, p, "through a trap door");
+    fell.push(p.id);
   }
+  return fell;
 }
 
 export function crusherPass(st, C) {
@@ -1122,12 +1134,12 @@ export function radiationPass(st, C) {
 
 /** The nearest free, non-hole square to (c,r), searched outward so the answer does not depend on player order. */
 export function freeSpotNear(st, C, c, r) {
-  if (inGrid(C, c, r) && !isHole(C, c, r) && !robotAt(st, c, r)) return [c, r];
+  if (inGrid(C, c, r) && !holeNow(st, C, c, r) && !robotAt(st, c, r)) return [c, r];
   for (let rad = 1; rad <= 4; rad++) {
     for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
       if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
       const nc = c + dc, nr = r + dr;
-      if (!inGrid(C, nc, nr) || isHole(C, nc, nr) || robotAt(st, nc, nr)) continue;
+      if (!inGrid(C, nc, nr) || holeNow(st, C, nc, nr) || robotAt(st, nc, nr)) continue;
       return [nc, nr];
     }
   }
@@ -1199,7 +1211,7 @@ export function win(st, C, p) {
 /** A robot that arrived somewhere without stepping (Boink, a switch of places): the square it landed on still counts. */
 export function arrived(st, C, p) {
   if (!p.alive) return;
-  if (isHole(C, p.c, p.r)) { destroy(st, C, p, inGrid(C, p.c, p.r) ? "into a pit" : "over the edge"); return; }
+  if (holeNow(st, C, p.c, p.r)) { destroy(st, C, p, inGrid(C, p.c, p.r) ? "into a pit" : "over the edge"); return; }
   throughPortal(st, C, p);
 }
 
