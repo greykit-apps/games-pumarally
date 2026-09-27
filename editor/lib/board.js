@@ -41,7 +41,8 @@ const BOARD_KEYS = new Set([
 
 const WALL_DEVICE_KEYS = new Set(["kind", "edge", "face", "damage", "reach", "regs", "note"]);
 const CEILING_DEVICE_KEYS = new Set(["kind", "at", "regs", "note"]);
-const FLOOR_DEVICE_KEYS = CEILING_DEVICE_KEYS;
+/* a floor device may face: a repulsor field faces the edge it lies along */
+const FLOOR_DEVICE_KEYS = new Set(["kind", "at", "face", "regs", "note"]);
 
 export function idx(board, c, r) { return r * board.w + c; }
 
@@ -247,10 +248,20 @@ export function deviceOnEdge(board, edge) {
   return board.wallDevices.find(d => edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
 }
 
-/** Is there a repulsor field on this edge? From either side: the field is not one-sided. */
+/**
+ * Is there a repulsor field along this edge? A field is an item in its square,
+ * facing the edge it lies along; this asks whether either square beside the
+ * edge has one facing it, which is all a laser or a mount needs to know.
+ */
 export function repulsorOn(board, edge) {
   const id = edgeId(edge.kind, edge.c, edge.r);
-  return board.wallDevices.some(d => d.kind === "repulsor" && edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+  return board.floorDevices.some(d => d.kind === "repulsor" && d.face !== null && d.face !== undefined &&
+    edgeIdOf(d.c, d.r, d.face) === id);
+}
+
+/** The repulsor field in (c,r) that faces d, if its square has one. */
+export function fieldFacing(board, c, r, d) {
+  return board.floorDevices.some(x => x.kind === "repulsor" && x.c === c && x.r === r && x.face === d);
 }
 
 /** The one-way wall devices on an edge -- one, or two if both sides are red. */
@@ -284,7 +295,7 @@ export function ceilingAt(board, c, r, kind) {
     d.c === c && d.r === r && (!kind || d.kind === kind));
 }
 
-/** The floor devices in a square -- a trap door is the only kind. */
+/** The floor devices in a square: a trap door, or a repulsor field or two. */
 export function floorAt(board, c, r, kind) {
   return board.floorDevices.filter(d =>
     d.c === c && d.r === r && (!kind || d.kind === kind));
@@ -299,6 +310,10 @@ export function floorAt(board, c, r, kind) {
  */
 export function blockedAt(board, c, r, d, register) {
   const edge = edgeOf(c, r, d);
+  /* a repulsor field is a wall to everything that only asks whether an edge
+   * is walled -- a laser, a belt, a mount; the card that runs into one is
+   * the mover's business (fieldHit, game/engine/course.js) */
+  if (repulsorOn(board, edge)) return true;
   const code = edgeCodeAt(board, edge);
   if (code === EDGE_WALL) return !greenSide(board, edge, c, r);
   if (code !== EDGE_DOOR) return false;
@@ -779,6 +794,10 @@ function readSquareDevices(list, layer, base, into, keys, d) {
       return;
     }
     const dev = { kind: raw.kind, c: raw.at[0], r: raw.at[1], _ptr: ptr };
+    /* a face is read as a direction when it is one, and kept as written when
+     * it is not, so the validator can say what is wrong with it */
+    if (raw.face !== undefined) { const f = dirOfLetter(raw.face); dev.face = f === undefined ? raw.face : f; }
+    else if (def.faced) dev.face = null;
     if (raw.regs !== undefined) dev.regs = raw.regs;
     if (raw.note !== undefined) dev.note = raw.note;
     into.push(dev);

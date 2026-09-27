@@ -76,27 +76,36 @@
       { "at": [4, 8], "has": ["upgrade", "battery"] },
       { "at": [5, 9], "has": ["flagspot"] },
       { "at": [9, 10], "has": ["flagspot"] }
+    ],
+    "devices": [
+      { "kind": "repulsor", "at": [8, 0], "face": "S" },
+      { "kind": "repulsor", "at": [2, 1], "face": "E" },
+      { "kind": "repulsor", "at": [1, 5], "face": "S" },
+      { "kind": "repulsor", "at": [5, 5], "face": "N" },
+      { "kind": "repulsor", "at": [6, 6], "face": "S" },
+      { "kind": "repulsor", "at": [10, 6], "face": "N" },
+      { "kind": "repulsor", "at": [9, 10], "face": "W" },
+      { "kind": "repulsor", "at": [3, 11], "face": "N" }
     ]
   },
   "wall": {
     "hRows": [
       "            ",
-      "        #   ",
       "            ",
       "            ",
       "            ",
-      "     #      ",
-      " #        # ",
-      "      #     ",
       "            ",
       "            ",
       "            ",
-      "   #        ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
+      "            ",
       "            "
     ],
     "vRows": [
       "             ",
-      "   #         ",
       "             ",
       "             ",
       "             ",
@@ -105,19 +114,11 @@
       "             ",
       "             ",
       "             ",
-      "         #   ",
+      "             ",
+      "             ",
       "             "
     ],
-    "devices": [
-      { "kind": "repulsor", "edge": "h:1,6", "face": "N" },
-      { "kind": "repulsor", "edge": "h:3,11", "face": "S" },
-      { "kind": "repulsor", "edge": "h:5,5", "face": "S" },
-      { "kind": "repulsor", "edge": "h:6,7", "face": "N" },
-      { "kind": "repulsor", "edge": "h:8,1", "face": "N" },
-      { "kind": "repulsor", "edge": "h:10,6", "face": "S" },
-      { "kind": "repulsor", "edge": "v:3,1", "face": "W" },
-      { "kind": "repulsor", "edge": "v:9,10", "face": "E" }
-    ]
+    "devices": []
   },
   "ceiling": { "devices": [] }
 }

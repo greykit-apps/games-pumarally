@@ -82,6 +82,9 @@
       { "at": [9, 10], "has": ["flagspot"] }
     ],
     "devices": [
+      { "kind": "repulsor", "at": [7, 1], "face": "W" },
+      { "kind": "repulsor", "at": [3, 2], "face": "N" },
+      { "kind": "repulsor", "at": [3, 4], "face": "S" },
       { "kind": "trapDoor", "at": [5, 4], "regs": [2, 3] },
       { "kind": "trapDoor", "at": [6, 6], "regs": [1, 5] }
     ]
@@ -90,10 +93,10 @@
     "hRows": [
       "  # #  # #  ",
       "            ",
-      " # #        ",
+      " #          ",
       "            ",
       "  #         ",
-      "   #        ",
+      "            ",
       "     ##     ",
       "        #   ",
       "            ",
@@ -104,7 +107,7 @@
     ],
     "vRows": [
       "             ",
-      "       #     ",
+      "             ",
       "#         # #",
       "     #       ",
       "#           #",
@@ -120,9 +123,7 @@
       { "kind": "pusher", "edge": "h:1,2", "face": "S", "regs": [1, 3, 5] },
       { "kind": "pusher", "edge": "h:2,0", "face": "S", "regs": [1, 3, 5] },
       { "kind": "laser", "edge": "h:3,2", "face": "S", "damage": 1 },
-      { "kind": "repulsor", "edge": "h:3,2", "face": "S" },
       { "kind": "laser", "edge": "h:3,5", "face": "N", "damage": 1 },
-      { "kind": "repulsor", "edge": "h:3,5", "face": "N" },
       { "kind": "jet", "edge": "h:4,0", "face": "S", "regs": [2, 5] },
       { "kind": "pusher", "edge": "h:4,12", "face": "N", "regs": [1, 3, 5] },
       { "kind": "jet", "edge": "h:5,6", "face": "S", "reach": 2, "regs": [2, 3] },
@@ -131,7 +132,6 @@
       { "kind": "pusher", "edge": "h:9,0", "face": "S", "regs": [1, 3, 5] },
       { "kind": "pusher", "edge": "v:0,9", "face": "E", "regs": [2, 4] },
       { "kind": "laser", "edge": "v:5,3", "face": "E", "damage": 1 },
-      { "kind": "repulsor", "edge": "v:7,1", "face": "E" },
       { "kind": "laser", "edge": "v:8,7", "face": "E", "damage": 1 },
       { "kind": "laser", "edge": "v:10,2", "face": "E", "damage": 3 },
       { "kind": "pusher", "edge": "v:12,9", "face": "W", "regs": [1, 3, 5] }

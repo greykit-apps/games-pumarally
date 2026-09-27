@@ -2410,6 +2410,18 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "a wall printed behind a repulsor field stops a robot from that side, and nothing throws it back",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field is an item in its square, facing the edge it lies along",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "a robot cannot phase through a repulsor field",
     "layer": "rules",
     "status": "ported",

@@ -21,12 +21,12 @@
   },
   "backStretch": {
     "art": {
-      "sha": "39425ca8064e7698",
-      "bytes": 103972
+      "sha": "9a9c68cfcf2b3861",
+      "bytes": 103951
     },
     "markup": {
-      "sha": "e9f22f1d1c7e975c",
-      "bytes": 73495
+      "sha": "039606339297487e",
+      "bytes": 73463
     }
   },
   "blackGold": {
@@ -191,12 +191,12 @@
   },
   "bounceHouse": {
     "art": {
-      "sha": "28b382b6556477be",
-      "bytes": 102511
+      "sha": "e5cc116a0e77e4af",
+      "bytes": 102374
     },
     "markup": {
-      "sha": "e4fa60717b445083",
-      "bytes": 70680
+      "sha": "941ad12b1ccfdbe4",
+      "bytes": 70268
     }
   },
   "cactus": {
@@ -221,12 +221,12 @@
   },
   "canyon": {
     "art": {
-      "sha": "0a446a8808c00b52",
-      "bytes": 86691
+      "sha": "d08784e724d4b32f",
+      "bytes": 86610
     },
     "markup": {
-      "sha": "b549b263c230ff36",
-      "bytes": 64980
+      "sha": "0e27ed3d38e487ab",
+      "bytes": 64852
     }
   },
   "chasm": {
@@ -241,12 +241,12 @@
   },
   "checkIn": {
     "art": {
-      "sha": "011119214ee5995f",
-      "bytes": 85422
+      "sha": "b4a630492e18ee23",
+      "bytes": 85352
     },
     "markup": {
-      "sha": "05eb9a29f862ca10",
-      "bytes": 62329
+      "sha": "b2535aff9e92574c",
+      "bytes": 62217
     }
   },
   "chess": {
@@ -461,12 +461,12 @@
   },
   "kingOfTheHill": {
     "art": {
-      "sha": "9a1611fe1954eeee",
-      "bytes": 110364
+      "sha": "7b8c958beb47d6d1",
+      "bytes": 110354
     },
     "markup": {
-      "sha": "57853debd663ec57",
-      "bytes": 75477
+      "sha": "8178ecfeaf8c042d",
+      "bytes": 75461
     }
   },
   "labyrinth": {
@@ -521,12 +521,12 @@
   },
   "meeple": {
     "art": {
-      "sha": "67ebf58ae7cbef3c",
-      "bytes": 113777
+      "sha": "4289fbff84dabddf",
+      "bytes": 113757
     },
     "markup": {
-      "sha": "a417454baffe4b4d",
-      "bytes": 87412
+      "sha": "8b8b930a097d5be3",
+      "bytes": 87380
     }
   },
   "mergers": {
@@ -561,12 +561,12 @@
   },
   "openCircuit": {
     "art": {
-      "sha": "ab5e2e0050a59ef2",
-      "bytes": 107206
+      "sha": "b07a56bc4f767546",
+      "bytes": 107127
     },
     "markup": {
-      "sha": "e52406fa86023b64",
-      "bytes": 83044
+      "sha": "c94c04380c89917c",
+      "bytes": 82916
     }
   },
   "pinwheel": {
@@ -591,12 +591,12 @@
   },
   "pitRow": {
     "art": {
-      "sha": "2615aa0d654fc0ec",
-      "bytes": 89549
+      "sha": "c16e4eda8989f4d1",
+      "bytes": 89519
     },
     "markup": {
-      "sha": "86e0f9a047dc0f2c",
-      "bytes": 62956
+      "sha": "788e24df8c5ccf0b",
+      "bytes": 62908
     }
   },
   "portalPalace": {
@@ -631,12 +631,12 @@
   },
   "sampler": {
     "art": {
-      "sha": "6bf77c3dce71d127",
-      "bytes": 113073
+      "sha": "ec731507e063c5ed",
+      "bytes": 113043
     },
     "markup": {
-      "sha": "dd883907652968e6",
-      "bytes": 84902
+      "sha": "7b190cc48b30e5e9",
+      "bytes": 84854
     }
   },
   "shakeNBake": {
@@ -831,12 +831,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "6222dff8b51e0521",
-      "bytes": 71852
+      "sha": "6109690c567d8d0b",
+      "bytes": 71842
     },
     "markup": {
-      "sha": "f4bec094d2f86807",
-      "bytes": 47400
+      "sha": "99bdf68cd429aab4",
+      "bytes": 47384
     }
   }
 }

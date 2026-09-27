@@ -62,10 +62,9 @@ function put(st, p, reg, kind) {
   p.registers[reg] = p.deck.splice(i, 1)[0];
 }
 const plain = edit => courseOn(board(8, 8, edit));
-/* a repulsor field on the east edge of (c,r), its capsule printed in (c,r) */
+/* a repulsor field in (c,r), along its east edge: an item in the square, facing that edge */
 function repulsor(b, t, c, r) {
-  t.wall(c, r, E);
-  b.wallDevices.push({ kind: "repulsor", edge: { kind: "v", c: c + 1, r }, face: W });
+  b.floorDevices.push({ kind: "repulsor", c, r, face: E });
 }
 
 export const TESTS = [
@@ -202,6 +201,26 @@ export const TESTS = [
     const st = game(co, [{ c: 4, r: 3, face: N }]);
     beltPass(st, co.C, 1, 2);
     eq(st.players[0].c, 4, "the belt could not carry it through, and it was not thrown");
+  }],
+  ["a wall printed behind a repulsor field stops a robot from that side, and nothing throws it back", () => {
+    /* Bounce House: a field along one side of an edge and a plain wall along
+     * the other. From the wall's side, a Move 3 goes two and stops. */
+    const co = plain((b, t) => { repulsor(b, t, 4, 3); t.wall(5, 3, W); });
+    const st = game(co, [{ c: 7, r: 3, face: W }]);
+    give(st, st.players[0], 0, "move3");
+    runRegister(st, co.library);
+    eq(st.players[0].c, 5, "two squares, to the wall, and it stays there");
+    const st2 = game(co, [{ c: 3, r: 3, face: E }]);
+    give(st2, st2.players[0], 0, "move3");
+    runRegister(st2, co.library);
+    eq(st2.players[0].c, 1, "from the field's own side it is still thrown back three");
+  }],
+  ["a repulsor field is an item in its square, facing the edge it lies along", () => {
+    eq(codes(board(4, 2, (b, t) => repulsor(b, t, 1, 0))), [], "a field needs no wall to stand on");
+    eq(codes(board(4, 2, b => b.floorDevices.push({ kind: "repulsor", c: 1, r: 0 }))).includes("device.badFace"), true, "and must say which edge it lies along");
+    eq(codes(board(4, 2, (b, t) => { repulsor(b, t, 1, 0); repulsor(b, t, 1, 0); })), ["floor.duplicate"], "two along one edge is one too many");
+    eq(codes(board(4, 2, (b, t) => { repulsor(b, t, 1, 0); b.floorDevices.push({ kind: "repulsor", c: 1, r: 0, face: S }); })), [], "two at a corner is how a board prints one");
+    eq(codes(board(4, 2, (b, t) => { t.setCell(1, 0, "b>."); repulsor(b, t, 1, 0); })), [], "and it may lie over a belt");
   }],
   ["a robot cannot phase through a repulsor field", () => {
     const co = plain((b, t) => repulsor(b, t, 4, 3));

@@ -10,7 +10,7 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, chopShopAt, trapDoorActive, repulsorAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, chopShopAt, trapDoorActive, repulsorAt, fieldHit
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
@@ -346,7 +346,8 @@ export function playCard(st, C, p, cd, plan) {
     if (!stepRobot(st, C, p, dir, "card")) {                                // a wall: the rest of the move is lost
       p.hoverSteps = 0;
       const blk = lastBlock;
-      if (blk && repulsorAt(C, blk.c, blk.r, dir)) repulse(st, C, p, blk.head, dir, Math.abs(plan.dist));
+      /* a field, not a wall: thrown back (a wall printed behind a field is just a wall from that side) */
+      if (blk && fieldHit(C, blk.c, blk.r, dir)) repulse(st, C, p, blk.head, dir, Math.abs(plan.dist));
       break;
     }
     moved++;

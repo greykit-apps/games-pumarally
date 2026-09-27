@@ -245,6 +245,7 @@ export function renderInspector(el, st, hover, isCourse) {
       html += '<div class="row"><span class="pill">' + esc(tool.label) + "</span></div>";
       const t = {};
       if (tool.kind === "wall" || tool.kind === "device" ||
+          (tool.kind === "floor" && DEVICE_KINDS[tool.device].faced) ||
           (tool.kind === "ground" && tool.arg === ARG_DIR)) t.dir = st.hand.dir;
       if (tool.kind === "ground" && ELEMENTS[tool.element] && ELEMENTS[tool.element].props.belt) {
         t.arms = st.hand.arms;

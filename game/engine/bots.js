@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorActive, repulsorAt } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorActive, fieldHit } from "./course.js";
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -100,7 +100,7 @@ function ghostCard(st, C, g, cd) {
   let moved = 0;
   for (let i = 0; i < n && !g.dead; i++) {
     /* a repulsor field ahead throws the ghost back as far as the card, and the move ends */
-    if (repulsorAt(C, g.c, g.r, dir)) { for (let k = 0; k < Math.abs(plan.dist) && !g.dead; k++) ghostMove(st, C, g, opposite(dir)); break; }
+    if (fieldHit(C, g.c, g.r, dir)) { for (let k = 0; k < Math.abs(plan.dist) && !g.dead; k++) ghostMove(st, C, g, opposite(dir)); break; }
     ghostMove(st, C, g, dir); moved++;
   }
   if (moved > 0 && !g.dead && oilAt(C, g.c, g.r)) ghostSlide(st, C, g, dir);

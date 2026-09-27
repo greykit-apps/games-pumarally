@@ -103,7 +103,7 @@ export function sortWallDevices(list) {
 /** Ceiling devices in canonical order: row-major, then kind alphabetically. */
 export function sortCeilingDevices(list) {
   return [...list].sort((a, b) =>
-    a.r - b.r || a.c - b.c || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0));
+    a.r - b.r || a.c - b.c || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) || ((a.face | 0) - (b.face | 0)));
 }
 
 function wallDeviceLine(dev) {
@@ -124,6 +124,7 @@ function wallDeviceLine(dev) {
 
 function ceilingDeviceLine(dev) {
   const parts = ['"kind": ' + q(dev.kind), '"at": [' + dev.c + ", " + dev.r + "]"];
+  if (dev.face !== null && dev.face !== undefined) parts.push('"face": ' + q(dirLetter(dev.face)));
   const regs = canonRegs(dev.regs);
   if (regs) parts.push('"regs": [' + regs.join(", ") + "]");
   if (dev.note) parts.push('"note": ' + q(dev.note));

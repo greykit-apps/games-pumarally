@@ -84,8 +84,11 @@ export function rotateOnce(board) {
 
   out.ceilingDevices = board.ceilingDevices.map(dev =>
     ({ ...dev, c: board.h - 1 - dev.r, r: dev.c }));
-  out.floorDevices = board.floorDevices.map(dev =>
-    ({ ...dev, c: board.h - 1 - dev.r, r: dev.c }));
+  out.floorDevices = board.floorDevices.map(dev => {
+    const next = { ...dev, c: board.h - 1 - dev.r, r: dev.c };
+    if (dev.face !== null && dev.face !== undefined) next.face = rotateFace(dev.face);
+    return next;
+  });
 
   return out;
 }

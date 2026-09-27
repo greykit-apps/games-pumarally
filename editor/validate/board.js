@@ -17,7 +17,7 @@ import { SETS, EDITIONS } from "../rulesets/sets.js";
 import { ARM_CODES, isVoidToken, readToken, tokenBeltSpeed } from "../lib/token.js";
 import {
   idx, inBoard, isVoid, cellAt, elementAt, propAt, beltDir, levelAt,
-  deviceCell, laserPath, blockedAt, doorOn, siteList
+  deviceCell, laserPath, blockedAt, doorOn, siteList, repulsorOn
 } from "../lib/board.js";
 import {
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, edgeId, edgeCodeAt, edgeInBounds,
@@ -308,7 +308,8 @@ function checkWallDevices(board, d) {
 
     /* something to bolt to */
     const code = edgeCodeAt(board, dev.edge);
-    if (def.needsWall && code !== EDGE_WALL) {
+    /* a repulsor field serves as a mount, as Back Stretch's double laser shows */
+    if (def.needsWall && code !== EDGE_WALL && !repulsorOn(board, dev.edge)) {
       d.error("device.noMount", label + " at " + at(cell[0], cell[1]) + " has no wall behind it " +
         "to mount on -- the lattice at " + edgeId(dev.edge.kind, dev.edge.c, dev.edge.r) +
         " is " + (code === EDGE_DOOR ? "a door" : "empty") + ".", cell ? at(cell[0], cell[1]) : null, ptr);
@@ -387,18 +388,29 @@ function checkFloor(board, d) {
       continue;
     }
     checkRegs(d, dev.regs, def.regs, def.name + " at " + at(dev.c, dev.r), ptr, def.regsWhy);
+    /* a repulsor field faces the edge it lies along; a trap door faces nowhere */
+    if (!def.faced) {
+      if (dev.face !== null && dev.face !== undefined) {
+        d.error("device.faceNotAllowed", def.name + " at " + at(dev.c, dev.r) + " faces nowhere and takes no face.", at(dev.c, dev.r), ptr);
+      }
+    } else if (![0, 1, 2, 3].includes(dev.face)) {
+      d.error("device.badFace", def.name + " at " + at(dev.c, dev.r) + " has no face, or a face that is not N, E, S or W.", at(dev.c, dev.r), ptr);
+      continue;
+    }
     const tok = cellAt(board, dev.c, dev.r);
-    if (tok !== "...") {
+    if (def.ownsSquare && tok !== "...") {
       const el = elementAt(board, dev.c, dev.r);
       d.error("floor.notFloor", def.name + " at " + at(dev.c, dev.r) + " is printed on " +
         (el ? "a " + el.name.toLowerCase() : "no floor at all") + ". It is the floor of its square, " +
         "and open floor when it is not active, so the square under it must be plain floor.",
         at(dev.c, dev.r), ptr);
     }
-    const key = dev.c + "," + dev.r;
+    /* a square has one floor, so one trap door; it may carry two fields, at a
+     * corner, but never two along one edge */
+    const key = def.ownsSquare ? "floor|" + dev.c + "," + dev.r : dev.kind + "|" + dev.c + "," + dev.r + "|" + dev.face;
     if (seen.has(key)) {
-      d.error("floor.duplicate", "Two floor devices at " + at(dev.c, dev.r) + "; a square has one floor.",
-        at(dev.c, dev.r), ptr);
+      d.error("floor.duplicate", def.ownsSquare ? "Two trap doors at " + at(dev.c, dev.r) + "; a square has one floor."
+        : "Two " + def.name.toLowerCase() + "s along one edge of " + at(dev.c, dev.r) + ".", at(dev.c, dev.r), ptr);
     }
     seen.add(key);
   }

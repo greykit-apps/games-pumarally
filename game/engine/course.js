@@ -9,9 +9,9 @@
 import { assemble } from "../../editor/lib/course.js";
 import {
   inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt, floorAt,
-  deviceCell, blockedAt, laserPath, repulsorOn
+  deviceCell, blockedAt, laserPath, repulsorOn, fieldFacing
 } from "../../editor/lib/board.js";
-import { edgeOf } from "../../editor/lib/edges.js";
+import { edgeOf, edgeCodeAt, EDGE_WALL } from "../../editor/lib/edges.js";
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
@@ -178,9 +178,25 @@ export function flamerFires(C, c, r, register) {
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }
 
-/** A repulsor field on the edge between (c,r) and its neighbour in `dir`. */
+/** A repulsor field on the edge between (c,r) and its neighbour in `dir`, whichever square it is in. */
 export function repulsorAt(C, c, r, dir) {
   return inBoard(C.grid, c, r) && repulsorOn(C.grid, edgeOf(c, r, dir));
+}
+
+/**
+ * Does a robot at (c,r) moving `dir` run into a repulsor field -- and so get
+ * thrown back -- rather than a wall? It does when its own square's field lies
+ * along that edge; and, crossing INTO a field's square from outside (the
+ * author's ruling, 2026-09-27), when no wall is printed on the outside to
+ * meet first. Bounce House prints exactly that wall: from its side, a Move 3
+ * stops two squares on, and nothing throws it back.
+ */
+export function fieldHit(C, c, r, dir) {
+  if (!inBoard(C.grid, c, r)) return false;
+  if (fieldFacing(C.grid, c, r, dir)) return true;
+  const [nc, nr] = [c + DC[dir], r + DR[dir]];
+  if (!inBoard(C.grid, nc, nr) || !fieldFacing(C.grid, nc, nr, opposite(dir))) return false;
+  return edgeCodeAt(C.grid, edgeOf(c, r, dir)) !== EDGE_WALL;
 }
 
 /** A wall or a shut door between (c,r) and its neighbour in `dir`; register is 0-based. */
