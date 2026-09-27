@@ -149,6 +149,9 @@ export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize
 export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
 /* Radioactive's two colours of deck, markings rather than elements (sites.js) */
 export function radiationAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "radiation"); }
+/** A chop shop marked on (c,r). */
+export function chopShopAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "chopShop"); }
+
 export function wasteAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "waste"); }
 
 /* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two

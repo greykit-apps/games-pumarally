@@ -11,7 +11,8 @@
  * scenarios.js, and the runner holds the two lists to each other.
  */
 import { board, courseOn, game, give, runRegister, E, W, N } from "./harness.js";
-import { trapDoorsActivate, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
+import { trapDoorsActivate, chopShopPass, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
+import { UPGRADE_DEFS, newInstalled } from "../../engine/upgrades.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { CLASSIC_ORDER, MODERN_ORDER } from "../../engine/machine.js";
 import { card } from "../../engine/cards.js";
@@ -27,6 +28,16 @@ function trapDoor(b, c, r, regs) {
   const dev = { kind: "trapDoor", c, r };
   if (regs) dev.regs = regs;
   b.floorDevices.push(dev);
+}
+/* a 2016 robot on a chop shop at (3,3) with its answer already given */
+function chop(answer, setup) {
+  const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
+  const st = game(co, [{ c: 3, r: 3, face: N }], { ruleset: "modern" });
+  const p = st.players[0];
+  if (setup) setup(p);
+  put(st, p, 0, "left");
+  st.answers[st.turn + ":0:chop:" + p.id] = answer;
+  return { st, co, p };
 }
 /* a card into a register, under either book */
 function put(st, p, reg, kind) {
@@ -193,19 +204,57 @@ export const TESTS = [
     eq(codes(b), [], "the validator takes the repulsor's edge as the wall the laser needs");
   }],
 
-  /* --- chop shops ----------------------------------------------------------- */
-  ["a chop shop is marked on the board and does nothing in play yet", () => {
-    /* the author's decision: it waits for the Armed and Dangerous ammunition
-     * cards its refill needs; until then it is the floor it sits on */
-    for (const ruleset of ["classic", "modern"]) {
-      const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
-      const st = game(co, [{ c: 3, r: 3, face: N, damage: 2 }], { ruleset });
-      const p = st.players[0];
-      const before = JSON.stringify([p.damage, p.options, p.energy, p.installed, p.shelf, p.archive]);
-      if (ruleset === "classic") give(st, p, 0, "left");
-      else p.registers[0] = p.deck.splice(p.deck.findIndex(ci => card(st, ci).kind === "left"), 1)[0];
-      runRegister(st, co.library);
-      eq(JSON.stringify([p.damage, p.options, p.energy, p.installed, p.shelf, p.archive]), before, ruleset + ": nothing changed");
-    }
+  /* --- chop shops -----------------------------------------------------------
+   * Turn & Burn (manual1/IMG_1464) under the 2016 book; nothing yet under the
+   * classic one, whose chop shop needs ammunition cards that are not built. */
+  ["a classic chop shop is marked on the board and does nothing in play yet", () => {
+    const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
+    const st = game(co, [{ c: 3, r: 3, face: N, damage: 2 }]);
+    const p = st.players[0];
+    const before = JSON.stringify([p.damage, p.options, p.energy, p.archive]);
+    give(st, p, 0, "left");
+    runRegister(st, co.library);
+    eq(JSON.stringify([p.damage, p.options, p.energy, p.archive]), before, "nothing changed");
+  }],
+  ["a 2016 robot that ends a register on a chop shop may take an Energy", () => {
+    const { st, co, p } = chop(0);
+    const e = p.energy;
+    runRegister(st, co.library);
+    eq(p.energy, e + 1, "one Energy");
+  }],
+  ["a 2016 robot that ends a register on a chop shop may draw an upgrade card", () => {
+    const { st, co, p } = chop(1);
+    const top = st.upgradeDeck[st.upgradeDeck.length - 1], shelf = p.shelf.length, e = p.energy;
+    runRegister(st, co.library);
+    eq([p.shelf.length, p.shelf[p.shelf.length - 1], p.energy], [shelf + 1, top, e], "the top card, uninstalled, and nothing paid for it");
+  }],
+  ["a 2016 robot on a chop shop may scrap a permanent upgrade and install the top card free", () => {
+    const perm = Object.keys(UPGRADE_DEFS).find(id => UPGRADE_DEFS[id].type === "permanent");
+    const { st, co, p } = chop(2, q => q.installed.push(newInstalled(perm)));
+    st.upgradeDeck = st.upgradeDeck.filter(id => id !== perm);
+    const top = st.upgradeDeck[st.upgradeDeck.length - 1], e = p.energy;
+    runRegister(st, co.library);
+    assert(!p.installed.some(u => u.id === perm), "the old card is gone");
+    assert(st.upgradeDiscard.includes(perm), "to the upgrade discard");
+    assert(p.installed.some(u => u.id === top) || p.shelf.includes(top), "and the top card is its own");
+    if (UPGRADE_DEFS[top].type === "permanent") assert(p.installed.some(u => u.id === top), "a permanent goes into the slot just freed");
+    eq(p.energy, e, "at no cost");
+  }],
+  ["a chop shop offers no scrap to a robot with no permanent upgrade", () => {
+    const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
+    const st = game(co, [{ c: 3, r: 3, face: N }], { ruleset: "modern" });
+    const p = st.players[0];
+    p.installed = p.installed.filter(u => UPGRADE_DEFS[u.id].type !== "permanent");
+    st.register = 0; st.phase = "exec";
+    const ask = chopShopPass(st, co.C);
+    eq(ask && ask.options, [0, 1], "an Energy or a draw, and nothing to scrap");
+  }],
+  ["a shut-down robot on a chop shop takes nothing", () => {
+    const { st, co, p } = chop(0);
+    p.poweredDown = true;
+    const e = p.energy;
+    st.phase = "exec"; chopShopPass(st, co.C);
+    eq(p.energy, e, "down, it collects nothing");
   }]
 ];
+

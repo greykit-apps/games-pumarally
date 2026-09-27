@@ -10,13 +10,13 @@ import { inBoard } from "../../editor/lib/board.js";
 import {
   isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, repairAt, wallBlocks,
   pusherAt, crusherFires, fireAt, laserSquares, flagAt, oilAt, portalTwin, energyAt, waterAt,
-  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, trapDoorActive, repulsorAt
+  currentAt, levelStepAt, rampBetween, rampUpAt, rampDownAt, radiationAt, wasteAt, chopShopAt, trapDoorActive, repulsorAt
 } from "./course.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption, drawOption } from "./options.js";
-import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, UPGRADE_DEFS } from "./upgrades.js";
+import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, uninstallUpgrade, UPGRADE_DEFS } from "./upgrades.js";
 import { receiveHaywire } from "./haywire.js";
 import { stampAt as stampOf, rebootTokenOn } from "./course.js";
 
@@ -1039,6 +1039,80 @@ export function batteryPass(st, C) {
     if (!n) continue;
     if (gainEnergy(st, p, n, "battery")) log(st, p.name + " charges " + n + " Energy");
   }
+}
+
+/* --- Turn & Burn: chop shops ------------------------------------------------ */
+
+export const CHOP_CHOICES = ["Gain 1 Energy", "Draw 1 upgrade", "Scrap a permanent upgrade and install the top card free"];
+
+/**
+ * Turn & Burn's chop shop (manual1/IMG_1464): a robot that ends a register on
+ * one may gain 1 Energy, draw 1 upgrade, or scrap 1 permanent upgrade to
+ * install the top card of the upgrade deck at no cost -- one of the three.
+ * With the batteries, at the end of the register.
+ *
+ * Drawn is what the Upgrade Phase's paid draw does: the card goes to the
+ * robot's uninstalled upgrades, to be installed at its price. The scrapped
+ * card goes to the upgrade discard. The free card is installed if a slot for
+ * its type is free -- always so for a permanent, since one was just scrapped
+ * -- and otherwise joins the uninstalled ones (ours, as for the waste).
+ *
+ * 2016 ONLY. The classic chop shop trades in Armed and Dangerous's ammunition
+ * cards, none of which is built, so under the classic book it is still the
+ * floor it sits on (the author's decision, 2026-09-23). Not for a robot that
+ * is shut down or rebooting, as for a battery.
+ */
+export function chopShopPass(st, C) {
+  if (!isModern(st)) return null;
+  for (const p of alive(st)) {
+    if (p.poweredDown || p.rebooting || !chopShopAt(C, p.c, p.r)) continue;
+    const key = st.turn + ":" + st.register + ":chop:" + p.id;
+    if (st.answers[key + ":paid"]) continue;
+    const perms = p.installed.filter(u => UPGRADE_DEFS[u.id].type === "permanent").map(u => u.id);
+    const a = st.answers[key];
+    if (a === undefined) {
+      const options = perms.length ? [0, 1, 2] : [0, 1];
+      return { player: p.id, kind: "cardChoice", key, card: "chopShop", labels: CHOP_CHOICES.slice(0, options.length), options,
+        prompt: p.name + " ends the register on a chop shop. Which will it take?" };
+    }
+    if (a === 2) {
+      const which = st.answers[key + ":scrap"];
+      if (perms.length > 1 && which === undefined) {
+        return { player: p.id, kind: "cardChoice", key: key + ":scrap", card: "chopShop", tag: "scrap",
+          labels: perms.map(id => UPGRADE_DEFS[id].name), options: perms.map((_, i) => i),
+          prompt: p.name + " scraps which permanent upgrade?" };
+      }
+      st.answers[key + ":paid"] = true;
+      uninstallUpgrade(st, p, perms[perms.length > 1 ? which : 0], "scraps");
+      const id = drawUpgrade(st);
+      if (id === null) { log(st, p.name + " finds the upgrade deck empty"); continue; }
+      const def = UPGRADE_DEFS[id];
+      if (installedOfType(p, def.type) < INSTALL_LIMIT[def.type]) {
+        p.installed.push(newInstalled(id));
+        st.events.push({ type: "upgrade", player: p.id, card: id, how: "installed" });
+        log(st, p.name + " installs " + def.name + " from the chop shop, free" + (def.built ? "" : " (its effect is not built)"));
+      } else {
+        p.shelf.push(id);
+        st.events.push({ type: "upgrade", player: p.id, card: id, how: "drawn" });
+        log(st, p.name + " takes " + def.name + " from the chop shop, with no slot free for it");
+      }
+      continue;
+    }
+    st.answers[key + ":paid"] = true;
+    if (a === 1) {
+      const id = drawUpgrade(st);
+      if (id !== null) {
+        p.shelf.push(id);
+        st.events.push({ type: "upgrade", player: p.id, card: id, how: "drawn" });
+        log(st, p.name + " draws " + UPGRADE_DEFS[id].name + " at the chop shop");
+        continue;
+      }
+      log(st, p.name + " finds the upgrade deck empty");
+      continue;
+    }
+    if (gainEnergy(st, p, 1, "chopShop")) log(st, p.name + " takes an Energy at the chop shop");
+  }
+  return null;
 }
 
 /* --- Radioactive: waste and radiation ----------------------------------------

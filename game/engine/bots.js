@@ -312,6 +312,12 @@ export function botAnswer(st, library, req) {
         const room = ["permanent", "temporary"].some(t => p.installed.filter(u => UPGRADE_DEFS[u.id].type === t).length < INSTALL_LIMIT[t]);
         return room ? 1 : 0;
       }
+      /* Turn & Burn's chop shop: an upgrade card while it has few to choose
+       * from, else the Energy; it never scraps a card it chose to fit */
+      if (req.card === "chopShop") {
+        if (req.tag === "scrap") return req.options[0];
+        return p.shelf.length < 2 ? 1 : 0;
+      }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */
       if (p.damage + (req.incoming || 1) < 10) return 0;
