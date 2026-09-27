@@ -5,10 +5,10 @@ export default {
   "kind": "modern-upgrade",
   "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed, and eighteen more from the expansions and Master Builder (see roster.note). `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); all forty, the Haywire faces having been photographed (manual1/IMG_1345-1348).",
   "roster": {
-    "printed": 58,
-    "transcribed": 58,
-    "built": 58,
-    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name."
+    "printed": 63,
+    "transcribed": 63,
+    "built": 63,
+    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name. Then Turn & Burn's five, off manual1/IMG_1467-1471 (the checkered flag); two of them, Slow Processor and Bad Scanner, are installed onto any robot and take no slot (`onto`, `noSlot`). Texts here are summaries, not the printed words."
   },
   "cards": [
     {
@@ -492,6 +492,55 @@ export default {
       "type": "permanent",
       "set": "masterBuilder",
       "text": "Spend 1 Energy when your robot would be pushed: Your robot is not pushed.",
+      "built": true
+    },
+    {
+      "id": "slowProcessor",
+      "name": "Slow Processor",
+      "cost": 3,
+      "type": "permanent",
+      "set": "turnAndBurn",
+      "onto": "any",
+      "noSlot": true,
+      "text": "Installed onto any robot, and takes no slot there. That robot moves one square less on a Move 2 or a Move 3. It comes off when the robot reboots, reaches a checkpoint or shuts down.",
+      "built": true
+    },
+    {
+      "id": "fieldStabilizer",
+      "name": "Field Stabilizer",
+      "cost": 2,
+      "type": "permanent",
+      "set": "turnAndBurn",
+      "text": "Add one to, or take one from, the distance a repulsor field throws your robot.",
+      "built": true
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks",
+      "cost": 4,
+      "type": "permanent",
+      "set": "turnAndBurn",
+      "text": "The first time in a round your robot ends a register on a checkpoint or a chop shop, you may pay 1 Energy to have any robot draw a damage card.",
+      "built": true
+    },
+    {
+      "id": "badScanner",
+      "name": "Bad Scanner",
+      "cost": 2,
+      "type": "temporary",
+      "set": "turnAndBurn",
+      "onto": "any",
+      "noSlot": true,
+      "text": "Installed onto any robot, and takes no slot there. The next checkpoint that robot would reach, it does not reach that register; the card comes off instead.",
+      "built": true
+    },
+    {
+      "id": "pitTrapDance",
+      "name": "Pit Trap Dance",
+      "cost": 1,
+      "type": "temporary",
+      "set": "turnAndBurn",
+      "text": "Discard it during a register: for the rest of that register your robot falls into no pit and no trap door pit.",
       "built": true
     }
   ]

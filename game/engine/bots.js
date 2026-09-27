@@ -273,7 +273,18 @@ export function botUpgrade(st, p, req) {
   const o = req.options;
   const fit = o.install.filter(id => id !== null && canInstall(p, id, st.players.length) && p.energy - costOf(UPGRADE_DEFS[id], st.players.length) >= 1)
     .sort((a, b) => (UPGRADE_DEFS[b].built ? 1 : 0) - (UPGRADE_DEFS[a].built ? 1 : 0) || UPGRADE_DEFS[a].cost - UPGRADE_DEFS[b].cost);
-  if (fit.length) return { buy: false, install: fit[0], uninstall: [] };
+  if (fit.length) {
+    const id = fit[0];
+    /* a card installed onto any robot goes on the leader among the others --
+     * every one of them is a handicap -- or on nobody if it has no rival */
+    if (UPGRADE_DEFS[id].onto) {
+      const foes = st.players.filter(q => q.id !== p.id && !q.out && !q.installed.some(u => u.id === id));
+      if (!foes.length) return { buy: false, install: null, uninstall: [] };
+      foes.sort((a, b) => b.flags - a.flags || a.id - b.id);
+      return { buy: false, install: id, onto: foes[0].id, uninstall: [] };
+    }
+    return { buy: false, install: id, uninstall: [] };
+  }
   if (p.skill >= 1 && o.buy.includes(true) && p.energy >= UPGRADE_DRAW_COST + 2) return { buy: true, install: null, uninstall: [] };
   return { buy: false, install: null, uninstall: [] };
 }
@@ -311,6 +322,13 @@ export function botAnswer(st, library, req) {
       if (req.card === "waste") {
         const room = ["permanent", "temporary"].some(t => p.installed.filter(u => UPGRADE_DEFS[u.id].type === t).length < INSTALL_LIMIT[t]);
         return room ? 1 : 0;
+      }
+      /* Fireworks: at the leader among the others, while the Energy lasts */
+      if (req.card === "fireworks") {
+        if (p.energy < 2) return 0;
+        let best = 0, flags = -1;
+        req.targets.forEach((id, i) => { const q = st.players[id]; if (id !== p.id && q.flags > flags) { best = i + 1; flags = q.flags; } });
+        return best;
       }
       /* Turn & Burn's chop shop: an upgrade card while it has few to choose
        * from, else the Energy; it never scraps a card it chose to fit */
@@ -361,6 +379,11 @@ export function randomAnswer(st, library, req, salt = 0) {
       const buy = o.buy[n % o.buy.length];
       const install = o.install[hash32(n + 1) % o.install.length];
       const uninstall = o.uninstall.filter((_, i) => hash32(n + 2 + i) % 5 === 0);
+      if (install && UPGRADE_DEFS[install].onto) {
+        const free = st.players.filter(q => !q.installed.some(u => u.id === install));
+        if (free.length) return { buy, install, onto: free[hash32(n + 3) % free.length].id, uninstall };
+        return { buy, install: null, uninstall };
+      }
       return { buy, install, uninstall };
     }
     default: return req.options[n % req.options.length];

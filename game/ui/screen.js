@@ -878,13 +878,17 @@ export function mountScreen(root, ctx) {
           html += "<h2>Your shelf</h2><div class='kit shop'>" + me.shelf.map(id => {
             const d = UPGRADE_DEFS[id];
             const can = o.install.includes(id);
+            /* a card installed onto any robot: a button for each robot it can go on */
+            const onto = d.onto ? st.players.filter(q => !q.installed.some(u => u.id === id)) : null;
             return '<div class="shopcard">' + kitCardHtml({ kind: "upgrade", id, held: null, def: d }, me, false) +
-              '<button data-install="' + esc(id) + '"' + (can ? "" : " disabled") + ">Install</button></div>";
+              (onto ? onto.map(q => '<button data-install="' + esc(id) + '" data-onto="' + q.id + '"' + (can ? "" : " disabled") + ">Onto " + esc(q.id === me.id ? "yourself" : q.name) + "</button>").join("")
+                : '<button data-install="' + esc(id) + '"' + (can ? "" : " disabled") + ">Install</button>") + "</div>";
           }).join("") + "</div>";
         }
         if (me.installed.length) {
           html += "<h2>On your mat</h2><div class='kit shop'>" + me.installed.map(u => '<div class="shopcard">' + kitCardHtml({ kind: "upgrade", id: u.id, held: u, def: UPGRADE_DEFS[u.id] }, me, false) +
-            '<button data-uninstall="' + esc(u.id) + '">Uninstall</button></div>').join("") + "</div>";
+            (o.uninstall.includes(u.id) ? '<button data-uninstall="' + esc(u.id) + '">Uninstall</button>'
+              : '<button disabled title="Another robot put it on you; it comes off only as the card says">Stuck on</button>') + '</div>').join("") + "</div>";
         }
         html += "<div class='row'>" + (o.buy.includes(true) ? '<button data-buy="1">Draw an upgrade card (1 &#9889;)</button>' : "") +
           '<button class="primary" data-act="done">Done</button></div></div>';
@@ -998,7 +1002,7 @@ export function mountScreen(root, ctx) {
     if (d.stack !== undefined) return stackToggle(+d.stack);
     if (d.act === "stackDone") return answer(pick.slice());
     /* the shop: one action per press, the engine asks again while there is more to do */
-    if (d.install !== undefined) return answer({ buy: false, install: d.install, uninstall: [] });
+    if (d.install !== undefined) return answer(d.onto !== undefined ? { buy: false, install: d.install, onto: +d.onto, uninstall: [] } : { buy: false, install: d.install, uninstall: [] });
     if (d.uninstall !== undefined) return answer({ buy: false, install: null, uninstall: [d.uninstall] });
     if (d.buy !== undefined) return answer({ buy: true, install: null, uninstall: [] });
     if (d.act === "done") return answer({ buy: false, install: null, uninstall: [] });

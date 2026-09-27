@@ -2462,6 +2462,60 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "Slow Processor: a robot carrying it moves one square fewer on a Move 2 or a Move 3",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Slow Processor comes off when its robot reboots, reaches a checkpoint or shuts down",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a card installed onto another robot takes no slot there, and that robot cannot take it off",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Bad Scanner: the next checkpoint its robot would reach, it does not, and the card comes off",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Field Stabilizer: a repulsor field throws its robot one square less",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance: a robot holding it crosses a pit in the register it would fall, and spends the card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance lasts the register: a robot it leaves standing over a pit falls as the register ends",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance spares a robot on a trap door pit that activates",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fireworks: the first time in a round, 1 Energy makes any robot draw a damage card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 
