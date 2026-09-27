@@ -15,8 +15,8 @@
  *
  * `fromPicture(toPicture(b))` is asserted to be `b` for every shipped board, so
  * this is a lossless second spelling rather than a lossy report. That costs
- * three trailing sections for the things a 2h+1 x 3w+1 grid has nowhere to put:
- * levels, ceiling devices and the register sets of wall devices.
+ * trailing sections for the things a 2h+1 x 3w+1 grid has nowhere to put:
+ * levels, floor and ceiling devices and the register sets of wall devices.
  */
 
 import {
@@ -76,6 +76,12 @@ export function toPicture(board) {
   if (wd.length) {
     tail.push("wall:");
     for (const d of wd) tail.push("  " + wallLine(d));
+  }
+  if (board.floorDevices.length) {
+    tail.push("floor:");
+    for (const d of board.floorDevices) {
+      tail.push("  " + d.kind + " " + d.c + "," + d.r + (d.face !== null && d.face !== undefined ? " " + dirLetter(d.face) : "") + regsSuffix(d.regs));
+    }
   }
   if (board.ceilingDevices.length) {
     tail.push("ceiling:");
@@ -145,7 +151,7 @@ export function fromPicture(text, meta = {}) {
   for (let i = end; i < all.length; i++) {
     const line = all[i];
     if (!line.trim()) continue;
-    const head = /^(levels|sites|wall|ceiling):\s*$/.exec(line);
+    const head = /^(levels|sites|wall|floor|ceiling):\s*$/.exec(line);
     if (head) { section = head[1]; if (section === "levels") board.levels = new Int8Array(w * h); continue; }
     const body = line.trim();
     if (section === "levels") {
@@ -167,7 +173,9 @@ export function fromPicture(text, meta = {}) {
     } else if (section === "wall") {
       board.wallDevices.push(readWallLine(body));
     } else if (section === "ceiling") {
-      board.ceilingDevices.push(readCeilingLine(body));
+      board.ceilingDevices.push(readCeilingLine(body, "ceiling"));
+    } else if (section === "floor") {
+      board.floorDevices.push(readCeilingLine(body, "floor"));
     } else {
       throw new Error("line " + (i + 1) + " is outside any section: " + JSON.stringify(line));
     }
@@ -203,15 +211,17 @@ function readWallLine(s) {
   return dev;
 }
 
-function readCeilingLine(s) {
+function readCeilingLine(s, layer) {
   const parts = s.split(/\s+/);
   const kind = parts.shift();
   const def = DEVICE_KINDS[kind];
-  if (!def || def.layer !== "ceiling") throw new Error("not a ceiling device: " + JSON.stringify(kind));
+  if (!def || def.layer !== layer) throw new Error("not a " + layer + " device: " + JSON.stringify(kind));
   const m = /^(\d+),(\d+)$/.exec(parts.shift() || "");
   if (!m) throw new Error("not a square in: " + JSON.stringify(s));
   const dev = { kind, c: +m[1], r: +m[2] };
+  if (def.faced) dev.face = null;
   for (const p of parts) {
+    if (def.faced && /^[NESW]$/.test(p)) { dev.face = dirOfLetter(p); continue; }
     const rm = /^\[(\d+)\]$/.exec(p);
     if (!rm) throw new Error("unreadable in " + JSON.stringify(s) + ": " + JSON.stringify(p));
     dev.regs = rm[1].split("").map(Number);

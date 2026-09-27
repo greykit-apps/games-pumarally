@@ -15,7 +15,7 @@ import { bayNumberOf } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
 import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
-import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
+import { SETS, EDITIONS, ORIGINS, setsByYear } from "../rulesets/sets.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
 import { ART_DEFS } from "../render/palette.js";
@@ -30,7 +30,7 @@ function toolSwatch(tool) {
     const def = ELEMENTS[tool.element];
     return swatch(GLYPHS[def.key].art(ctx));
   }
-  if (tool.kind === "device" || tool.kind === "ceiling") {
+  if (tool.kind === "device" || tool.kind === "ceiling" || tool.kind === "floor") {
     return swatch(GLYPHS.floor.art(ctx) + DEVICE_GLYPHS[tool.device].art(ctx));
   }
   if (tool.kind === "site") return swatch(siteSwatch(tool.site, "art"));
@@ -167,7 +167,7 @@ function deviceRows(def, dev, slot) {
     const regs = dev.regs && dev.regs.length ? dev.regs : null;
     html += row("Registers", REGISTERS.map(v => ({ v, label: String(v) })), "reg",
       v => !regs || regs.indexOf(v) >= 0);
-    html += '<div class="row"><span class="none">Fires in ' + esc(describeRegs(regs)) +
+    html += '<div class="row"><span class="none">Acts in ' + esc(describeRegs(regs)) +
       (def.regs === "required" ? "." : ". Lighting all five means every register.") + "</span></div>";
   }
   return html;
@@ -184,7 +184,7 @@ export function renderInspector(el, st, hover, isCourse) {
   html += '<div class="row"><label>Size</label><span class="pill">' + st.board.w + " x " + st.board.h +
     "</span></div>";
   html += '<div class="row"><label>Box</label><select data-meta="set">' +
-    Object.keys(SETS).map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
+    setsByYear().map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
       esc(SETS[id].name + " \u2014 " + SETS[id].box) + "</option>").join("") + "</select></div>";
   html += '<div class="row"><label>Origin</label><select data-meta="origin">' +
     ORIGINS.map(o => '<option value="' + o + '"' + (o === st.board.origin ? " selected" : "") + ">" + o + "</option>").join("") +
@@ -245,6 +245,7 @@ export function renderInspector(el, st, hover, isCourse) {
       html += '<div class="row"><span class="pill">' + esc(tool.label) + "</span></div>";
       const t = {};
       if (tool.kind === "wall" || tool.kind === "device" ||
+          (tool.kind === "floor" && DEVICE_KINDS[tool.device].faced) ||
           (tool.kind === "ground" && tool.arg === ARG_DIR)) t.dir = st.hand.dir;
       if (tool.kind === "ground" && ELEMENTS[tool.element] && ELEMENTS[tool.element].props.belt) {
         t.arms = st.hand.arms;
@@ -262,7 +263,7 @@ export function renderInspector(el, st, hover, isCourse) {
           " Click a floor square to add it, click again to take it off; it sits alongside whatever else is marked there.</span></div>";
       }
 
-      if (tool.kind === "device" || tool.kind === "ceiling") {
+      if (tool.kind === "device" || tool.kind === "ceiling" || tool.kind === "floor") {
         const def = DEVICE_KINDS[tool.device];
         const held = { face: undefined, regs: st.hand.regs[tool.device] };
         for (const key of Object.keys(def.fields)) held[key] = st.hand[key];
@@ -311,6 +312,12 @@ export function renderInspector(el, st, hover, isCourse) {
           '<button class="count" data-devoff="' + i + '" title="Take it off">&times;</button></h3>';
         html += deviceRows(def, dev, "wd" + i);
       });
+      d.floor.forEach((dev, i) => {
+        const def = DEVICE_KINDS[dev.kind];
+        html += "<h3>" + esc(def.name) +
+          '<button class="count" data-flooroff="' + i + '" title="Take it off">&times;</button></h3>';
+        html += deviceRows(def, dev, "fd" + i);
+      });
       d.ceiling.forEach((dev, i) => {
         const def = DEVICE_KINDS[dev.kind];
         html += "<h3>" + esc(def.name) +
@@ -350,6 +357,12 @@ export function renderInspector(el, st, hover, isCourse) {
       html += "<dt>" + esc(DEVICE_KINDS[dev.kind].name) + "</dt><dd>" +
         (dev.face !== null && dev.face !== undefined ? "facing " + dirLetter(dev.face) + ", " : "") +
         esc(describeRegs(dev.regs)) + "</dd>";
+    }
+    /* a trap door is not a step at the end of the register: it is a pit
+     * through the whole of each register it lists, from the start */
+    for (const dev of d.floor) {
+      html += "<dt>" + esc(DEVICE_KINDS[dev.kind].name) + "</dt><dd>a pit " + esc(describeRegs(dev.regs)) +
+        ", from the start of the register; floor otherwise</dd>";
     }
     for (const dev of d.ceiling) {
       html += "<dt>" + esc(DEVICE_KINDS[dev.kind].name) + "</dt><dd>" + esc(describeRegs(dev.regs)) + "</dd>";
@@ -419,7 +432,7 @@ function orderFor(rules, d) {
   has.crusher = d.ceiling.some(x => x.kind === "crusher");
   has.flamer = d.ceiling.some(x => x.kind === "flamer");
   has.waste = d.sites.indexOf("waste") >= 0;
-  has.trapDoor = d.ceiling.some(x => x.kind === "trapDoor");
+  has.chopShop = d.sites.indexOf("chopShop") >= 0;
   return rules.order
     .filter(s => has[s.step])
     .map(s => s.name + (s.settled === false ? " (where this falls is not settled by the sources)" : ""));

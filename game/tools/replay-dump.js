@@ -37,7 +37,7 @@ if (!dump.trace) { console.log("no trace in this dump (" + (dump.traceNote || ""
 const T = dump.trace;
 console.log("trace: " + T.answers.length + " answers, " + T.log.length + " log lines, started " + T.started);
 
-let st = newGame(T.opts);
+let st = newGame({ ...T.opts, library });
 let r = step(st, library);
 const say = evs => { if (showLog) for (const e of evs) if (e.type === "log") console.log("  t" + st.turn + " r" + (st.register + 1) + "  " + e.msg); };
 say(r.events);

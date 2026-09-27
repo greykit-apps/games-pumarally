@@ -79,20 +79,22 @@ export const SITES = {
    * game's currency -- a point of damage is a damage card, and waste's option
    * card is an Energy or the top upgrade card installed free, which is what a
    * review of Contamination says that box gives. */
-  /* A CHOP SHOP IS HERE SO THE BOARDS CAN BE TRANSCRIBED, and does nothing in
-   * play yet -- the author's decision, 2026-09-23. Its classic rule (Ultimate
-   * RoboRally Collection p.6, a fan compilation) offers a choice of scrapping an
-   * option card for a new one, drawing one if you have none, or refilling an
-   * option's ammunition, and that last is the point of the thing: it only makes
-   * sense with Armed and Dangerous's ammunition cards, none of which is built.
-   * The 2016 reprint Turn & Burn gives an Energy, an upgrade or a swapped
-   * permanent upgrade, by a review's account. Until then a chop shop is marked
-   * where it is printed and plays as the floor it sits on. */
+  /* A CHOP SHOP PAYS OUT DIFFERENTLY UNDER EACH BOOK.
+   * Turn & Burn's own sheet (manual1/IMG_1464): a robot that ends a register
+   * on one may gain 1 Energy, draw 1 upgrade, or scrap 1 permanent upgrade to
+   * install the top card of the upgrade deck at no cost. The classic rule
+   * (Ultimate RoboRally Collection p.6, a fan compilation): scrap an option
+   * card for another, refill one's payload, or draw one if the robot has
+   * none. Built 2026-09-27 at the author's word; of the cards with a payload
+   * only Ablative Coat and Turbo Blaster are built, Armed and Dangerous's
+   * ammunition weapons still are not. */
   chopShop: {
     name: "Chop shop", short: "a chop shop", printedIn: BOTH,
     place: "rest", props: { chopShop: true },
-    source: "Grand Prix; Turn & Burn; the 30th Anniversary boards. Transcribable, and no effect in " +
-            "play yet: it waits for the Armed and Dangerous ammunition cards its refill needs."
+    source: "Grand Prix; Turn & Burn; the 30th Anniversary boards. 2016: at the end of a register, " +
+            "1 Energy, an upgrade, or a permanent upgrade swapped for the top card free (Turn & Burn, " +
+            "manual1/IMG_1464). Classic: scrap an option for another, refill one's payload, or draw one if the " +
+            "robot has none (Ultimate RoboRally Collection p.6, a fan compilation)."
   },
   radiation: {
     name: "Radiation", short: "radiation", printedIn: BOTH,

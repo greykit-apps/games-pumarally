@@ -11,6 +11,7 @@ import LIVERY_DATA from "../data/liveries.js";
 import OPTIONS_DATA from "../data/options.js";
 import UPGRADES_DATA from "../data/upgrades.js";
 import { newHeld } from "./options.js";
+import { buildCourse, courseHas } from "./course.js";
 
 export const LIVERIES = LIVERY_DATA.liveries;
 /* The colour a human seat gets unless it asks for another: Coolant, the
@@ -106,6 +107,10 @@ export function newGame(opts) {
      * card and player; cleared at the end of every turn */
     answers: {},
     elem: 0,
+    /* the register whose START has run -- its header, and the trap doors
+     * that open under whoever stands on them -- as "turn:register", so a
+     * reveal re-entered after a question does not run it twice */
+    opened: null,
     laser: null,
     log: [],
     events: [],
@@ -154,6 +159,9 @@ export function newGame(opts) {
       energy: modern ? START_ENERGY : 0,
       deck: [], pile: [],
       shelf: [], installed: [],
+      /* Turn & Burn: the register a Pit Trap Dance spares it in, and the
+       * checkpoint a Bad Scanner kept it from, each as "turn:register..." */
+      danced: null, scanned: null,
       rebooting: false, fellFrom: -1,                 // the stamp it fell from: its Reboot Token is that board's
       upgradeDone: false, bought: false, fitted: false,
       /* Crab Legs' second card per register, Memory Cards' parked cards,
@@ -176,7 +184,14 @@ export function newGame(opts) {
     }
     for (let i = 0; i < MODERN_DAMAGE.length; i++) st.damageDeck.push(MODERN_DAMAGE_FIRST + i);
     shuffle(st, st.damageDeck);
-    st.upgradeDeck = UPGRADES_DATA.cards.map(c => c.id);
+    /* a card about a board element -- Fireworks and its chop shops -- is left
+     * out of the deck when the course prints none of that element (the
+     * author, 2026-09-27). Without the library the course cannot be read, and
+     * such a card is left out rather than dealt into a game it may not fit.
+     * The roster is kept, so what the table holds can be counted. */
+    const C = opts.library ? buildCourse(opts.course, opts.library) : null;
+    st.upgradeRoster = UPGRADES_DATA.cards.filter(c => !c.needs || (C && courseHas(C, c.needs))).map(c => c.id);
+    st.upgradeDeck = st.upgradeRoster.slice();
     shuffle(st, st.upgradeDeck);
     for (let q = 0; q < UPGRADE_START; q++) for (const p of st.players) { const id = st.upgradeDeck.pop(); if (id !== undefined) p.shelf.push(id); }
   } else {

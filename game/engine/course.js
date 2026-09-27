@@ -8,10 +8,10 @@
  */
 import { assemble } from "../../editor/lib/course.js";
 import {
-  inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt,
-  deviceCell, blockedAt, laserPath, repulsorOn
+  inBoard, isVoid, propAt, cellAt, beltDir, docksOf, wallDevicesAt, ceilingAt, floorAt,
+  deviceCell, blockedAt, laserPath, repulsorOn, fieldFacing
 } from "../../editor/lib/board.js";
-import { edgeOf } from "../../editor/lib/edges.js";
+import { edgeOf, edgeCodeAt, EDGE_WALL } from "../../editor/lib/edges.js";
 import { beltTurn, tokenBeltSpeed, tokenElement } from "../../editor/lib/token.js";
 import { firesIn } from "../../editor/lib/registers.js";
 import { levelAt } from "../../editor/lib/board.js";
@@ -109,8 +109,14 @@ export function rebootTokenOn(C, stamp) {
 
 /* --- square questions ------------------------------------------------------- */
 
-export function isHole(C, c, r) {
-  return !inBoard(C.grid, c, r) || isVoid(C.grid, c, r) || !!propAt(C.grid, c, r, "pit");
+/**
+ * A square a robot falls into. `register` (0-based) is passed only while the
+ * registers are running: an active trap door is a pit then, and is floor at
+ * every other moment -- programming, cleanup, a reboot between rounds.
+ */
+export function isHole(C, c, r, register) {
+  return !inBoard(C.grid, c, r) || isVoid(C.grid, c, r) || !!propAt(C.grid, c, r, "pit") ||
+    (register !== undefined && register !== null && trapDoorActive(C, c, r, register));
 }
 
 export function inGrid(C, c, r) { return inBoard(C.grid, c, r) && !isVoid(C.grid, c, r); }
@@ -143,6 +149,15 @@ export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize
 export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
 /* Radioactive's two colours of deck, markings rather than elements (sites.js) */
 export function radiationAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "radiation"); }
+/** Does any square of the course carry this property -- a chop shop, a pit, a belt? */
+export function courseHas(C, name) {
+  for (let r = 0; r < C.grid.h; r++) for (let c = 0; c < C.grid.w; c++) if (propAt(C.grid, c, r, name)) return true;
+  return false;
+}
+
+/** A chop shop marked on (c,r). */
+export function chopShopAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "chopShop"); }
+
 export function wasteAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "waste"); }
 
 /* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two
@@ -169,9 +184,25 @@ export function flamerFires(C, c, r, register) {
 /** The other end of the portal at (c,r), as [c, r], or null when the square is not a paired portal. */
 export function portalTwin(C, c, r) { return C.portals.get(c + "," + r) || null; }
 
-/** A repulsor field on the edge between (c,r) and its neighbour in `dir`. */
+/** A repulsor field on the edge between (c,r) and its neighbour in `dir`, whichever square it is in. */
 export function repulsorAt(C, c, r, dir) {
   return inBoard(C.grid, c, r) && repulsorOn(C.grid, edgeOf(c, r, dir));
+}
+
+/**
+ * Does a robot at (c,r) moving `dir` run into a repulsor field -- and so get
+ * thrown back -- rather than a wall? It does when its own square's field lies
+ * along that edge; and, crossing INTO a field's square from outside (the
+ * author's ruling, 2026-09-27), when no wall is printed on the outside to
+ * meet first. Bounce House prints exactly that wall: from its side, a Move 3
+ * stops two squares on, and nothing throws it back.
+ */
+export function fieldHit(C, c, r, dir) {
+  if (!inBoard(C.grid, c, r)) return false;
+  if (fieldFacing(C.grid, c, r, dir)) return true;
+  const [nc, nr] = [c + DC[dir], r + DR[dir]];
+  if (!inBoard(C.grid, nc, nr) || !fieldFacing(C.grid, nc, nr, opposite(dir))) return false;
+  return edgeCodeAt(C.grid, edgeOf(c, r, dir)) !== EDGE_WALL;
 }
 
 /** A wall or a shut door between (c,r) and its neighbour in `dir`; register is 0-based. */
@@ -192,9 +223,12 @@ export function crusherFires(C, c, r, register) {
   return ceilingAt(C.grid, c, r, "crusher").some(d => firesIn(d.regs || null, (register | 0) + 1));
 }
 
-/** A trap door under (c,r) that opens at the end of this 0-based register. */
-export function trapDoorOpens(C, c, r, register) {
-  return inBoard(C.grid, c, r) && ceilingAt(C.grid, c, r, "trapDoor").some(d => firesIn(d.regs || null, (register | 0) + 1));
+/**
+ * A trap door pit at (c,r) that is active in this 0-based register: a pit for
+ * the whole register, from its start (Turn & Burn, manual1/IMG_1465).
+ */
+export function trapDoorActive(C, c, r, register) {
+  return inBoard(C.grid, c, r) && floorAt(C.grid, c, r, "trapDoor").some(d => firesIn(d.regs || null, (register | 0) + 1));
 }
 
 /**

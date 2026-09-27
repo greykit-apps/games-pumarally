@@ -41,7 +41,7 @@ export function printingsOn(board) {
     const def = ELEMENTS[tok.charAt(0)];
     if (def && def.printedIn.length === 1) seen.add(def.printedIn[0]);
   }
-  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) {
+  for (const dev of [...board.wallDevices, ...board.floorDevices, ...board.ceilingDevices]) {
     const def = DEVICE_KINDS[dev.kind];
     if (def && def.printedIn.length === 1) seen.add(def.printedIn[0]);
   }
@@ -69,7 +69,7 @@ export function firstPrintedOnlyIn(board, edition) {
       }
     }
   }
-  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) {
+  for (const dev of [...board.wallDevices, ...board.floorDevices, ...board.ceilingDevices]) {
     const def = DEVICE_KINDS[dev.kind];
     if (def && def.printedIn.length === 1 && def.printedIn[0] === edition) {
       return { what: def.name, where: null };

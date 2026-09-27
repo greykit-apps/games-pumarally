@@ -24,11 +24,11 @@ import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
-  wastePass, radiationPass, trapDoorPass } from "./rules.js";
+  wastePass, radiationPass, trapDoorsActivate, chopShopPass, destroy } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
-import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy } from "./upgrades.js";
+import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy, removable, shed } from "./upgrades.js";
 import { step as stepCell, rot } from "../../editor/lib/dir.js";
 
 /* The board's turn, in the classic printed order. Each name is a pass in
@@ -48,9 +48,9 @@ export const CLASSIC_ORDER = [
   /* Radioactive's waste hurts with the laser fire and pays out at the
    * checkpoints; after the burners and before the flags is both at once */
   ["waste", wastePass],
-  /* Grand Prix's trap doors open at the end of the register (the author's
-   * reading), so they are the board's last act before the flags */
-  ["trapDoors", trapDoorPass],
+  /* no trap doors here: they act at the START of a register, in `reveal` */
+  /* Grand Prix's chop shops, with the flags (the fan compilation) */
+  ["chopShops", chopShopPass],
   ["touch", checkpointPass]
 ];
 
@@ -73,9 +73,11 @@ export const MODERN_ORDER = [
   /* Contamination's waste, on the classic timing (ours): with the end-of-
    * register damage, before the batteries and the checkpoints */
   ["waste", wastePass],
-  /* Turn & Burn's trap doors, at the end of the register: before the
-   * batteries and the checkpoints, so a robot falling through gets neither */
-  ["trapDoors", trapDoorPass],
+  /* Turn & Burn's trap doors are not a step here: they activate at the START
+   * of a register printed on them, which `reveal` runs (manual1/IMG_1465) */
+  /* Turn & Burn's chop shops pay a robot that ends the register on one; the
+   * classic chop shop is inert, and its pass does nothing under that book */
+  ["chopShops", chopShopPass],
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -89,7 +91,7 @@ export const PASS_LABELS = {
   express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
   lasers: "Lasers", burners: "Flame jets", touch: "Flags",
   blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
-  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste", trapDoors: "Trap doors"
+  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste", chopShops: "Chop shops"
 };
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }
@@ -251,6 +253,10 @@ const REQUESTS = {
       const o = req.options;
       if (a.buy !== undefined && (typeof a.buy !== "boolean" || !o.buy.includes(a.buy))) return false;
       if (a.install !== undefined && a.install !== null && !o.install.includes(a.install)) return false;
+      /* a card installed onto any robot names the robot; no other card does */
+      const onto = a.install ? UPGRADE_DEFS[a.install].onto : null;
+      if (onto && !(Number.isInteger(a.onto) && a.onto >= 0 && a.onto < st.players.length && !st.players[a.onto].installed.some(u => u.id === a.install))) return false;
+      if (!onto && a.onto !== undefined) return false;
       if (a.uninstall !== undefined && !(Array.isArray(a.uninstall) && a.uninstall.every(id => o.uninstall.includes(id)) && new Set(a.uninstall).size === a.uninstall.length)) return false;
       return true;
     },
@@ -258,7 +264,7 @@ const REQUESTS = {
       const p = st.players[req.player];
       for (const id of a.uninstall || []) uninstallUpgrade(st, p, id);
       if (a.buy) { if (buyUpgrade(st, p)) p.bought = true; }
-      if (a.install) { if (installUpgrade(st, p, a.install)) p.fitted = true; }
+      if (a.install) { if (installUpgrade(st, p, a.install, a.onto)) p.fitted = true; }
       /* an install, or an empty answer, is Done; a draw or an uninstall on
        * its own is asked again so the phase can go on */
       const acted = a.buy || (a.uninstall && a.uninstall.length);
@@ -345,6 +351,7 @@ function takeBay(st, p, dock, C) {
  */
 export function shutdown(st, p) {
   p.poweredDown = true;
+  shed(st, p, "slowProcessor", "shuts down");
   let scrapped = 0;
   for (let i = 0; i < REGISTERS; i++) {
     const ci = p.registers[i];
@@ -670,7 +677,8 @@ const STEPS = {
         if (p.parked.length) { p.hand = p.hand.concat(p.parked); log(st, p.name + " takes " + p.parked.length + " cards back from its Memory Cards"); p.parked = []; }
         const buy = !p.bought && p.energy >= UPGRADE_DRAW_COST && (st.upgradeDeck.length + st.upgradeDiscard.length) > 0 ? [false, true] : [false];
         const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id, st.players.length)));
-        const uninstall = p.installed.map(u => u.id);
+        /* not a card another robot installed onto this one: it comes off only as it says */
+        const uninstall = removable(p);
         if (buy.length === 1 && install.length === 1 && !uninstall.length) { p.upgradeDone = true; continue; }
         ask(st, p, "upgrade", { buy, install, uninstall }, { energy: p.energy });
         return;
@@ -735,10 +743,25 @@ const STEPS = {
      * priority first, unique across the deck; 2016, the Priority Token's seat
      * and then round the table, the same for all five registers, with a
      * rebooting robot in its place in register 1 so it has a moment to land */
-    reveal(st) {
+    reveal(st, C) {
+      /* THE START OF THE REGISTER, once: its header, then any trap door
+       * printed with this register activates under whoever is standing on
+       * it, who is lost before it can move (Turn & Burn, manual1/IMG_1465).
+       * Before the options' reveal hooks and before the order is drawn up,
+       * so a robot that fell has no card to play this register. */
+      const mark = st.turn + ":" + st.register;
+      let fell = [];
+      if (st.opened !== mark) {
+        st.opened = mark;
+        st.events.push({ type: "register", register: st.register, turn: st.turn });
+        log(st, "-- register " + (st.register + 1) + " --");
+        fell = trapDoorsActivate(st, C);
+      }
       let q;
       if (isModern(st)) {
-        q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0)).map(p => p.id);
+        /* a robot the doors took this moment is rebooting, and must not be
+         * mistaken for one landing from last round's reboot */
+        q = priorityOrder(st).filter(p => !fell.includes(p.id) && ((p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0))).map(p => p.id);
       } else {
         /* the cards that change what is in the register before it is turned
          * over -- an Emergency Switch, a Command in Reserve -- act now, so
@@ -780,8 +803,6 @@ const STEPS = {
       st.queue = q;
       for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
       st.elem = 0;
-      st.events.push({ type: "register", register: st.register, turn: st.turn });
-      log(st, "-- register " + (st.register + 1) + " --");
       go(st, "exec", "move");
     },
     /* peek rather than shift: a card can ask a question before its robot
@@ -998,8 +1019,17 @@ const STEPS = {
       }
       go(st, "exec", "endReg");
     },
-    endReg(st) {
+    endReg(st, C) {
       if (st.over) return;
+      /* a Pit Trap Dance lasts the register: a robot it left standing over a
+       * pit falls as the register ends. A trap door is the next register's
+       * business, at its start. */
+      const mark = st.turn + ":" + st.register;
+      for (const p of alive(st)) {
+        if (p.danced !== mark) continue;
+        p.danced = null;
+        if (isHole(C, p.c, p.r)) { log(st, p.name + "'s dance is over"); destroy(st, C, p, "into a pit"); }
+      }
       /* what a card granted for this register alone */
       for (const p of st.players) { p.phasing = 0; p.opposite = null; p.substitute = null; }
       st.register++;

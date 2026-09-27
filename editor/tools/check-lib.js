@@ -27,7 +27,7 @@ import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
 import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
-import { SETS, EDITIONS } from "../rulesets/sets.js";
+import { SETS, EDITIONS, setsByYear, setTitle } from "../rulesets/sets.js";
 import { rulesetFor, rulesetIds, printingsOn } from "../rulesets/index.js";
 import { SITES, SITE_ORDER, canonSites, checkSites, siteProps } from "../rulesets/sites.js";
 
@@ -117,8 +117,11 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
 
 /* --- devices and sets ----------------------------------------------------- */
 for (const [k, d] of Object.entries(DEVICE_KINDS)) {
-  ok(d.layer === "wall" || d.layer === "ceiling", "devices: " + k + " names a layer");
+  ok(d.layer === "wall" || d.layer === "floor" || d.layer === "ceiling", "devices: " + k + " names a layer");
+  /* a ceiling device comes down from above and faces nowhere; a floor device
+   * faces only when it lies along one of its square's edges (a repulsor field) */
   ok(!(d.layer === "ceiling" && d.faced), "devices: " + k + " -- no ceiling device has a face");
+  ok(!(d.layer === "floor" && d.faced && d.ownsSquare), "devices: " + k + " -- a floor device that is the whole square faces nowhere");
   ok(Array.isArray(d.printedIn) && !d.editions, "devices: " + k + " records its printing as provenance");
   /* `playsIn` may be WIDER than `printedIn` and may never be narrower: a book
    * always resolves what it prints. Widening it is a substitute of ours, and
@@ -140,6 +143,24 @@ for (const [k, d] of Object.entries(DEVICE_KINDS)) {
 
 for (const [id, s] of Object.entries(SETS)) {
   ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real printing");
+}
+/* the setup screen shelves the boxes by release year under their titles: every
+ * box has a year, the order never goes back in time, and no two shelves share
+ * a heading (two "Modern base game" shelves were the reason for the year) */
+for (const [id, s] of Object.entries(SETS)) {
+  if (s.tint !== undefined) ok(/^#[0-9a-f]{6}$/.test(s.tint), "sets: " + id + "'s tint is a colour");
+  if (id === "authored" || id === "modernUnfiled") ok(s.year === undefined, "sets: " + id + " is no box and has no year");
+  else ok(Number.isInteger(s.year) && s.year >= 1994, "sets: " + id + " records the year its box came out");
+}
+{
+  const order = setsByYear();
+  eq(order.length, Object.keys(SETS).length, "sets: the year order lists every set once");
+  const ys = order.map(id => SETS[id].year === undefined ? Infinity : SETS[id].year);
+  ok(ys.every((y, i) => i === 0 || y >= ys[i - 1]), "sets: oldest box first, and a set with no year last");
+  const titles = order.map(setTitle);
+  eq(titles.length, new Set(titles).size, "sets: every shelf heading is different");
+  eq([setTitle("modern2016"), setTitle("modernBase"), setTitle("classic2005"), setTitle("origins99")], ["Modern base game (2016)", "Modern base game (2023)", "2005", "Origins '99"],
+    "sets: the two modern base games are told apart by year, and a name that is a year is not repeated");
 }
 
 /* Facts about a flame jet, off the Crash and Burn sheet and board G. Each is a
@@ -282,6 +303,7 @@ function fixture() {
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 1, r: 2 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 4, r: 1 }, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 1, r: 3, regs: [2, 4] });
+  b.floorDevices.push({ kind: "trapDoor", c: 4, r: 3, regs: [1, 3] });
   return b;
 }
 
@@ -368,6 +390,11 @@ for (let q = 1; q <= 3; q++) {
     const moved = rr.ceilingDevices[i];
     if (JSON.stringify([moved.c, moved.r]) !== JSON.stringify(mapCell(dev.c, dev.r))) bad.push(dev.kind + " cell");
   });
+  b.floorDevices.forEach((dev, i) => {
+    const moved = rr.floorDevices[i];
+    if (JSON.stringify([moved.c, moved.r]) !== JSON.stringify(mapCell(dev.c, dev.r))) bad.push(dev.kind + " cell");
+  });
+  if (!b.floorDevices.length) bad.push("the fixture carries no floor device, so its rotation is not checked");
   eq(bad, [], "rotate q" + q + ": every device keeps its square and turns with the board");
 
   // and the beam itself: same squares, mapped

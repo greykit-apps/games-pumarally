@@ -18,7 +18,7 @@ import { DEVICE_KINDS } from "../rulesets/devices.js";
 import { SITES } from "../rulesets/sites.js";
 import { ARM_CODES } from "../lib/token.js";
 import {
-  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList, hasSite, repulsorOn, oneWaysOn
+  idx, inBoard, isVoid, cellAt, elementAt, levelAt, deviceCell, laserPath, siteList, hasSite, oneWaysOn
 } from "../lib/board.js";
 import { EDGE_WALL, EDGE_DOOR, edgeId } from "../lib/edges.js";
 import { isLedge, levelStep, rampsOf } from "../lib/levels.js";
@@ -299,17 +299,12 @@ const WT = CELL * 0.19;
 function wallLayer(board, mode) {
   const bars = [], doors = [];
   const push = (list, x, y, w, h, vertical) => list.push({ x, y, w, h, vertical });
-  /* A REPULSOR FIELD AND A ONE-WAY WALL ARE THE WALL'S OWN PICTURE, as a
-   * door's dashes are the door's. The lattice carries a `#` under each,
-   * because to a mover, a beam and a laser mount the edge IS walled -- but the
-   * print shows a capsule of lightning on the line, or a red-and-green wall,
-   * and no plain masonry; the device layer draws both astride the edge.
-   * Drawing the bar as well put a wall directly behind the field, which read
-   * as a wall with a gadget on it, and left grey showing past the bands. */
-  const field = (kind, c, r) => {
-    const edge = { kind, c, r };
-    return repulsorOn(board, edge) || oneWaysOn(board, edge).length > 0;
-  };
+  /* A ONE-WAY WALL IS THE WALL'S OWN PICTURE, as a door's dashes are the
+   * door's: the lattice carries a `#` under it, but the print shows a
+   * red-and-green wall and no plain masonry, which the device layer draws
+   * astride the edge. (A repulsor field is no longer here: it is an item in
+   * its square, and a `#` beside one is a printed wall that draws as one.) */
+  const field = (kind, c, r) => oneWaysOn(board, { kind, c, r }).length > 0;
   for (let r = 0; r <= board.h; r++) {
     for (let c = 0; c < board.w; c++) {
       const code = board.wallH[r * board.w + c];
@@ -439,6 +434,26 @@ function beamLayer(board, mode) {
   return out;
 }
 
+/* A trap door is the floor of its square, so it is drawn with the floor --
+ * under the markings, the walls and everything standing on it -- with its
+ * register stamp, as a crusher's is. */
+function floorDeviceLayer(board, mode) {
+  let out = "";
+  for (const dev of board.floorDevices) {
+    const glyph = DEVICE_GLYPHS[dev.kind];
+    if (!inBoard(board, dev.c, dev.r)) continue;
+    if (!glyph || typeof glyph[mode] !== "function") {
+      throw new Error("no " + mode + " glyph for floor device " + dev.kind);
+    }
+    /* a faced one -- a repulsor field -- is drawn along its square's south
+     * edge and turned to the edge it faces */
+    const turn = dev.face !== null && dev.face !== undefined ? spin((dev.face + 2) % 4) : "";
+    out += g(at(dev.c, dev.r) + turn, glyph[mode]({ regs: dev.regs }));
+    if (mode === "art" && dev.regs) out += g(at(dev.c, dev.r), stampArt(dev.regs));
+  }
+  return out;
+}
+
 function deviceLayer(board, mode) {
   let out = "";
   for (const dev of board.wallDevices) {
@@ -528,6 +543,7 @@ export function boardSVG(board, opts = {}) {
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
     (o.mode === "art" ? pitLayer(board) + oilLayer(board) : "") +
+    floorDeviceLayer(board, o.mode) +
     siteLayer(board, o.mode, o) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +

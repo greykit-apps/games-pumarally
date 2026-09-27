@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorOpens, repulsorAt } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorActive, fieldHit } from "./course.js";
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -65,7 +65,7 @@ function ghostMove(st, C, g, dir) {
   if (levelStepAt(C, g.c, g.r, dir) > 0 && !rampBetween(C, g.c, g.r, dir)) return;
   const [nc, nr] = stepCell(g.c, g.r, dir);
   g.c = nc; g.r = nr;
-  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
+  if (!inGrid(C, nc, nr) || isHole(C, nc, nr, g.reg)) { g.dead = true; return; }
   /* the ghost ignores other robots, so a portal always fires for it */
   const twin = portalTwin(C, nc, nr);
   if (twin) { g.c = twin[0]; g.r = twin[1]; }
@@ -95,12 +95,12 @@ function ghostCard(st, C, g, cd) {
   if (teleporterAt(C, g.c, g.r) && plan.dist !== 0) {
     const jump = plan.dist > 0 ? plan.dist + 2 : 2;
     const [tc, tr] = [g.c + [0, 1, 0, -1][g.face] * jump, g.r + [-1, 0, 1, 0][g.face] * jump];
-    if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr)) g.dead = true; return; }
+    if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr, g.reg)) g.dead = true; return; }
   }
   let moved = 0;
   for (let i = 0; i < n && !g.dead; i++) {
     /* a repulsor field ahead throws the ghost back as far as the card, and the move ends */
-    if (repulsorAt(C, g.c, g.r, dir)) { for (let k = 0; k < Math.abs(plan.dist) && !g.dead; k++) ghostMove(st, C, g, opposite(dir)); break; }
+    if (fieldHit(C, g.c, g.r, dir)) { for (let k = 0; k < Math.abs(plan.dist) && !g.dead; k++) ghostMove(st, C, g, opposite(dir)); break; }
     ghostMove(st, C, g, dir); moved++;
   }
   if (moved > 0 && !g.dead && oilAt(C, g.c, g.r)) ghostSlide(st, C, g, dir);
@@ -114,7 +114,7 @@ function ghostBelt(st, C, g, lo, hi) {
   if (wallBlocks(C, g.c, g.r, d, g.reg) || railed(st, C, g.c, g.r, d)) return;
   const [nc, nr] = stepCell(g.c, g.r, d);
   g.c = nc; g.r = nr;
-  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
+  if (!inGrid(C, nc, nr) || isHole(C, nc, nr, g.reg)) { g.dead = true; return; }
   if (beltAt(C, nc, nr)) {
     const t = beltTurnFor(C, nc, nr, d);
     if (t === 1 || t === -1) g.face = rot(g.face, t);
@@ -131,8 +131,6 @@ function ghostBoard(st, C, g) {
   if (g.dead) return;
   const t = gearAt(C, g.c, g.r);
   if (t) g.face = rot(g.face, t);
-  /* the board's last act: a trap door opening under the ghost is a pit */
-  if (trapDoorOpens(C, g.c, g.r, g.reg)) g.dead = true;
 }
 
 /* flags touched along the way count, so a program that clips flag N on
@@ -173,6 +171,8 @@ export function botProgram(st, C, p, count) {
       for (let h = 0; h < p.hand.length; h++) {
         if (node.used & (1 << h)) continue;
         const g = { ...node.g, reg };
+        /* a trap door active this register takes the ghost before it moves */
+        if (!g.dead && trapDoorActive(C, g.c, g.r, reg)) g.dead = true;
         const cd = card(st, p.hand[h]);
         /* programming a SPAM is how you get rid of one: a small credit, and
          * the ghost stands still for the blind draw */
@@ -273,7 +273,18 @@ export function botUpgrade(st, p, req) {
   const o = req.options;
   const fit = o.install.filter(id => id !== null && canInstall(p, id, st.players.length) && p.energy - costOf(UPGRADE_DEFS[id], st.players.length) >= 1)
     .sort((a, b) => (UPGRADE_DEFS[b].built ? 1 : 0) - (UPGRADE_DEFS[a].built ? 1 : 0) || UPGRADE_DEFS[a].cost - UPGRADE_DEFS[b].cost);
-  if (fit.length) return { buy: false, install: fit[0], uninstall: [] };
+  if (fit.length) {
+    const id = fit[0];
+    /* a card installed onto any robot goes on the leader among the others --
+     * every one of them is a handicap -- or on nobody if it has no rival */
+    if (UPGRADE_DEFS[id].onto) {
+      const foes = st.players.filter(q => q.id !== p.id && !q.out && !q.installed.some(u => u.id === id));
+      if (!foes.length) return { buy: false, install: null, uninstall: [] };
+      foes.sort((a, b) => b.flags - a.flags || a.id - b.id);
+      return { buy: false, install: id, onto: foes[0].id, uninstall: [] };
+    }
+    return { buy: false, install: id, uninstall: [] };
+  }
   if (p.skill >= 1 && o.buy.includes(true) && p.energy >= UPGRADE_DRAW_COST + 2) return { buy: true, install: null, uninstall: [] };
   return { buy: false, install: null, uninstall: [] };
 }
@@ -311,6 +322,22 @@ export function botAnswer(st, library, req) {
       if (req.card === "waste") {
         const room = ["permanent", "temporary"].some(t => p.installed.filter(u => UPGRADE_DEFS[u.id].type === t).length < INSTALL_LIMIT[t]);
         return room ? 1 : 0;
+      }
+      /* Fireworks: at the leader among the others, while the Energy lasts */
+      if (req.card === "fireworks") {
+        if (p.energy < 2) return 0;
+        let best = 0, flags = -1;
+        req.targets.forEach((id, i) => { const q = st.players[id]; if (id !== p.id && q.flags > flags) { best = i + 1; flags = q.flags; } });
+        return best;
+      }
+      /* Turn & Burn's chop shop: an upgrade card while it has few to choose
+       * from, else the Energy; it never scraps a card it chose to fit */
+      if (req.card === "chopShop") {
+        /* classic: refill whatever is running low, and never scrap a card */
+        if (req.tag === "classic") return req.options.includes(2) ? 2 : 0;
+        if (req.tag === "refill") return req.options[0];
+        if (req.tag === "scrap") return req.options[0];
+        return p.shelf.length < 2 ? 1 : 0;
       }
       if (!req.exchange) return botCardPick(req);
       /* a card is worth a point only when the point would be the tenth */
@@ -355,6 +382,11 @@ export function randomAnswer(st, library, req, salt = 0) {
       const buy = o.buy[n % o.buy.length];
       const install = o.install[hash32(n + 1) % o.install.length];
       const uninstall = o.uninstall.filter((_, i) => hash32(n + 2 + i) % 5 === 0);
+      if (install && UPGRADE_DEFS[install].onto) {
+        const free = st.players.filter(q => !q.installed.some(u => u.id === install));
+        if (free.length) return { buy, install, onto: free[hash32(n + 3) % free.length].id, uninstall };
+        return { buy, install: null, uninstall };
+      }
       return { buy, install, uninstall };
     }
     default: return req.options[n % req.options.length];

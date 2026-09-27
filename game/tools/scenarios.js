@@ -2320,43 +2320,55 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
-    "name": "a trap door opens at the end of a register it lists, and a robot still on it falls",
+    "name": "a trap door pit activates at the start of a register it lists, and a robot on it is lost before it can move",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a robot may step onto a trap door in the register before it opens, and off it in the register it opens",
+    "name": "a robot lost to a trap door pit at the start of register 1 does not land again that round",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a robot may cross a trap door in the very register it opens",
+    "name": "a robot cannot cross a trap door pit in a register it is active",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a trap door is floor in the registers it does not list",
+    "name": "a trap door pit is open floor in the registers it does not list",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a conveyor that leaves a robot on an opening trap door drops it",
+    "name": "a conveyor that carries a robot onto an active trap door pit drops it",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "the trap doors are the board's last act, before the checkpoints, in both books",
+    "name": "a robot pushed onto an active trap door pit falls",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
   },
   {
-    "name": "a trap door must name the registers it opens in",
+    "name": "trap door pits are not a step of the board's turn, in either book",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door pit must name the registers it is active in",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a trap door pit is the floor of its square",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
@@ -2398,6 +2410,18 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
+    "name": "a wall printed behind a repulsor field stops a robot from that side, and nothing throws it back",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a repulsor field is an item in its square, facing the edge it lies along",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
     "name": "a robot cannot phase through a repulsor field",
     "layer": "rules",
     "status": "ported",
@@ -2416,7 +2440,121 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
-    "name": "a chop shop is marked on the board and does nothing in play yet",
+    "name": "a classic robot with no option card is given one at a chop shop",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot at a chop shop may scrap an option card for another",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot at a chop shop may refill an option card's payload",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic chop shop offers no refill when nothing is short of payload",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot may leave a chop shop alone",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot that ends a register on a chop shop may take an Energy",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot that ends a register on a chop shop may draw an upgrade card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot on a chop shop may scrap a permanent upgrade and install the top card free",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a chop shop offers no scrap to a robot with no permanent upgrade",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a shut-down robot on a chop shop takes nothing",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Slow Processor: a robot carrying it moves one square fewer on a Move 2 or a Move 3",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Slow Processor comes off when its robot reboots, reaches a checkpoint or shuts down",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a card installed onto another robot takes no slot there, and that robot cannot take it off",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Bad Scanner: the next checkpoint its robot would reach, it does not, and the card comes off",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Field Stabilizer: a repulsor field throws its robot one square less",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance: a robot holding it crosses a pit in the register it would fall, and spends the card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance lasts the register: a robot it leaves standing over a pit falls as the register ends",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Pit Trap Dance spares a robot on a trap door pit that activates",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "Fireworks: the first time in a round, 1 Energy makes any robot draw a damage card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "an upgrade about a chop shop is only in the deck on a course that prints one",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"

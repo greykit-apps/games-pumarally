@@ -103,7 +103,7 @@ export function sortWallDevices(list) {
 /** Ceiling devices in canonical order: row-major, then kind alphabetically. */
 export function sortCeilingDevices(list) {
   return [...list].sort((a, b) =>
-    a.r - b.r || a.c - b.c || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0));
+    a.r - b.r || a.c - b.c || (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0) || ((a.face | 0) - (b.face | 0)));
 }
 
 function wallDeviceLine(dev) {
@@ -124,6 +124,7 @@ function wallDeviceLine(dev) {
 
 function ceilingDeviceLine(dev) {
   const parts = ['"kind": ' + q(dev.kind), '"at": [' + dev.c + ", " + dev.r + "]"];
+  if (dev.face !== null && dev.face !== undefined) parts.push('"face": ' + q(dirLetter(dev.face)));
   const regs = canonRegs(dev.regs);
   if (regs) parts.push('"regs": [' + regs.join(", ") + "]");
   if (dev.note) parts.push('"note": ' + q(dev.note));
@@ -159,17 +160,20 @@ export function stringifyBoard(board) {
   const levels = levelRows(board);
   const ramps = hasRamps(board);
   const sites = siteList(board);
+  /* the floor devices -- trap doors -- last in the ground layer, and omitted
+   * from a board with none, so every board without one is byte-identical */
+  const fd = sortCeilingDevices(board.floorDevices || []);
   put('  "ground": {', "/ground");
   put('    "rows": [', "/ground/rows");
   const rows = groundRows(board);
   rows.forEach((row, i) =>
     put('      ' + q(row) + (i < rows.length - 1 ? "," : ""), "/ground/rows/" + i));
-  put("    ]" + (levels || ramps || sites.length ? "," : ""));
+  put("    ]" + (levels || ramps || sites.length || fd.length ? "," : ""));
   if (levels) {
     put('    "levels": [', "/ground/levels");
     levels.forEach((row, i) =>
       put('      ' + q(row) + (i < levels.length - 1 ? "," : ""), "/ground/levels/" + i));
-    put("    ]" + (ramps || sites.length ? "," : ""));
+    put("    ]" + (ramps || sites.length || fd.length ? "," : ""));
   }
   /* the ramp lattices, omitted entirely from a board with no ramp, so a board
    * written before ramps had a lattice is byte-identical still */
@@ -179,7 +183,7 @@ export function stringifyBoard(board) {
       put('    "' + key + '": [', "/ground/" + key);
       rs.forEach((row, i) =>
         put('      ' + q(row) + (i < rs.length - 1 ? "," : ""), "/ground/" + key + "/" + i));
-      put("    ]" + (key === "rampH" || sites.length ? "," : ""));
+      put("    ]" + (key === "rampH" || sites.length || fd.length ? "," : ""));
     }
   }
   if (sites.length) {
@@ -191,6 +195,12 @@ export function stringifyBoard(board) {
           ? ', "note": ' + q(board.siteNotes.get(s2.c + "," + s2.r)) : "") +
         " }" + (i < sites.length - 1 ? "," : ""),
         "/ground/sites/" + i));
+    put("    ]" + (fd.length ? "," : ""));
+  }
+  if (fd.length) {
+    put('    "devices": [', "/ground/devices");
+    fd.forEach((dev, i) =>
+      put("      " + ceilingDeviceLine(dev) + (i < fd.length - 1 ? "," : ""), "/ground/devices/" + i));
     put("    ]");
   }
   put("  },");

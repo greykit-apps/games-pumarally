@@ -56,7 +56,7 @@ export const CODES = Object.freeze({
 
   /* --- wall devices ----------------------------------------------------- */
   "device.unknownKind":   "a device kind that is not in the registry",
-  "device.wrongLayer":    "a ceiling kind in the wall layer, or the reverse",
+  "device.wrongLayer":    "a device kind in a layer it does not belong to",
   "device.badEdge":       "a device's edge id is malformed or off the lattice",
   "device.badFace":       "a device's face is missing, or is not a normal of its edge",
   "device.faceNotAllowed":"a face on a kind that takes none",
@@ -91,6 +91,11 @@ export const CODES = Object.freeze({
   "site.notFloor":        "a collection marking on something a robot cannot come to rest on (not floor, not still water)",
   "site.notStandable":    "a randomizer on a square no robot can stand on",
   "site.empty":           "a square listed with no sites on it",
+
+  /* --- floor ------------------------------------------------------------ */
+  "floor.offBoard":       "a floor device (a trap door) off the board",
+  "floor.notFloor":       "a trap door printed on a square that is something other than plain floor",
+  "floor.duplicate":      "two trap doors on one square, or two repulsor fields along one edge of it",
 
   /* --- ceiling ---------------------------------------------------------- */
   "ceiling.offBoard":     "a ceiling device off the board",

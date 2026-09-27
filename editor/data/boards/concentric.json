@@ -36,6 +36,12 @@
       { "at": [3, 9], "has": ["flagspot"] },
       { "at": [6, 9], "has": ["flagspot"] },
       { "at": [8, 9], "has": ["repair", "battery"] }
+    ],
+    "devices": [
+      { "kind": "trapDoor", "at": [5, 3], "regs": [2, 4] },
+      { "kind": "trapDoor", "at": [8, 5], "regs": [2, 4] },
+      { "kind": "trapDoor", "at": [3, 6], "regs": [2, 4] },
+      { "kind": "trapDoor", "at": [6, 8], "regs": [2, 4] }
     ]
   },
   "wall": {
@@ -79,12 +85,8 @@
   },
   "ceiling": {
     "devices": [
-      { "kind": "trapDoor", "at": [5, 3], "regs": [2, 4] },
       { "kind": "crusher", "at": [6, 4], "regs": [1, 5] },
-      { "kind": "trapDoor", "at": [8, 5], "regs": [2, 4] },
-      { "kind": "trapDoor", "at": [3, 6], "regs": [2, 4] },
-      { "kind": "crusher", "at": [5, 7], "regs": [1, 5] },
-      { "kind": "trapDoor", "at": [6, 8], "regs": [2, 4] }
+      { "kind": "crusher", "at": [5, 7], "regs": [1, 5] }
     ]
   }
 }

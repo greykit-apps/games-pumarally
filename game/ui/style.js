@@ -213,6 +213,27 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .course .meta{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .courses .shelf{grid-column:1/-1;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .courses .shelf:first-child{margin-top:0;padding-top:0;border-top:0}
+/* the shelves pack into rows: one grid of equal columns across the window,
+ * and each shelf spans as many columns as it has boards (packShelves in
+ * setup.js sets --cols and each --span), so shelves share a row without
+ * gaps and a shelf's boards wrap only when it has more than a row holds */
+.courses.shelved{display:grid;grid-template-columns:repeat(var(--cols,6),minmax(0,1fr));gap:26px 10px;align-items:start;padding:8px 4px}
+.courses.shelved.small{gap:24px 8px}
+/* each shelf is a card: a faint panel behind its heading and boards, drawn
+ * out into the gutter so a tile keeps its width, with a clear strip of page
+ * between two cards side by side. Inside a card the boards sit as close as
+ * they always did (the subgrid's own column gap). */
+.shelfbox{grid-column:span var(--span,1);display:grid;grid-template-columns:subgrid;column-gap:8px;row-gap:6px;min-width:0;position:relative;isolation:isolate}
+.courses.shelved.small .shelfbox{column-gap:6px}
+.shelfbox::before{content:"";position:absolute;inset:-8px -3px;z-index:-1;border:1px solid color-mix(in srgb,var(--lit) 45%,var(--line));border-radius:6px;background:color-mix(in srgb,var(--line) 55%,var(--panel2))}
+.courses.shelved.small .shelfbox::before{inset:-7px -2px}
+.shelfbox.tinted::before{background:color-mix(in srgb,var(--tint) 17%,var(--panel2));border-color:color-mix(in srgb,var(--tint) 60%,var(--line))}
+.shelfbox.tinted .shelf{border-bottom-color:color-mix(in srgb,var(--tint) 45%,var(--line))}
+.courses.shelved .shelfbox.tinted .shelf::before{background:var(--tint)}
+.courses.shelved .shelf{grid-column:1/-1;margin:0;padding:0 0 5px 7px;border-top:0;border-bottom:1px solid color-mix(in srgb,var(--lit) 35%,var(--line));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;color:var(--text)}
+.courses.shelved .shelf::before{content:"";position:absolute;left:0;top:1px;bottom:6px;width:3px;border-radius:1px;background:var(--accent)}
+.shelftiles{display:contents}
+.courses.shelved .course.any{grid-column:1/-1}
 .course.any{grid-column:1/-1;flex-direction:row;justify-content:center;align-items:baseline;gap:10px;min-height:0;padding:8px;border-style:dashed;text-align:center}
 .course.any .name{font-size:13px;white-space:normal}
 .course.any .meta{white-space:normal}

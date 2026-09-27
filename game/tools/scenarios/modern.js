@@ -498,8 +498,8 @@ export const TESTS = [
 
   /* --- upgrades ---------------------------------------------------------------- */
   ["the upgrade deck is forty cards, all of them written down", () => {
-    eq(UPGRADE_IDS.length, 58, "the base forty and eighteen more: thirteen expansion cards and Master Builder's five");
-    eq([UPGRADE_ROSTER.printed, UPGRADE_ROSTER.transcribed, UPGRADE_ROSTER.built], [58, 58, 58], "the roster: all of them, since the Haywire faces were photographed");
+    eq(UPGRADE_IDS.length, 63, "the base forty and twenty-three more: thirteen expansion cards, Master Builder's five and Turn & Burn's five");
+    eq([UPGRADE_ROSTER.printed, UPGRADE_ROSTER.transcribed, UPGRADE_ROSTER.built], [63, 63, 63], "the roster: all of them, since the Haywire faces were photographed");
     let built = 0;
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
@@ -507,20 +507,20 @@ export const TESTS = [
       if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use || d.ruled, id + " is built and binds a hook or a use, or the rules read it by name"); }
       else { eq(Object.keys(d.hooks), [], id + " is inert and binds nothing"); assert(d.inert, id + " says why"); }
     }
-    eq(built, 58, "all built");
+    eq(built, 63, "all built");
   }],
   ["three upgrades are dealt at setup, and the forty are conserved", () => {
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }, { c: 2, r: 3 }]);
     for (const p of st.players) eq(p.shelf.length, 3, p.name + " holds three, uninstalled");
-    eq(st.upgradeDeck.length, UPGRADE_IDS.length - 9, "the rest are the deck");
+    eq(st.upgradeDeck.length, st.upgradeRoster.length - 9, "the rest are the deck");
     assertInvariants(st, co.library);
   }],
   ["fitting an upgrade costs its printed Energy and takes a slot", () => {
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
     const p = st.players[0];
-    p.shelf = []; st.upgradeDeck = UPGRADE_IDS.slice(); st.upgradeDiscard = [];
+    p.shelf = []; st.upgradeDeck = st.upgradeRoster.slice(); st.upgradeDiscard = [];
     for (const q of st.players) q.shelf = [];
     shelve(st, p, "firewall"); shelve(st, p, "crabLegs");
     p.energy = 3;
@@ -543,7 +543,7 @@ export const TESTS = [
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
     const p = st.players[0];
     for (const q of st.players) q.shelf = [];
-    st.upgradeDeck = UPGRADE_IDS.slice();
+    st.upgradeDeck = st.upgradeRoster.slice();
     const perms = ["firewall", "laserKata", "hoverUnit", "brakes"], temps = ["recharge", "zoop", "boink", "magnetic"];
     for (const id of perms.concat(temps)) shelve(st, p, id);
     p.energy = MAX_ENERGY;
@@ -596,7 +596,7 @@ export const TESTS = [
     const st = mgame(co, [{ c: 0, r: 3, skill: 2 }, { c: 1, r: 3 }]);
     const p = st.players[0];
     for (const q of st.players) q.shelf = [];
-    st.upgradeDeck = UPGRADE_IDS.slice();
+    st.upgradeDeck = st.upgradeRoster.slice();
     shelve(st, p, "firewall");
     const req = () => ({ player: 0, kind: "upgrade", options: { buy: p.energy >= 1 ? [false, true] : [false], install: [null].concat(p.shelf.filter(id => canInstall(p, id))), uninstall: [] } });
     p.energy = 2;
@@ -803,14 +803,14 @@ export const TESTS = [
     eq(START_ENERGY, 3, "three");
   }],
   ["the 2016 floor acts in its own order, which is not the classic one", () => {
-    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "currents", "pushers", "gears", "crushers", "lasers", "flamers", "waste", "trapDoors", "batteries", "touch"],
-      "the reference card's order, with Wet and Wild's currents at step 3, Thrills and Spills' flamers at the end of the register, and Contamination's waste after them (ours)");
+    eq(MODERN_ORDER.map(x => x[0]), ["blue1", "blue2", "green", "currents", "pushers", "gears", "crushers", "lasers", "flamers", "waste", "chopShops", "batteries", "touch"],
+      "the reference card's order, with Wet and Wild's currents at step 3, Thrills and Spills' flamers at the end of the register, Contamination's waste after them (ours), and Turn & Burn's chop shops with the batteries");
     assert(MODERN_ORDER.map(x => x[0]).join() !== CLASSIC_ORDER.map(x => x[0]).join(), "not the classic order");
     for (const n of ["presses", "burners"]) assert(!MODERN_ORDER.some(x => x[0] === n), "no " + n + " on the 2016 floor");
     /* every settled step of the ruleset's table has a pass, except the one
      * no shipped board prints: a current, which is declared here */
     const passOf = { expressConveyor: ["blue1", "blue2"], conveyor: ["green"], current: ["currents"], pusher: ["pushers"], gear: ["gears"], crusher: ["crushers"],
-      boardLaser: ["lasers"], robotLaser: ["lasers"], flamer: ["flamers"], waste: ["waste"], trapDoor: ["trapDoors"], checkpoint: ["batteries", "touch"] };
+      boardLaser: ["lasers"], robotLaser: ["lasers"], flamer: ["flamers"], waste: ["waste"], chopShop: ["chopShops"], checkpoint: ["batteries", "touch"] };
     const missing = [];
     const ordered = [];
     for (const s of rulesetFor("modern").order) {

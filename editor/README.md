@@ -33,8 +33,11 @@ square, or is it standing on the square?**
 - a pusher is bolted to a **wall**, and a board may print a conveyor beneath one
 - a press comes down from **above**, and may stand over a belt
 - a flame jet is bolted to a wall and plays over one or two squares in front
-- a crusher, a flamer and a trap door are one square with no facing, so no
-  ceiling device has a `face` field at all
+- a crusher and a flamer are one square with no facing, so no ceiling device
+  has a `face` field at all
+- a trap door pit **is** its square -- plain floor until the registers printed
+  on it -- but carries a register list the ground token has no room for, so it
+  is a *floor device* in `ground.devices`, on a square that must read `...`
 
 ```json
 {
@@ -106,6 +109,15 @@ rotation-invariant: the exit turns and the arms follow.
 board's rim stays as printed whatever board is laid beside it.
 
 ### Sites: markings a square carries as well as being floor
+
+A trap door pit sits in the ground layer, beside the sites:
+
+```json
+"ground": {
+  "rows": [ … ],
+  "devices": [ { "kind": "trapDoor", "at": [4, 2], "regs": [2, 4] } ]
+}
+```
 
 Repair sites, upgrade sites, batteries, flag locations, randomizers,
 radiation and waste are **sites**, not ground elements, because a square can
@@ -300,7 +312,7 @@ the same in the workshop, the game, a snapshot, or anywhere else.
 
 The diagnostic codes live in `validate/`, grouped: document shape, layer
 shape, ground legend, ground geometry, the wall lattice, wall devices, lasers,
-flame jets, registers, ceiling, elevation, provenance, library, course.
+flame jets, registers, ceiling, floor devices, elevation, provenance, library, course.
 
 - **Nothing is ruleset-specific.** The one edition-specific guideline — the
   classic book keeping flags within twelve squares of each other — is a
@@ -341,8 +353,8 @@ Existing entries keep their order; new ones go on the end.
 
 ## Adding an element or device
 
-1. A row in `rulesets/elements.js` (ground) or `rulesets/devices.js` (wall or
-   ceiling), with its properties and `printedIn`. A marking that stacks with
+1. A row in `rulesets/elements.js` (ground) or `rulesets/devices.js` (wall,
+   floor or ceiling), with its properties and `printedIn`. A marking that stacks with
    floor is a row in `rulesets/sites.js` instead.
 2. Its art in `render/` for both board art and markup mode.
 3. Any validator code it needs, each with a negative test.

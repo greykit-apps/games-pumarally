@@ -87,7 +87,9 @@ function same(a, b) {
   for (const [k, v] of an) if (bn.get(k) !== v) return false;
   if (a.wallDevices.length !== b.wallDevices.length) return false;
   if (a.ceilingDevices.length !== b.ceilingDevices.length) return false;
+  if (a.floorDevices.length !== b.floorDevices.length) return false;
   return JSON.stringify(a.wallDevices) === JSON.stringify(b.wallDevices) &&
+         JSON.stringify(a.floorDevices) === JSON.stringify(b.floorDevices) &&
          JSON.stringify(a.ceilingDevices) === JSON.stringify(b.ceilingDevices);
 }
 

@@ -120,12 +120,11 @@ function build() {
    * `#`, which is what the lattice says a one-way wall is. */
   setWall(b, 10, 7, E, EDGE_WALL);
   b.wallDevices.push({ kind: "oneWay", edge: { kind: "v", c: 11, r: 7 }, face: W });
-  /* A repulsor field on the south edge of (9,9), printed in (9,9), with a
-   * laser bolted to the same edge firing north through it -- which is how
-   * Back Stretch mounts its double beam, and why a repulsor edge must count as
-   * a wall for a laser mount. */
-  setWall(b, 9, 9, S, EDGE_WALL);
-  b.wallDevices.push({ kind: "repulsor", edge: { kind: "h", c: 9, r: 10 }, face: N });
+  /* A repulsor field in (9,9), along its south edge -- an item in the square,
+   * facing that edge, with no wall -- and a laser mounted on the field from
+   * (9,10) firing north: how Back Stretch mounts its double beam, and why a
+   * field must count as a mount. */
+  b.floorDevices.push({ kind: "repulsor", c: 9, r: 9, face: S });
   b.wallDevices.push({ kind: "laser", edge: { kind: "h", c: 9, r: 10 }, face: N, damage: 1 });
   /* Both ceiling kinds there are: the disc (a press in one game and a crusher
    * in the other, one device either way) and the flamer, which is a different
@@ -134,7 +133,9 @@ function build() {
   b.ceilingDevices.push({ kind: "crusher", c: 10, r: 10, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 3, r: 10, regs: [1, 5] });
   b.ceilingDevices.push({ kind: "flamer", c: 4, r: 10 });   // no regs: every register
-  b.ceilingDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });   // open at the end of 2 and 4
+  /* The one floor kind: a trap door, which is the plain floor it is printed
+   * on until the registers it lists, and a pit through each of them. */
+  b.floorDevices.push({ kind: "trapDoor", c: 6, r: 10, regs: [2, 4] });
   return b;
 }
 
@@ -145,7 +146,7 @@ const board = build();
  * leaves it with no negative tests and no positive one either. */
 const covered = new Set();
 for (const tok of board.cells) covered.add(tok.charAt(0));
-for (const dev of [...board.wallDevices, ...board.ceilingDevices]) covered.add("dev:" + dev.kind);
+for (const dev of [...board.wallDevices, ...board.floorDevices, ...board.ceilingDevices]) covered.add("dev:" + dev.kind);
 for (const has of board.sites.values()) for (const k of has) covered.add("site:" + k);
 const missing = [
   ...Object.keys(ELEMENTS).filter(ch => !covered.has(ch)).map(ch => "element " + JSON.stringify(ch)),

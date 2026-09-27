@@ -41,6 +41,8 @@ const BOARD_KEYS = new Set([
 
 const WALL_DEVICE_KEYS = new Set(["kind", "edge", "face", "damage", "reach", "regs", "note"]);
 const CEILING_DEVICE_KEYS = new Set(["kind", "at", "regs", "note"]);
+/* a floor device may face: a repulsor field faces the edge it lies along */
+const FLOOR_DEVICE_KEYS = new Set(["kind", "at", "face", "regs", "note"]);
 
 export function idx(board, c, r) { return r * board.w + c; }
 
@@ -246,10 +248,20 @@ export function deviceOnEdge(board, edge) {
   return board.wallDevices.find(d => edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
 }
 
-/** Is there a repulsor field on this edge? From either side: the field is not one-sided. */
+/**
+ * Is there a repulsor field along this edge? A field is an item in its square,
+ * facing the edge it lies along; this asks whether either square beside the
+ * edge has one facing it, which is all a laser or a mount needs to know.
+ */
 export function repulsorOn(board, edge) {
   const id = edgeId(edge.kind, edge.c, edge.r);
-  return board.wallDevices.some(d => d.kind === "repulsor" && edgeId(d.edge.kind, d.edge.c, d.edge.r) === id);
+  return board.floorDevices.some(d => d.kind === "repulsor" && d.face !== null && d.face !== undefined &&
+    edgeIdOf(d.c, d.r, d.face) === id);
+}
+
+/** The repulsor field in (c,r) that faces d, if its square has one. */
+export function fieldFacing(board, c, r, d) {
+  return board.floorDevices.some(x => x.kind === "repulsor" && x.c === c && x.r === r && x.face === d);
 }
 
 /** The one-way wall devices on an edge -- one, or two if both sides are red. */
@@ -283,6 +295,12 @@ export function ceilingAt(board, c, r, kind) {
     d.c === c && d.r === r && (!kind || d.kind === kind));
 }
 
+/** The floor devices in a square: a trap door, or a repulsor field or two. */
+export function floorAt(board, c, r, kind) {
+  return board.floorDevices.filter(d =>
+    d.c === c && d.r === r && (!kind || d.kind === kind));
+}
+
 /**
  * Is movement out of (c,r) in direction d blocked in this register?
  * A wall always blocks -- unless it is a one-way wall and (c,r) is on its
@@ -292,6 +310,10 @@ export function ceilingAt(board, c, r, kind) {
  */
 export function blockedAt(board, c, r, d, register) {
   const edge = edgeOf(c, r, d);
+  /* a repulsor field is a wall to everything that only asks whether an edge
+   * is walled -- a laser, a belt, a mount; the card that runs into one is
+   * the mover's business (fieldHit, game/engine/course.js) */
+  if (repulsorOn(board, edge)) return true;
   const code = edgeCodeAt(board, edge);
   if (code === EDGE_WALL) return !greenSide(board, edge, c, r);
   if (code !== EDGE_DOOR) return false;
@@ -368,6 +390,9 @@ export function blankBoard(meta = {}) {
     wallH: new Uint8Array(w * (h + 1)),
     wallV: new Uint8Array((w + 1) * h),
     wallDevices: [],
+    /* devices that ARE their square but carry what one token cannot: a trap
+     * door and its register list. Written as `ground.devices`. */
+    floorDevices: [],
     ceilingDevices: []
   };
 }
@@ -390,6 +415,7 @@ export function cloneBoard(board) {
     wallH: board.wallH.slice(),
     wallV: board.wallV.slice(),
     wallDevices: board.wallDevices.map(d => ({ ...d, edge: { ...d.edge } })),
+    floorDevices: (board.floorDevices || []).map(d => ({ ...d })),
     ceilingDevices: board.ceilingDevices.map(d => ({ ...d }))
   };
 }
@@ -512,8 +538,9 @@ function readGround(doc, board, d) {
   if (g.levels !== undefined && g.levels !== null) readLevels(g.levels, board, d);
   if (g.rampH !== undefined || g.rampV !== undefined) readRamps(g, board, d);
   if (g.sites !== undefined && g.sites !== null) readSites(g.sites, board, d);
+  if (g.devices !== undefined) readSquareDevices(g.devices, "floor", "/ground/devices", board.floorDevices, FLOOR_DEVICE_KEYS, d);
   for (const k of Object.keys(g)) {
-    if (k !== "rows" && k !== "levels" && k !== "sites" && k !== "rampH" && k !== "rampV") {
+    if (k !== "rows" && k !== "levels" && k !== "sites" && k !== "rampH" && k !== "rampV" && k !== "devices") {
       d.error("doc.unknownKey", "`ground." + k + "` is not part of the ground layer.", null, "/ground/" + k);
     }
   }
@@ -678,7 +705,7 @@ function readWall(doc, board, d) {
       return;
     }
     if (def.layer !== "wall") {
-      d.error("device.wrongLayer", "`" + raw.kind + "` is a ceiling device and cannot be bolted to a wall.",
+      d.error("device.wrongLayer", "`" + raw.kind + "` is a " + def.layer + " device and cannot be bolted to a wall.",
         null, ptr);
       return;
     }
@@ -721,42 +748,58 @@ function readCeiling(doc, board, d) {
       d.error("doc.unknownKey", "`ceiling." + k + "` is not part of the ceiling layer.", null, "/ceiling/" + k);
     }
   }
-  const list = cl.devices === undefined ? [] : cl.devices;
+  readSquareDevices(cl.devices === undefined ? [] : cl.devices, "ceiling", "/ceiling/devices",
+    board.ceilingDevices, CEILING_DEVICE_KEYS, d);
+}
+
+/* A device anchored to one square and facing nowhere: a ceiling device (a
+ * crusher, a flamer) or a floor device (a trap door). One reader for both, so
+ * the two layers cannot drift apart in what they accept. */
+const LAYER_WORDS = {
+  ceiling: { what: "Ceiling device", home: "hang from the ceiling", code: "ceiling.offBoard" },
+  floor: { what: "Floor device", home: "be the floor of a square", code: "floor.offBoard" }
+};
+function readSquareDevices(list, layer, base, into, keys, d) {
+  const words = LAYER_WORDS[layer];
   if (!Array.isArray(list)) {
-    d.error("device.unknownKind", "`ceiling.devices` must be an array.", null, "/ceiling/devices");
+    d.error("device.unknownKind", "`" + base.slice(1).replace("/", ".") + "` must be an array.", null, base);
     return;
   }
   list.forEach((raw, i) => {
-    const ptr = "/ceiling/devices/" + i;
+    const ptr = base + "/" + i;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-      d.error("device.unknownKind", "Ceiling device " + i + " is not an object.", null, ptr);
+      d.error("device.unknownKind", words.what + " " + i + " is not an object.", null, ptr);
       return;
     }
     for (const k of Object.keys(raw)) {
-      if (!CEILING_DEVICE_KEYS.has(k)) {
-        d.error("device.unknownKey", "`" + k + "` is not part of a ceiling device." +
-          (k === "face" ? " A crusher comes down from above and faces nowhere." : ""),
+      if (!keys.has(k)) {
+        d.error("device.unknownKey", "`" + k + "` is not part of a " + layer + " device." +
+          (k === "face" ? " It is anchored to its square and faces nowhere." : ""),
           null, ptr + "/" + k);
       }
     }
     const def = DEVICE_KINDS[raw.kind];
     if (!def) {
-      d.error("device.unknownKind", "Ceiling device " + i + " has kind " +
+      d.error("device.unknownKind", words.what + " " + i + " has kind " +
         JSON.stringify(raw.kind) + ", which is not a device.", null, ptr);
       return;
     }
-    if (def.layer !== "ceiling") {
-      d.error("device.wrongLayer", "`" + raw.kind + "` is bolted to a wall and cannot hang from the ceiling.",
+    if (def.layer !== layer) {
+      d.error("device.wrongLayer", "`" + raw.kind + "` is a " + def.layer + " device and cannot " + words.home + ".",
         null, ptr);
       return;
     }
     if (!Array.isArray(raw.at) || raw.at.length !== 2 || !isInt(raw.at[0]) || !isInt(raw.at[1])) {
-      d.error("ceiling.offBoard", "Ceiling device " + i + " has no `at: [c, r]`.", null, ptr);
+      d.error(words.code, words.what + " " + i + " has no `at: [c, r]`.", null, ptr);
       return;
     }
     const dev = { kind: raw.kind, c: raw.at[0], r: raw.at[1], _ptr: ptr };
+    /* a face is read as a direction when it is one, and kept as written when
+     * it is not, so the validator can say what is wrong with it */
+    if (raw.face !== undefined) { const f = dirOfLetter(raw.face); dev.face = f === undefined ? raw.face : f; }
+    else if (def.faced) dev.face = null;
     if (raw.regs !== undefined) dev.regs = raw.regs;
     if (raw.note !== undefined) dev.note = raw.note;
-    board.ceilingDevices.push(dev);
+    into.push(dev);
   });
 }

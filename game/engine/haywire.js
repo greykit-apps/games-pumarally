@@ -18,7 +18,7 @@
 import { rot, opposite, step as stepCell } from "../../editor/lib/dir.js";
 import { card, isDamage, MODERN_CARDS, KINDS } from "./cards.js";
 import { log } from "./state.js";
-import { stepRobot, planCard, playCard, drawOwn, putAway, damage, destroy, robotAt, oilAtCourse, waterAtCourse } from "./rules.js";
+import { stepRobot, planCard, playCard, drawOwn, putAway, damage, destroy, robotAt, oilAtCourse, waterAtCourse, fallsHere } from "./rules.js";
 import { fire } from "./options.js";
 import { UPGRADE_DEFS, newInstalled } from "./upgrades.js";
 import { inGrid, isHole } from "./course.js";
@@ -69,7 +69,7 @@ function hwMove(st, C, p, n) {
     moved++;
   }
   p.hoverSteps = 0;
-  if (hover && p.alive && inGrid(C, p.c, p.r) && RULE_HOLE(C, p.c, p.r)) RULE_DESTROY(st, C, p, "into a pit");
+  if (hover && p.alive && inGrid(C, p.c, p.r) && fallsHere(st, C, p)) RULE_DESTROY(st, C, p, "into a pit");
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
   return hitWall;
 }

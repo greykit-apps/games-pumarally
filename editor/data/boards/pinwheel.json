@@ -60,6 +60,16 @@
       { "at": [0, 11], "has": ["radiation"] },
       { "at": [1, 11], "has": ["radiation"] },
       { "at": [2, 11], "has": ["radiation"] }
+    ],
+    "devices": [
+      { "kind": "trapDoor", "at": [7, 3], "regs": [3, 5] },
+      { "kind": "trapDoor", "at": [3, 4], "regs": [2] },
+      { "kind": "trapDoor", "at": [4, 4], "regs": [4] },
+      { "kind": "trapDoor", "at": [7, 4], "regs": [1] },
+      { "kind": "trapDoor", "at": [4, 7], "regs": [3] },
+      { "kind": "trapDoor", "at": [7, 7], "regs": [2] },
+      { "kind": "trapDoor", "at": [8, 7], "regs": [4] },
+      { "kind": "trapDoor", "at": [4, 8], "regs": [1, 5] }
     ]
   },
   "wall": {
@@ -99,16 +109,5 @@
       { "kind": "jet", "edge": "v:9,5", "face": "E", "reach": 2, "regs": [2, 4, 5] }
     ]
   },
-  "ceiling": {
-    "devices": [
-      { "kind": "trapDoor", "at": [7, 3], "regs": [3, 5] },
-      { "kind": "trapDoor", "at": [3, 4], "regs": [2] },
-      { "kind": "trapDoor", "at": [4, 4], "regs": [4] },
-      { "kind": "trapDoor", "at": [7, 4], "regs": [1] },
-      { "kind": "trapDoor", "at": [4, 7], "regs": [3] },
-      { "kind": "trapDoor", "at": [7, 7], "regs": [2] },
-      { "kind": "trapDoor", "at": [8, 7], "regs": [4] },
-      { "kind": "trapDoor", "at": [4, 8], "regs": [1, 5] }
-    ]
-  }
+  "ceiling": { "devices": [] }
 }

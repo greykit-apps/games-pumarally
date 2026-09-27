@@ -1,5 +1,5 @@
-/* Wall and ceiling devices: the things that stand ON a square rather than
- * being the square.
+/* Wall, floor and ceiling devices: the things a square's one ground character
+ * cannot carry.
  *
  * `printedIn` is provenance, the same as on an element: it says which printing
  * prints the thing, not which board may carry it. A board is just a board.
@@ -13,6 +13,8 @@
  *     reaches two squares
  *   - a crusher comes down from above and FACES NOWHERE, which is why no ceiling
  *     device has a `face` field for a transcriber to fill in wrongly
+ *   - a trap door IS its square, but prints the registers it is a pit in, and a
+ *     ground token has room for none of them: a floor device, on plain floor
  */
 
 const BOTH = ["classic", "modern"];
@@ -87,31 +89,6 @@ export const DEVICE_KINDS = {
     source: "Crash and Burn. The register list is the registers it stands OPEN in."
   },
 
-  /* A REPULSOR FIELD IS A SPRINGY WALL. The print draws a glass tube of
-   * lightning with a red cap at each end, lying along one edge of a square, and
-   * that edge is a wall to everything that only asks whether an edge is walled
-   * -- a beam stops there ("acts like a wall for weapons and laser fire"), and
-   * a laser may be mounted on it, which Back Stretch does at both ends of a
-   * double beam. What it adds is the bounce, and only for a robot's own card: a
-   * robot moving into it is pushed straight back as many squares as the card
-   * moves, and loses the rest of the move; a robot pushed into it by another's
-   * card goes back as far as the pusher's card, and the pusher's move ends.
-   * Anything else that carries a robot into it -- a belt, a pusher, a shove
-   * from the board -- meets a wall, as nothing we have says otherwise.
-   *
-   * ALWAYS ON, and from BOTH sides. No capsule prints register numbers, and the
-   * author ruled it on in every register (2026-09-23). `face` records which
-   * square the capsule is printed in, which is a fact about the print; it does
-   * not make the field one-sided. */
-  repulsor: {
-    layer: "wall", name: "Repulsor field", faced: true, needsWall: true,
-    regs: REGS_NONE, fields: {},
-    printedIn: BOTH,
-    source: "Grand Prix (1997) and its 2016 reprint Turn & Burn; also the 30th Anniversary boards. " +
-            "Ultimate RoboRally Collection p.12, a fan compilation; a review of Turn & Burn agrees " +
-            "that it pushes away as far as the card, whichever way the robot came."
-  },
-
   /* A ONE-WAY WALL IS A WALL THAT KNOWS WHICH SIDE IT IS ON. The lattice
    * carries an ordinary `#` -- it IS a wall, to everything that only asks
    * whether an edge is walled -- and this device, bolted to it, says which
@@ -128,6 +105,65 @@ export const DEVICE_KINDS = {
             "nothing from the green: robots and lasers both. Rule from the Ultimate RoboRally " +
             "Collection (Justin Alexander, a fan compilation), manual1/roborally-ultimate-" +
             "collection-rulebook.pdf p.12; a review of Contamination says the same."
+  },
+
+  /* --- floor layer ------------------------------------------------------ */
+
+  /* A TRAP DOOR IS THE FLOOR OF ITS SQUARE, and was a ceiling device until
+   * Turn & Burn's own reference sheet was in hand (manual1/IMG_1464-1465,
+   * 2026-09-27). It is the square: open floor when it is not active and a pit
+   * when it is, so nothing else can be printed there. It is still a device
+   * rather than a ground character because it carries a register list, and
+   * a ground token has one character for its argument. The validator holds
+   * the square under it to plain floor.
+   *
+   * WHEN IT IS A PIT is the sheet's, not ours: it activates only during the
+   * registers printed on the doors, and it activates at the START of the
+   * register. A robot still on it then is lost before it can move, and a
+   * robot that enters it while it is active falls, as into any pit. Only
+   * while active is it a pit to an upgrade. (The author's reading of
+   * 2026-09-23 -- opening at the END of the register -- is gone; the sheet
+   * contradicts it with a worked example.) The same timing under the classic
+   * book: the author's ruling, 2026-09-27, as no Grand Prix sheet is in hand. */
+  trapDoor: {
+    layer: "floor", name: "Trap door pit", faced: false, ownsSquare: true,
+    regs: REGS_REQUIRED, fields: {},
+    printedIn: BOTH,
+    regsWhy: "active in every register is a pit, and active in none is floor.",
+    source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
+            "Turn & Burn Factory Floor Guide (manual1/IMG_1464-1465): a pit during the registers " +
+            "printed on it, from the start of each, and open floor otherwise."
+  },
+
+  /* A REPULSOR FIELD IS AN ITEM IN ITS SQUARE, WITH A FACING -- not a wall,
+   * and not bolted to one. It was a wall device standing on a `#` until
+   * Bounce House showed otherwise (the author, 2026-09-27): that board prints
+   * a field along one side of an edge and a plain wall along the other, where
+   * a laser stops. A robot coming at that edge from the wall's side is
+   * stopped by the wall and nothing more -- two squares on a Move 3 -- which
+   * is a different outcome from being thrown back, so the field belongs to
+   * the square it is printed in and faces the edge it lies along.
+   *
+   * The rule is Turn & Burn's own sheet (manual1/IMG_1466): a robot that runs
+   * into the field on a Move card is pushed straight away from it as many
+   * spaces as the card, and loses the rest of its move; one pushed into it
+   * goes back as far as the pusher's card, and the pusher's move ends. It
+   * stops weapons and laser fire like a wall, and a laser may be mounted on
+   * it (Back Stretch). From OUTSIDE its square, crossing the field into it
+   * throws a robot back too -- the author's ruling -- unless a wall is printed
+   * on that outside, which is then what the robot meets. Anything that is
+   * not a Move card -- a belt, a push panel -- meets the field as a wall.
+   *
+   * ALWAYS ON: no capsule prints register numbers. `face` points at the edge
+   * the field lies along. A square may carry two, at a corner. */
+  repulsor: {
+    layer: "floor", name: "Repulsor field", faced: true, needsWall: false,
+    regs: REGS_NONE, fields: {},
+    printedIn: BOTH,
+    source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
+            "Turn & Burn Factory Floor Guide (manual1/IMG_1466): a robot running into it on a Move " +
+            "card is pushed straight back that card's value and loses the rest of its move; one pushed " +
+            "into it goes back the pusher's card, and the pusher's move ends; a wall to lasers."
   },
 
   /* --- ceiling layer ---------------------------------------------------- */
@@ -157,29 +193,6 @@ export const DEVICE_KINDS = {
             "register number). Acts after gears and before board lasers in both."
   },
 
-  /* A TRAP DOOR IS UNDER THE ROBOT, NOT OVER IT, and still lives in this
-   * layer, because what the layer holds is the crusher's shape: a thing
-   * anchored to one square, facing nowhere, acting in the registers printed on
-   * it. The printed tile is a striped square with two notched plates meeting in
-   * the middle and its register numbers on it.
-   *
-   * WHEN IT OPENS is the author's reading, decided 2026-09-23: it changes state
-   * at the END of each register it lists, like the other traps. A robot may
-   * cross it, or stand on it, during that register and step off at the start of
-   * the next; one still on it when the register ends falls, as into a pit. The
-   * fan compilation says only "during those register phases, treat them as
-   * pits", and a review of the 2016 reprint says robots standing on or moving
-   * through an active one fall. */
-  trapDoor: {
-    layer: "ceiling", name: "Trap door", faced: false,
-    regs: REGS_REQUIRED, fields: {},
-    printedIn: BOTH,
-    regsWhy: "open in every register is a pit, and open in none is floor.",
-    source: "Grand Prix (1997) and its 2016 reprint Turn & Burn; also the 30th Anniversary boards. " +
-            "A pit in the registers printed on it, floor otherwise (Ultimate RoboRally Collection p.12, " +
-            "a fan compilation); it opens at the end of the register, the author's reading."
-  },
-
   flamer: {
     layer: "ceiling", name: "Flamer", faced: false,
     regs: REGS_OPTIONAL, fields: {},
@@ -192,6 +205,7 @@ export const DEVICE_KINDS = {
 
 export const WALL_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "wall");
 export const CEILING_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "ceiling");
+export const FLOOR_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "floor");
 
 export function kindOf(kind) {
   return DEVICE_KINDS[kind];

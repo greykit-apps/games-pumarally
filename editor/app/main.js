@@ -425,6 +425,7 @@ export function mount(root) {
       }
       if (d.devoff !== undefined) { change(() => takeOff("wall", +d.devoff)); return; }
       if (d.ceiloff !== undefined) { change(() => takeOff("ceiling", +d.ceiloff)); return; }
+      if (d.flooroff !== undefined) { change(() => takeOff("floor", +d.flooroff)); return; }
       if (d.dooroff !== undefined) { change(() => takeOff("door", +d.dooroff)); return; }
 
       /* A placed device's rows, all on one attribute: slot, field and value.
@@ -433,7 +434,7 @@ export function mount(root) {
        * handler matching the dashes never fires and the click falls through in
        * silence. */
       if (d.devrow !== undefined) {
-        const m2 = /^(wd|cd|dr)(\d+):([a-z]+):(-?\d+)$/.exec(d.devrow);
+        const m2 = /^(wd|cd|fd|dr)(\d+):([a-z]+):(-?\d+)$/.exec(d.devrow);
         if (m2) { change(() => devRow(m2[1], +m2[2], m2[3], +m2[4])); return; }
       }
 
@@ -463,6 +464,7 @@ export function mount(root) {
     if (!d) return { ok: false, why: "Nothing selected." };
     const dev = layer === "wd" ? d.wallDevices[i]
       : layer === "dr" ? (d.doorDevices[i] && d.doorDevices[i].dev)
+      : layer === "fd" ? d.floor[i]
       : d.ceiling[i];
     if (!dev) return { ok: false, why: "Nothing there." };
     if (key === "face") {
@@ -533,11 +535,11 @@ export function mount(root) {
       if (!door) return { ok: false, why: "Nothing there." };
       return takeOffDoor(st.board, door.dev, "Swing door taken off the " + dirLetter(door.dir) + " side of (" + st.sel.c + "," + st.sel.r + ").");
     }
-    const dev = layer === "wall" ? d.wallDevices[i] : d.ceiling[i];
+    const dev = layer === "wall" ? d.wallDevices[i] : layer === "floor" ? d.floor[i] : d.ceiling[i];
     if (!dev) return { ok: false, why: "Nothing there." };
-    const list = layer === "wall" ? st.board.wallDevices : st.board.ceilingDevices;
+    const list = layer === "wall" ? st.board.wallDevices : layer === "floor" ? st.board.floorDevices : st.board.ceilingDevices;
     list.splice(list.indexOf(dev), 1);
-    return { ok: true, changed: true, note: "Taken off. Its wall is still there." };
+    return { ok: true, changed: true, note: layer === "wall" ? "Taken off. Its wall is still there." : "Taken off." };
   }
 
   function toggleReg(n) {

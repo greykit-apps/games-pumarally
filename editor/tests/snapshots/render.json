@@ -21,12 +21,12 @@
   },
   "backStretch": {
     "art": {
-      "sha": "b6715926679b0635",
-      "bytes": 104507
+      "sha": "9a9c68cfcf2b3861",
+      "bytes": 103951
     },
     "markup": {
-      "sha": "2aee1f4e2275ec2d",
-      "bytes": 73963
+      "sha": "039606339297487e",
+      "bytes": 73463
     }
   },
   "blackGold": {
@@ -189,6 +189,16 @@
       "bytes": 71785
     }
   },
+  "bounceHouse": {
+    "art": {
+      "sha": "e5cc116a0e77e4af",
+      "bytes": 102374
+    },
+    "markup": {
+      "sha": "941ad12b1ccfdbe4",
+      "bytes": 70268
+    }
+  },
   "cactus": {
     "art": {
       "sha": "7f1c088a2bfcea44",
@@ -211,12 +221,12 @@
   },
   "canyon": {
     "art": {
-      "sha": "0a446a8808c00b52",
-      "bytes": 86691
+      "sha": "d08784e724d4b32f",
+      "bytes": 86610
     },
     "markup": {
-      "sha": "b549b263c230ff36",
-      "bytes": 64980
+      "sha": "0e27ed3d38e487ab",
+      "bytes": 64852
     }
   },
   "chasm": {
@@ -227,6 +237,16 @@
     "markup": {
       "sha": "4d8ab812608cd7d1",
       "bytes": 80349
+    }
+  },
+  "checkIn": {
+    "art": {
+      "sha": "b4a630492e18ee23",
+      "bytes": 85352
+    },
+    "markup": {
+      "sha": "b2535aff9e92574c",
+      "bytes": 62217
     }
   },
   "chess": {
@@ -291,11 +311,11 @@
   },
   "concentric": {
     "art": {
-      "sha": "1b1deedfe00c9725",
+      "sha": "0539b5c425f88f9f",
       "bytes": 85517
     },
     "markup": {
-      "sha": "d3c48331bf7dc2e4",
+      "sha": "1e62c792b8d2501b",
       "bytes": 69916
     }
   },
@@ -371,11 +391,11 @@
   },
   "falling": {
     "art": {
-      "sha": "edd2744c0e4a7705",
+      "sha": "6f5df7a144f3953f",
       "bytes": 119453
     },
     "markup": {
-      "sha": "fe58b26e835865de",
+      "sha": "ec3e9568fdca88d1",
       "bytes": 75563
     }
   },
@@ -441,12 +461,12 @@
   },
   "kingOfTheHill": {
     "art": {
-      "sha": "9a1611fe1954eeee",
-      "bytes": 110364
+      "sha": "7b8c958beb47d6d1",
+      "bytes": 110354
     },
     "markup": {
-      "sha": "57853debd663ec57",
-      "bytes": 75477
+      "sha": "8178ecfeaf8c042d",
+      "bytes": 75461
     }
   },
   "labyrinth": {
@@ -501,12 +521,12 @@
   },
   "meeple": {
     "art": {
-      "sha": "67ebf58ae7cbef3c",
-      "bytes": 113777
+      "sha": "4289fbff84dabddf",
+      "bytes": 113757
     },
     "markup": {
-      "sha": "a417454baffe4b4d",
-      "bytes": 87412
+      "sha": "8b8b930a097d5be3",
+      "bytes": 87380
     }
   },
   "mergers": {
@@ -539,13 +559,23 @@
       "bytes": 60494
     }
   },
+  "openCircuit": {
+    "art": {
+      "sha": "b07a56bc4f767546",
+      "bytes": 107127
+    },
+    "markup": {
+      "sha": "c94c04380c89917c",
+      "bytes": 82916
+    }
+  },
   "pinwheel": {
     "art": {
-      "sha": "8eabb22429ab958f",
+      "sha": "2f29aa9a622e9d76",
       "bytes": 79751
     },
     "markup": {
-      "sha": "a43fd83ee0f4e2d9",
+      "sha": "05ad3eb34890386f",
       "bytes": 66628
     }
   },
@@ -561,12 +591,12 @@
   },
   "pitRow": {
     "art": {
-      "sha": "4cd13178f52be665",
-      "bytes": 89549
+      "sha": "c16e4eda8989f4d1",
+      "bytes": 89519
     },
     "markup": {
-      "sha": "707dc8ca1f1e1a99",
-      "bytes": 62956
+      "sha": "788e24df8c5ccf0b",
+      "bytes": 62908
     }
   },
   "portalPalace": {
@@ -601,21 +631,21 @@
   },
   "sampler": {
     "art": {
-      "sha": "43b6b3a70792fec9",
-      "bytes": 113073
+      "sha": "ec731507e063c5ed",
+      "bytes": 113043
     },
     "markup": {
-      "sha": "35ef7c5dcbe521db",
-      "bytes": 84902
+      "sha": "7b190cc48b30e5e9",
+      "bytes": 84854
     }
   },
   "shakeNBake": {
     "art": {
-      "sha": "98aed15651762d6f",
+      "sha": "161cbe71aa34039a",
       "bytes": 73427
     },
     "markup": {
-      "sha": "6439cb32c514b62c",
+      "sha": "9d4002247df81f5a",
       "bytes": 59816
     }
   },
@@ -801,12 +831,12 @@
   },
   "provingGround": {
     "art": {
-      "sha": "dc667d03b9cf4c5b",
-      "bytes": 71852
+      "sha": "6109690c567d8d0b",
+      "bytes": 71842
     },
     "markup": {
-      "sha": "ff56b713b20e1a36",
-      "bytes": 47400
+      "sha": "99bdf68cd429aab4",
+      "bytes": 47384
     }
   }
 }
