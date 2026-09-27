@@ -379,22 +379,25 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     for (const c of root.querySelectorAll(".courses.shelved")) {
       const small = c.classList.contains("small");
       /* the minimum widths the grid had before the shelves shared rows, so a tile is the size it always was */
-      const min = small ? 76 : 112, gap = small ? 6 : 8;
-      const cols = Math.max(1, Math.floor((c.clientWidth + gap) / (min + gap)));
+      const min = small ? 72 : 112, gap = small ? 8 : 10;
+      const cs = getComputedStyle(c);
+      const width = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const cols = Math.max(1, Math.floor((width + gap) / (min + gap)));
       c.style.setProperty("--cols", cols);
       /* a shelf with more boards than a row holds is split evenly over the
        * lines it needs -- six in five columns is three and three, not five and
        * one -- which also leaves room beside it for the next shelf */
       /* and a heading longer than its boards are wide -- "Crash and Burn
        * (1997)" over two small tiles -- takes the columns it needs to be read */
-      const colW = (c.clientWidth - gap * (cols - 1)) / cols;
+      const colW = (width - gap * (cols - 1)) / cols;
       for (const s of c.querySelectorAll(".shelfbox")) {
         const n = s.querySelectorAll(".course").length;
         /* the text's own width: the heading's box is as wide as the shelf's
          * span, so measuring the box would keep a shelf as wide as it last was */
+        const head = s.querySelector(".shelf");
         const range = document.createRange();
-        range.selectNodeContents(s.querySelector(".shelf"));
-        const title = Math.ceil(range.getBoundingClientRect().width);
+        range.selectNodeContents(head);
+        const title = Math.ceil(range.getBoundingClientRect().width + parseFloat(getComputedStyle(head).paddingLeft));
         const need = Math.ceil((title + gap) / (colW + gap));
         s.style.setProperty("--span", Math.min(cols, Math.max(Math.ceil(n / Math.ceil(n / cols)), need)));
       }
