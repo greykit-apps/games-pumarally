@@ -8,7 +8,7 @@ export default {
     "printed": 63,
     "transcribed": 63,
     "built": 63,
-    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name. Then Turn & Burn's five, off manual1/IMG_1467-1471 (the checkered flag); two of them, Slow Processor and Bad Scanner, are installed onto any robot and take no slot (`onto`, `noSlot`). Texts here are summaries, not the printed words."
+    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name. Then Turn & Burn's five, off manual1/IMG_1467-1471 (the checkered flag); two of them, Slow Processor and Bad Scanner, are installed onto any robot and take no slot (`onto`, `noSlot`). Texts here are summaries, not the printed words. `needs` names a board element a card is about; such a card is left out of the upgrade deck on a course that prints none (the author, 2026-09-27)."
   },
   "cards": [
     {
@@ -520,6 +520,7 @@ export default {
       "cost": 4,
       "type": "permanent",
       "set": "turnAndBurn",
+      "needs": "chopShop",
       "text": "The first time in a round your robot ends a register on a checkpoint or a chop shop, you may pay 1 Energy to have any robot draw a damage card.",
       "built": true
     },

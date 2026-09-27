@@ -725,7 +725,7 @@ for (const c of UPGRADES_DATA.cards) {
     if (/"dealt"/.test(src)) asksIn.switch = true;
   }
   if (c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer" || (b.asks && !b.temp)) asksIn.switch = true;
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, costX: !!c.costX, set: c.set || "base", type: c.type, onto: c.onto || null, noSlot: !!c.noSlot, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null, ruled: !!b.ruled,
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, costX: !!c.costX, set: c.set || "base", type: c.type, onto: c.onto || null, noSlot: !!c.noSlot, needs: c.needs || null, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null, ruled: !!b.ruled,
     temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);

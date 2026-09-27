@@ -46,7 +46,7 @@ export function rebuild(co) { co.C = buildCourse(co.doc, co.library); return co;
  * places: [{ c, r, face, seat?, damage?, lives? }]
  */
 export function game(course, places, opts = {}) {
-  const st = newGame({ seed: opts.seed || 1, course: course.doc, seats: places.map(p => ({ seat: p.seat || "bot", skill: p.skill === undefined ? 1 : p.skill })), house: opts.house, ruleset: opts.ruleset });
+  const st = newGame({ seed: opts.seed || 1, course: course.doc, library: course.library, seats: places.map(p => ({ seat: p.seat || "bot", skill: p.skill === undefined ? 1 : p.skill })), house: opts.house, ruleset: opts.ruleset });
   places.forEach((pl, i) => {
     const p = st.players[i];
     p.placed = true; p.liveryPicked = true;

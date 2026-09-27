@@ -2528,6 +2528,12 @@ export const SCENARIOS = [
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
+  },
+  {
+    "name": "an upgrade about a chop shop is only in the deck on a course that prints one",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
   }
 ];
 

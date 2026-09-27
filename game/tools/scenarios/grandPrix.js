@@ -12,7 +12,7 @@
  */
 import { board, courseOn, game, give, runRegister, E, W, N, S } from "./harness.js";
 import { trapDoorsActivate, chopShopPass, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
-import { UPGRADE_DEFS, newInstalled, installUpgrade, installedOfType, removable } from "../../engine/upgrades.js";
+import { UPGRADE_DEFS, UPGRADE_IDS, newInstalled, installUpgrade, installedOfType, removable } from "../../engine/upgrades.js";
 import { shutdown } from "../../engine/machine.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { CLASSIC_ORDER, MODERN_ORDER } from "../../engine/machine.js";
@@ -386,7 +386,8 @@ export const TESTS = [
     eq([p.c, p.alive], [4, true], "it danced off the open door");
   }],
   ["Fireworks: the first time in a round, 1 Energy makes any robot draw a damage card", () => {
-    const co = courseOn(plain().library.values().next().value, [[3, 3], [7, 7]]);
+    /* a chop shop somewhere on the course, or Fireworks is not in the deck */
+    const co = courseOn(board(8, 8, (b, t) => t.sites(7, 0, ["chopShop"])), [[3, 3], [7, 7]]);
     const st = game(co, [{ c: 3, r: 3, face: N }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
     const [p, q] = st.players;
     p.installed.push(newInstalled(take(st, "fireworks")[0]));
@@ -399,7 +400,17 @@ export const TESTS = [
     st.register = 1;
     runRegister(st, co.library);
     eq(q.pile.length, hurt + 1, "once a round: register 2 on the same checkpoint sets off nothing");
+  }],
+  ["an upgrade about a chop shop is only in the deck on a course that prints one", () => {
+    const on = st => st.upgradeRoster.includes("fireworks") && st.upgradeDeck.concat(...st.players.map(p => p.shelf)).includes("fireworks");
+    const bare = courseOn(board(8, 8));
+    eq(on(game(bare, [{ c: 0, r: 0 }], { ruleset: "modern" })), false, "no chop shop: no Fireworks, in the deck or dealt");
+    const shop = courseOn(board(8, 8, (b, t) => t.sites(5, 5, ["chopShop"])));
+    eq(on(game(shop, [{ c: 0, r: 0 }], { ruleset: "modern" })), true, "one chop shop: Fireworks is in the game");
+    const st = game(bare, [{ c: 0, r: 0 }], { ruleset: "modern" });
+    eq(st.upgradeRoster.length, UPGRADE_IDS.length - 1, "every other card is still dealt");
   }]
 ];
+
 
 

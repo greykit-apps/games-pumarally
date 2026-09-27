@@ -513,14 +513,14 @@ export const TESTS = [
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }, { c: 2, r: 3 }]);
     for (const p of st.players) eq(p.shelf.length, 3, p.name + " holds three, uninstalled");
-    eq(st.upgradeDeck.length, UPGRADE_IDS.length - 9, "the rest are the deck");
+    eq(st.upgradeDeck.length, st.upgradeRoster.length - 9, "the rest are the deck");
     assertInvariants(st, co.library);
   }],
   ["fitting an upgrade costs its printed Energy and takes a slot", () => {
     const co = plain();
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
     const p = st.players[0];
-    p.shelf = []; st.upgradeDeck = UPGRADE_IDS.slice(); st.upgradeDiscard = [];
+    p.shelf = []; st.upgradeDeck = st.upgradeRoster.slice(); st.upgradeDiscard = [];
     for (const q of st.players) q.shelf = [];
     shelve(st, p, "firewall"); shelve(st, p, "crabLegs");
     p.energy = 3;
@@ -543,7 +543,7 @@ export const TESTS = [
     const st = mgame(co, [{ c: 0, r: 3 }, { c: 1, r: 3 }]);
     const p = st.players[0];
     for (const q of st.players) q.shelf = [];
-    st.upgradeDeck = UPGRADE_IDS.slice();
+    st.upgradeDeck = st.upgradeRoster.slice();
     const perms = ["firewall", "laserKata", "hoverUnit", "brakes"], temps = ["recharge", "zoop", "boink", "magnetic"];
     for (const id of perms.concat(temps)) shelve(st, p, id);
     p.energy = MAX_ENERGY;
@@ -596,7 +596,7 @@ export const TESTS = [
     const st = mgame(co, [{ c: 0, r: 3, skill: 2 }, { c: 1, r: 3 }]);
     const p = st.players[0];
     for (const q of st.players) q.shelf = [];
-    st.upgradeDeck = UPGRADE_IDS.slice();
+    st.upgradeDeck = st.upgradeRoster.slice();
     shelve(st, p, "firewall");
     const req = () => ({ player: 0, kind: "upgrade", options: { buy: p.energy >= 1 ? [false, true] : [false], install: [null].concat(p.shelf.filter(id => canInstall(p, id))), uninstall: [] } });
     p.energy = 2;
