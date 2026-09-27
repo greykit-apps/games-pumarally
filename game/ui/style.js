@@ -227,6 +227,9 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .courses.shelved.small .shelfbox{column-gap:6px}
 .shelfbox::before{content:"";position:absolute;inset:-8px -3px;z-index:-1;border:1px solid color-mix(in srgb,var(--lit) 45%,var(--line));border-radius:6px;background:color-mix(in srgb,var(--line) 55%,var(--panel2))}
 .courses.shelved.small .shelfbox::before{inset:-7px -2px}
+.shelfbox.tinted::before{background:color-mix(in srgb,var(--tint) 17%,var(--panel2));border-color:color-mix(in srgb,var(--tint) 60%,var(--line))}
+.shelfbox.tinted .shelf{border-bottom-color:color-mix(in srgb,var(--tint) 45%,var(--line))}
+.courses.shelved .shelfbox.tinted .shelf::before{background:var(--tint)}
 .courses.shelved .shelf{grid-column:1/-1;margin:0;padding:0 0 5px 7px;border-top:0;border-bottom:1px solid color-mix(in srgb,var(--lit) 35%,var(--line));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;color:var(--text)}
 .courses.shelved .shelf::before{content:"";position:absolute;left:0;top:1px;bottom:6px;width:3px;border-radius:1px;background:var(--accent)}
 .shelftiles{display:contents}

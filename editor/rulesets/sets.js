@@ -22,12 +22,19 @@ export const EDITIONS = {
  * year. Crash and Burn is the English release's 1997; the German AMIGO print
  * photographed for this library came later. A row with no box has no year
  * and shelves last. */
+/* `tint` IS THE BOX ART'S COLOUR, which the setup screen washes its card in.
+ * Read by eye off the author's own photographs, as a hue given one shared
+ * saturation and brightness so no card shouts over another: the boxes of
+ * Wet and Wild (manual1/IMG_1235), Chaos and Carnage (IMG_1240), Thrills and
+ * Spills (IMG_1247) and Turn & Burn (IMG_1463), and for Crash and Burn the
+ * AMIGO rulebook's cover (IMG_1224). A box with no photograph of its art has
+ * no tint and keeps the plain card. */
 export const SETS = {
   authored:          { name: "Authored",     edition: "both",    box: "Not from any box" },
 
   base:              { name: "Base Game",    edition: "classic", box: "RoboRally (1994-2005)", year: 1994 },
   armedAndDangerous: { name: "Armed and Dangerous", edition: "classic", box: "Armed and Dangerous", year: 1995 },
-  crashAndBurn:      { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn", year: 1997 },
+  crashAndBurn:      { name: "Crash and Burn",      edition: "classic", box: "Crash and Burn", year: 1997, tint: "#e06e48" },
   /* The rest of Gareth's list, 2026-09-23. Each row is named as that page
    * names the board's source. Grand Prix and Radioactive are boxes; 2005 is
    * the boards first printed in the 2005 edition; Origins '99 is one board,
@@ -44,15 +51,15 @@ export const SETS = {
   modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)", year: 2023 },   // the named boards; the 2016 box's are lettered 1A-6B, filed below
   modern2016:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2016)", year: 2016 },   // the lettered boards 1A-6B, 10x10
   thirtieth:         { name: "30th Anniversary", edition: "modern", box: "Robo Rally 30th Anniversary", year: 2024 },
-  wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild", year: 2023 },
-  chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage", year: 2023 },
-  thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills", year: 2024 },
+  wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild", year: 2023, tint: "#4880e0" },
+  chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage", year: 2023, tint: "#9948e0" },
+  thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills", year: 2024, tint: "#e048a8" },
   masterBuilder:     { name: "Master Builder",     edition: "modern", box: "Master Builder", year: 2024 },
   /* Renegade's Turn & Burn: three double-sided boards, the three Grand Prix
    * boards turned a quarter and reprinted with batteries for wrenches, and
    * three new ones (Bounce House, Open Circuit, Check In). Photographed by
    * the author, manual1/IMG_1463-1477. */
-  turnAndBurn:       { name: "Turn & Burn",        edition: "modern", box: "Turn & Burn", year: 2024 },
+  turnAndBurn:       { name: "Turn & Burn",        edition: "modern", box: "Turn & Burn", year: 2024, tint: "#e04d48" },
 
   /* Where a board came out of is taken from Gareth's list of the official
    * boards by expansion, https://tartarus.org/gareth/roborally/boards/official
