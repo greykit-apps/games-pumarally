@@ -7,8 +7,7 @@
   "h": 12,
   "set": "turnAndBurn",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "Transcribed 2026-09-27 from the author's photograph of the Turn & Burn print (manual1/IMG_1472), rectified to the grid, and turned a quarter anticlockwise so the name reads upright. No flag locations: those are the author's to place. One edge prints a repulsor field back to back with the wall a laser stops at; it is spelled as a repulsor on a walled edge. Unverified.",
+  "notes": "Transcribed 2026-09-27 from the author's photograph of the Turn & Burn print (manual1/IMG_1472), rectified to the grid, and turned a quarter anticlockwise so the name reads upright. One square prints a repulsor field back to back with the wall a laser stops at: the field is an item in its square, the wall a plain wall, so from the wall's side a robot is only stopped. Checked against the photograph by the author in the workshop, with flag locations, a repair site and an upgrade site added and one belt merge corrected: verified 2026-09-27.",
   "ground": {
     "rows": [
       "... ... ... ... ... r.. B^. l.. ... ... ... ...",
@@ -19,16 +18,23 @@
       "... ... ... ... ... ... B^. r.. ... r.. ... ...",
       "... ... ... ... ... ... B^. ... l.. ... ... ...",
       "... ... ... ... ... b>r b^L ... ... ... ... ...",
-      "... ... ... ... b>r b^l b^r b<. b<. b<. b<L b<.",
+      "... ... ... ... b>r b^l b^R b<. b<. b<. b<L b<.",
       "... ... ... b>r b^l ... ... ... ... ... b^. ...",
       "b>. b>. b>. b^L ... ... b^. ... ... ... b^. ...",
       "... ... ... b^. ... ... b^. ... ... ... b^. ..."
     ],
     "sites": [
+      { "at": [3, 2], "has": ["flagspot"] },
       { "at": [9, 2], "has": ["chopShop"] },
       { "at": [1, 3], "has": ["chopShop"] },
+      { "at": [3, 3], "has": ["repair"] },
+      { "at": [9, 3], "has": ["flagspot"] },
+      { "at": [1, 6], "has": ["flagspot"] },
+      { "at": [7, 7], "has": ["flagspot"] },
+      { "at": [8, 7], "has": ["upgrade"] },
       { "at": [9, 9], "has": ["chopShop"] },
-      { "at": [4, 10], "has": ["chopShop"] }
+      { "at": [4, 10], "has": ["chopShop"] },
+      { "at": [8, 10], "has": ["flagspot"] }
     ],
     "devices": [
       { "kind": "trapDoor", "at": [1, 0], "regs": [5] },
