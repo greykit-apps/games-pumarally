@@ -189,6 +189,16 @@
       "bytes": 71785
     }
   },
+  "bounceHouse": {
+    "art": {
+      "sha": "28b382b6556477be",
+      "bytes": 102511
+    },
+    "markup": {
+      "sha": "e4fa60717b445083",
+      "bytes": 70680
+    }
+  },
   "cactus": {
     "art": {
       "sha": "7f1c088a2bfcea44",
@@ -227,6 +237,16 @@
     "markup": {
       "sha": "4d8ab812608cd7d1",
       "bytes": 80349
+    }
+  },
+  "checkIn": {
+    "art": {
+      "sha": "011119214ee5995f",
+      "bytes": 85422
+    },
+    "markup": {
+      "sha": "05eb9a29f862ca10",
+      "bytes": 62329
     }
   },
   "chess": {
@@ -537,6 +557,16 @@
     "markup": {
       "sha": "e455e30e977cbf47",
       "bytes": 60494
+    }
+  },
+  "openCircuit": {
+    "art": {
+      "sha": "ab5e2e0050a59ef2",
+      "bytes": 107206
+    },
+    "markup": {
+      "sha": "e52406fa86023b64",
+      "bytes": 83044
     }
   },
   "pinwheel": {

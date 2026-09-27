@@ -641,6 +641,33 @@
       "h": 12,
       "set": "classic2005",
       "origin": "transcribed"
+    },
+    {
+      "id": "bounceHouse",
+      "name": "Bounce House",
+      "w": 12,
+      "h": 12,
+      "set": "turnAndBurn",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "checkIn",
+      "name": "Check In",
+      "w": 12,
+      "h": 12,
+      "set": "turnAndBurn",
+      "origin": "transcribed",
+      "unverified": true
+    },
+    {
+      "id": "openCircuit",
+      "name": "Open Circuit",
+      "w": 12,
+      "h": 12,
+      "set": "turnAndBurn",
+      "origin": "transcribed",
+      "unverified": true
     }
   ],
   "courses": [
