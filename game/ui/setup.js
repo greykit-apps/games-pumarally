@@ -32,7 +32,7 @@ import { assemble } from "../../editor/lib/course.js";
 import { readCourse } from "../engine/library.js";
 import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
-import { SETS, EDITIONS } from "../../editor/rulesets/sets.js";
+import { setsByYear, setTitle } from "../../editor/rulesets/sets.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
 import { quickCourse, quickMulti, quickSpots, canQuick, isBlank, quickFlagRange, quickDefaultFlags, QUICK_FLAGS, QUICK_MAX_BOARDS, DOCK_BOARD } from "../engine/quick.js";
@@ -192,15 +192,12 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   /* --- the map window, one per mode ---------------------------------------- */
 
   /* the shelves: boards grouped by the box they came out of, in the order
-   * the set table declares (classic boxes, then modern), each under a
-   * heading; a box with nothing on the shelf gets no heading */
-  const shelfName = id => {
-    const s = SETS[id];
-    if (!s) return "Unfiled";
-    return s.name === "Base Game" ? EDITIONS[s.edition].name + " base game" : s.name;
-  };
+   * the boxes were released (setsByYear), each under a heading; a box with
+   * nothing on the shelf gets no heading */
+  /* each shelf is headed by its box and the year it came out, oldest first */
+  const shelfName = id => setTitle(id);
   function shelves(list) {
-    const order = Object.keys(SETS);
+    const order = setsByYear();
     const by = new Map();
     for (const q of list) { const k = order.includes(q.set) ? q.set : "?"; if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
     return order.concat(["?"]).filter(k => by.has(k)).map(k => [shelfName(k), by.get(k)]);
