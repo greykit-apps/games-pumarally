@@ -77,11 +77,12 @@ export function setsByYear() {
     .sort((a, b) => a.y - b.y || a.i - b.i).map(x => x.id);
 }
 
-/** A set's heading: its name, "Classic base game" or "Modern base game" for a base box, and the year when the name does not already say it. */
+/** A set's heading: its name, "Classic base game" or "Modern base game" for a base box, and the year when the name does not already say it ("2005", "Origins '99"). */
 export function setTitle(id) {
   const s = SETS[id];
   if (!s) return "Unfiled";
   const name = s.name === "Base Game" ? EDITIONS[s.edition].name + " base game" : s.name;
-  return s.year === undefined || name.includes(String(s.year)) ? name : name + " (" + s.year + ")";
+  const says = y => name.includes(String(y)) || name.includes("'" + String(y).slice(2));
+  return s.year === undefined || says(s.year) ? name : name + " (" + s.year + ")";
 }
 export function editionOf(id) { return EDITIONS[id]; }

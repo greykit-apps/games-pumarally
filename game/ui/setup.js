@@ -202,7 +202,12 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     for (const q of list) { const k = order.includes(q.set) ? q.set : "?"; if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
     return order.concat(["?"]).filter(k => by.has(k)).map(k => [shelfName(k), by.get(k)]);
   }
-  const shelfHTML = (list, tile) => shelves(list).map(([name, qs]) => "<h2 class='shelf'>" + esc(name) + "</h2>" + qs.map(tile).join("")).join("");
+  /* each shelf is a box of its own -- heading and tiles -- and the boxes pack
+   * side by side (style.js, .shelved): a box too wide for what is left of a
+   * row starts the next one whole, and its tiles wrap only when it is wider
+   * than a row on its own */
+  const shelfHTML = (list, tile) => shelves(list).map(([name, qs]) =>
+    "<section class='shelfbox'><h2 class='shelf'>" + esc(name) + "</h2><div class='shelftiles'>" + qs.map(tile).join("") + "</div></section>").join("");
 
   function boardTile(q, pressed, pool) {
     /* the shelf is 12x12 boards only, so the size is not worth a tile's one line of meta */
@@ -216,7 +221,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
 
   function quickMap() {
     const drawable = pool1().length;
-    let html = "<div class='win'><div class='courses'>";
+    let html = "<div class='win'><div class='courses shelved'>";
     html += '<button class="course any" data-board="' + ANY + '" aria-label="Any board" aria-pressed="' + (prefs.quick.board === ANY) + '"' + (drawable ? "" : " disabled") + '>' +
       '<span class="name">Any board</span><span class="meta">drawn from ' + drawable + " at random</span></button>";
     html += shelfHTML(quick, q => boardTile(q, prefs.quick.board === q.id, false));
@@ -242,7 +247,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return "<div class='knobs'>" + slider("boards", "Boards", 1, mostBoards(), prefs.quick.boards, boardsNote()) +
       slider("flags", cap(flagWord()), lo, hi, prefs.quick.flags, flagsNote()) + "</div>" +
       "<h2 data-pool-heading>" + poolHeading() + "</h2>" +
-      "<div class='win'><div class='courses small'>" + shelfHTML(poolAll(), q => boardTile(q, !isOff(q), true)) + "</div></div>";
+      "<div class='win'><div class='courses shelved small'>" + shelfHTML(poolAll(), q => boardTile(q, !isOff(q), true)) + "</div></div>";
   }
 
   function savedMap() {
@@ -363,8 +368,37 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (win) scroll[map.dataset.mode] = win.scrollTop;
     map.dataset.mode = prefs.mode;
     map.innerHTML = prefs.mode === "quick" ? quickMap() : prefs.mode === "multi" ? multiMap() : savedMap();
+    packShelves();
     const w = map.querySelector(".win");
     if (w && scroll[prefs.mode]) w.scrollTop = scroll[prefs.mode];
+  }
+  /* How many columns the window holds, and how many each shelf takes: all of
+   * its boards when they fit on one line. Run on every render and whenever
+   * the window changes width. */
+  function packShelves() {
+    for (const c of root.querySelectorAll(".courses.shelved")) {
+      const small = c.classList.contains("small");
+      /* the minimum widths the grid had before the shelves shared rows, so a tile is the size it always was */
+      const min = small ? 76 : 112, gap = small ? 6 : 8;
+      const cols = Math.max(1, Math.floor((c.clientWidth + gap) / (min + gap)));
+      c.style.setProperty("--cols", cols);
+      /* a shelf with more boards than a row holds is split evenly over the
+       * lines it needs -- six in five columns is three and three, not five and
+       * one -- which also leaves room beside it for the next shelf */
+      /* and a heading longer than its boards are wide -- "Crash and Burn
+       * (1997)" over two small tiles -- takes the columns it needs to be read */
+      const colW = (c.clientWidth - gap * (cols - 1)) / cols;
+      for (const s of c.querySelectorAll(".shelfbox")) {
+        const n = s.querySelectorAll(".course").length;
+        /* the text's own width: the heading's box is as wide as the shelf's
+         * span, so measuring the box would keep a shelf as wide as it last was */
+        const range = document.createRange();
+        range.selectNodeContents(s.querySelector(".shelf"));
+        const title = Math.ceil(range.getBoundingClientRect().width);
+        const need = Math.ceil((title + gap) / (colW + gap));
+        s.style.setProperty("--span", Math.min(cols, Math.max(Math.ceil(n / Math.ceil(n / cols)), need)));
+      }
+    }
   }
   function renderSide() { el(".side").innerHTML = sideHTML(); }
   function syncStart() { el("[data-act=start]").disabled = !startable(); }
@@ -506,4 +540,10 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   };
   frame();
   renderTabs(); renderMap(); renderSide();
+  /* the shelves repack whenever the window changes width */
+  if (typeof ResizeObserver === "function") new ResizeObserver(packShelves).observe(el(".map"));
+  else window.addEventListener("resize", packShelves);
+  /* and once the web font is in: a heading measured in the fallback font is
+   * wider, and would take columns it does not need */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(packShelves);
 }
