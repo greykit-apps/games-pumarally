@@ -184,7 +184,7 @@ function applyGround(board, st, tool, c, r) {
 
   /* A trap door is the square's floor; painting over it would leave a door
    * under a belt, which is two floors at once. Take it off first. */
-  const under = floorAt(board, c, r);
+  const under = floorAt(board, c, r).filter(x => DEVICE_KINDS[x.kind].ownsSquare);
   if (under.length) {
     return { ok: false, why: at(c, r) + " is a " + DEVICE_KINDS[under[0].kind].name.toLowerCase() +
       ". Take it off first." };
@@ -424,10 +424,19 @@ function applyFloor(board, st, tool, c, r) {
   const kind = tool.device;
   const def = DEVICE_KINDS[kind];
   if (isVoid(board, c, r)) return { ok: false, why: "There is no square at " + at(c, r) + "." };
+  /* a repulsor field is an item in the square, facing the edge in hand: it
+   * leaves the square as it is, and a square may carry two at a corner */
+  if (def.faced) {
+    if (floorAt(board, c, r, kind).some(x => x.face === st.dir)) {
+      return { ok: false, why: at(c, r) + " already has a " + def.name.toLowerCase() + " along its " + dirLetter(st.dir) + " edge." };
+    }
+    board.floorDevices.push({ kind, c, r, face: st.dir });
+    return { ok: true, changed: true, note: def.name + " in " + at(c, r) + ", along its " + dirLetter(st.dir) + " edge" };
+  }
   if (floorAt(board, c, r, kind).length) {
     return { ok: false, why: at(c, r) + " is already a " + def.name.toLowerCase() + "." };
   }
-  if (floorAt(board, c, r).length) {
+  if (floorAt(board, c, r).some(x => DEVICE_KINDS[x.kind].ownsSquare)) {
     return { ok: false, why: at(c, r) + " already has a floor device. Take it off first." };
   }
   const regs = st.regs[kind];
@@ -568,6 +577,17 @@ export function toggleArm(board, c, r, slot) {
 
 /** Turn a placed thing: the square's own element, or a device standing on it. */
 export function turnHere(board, c, r, quarters, which) {
+  /* a repulsor field turns in its square, to lie along another of its edges */
+  if (which && which.kind && DEVICE_KINDS[which.kind] && DEVICE_KINDS[which.kind].layer === "floor") {
+    const def = DEVICE_KINDS[which.kind];
+    if (!def.faced) return { ok: false, why: def.name + " faces nowhere." };
+    const face = rot(which.face, quarters);
+    if (board.floorDevices.some(x => x !== which && x.kind === which.kind && x.c === which.c && x.r === which.r && x.face === face)) {
+      return { ok: false, why: "A " + def.name.toLowerCase() + " already lies along that edge." };
+    }
+    which.face = face;
+    return { ok: true, changed: true, note: def.name + " in " + at(c, r) + " now lies along its " + dirLetter(face) + " edge." };
+  }
   if (which && which.kind) {
     const def = DEVICE_KINDS[which.kind];
     if (!def || !def.faced) return { ok: false, why: DEVICE_KINDS[which.kind].name + " faces nowhere." };

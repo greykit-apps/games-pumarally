@@ -80,7 +80,7 @@ export function toPicture(board) {
   if (board.floorDevices.length) {
     tail.push("floor:");
     for (const d of board.floorDevices) {
-      tail.push("  " + d.kind + " " + d.c + "," + d.r + regsSuffix(d.regs));
+      tail.push("  " + d.kind + " " + d.c + "," + d.r + (d.face !== null && d.face !== undefined ? " " + dirLetter(d.face) : "") + regsSuffix(d.regs));
     }
   }
   if (board.ceilingDevices.length) {
@@ -219,7 +219,9 @@ function readCeilingLine(s, layer) {
   const m = /^(\d+),(\d+)$/.exec(parts.shift() || "");
   if (!m) throw new Error("not a square in: " + JSON.stringify(s));
   const dev = { kind, c: +m[1], r: +m[2] };
+  if (def.faced) dev.face = null;
   for (const p of parts) {
+    if (def.faced && /^[NESW]$/.test(p)) { dev.face = dirOfLetter(p); continue; }
     const rm = /^\[(\d+)\]$/.exec(p);
     if (!rm) throw new Error("unreadable in " + JSON.stringify(s) + ": " + JSON.stringify(p));
     dev.regs = rm[1].split("").map(Number);

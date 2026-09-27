@@ -118,7 +118,10 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
 /* --- devices and sets ----------------------------------------------------- */
 for (const [k, d] of Object.entries(DEVICE_KINDS)) {
   ok(d.layer === "wall" || d.layer === "floor" || d.layer === "ceiling", "devices: " + k + " names a layer");
-  ok(!(d.layer !== "wall" && d.faced), "devices: " + k + " -- no floor or ceiling device has a face");
+  /* a ceiling device comes down from above and faces nowhere; a floor device
+   * faces only when it lies along one of its square's edges (a repulsor field) */
+  ok(!(d.layer === "ceiling" && d.faced), "devices: " + k + " -- no ceiling device has a face");
+  ok(!(d.layer === "floor" && d.faced && d.ownsSquare), "devices: " + k + " -- a floor device that is the whole square faces nowhere");
   ok(Array.isArray(d.printedIn) && !d.editions, "devices: " + k + " records its printing as provenance");
   /* `playsIn` may be WIDER than `printedIn` and may never be narrower: a book
    * always resolves what it prints. Widening it is a substitute of ours, and

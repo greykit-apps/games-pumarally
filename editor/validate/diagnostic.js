@@ -95,7 +95,7 @@ export const CODES = Object.freeze({
   /* --- floor ------------------------------------------------------------ */
   "floor.offBoard":       "a floor device (a trap door) off the board",
   "floor.notFloor":       "a trap door printed on a square that is something other than plain floor",
-  "floor.duplicate":      "two floor devices on one square",
+  "floor.duplicate":      "two trap doors on one square, or two repulsor fields along one edge of it",
 
   /* --- ceiling ---------------------------------------------------------- */
   "ceiling.offBoard":     "a ceiling device off the board",
