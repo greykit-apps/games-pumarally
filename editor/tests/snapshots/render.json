@@ -561,12 +561,12 @@
   },
   "openCircuit": {
     "art": {
-      "sha": "b07a56bc4f767546",
-      "bytes": 107127
+      "sha": "b531b9edd51de5f2",
+      "bytes": 109503
     },
     "markup": {
-      "sha": "c94c04380c89917c",
-      "bytes": 82916
+      "sha": "b249001b8e28ca43",
+      "bytes": 86597
     }
   },
   "pinwheel": {
