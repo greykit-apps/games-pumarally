@@ -7,8 +7,7 @@
   "h": 12,
   "set": "turnAndBurn",
   "origin": "transcribed",
-  "unverified": true,
-  "notes": "Transcribed 2026-09-27 from the author's photograph of the Turn & Burn print (manual1/IMG_1476), rectified to the grid, and turned a quarter anticlockwise so the name reads upright. No flag locations: those are the author's to place. Unverified; the belt arms want checking first.",
+  "notes": "Transcribed 2026-09-27 from the author's photograph of the Turn & Burn print (manual1/IMG_1476), rectified to the grid, and turned a quarter anticlockwise so the name reads upright. Two repulsor fields share (5,5), at a corner. Checked against the photograph by the author in the workshop, with flag locations added and the two battery squares made repair+battery (9,3) and upgrade+battery (4,8); every belt, trap door and field stood as transcribed: verified 2026-09-27.",
   "ground": {
     "rows": [
       "... ... b>. ... ... ... ... ... ... ... ... ...",
@@ -25,10 +24,17 @@
       "... ... ... ... l.. ... B^. ... ... b^r b<l ..."
     ],
     "sites": [
+      { "at": [1, 2], "has": ["flagspot"] },
       { "at": [2, 2], "has": ["chopShop"] },
-      { "at": [9, 3], "has": ["battery"] },
-      { "at": [4, 8], "has": ["battery"] },
-      { "at": [8, 9], "has": ["chopShop"] }
+      { "at": [7, 2], "has": ["flagspot"] },
+      { "at": [10, 2], "has": ["flagspot"] },
+      { "at": [9, 3], "has": ["repair", "battery"] },
+      { "at": [4, 5], "has": ["flagspot"] },
+      { "at": [4, 8], "has": ["upgrade", "battery"] },
+      { "at": [7, 8], "has": ["flagspot"] },
+      { "at": [2, 9], "has": ["flagspot"] },
+      { "at": [8, 9], "has": ["chopShop"] },
+      { "at": [10, 9], "has": ["flagspot"] }
     ],
     "devices": [
       { "kind": "trapDoor", "at": [3, 0], "regs": [2, 4] },
