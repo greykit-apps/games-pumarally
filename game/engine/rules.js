@@ -460,12 +460,22 @@ export function beltPass(st, C, lo, hi, only, squares) {
       if (changed) break;
     }
   }
+  /* every robot lands before any of them reacts to where it landed: the
+   * vacancy test above cleared each target on the board as the pass began,
+   * and a skid or a portal hop taken before the rest have moved can land on
+   * a square a belt is about to deliver someone else to (Sampler's quick
+   * course did exactly this, two robots on one square) */
+  const landed = [];
   for (const [id, m] of movers) {
     const b = st.players[id];
     const from = [b.c, b.r];
     b.c = m.to[0]; b.r = m.to[1];
     tread(b);
     st.events.push({ type: "conveyed", player: b.id, from, to: m.to, dir: m.dir });
+    landed.push({ b, from, m });
+  }
+  const skids = [];
+  for (const { b, from, m } of landed) {
     if (isHole(C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
     /* "When a robot crosses over a ledge from an upper level to a lower level,
      * draw 2 damage" -- a belt carrying it over is a crossing like any other */
@@ -489,7 +499,12 @@ export function beltPass(st, C, lo, hi, only, squares) {
         }
       }
     }
-    if (rulesOf(st).oilSlideAfter.indexOf("belt") >= 0 && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
+    skids.push({ b, m });
+  }
+  /* and the skids last, since a skid shoves: every robot has landed, hopped
+   * and turned, so each slide meets the board as the belts left it */
+  if (rulesOf(st).oilSlideAfter.indexOf("belt") >= 0) {
+    for (const { b, m } of skids) if (b.alive && oilAt(C, b.c, b.r)) oilSlide(st, C, b, m.dir);
   }
   return null;
 }

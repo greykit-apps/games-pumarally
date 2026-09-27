@@ -847,6 +847,24 @@ export const TESTS = [
     runRegister(st, co.library);
     eq(st.players[0].c, 1, "green onto blue: the blue has already had its turn, so one square");
   }],
+  ["a belt pass lands every robot before any of them skids or drops through a portal", () => {
+    /* found on Sampler's quick course: a robot carried onto oil skidded into
+     * the square another robot's belt was about to deliver it to, and both
+     * ended on it. The skid comes after the whole simultaneous move, so it
+     * meets the delivered robot, which has grip, and stops short of it. */
+    let co = plain((b, t) => { t.setCell(2, 5, "b^."); t.setCell(2, 4, "L.."); t.setCell(3, 3, "b<."); });
+    let st = mgame(co, [{ c: 2, r: 5, face: N }, { c: 3, r: 3, face: W }]);
+    beltPass(st, co.C, 1, 2);
+    eq(st.players.map(p => [p.c, p.r]), [[2, 4], [2, 3]], "the skid stops before the robot the belt delivered");
+    assertInvariants(st, co.library);
+    /* and the same for a portal: its twin is taken by a robot the same pass
+     * delivered, so the entering robot stands on the near end */
+    co = plain((b, t) => { t.setCell(1, 3, "b>."); t.setCell(2, 3, "t1."); t.setCell(5, 3, "t1."); t.setCell(6, 3, "b<."); });
+    st = mgame(co, [{ c: 1, r: 3, face: E }, { c: 6, r: 3, face: W }]);
+    beltPass(st, co.C, 1, 2);
+    eq(st.players.map(p => [p.c, p.r]), [[2, 3], [5, 3]], "the far end is occupied, so nobody drops through");
+    assertInvariants(st, co.library);
+  }],
   ["a swing door shuts under the 2016 book as it does under the classic", () => {
     /* issue #14: Crash and Burn's door has no 2016 rule, so it keeps its own:
      * open in the registers printed on it, a wall in the rest */
