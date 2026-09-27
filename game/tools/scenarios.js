@@ -2440,7 +2440,31 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
-    "name": "a classic chop shop is marked on the board and does nothing in play yet",
+    "name": "a classic robot with no option card is given one at a chop shop",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot at a chop shop may scrap an option card for another",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot at a chop shop may refill an option card's payload",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic chop shop offers no refill when nothing is short of payload",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a classic robot may leave a chop shop alone",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"

@@ -333,6 +333,9 @@ export function botAnswer(st, library, req) {
       /* Turn & Burn's chop shop: an upgrade card while it has few to choose
        * from, else the Energy; it never scraps a card it chose to fit */
       if (req.card === "chopShop") {
+        /* classic: refill whatever is running low, and never scrap a card */
+        if (req.tag === "classic") return req.options.includes(2) ? 2 : 0;
+        if (req.tag === "refill") return req.options[0];
         if (req.tag === "scrap") return req.options[0];
         return p.shelf.length < 2 ? 1 : 0;
       }

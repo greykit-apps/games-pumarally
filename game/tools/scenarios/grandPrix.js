@@ -14,6 +14,7 @@ import { board, courseOn, game, give, runRegister, E, W, N, S } from "./harness.
 import { trapDoorsActivate, chopShopPass, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
 import { UPGRADE_DEFS, UPGRADE_IDS, newInstalled, installUpgrade, installedOfType, removable } from "../../engine/upgrades.js";
 import { shutdown } from "../../engine/machine.js";
+import { newHeld } from "../../engine/options.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { CLASSIC_ORDER, MODERN_ORDER } from "../../engine/machine.js";
 import { card } from "../../engine/cards.js";
@@ -44,6 +45,16 @@ function take(st, id) {
   throw new Error(id + " is nowhere to take from");
 }
 const carries = (p, id) => p.installed.some(u => u.id === id);
+/* a classic robot on a chop shop at (3,3), holding `held`, with its answer already given */
+function classicChop(answer, held) {
+  const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
+  const st = game(co, [{ c: 3, r: 3, face: N }]);
+  const p = st.players[0];
+  for (const id of held) { st.optionDeck.splice(st.optionDeck.indexOf(id), 1); p.options.push(newHeld(id)); }
+  give(st, p, 0, "left");
+  if (answer !== undefined) st.answers[st.turn + ":0:chop:" + p.id] = answer;
+  return { st, co, p };
+}
 /* a 2016 robot on a chop shop at (3,3) with its answer already given */
 function chop(answer, setup) {
   const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
@@ -241,14 +252,37 @@ export const TESTS = [
   /* --- chop shops -----------------------------------------------------------
    * Turn & Burn (manual1/IMG_1464) under the 2016 book; nothing yet under the
    * classic one, whose chop shop needs ammunition cards that are not built. */
-  ["a classic chop shop is marked on the board and does nothing in play yet", () => {
+  ["a classic robot with no option card is given one at a chop shop", () => {
     const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
-    const st = game(co, [{ c: 3, r: 3, face: N, damage: 2 }]);
+    const st = game(co, [{ c: 3, r: 3, face: N }]);
     const p = st.players[0];
-    const before = JSON.stringify([p.damage, p.options, p.energy, p.archive]);
     give(st, p, 0, "left");
     runRegister(st, co.library);
-    eq(JSON.stringify([p.damage, p.options, p.energy, p.archive]), before, "nothing changed");
+    eq(p.options.length, 1, "one option card, free");
+  }],
+  ["a classic robot at a chop shop may scrap an option card for another", () => {
+    const { st, co, p } = classicChop(1, ["brakes"]);
+    runRegister(st, co.library);
+    eq(p.options.length, 1, "still one card");
+    assert(p.options[0].id !== "brakes" && st.optionDiscard.includes("brakes"), "Brakes scrapped, another drawn");
+  }],
+  ["a classic robot at a chop shop may refill an option card's payload", () => {
+    const { st, co, p } = classicChop(2, ["turboBlaster"]);
+    p.options[0].st.charges = 1;
+    runRegister(st, co.library);
+    eq(p.options[0].st.charges, 5, "the Turbo Blaster is full again");
+  }],
+  ["a classic chop shop offers no refill when nothing is short of payload", () => {
+    const { st, co, p } = classicChop(undefined, ["turboBlaster", "brakes"]);
+    st.phase = "exec"; st.register = 0;
+    eq(chopShopPass(st, co.C).options, [0, 1], "leave it, or scrap: the Turbo Blaster is full");
+    p.options[0].st.charges = 0;
+    eq(chopShopPass(st, co.C).options, [0, 1, 2], "empty, it may be refilled");
+  }],
+  ["a classic robot may leave a chop shop alone", () => {
+    const { st, co, p } = classicChop(0, ["brakes"]);
+    runRegister(st, co.library);
+    eq(p.options.map(o => o.id), ["brakes"], "nothing changed");
   }],
   ["a 2016 robot that ends a register on a chop shop may take an Energy", () => {
     const { st, co, p } = chop(0);

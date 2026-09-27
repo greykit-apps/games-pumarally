@@ -49,6 +49,8 @@ export const CLASSIC_ORDER = [
    * checkpoints; after the burners and before the flags is both at once */
   ["waste", wastePass],
   /* no trap doors here: they act at the START of a register, in `reveal` */
+  /* Grand Prix's chop shops, with the flags (the fan compilation) */
+  ["chopShops", chopShopPass],
   ["touch", checkpointPass]
 ];
 
