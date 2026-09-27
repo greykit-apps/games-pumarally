@@ -213,6 +213,16 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .course .meta{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .courses .shelf{grid-column:1/-1;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .courses .shelf:first-child{margin-top:0;padding-top:0;border-top:0}
+/* the shelves pack into rows: one grid of equal columns across the window,
+ * and each shelf spans as many columns as it has boards (packShelves in
+ * setup.js sets --cols and each --span), so shelves share a row without
+ * gaps and a shelf's boards wrap only when it has more than a row holds */
+.courses.shelved{display:grid;grid-template-columns:repeat(var(--cols,6),minmax(0,1fr));gap:16px 8px;align-items:start}
+.courses.shelved.small{gap:14px 6px}
+.shelfbox{grid-column:span var(--span,1);display:grid;grid-template-columns:subgrid;row-gap:6px;min-width:0}
+.courses.shelved .shelf{grid-column:1/-1;margin:0;padding:0 0 4px;border-top:0;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shelftiles{display:contents}
+.courses.shelved .course.any{grid-column:1/-1}
 .course.any{grid-column:1/-1;flex-direction:row;justify-content:center;align-items:baseline;gap:10px;min-height:0;padding:8px;border-style:dashed;text-align:center}
 .course.any .name{font-size:13px;white-space:normal}
 .course.any .meta{white-space:normal}

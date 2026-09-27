@@ -155,7 +155,7 @@ for (const [id, s] of Object.entries(SETS)) {
   ok(ys.every((y, i) => i === 0 || y >= ys[i - 1]), "sets: oldest box first, and a set with no year last");
   const titles = order.map(setTitle);
   eq(titles.length, new Set(titles).size, "sets: every shelf heading is different");
-  eq([setTitle("modern2016"), setTitle("modernBase"), setTitle("classic2005")], ["Modern base game (2016)", "Modern base game (2023)", "2005"],
+  eq([setTitle("modern2016"), setTitle("modernBase"), setTitle("classic2005"), setTitle("origins99")], ["Modern base game (2016)", "Modern base game (2023)", "2005", "Origins '99"],
     "sets: the two modern base games are told apart by year, and a name that is a year is not repeated");
 }
 
