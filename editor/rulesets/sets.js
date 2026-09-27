@@ -25,6 +25,10 @@ export const SETS = {
    * names the board's source. Grand Prix and Radioactive are boxes; 2005 is
    * the boards first printed in the 2005 edition; Origins '99 is one board,
    * the final of that year's tournament, known from a scan. */
+  /* Grand Prix's three boards -- Back Stretch, Canyon, Pit Row -- are filed
+   * under Turn & Burn, which reprints them, by the author's decision of
+   * 2026-09-27 with that box in hand. The row stays because Gareth's list
+   * names the box. */
   grandPrix:         { name: "Grand Prix",   edition: "classic", box: "Grand Prix" },
   radioactive:       { name: "Radioactive",  edition: "classic", box: "Radioactive" },
   classic2005:       { name: "2005",         edition: "classic", box: "RoboRally (2005)" },
@@ -37,6 +41,11 @@ export const SETS = {
   chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage" },
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills" },
   masterBuilder:     { name: "Master Builder",     edition: "modern", box: "Master Builder" },
+  /* Renegade's Turn & Burn: three double-sided boards, the three Grand Prix
+   * boards turned a quarter and reprinted with batteries for wrenches, and
+   * three new ones (Bounce House, Open Circuit, Check In). Photographed by
+   * the author, manual1/IMG_1463-1477. */
+  turnAndBurn:       { name: "Turn & Burn",        edition: "modern", box: "Turn & Burn" },
 
   /* Where a board came out of is taken from Gareth's list of the official
    * boards by expansion, https://tartarus.org/gareth/roborally/boards/official

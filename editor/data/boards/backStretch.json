@@ -5,9 +5,9 @@
   "name": "Back Stretch",
   "w": 12,
   "h": 12,
-  "set": "grandPrix",
+  "set": "turnAndBurn",
   "origin": "transcribed",
-  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. The black spills with a tipped barrel are read as oil. The double beam on row 7 is two 1-damage lasers, one from each repulsor capsule, per the author. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
+  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. The black spills with a tipped barrel are read as oil. The double beam on row 7 is ONE double laser, its two emitters on the repulsor at the east rim, firing west to the repulsor at (5,7), which has none: so Turn & Burn prints it (manual1/IMG_1473). It was two opposed 1-damage lasers until 2026-09-27. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23. Filed under Turn & Burn, which reprints it a quarter-turn round with batteries for wrenches, by the author's decision of 2026-09-27; Gareth's list files it as Grand Prix. Checked against the Turn & Burn print (manual1/IMG_1472-1477) 2026-09-27: the layout, the trap door registers, the portal pairs and the repulsors all agree with the render it was transcribed from.",
   "ground": {
     "rows": [
       "o.. Bv. ... ... ... Bv. ... ... Bv. ... ... o..",
@@ -82,10 +82,9 @@
       { "kind": "pusher", "edge": "h:6,7", "face": "S", "regs": [1, 3, 5] },
       { "kind": "pusher", "edge": "h:7,8", "face": "N", "regs": [2, 4] },
       { "kind": "pusher", "edge": "v:4,5", "face": "E", "regs": [2, 4] },
-      { "kind": "laser", "edge": "v:5,7", "face": "E", "damage": 1 },
       { "kind": "repulsor", "edge": "v:5,7", "face": "E" },
       { "kind": "pusher", "edge": "v:7,5", "face": "E", "regs": [1, 3, 5] },
-      { "kind": "laser", "edge": "v:12,7", "face": "W", "damage": 1 },
+      { "kind": "laser", "edge": "v:12,7", "face": "W", "damage": 2 },
       { "kind": "repulsor", "edge": "v:12,7", "face": "W" }
     ]
   },

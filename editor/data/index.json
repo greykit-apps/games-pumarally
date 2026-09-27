@@ -423,7 +423,7 @@
       "name": "Back Stretch",
       "w": 12,
       "h": 12,
-      "set": "grandPrix",
+      "set": "turnAndBurn",
       "origin": "transcribed"
     },
     {
@@ -527,7 +527,7 @@
       "name": "Canyon",
       "w": 12,
       "h": 12,
-      "set": "grandPrix",
+      "set": "turnAndBurn",
       "origin": "transcribed"
     },
     {
@@ -599,7 +599,7 @@
       "name": "Pit Row",
       "w": 12,
       "h": 12,
-      "set": "grandPrix",
+      "set": "turnAndBurn",
       "origin": "transcribed"
     },
     {
