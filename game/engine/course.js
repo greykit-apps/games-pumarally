@@ -149,6 +149,12 @@ export function randomizerAt(C, c, r) { return !!propAt(C.grid, c, r, "randomize
 export function teleporterAt(C, c, r) { return !!propAt(C.grid, c, r, "teleport"); }
 /* Radioactive's two colours of deck, markings rather than elements (sites.js) */
 export function radiationAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "radiation"); }
+/** Does any square of the course carry this property -- a chop shop, a pit, a belt? */
+export function courseHas(C, name) {
+  for (let r = 0; r < C.grid.h; r++) for (let c = 0; c < C.grid.w; c++) if (propAt(C.grid, c, r, name)) return true;
+  return false;
+}
+
 /** A chop shop marked on (c,r). */
 export function chopShopAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "chopShop"); }
 

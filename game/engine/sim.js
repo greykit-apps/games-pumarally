@@ -102,8 +102,9 @@ function modernInvariants(st) {
     throw new Error("damage card conservation broken: " + dmg.length + " cards, " + new Set(dmg).size + " distinct, of " + MODERN_DAMAGE_SIZE + where);
   }
   for (const i of dmg) if (i < MODERN_DAMAGE_FIRST) throw new Error("a programming card is in a damage pile" + where);
-  if (ups.length !== UPGRADE_IDS.length || new Set(ups).size !== UPGRADE_IDS.length) {
-    throw new Error("upgrade conservation broken: " + ups.length + " cards, " + new Set(ups).size + " distinct, of " + UPGRADE_IDS.length + where);
+  const roster = st.upgradeRoster || UPGRADE_IDS;
+  if (ups.length !== roster.length || new Set(ups).size !== roster.length || ups.some(id => !roster.includes(id))) {
+    throw new Error("upgrade conservation broken: " + ups.length + " cards, " + new Set(ups).size + " distinct, of " + roster.length + where);
   }
   if (!Number.isInteger(st.priority) || st.priority < 0 || st.priority >= st.players.length) throw new Error("the Priority Token is with nobody" + where);
 }
