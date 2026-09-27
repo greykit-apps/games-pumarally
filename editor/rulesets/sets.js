@@ -25,7 +25,8 @@ export const EDITIONS = {
 /* `tint` IS THE BOX ART'S COLOUR, which the setup screen washes its card in.
  * Two sources. The author's own word (2026-09-27): the original game a
  * medium-dark red, Crash and Burn a deep green, Radioactive a bright green,
- * the 2016 base game silver -- each kept at the shade described, so the two
+ * the 2016 base game and the 30th Anniversary silver -- each kept at the
+ * shade described, so the two
  * greens and the two reds stay apart. And, read by eye off the author's
  * photographs as a hue at one shared saturation and brightness, the boxes of
  * Wet and Wild (manual1/IMG_1235), Chaos and Carnage (IMG_1240), Thrills and
@@ -52,7 +53,7 @@ export const SETS = {
 
   modernBase:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2023)", year: 2023 },   // the named boards; the 2016 box's are lettered 1A-6B, filed below
   modern2016:        { name: "Base Game",    edition: "modern",  box: "Robo Rally (2016)", year: 2016, tint: "#b4bfcc" },   // the lettered boards 1A-6B, 10x10
-  thirtieth:         { name: "30th Anniversary", edition: "modern", box: "Robo Rally 30th Anniversary", year: 2024 },
+  thirtieth:         { name: "30th Anniversary", edition: "modern", box: "Robo Rally 30th Anniversary", year: 2024, tint: "#b4bfcc" },
   wetAndWild:        { name: "Wet and Wild", edition: "modern",  box: "Wet and Wild", year: 2023, tint: "#4880e0" },
   chaosAndCarnage:   { name: "Chaos and Carnage", edition: "modern", box: "Chaos and Carnage", year: 2023, tint: "#9948e0" },
   thrillsAndSpills:  { name: "Thrills and Spills", edition: "modern", box: "Thrills and Spills", year: 2024, tint: "#e048a8" },
