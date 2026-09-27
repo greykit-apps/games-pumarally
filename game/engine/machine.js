@@ -24,7 +24,7 @@ import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
-  wastePass, radiationPass, trapDoorsActivate } from "./rules.js";
+  wastePass, radiationPass, trapDoorsActivate, chopShopPass } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
@@ -73,6 +73,9 @@ export const MODERN_ORDER = [
   ["waste", wastePass],
   /* Turn & Burn's trap doors are not a step here: they activate at the START
    * of a register printed on them, which `reveal` runs (manual1/IMG_1465) */
+  /* Turn & Burn's chop shops pay a robot that ends the register on one; the
+   * classic chop shop is inert, and its pass does nothing under that book */
+  ["chopShops", chopShopPass],
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -86,7 +89,7 @@ export const PASS_LABELS = {
   express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
   lasers: "Lasers", burners: "Flame jets", touch: "Flags",
   blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
-  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste"
+  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste", chopShops: "Chop shops"
 };
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }

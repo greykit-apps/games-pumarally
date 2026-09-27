@@ -69,6 +69,9 @@ export default {
     { step: "waste", name: "Radioactive waste burns, then gives an Energy or an upgrade", settled: true,
       note: "Contamination, on the classic timing -- ours, decided 2026-09-23, as no rulebook for " +
             "the box is in hand. What it gives is what a review of Contamination says it gives." },
+    { step: "chopShop", name: "Chop shops give an Energy, an upgrade, or a swapped permanent upgrade", settled: true,
+      note: "Turn & Burn (manual1/IMG_1464): a robot that ends a register on one chooses one of the three. " +
+            "With the batteries, at the end of the register." },
     /* NO TRAP DOOR STEP. Turn & Burn's trap door pit is not something the
      * board does at the end of a register: it is a pit for the WHOLE of each
      * register printed on it, from the start (manual1/IMG_1465). */

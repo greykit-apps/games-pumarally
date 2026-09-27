@@ -2428,7 +2428,37 @@ export const SCENARIOS = [
     "origin": "rebuild"
   },
   {
-    "name": "a chop shop is marked on the board and does nothing in play yet",
+    "name": "a classic chop shop is marked on the board and does nothing in play yet",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot that ends a register on a chop shop may take an Energy",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot that ends a register on a chop shop may draw an upgrade card",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a 2016 robot on a chop shop may scrap a permanent upgrade and install the top card free",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a chop shop offers no scrap to a robot with no permanent upgrade",
+    "layer": "rules",
+    "status": "ported",
+    "origin": "rebuild"
+  },
+  {
+    "name": "a shut-down robot on a chop shop takes nothing",
     "layer": "rules",
     "status": "ported",
     "origin": "rebuild"
