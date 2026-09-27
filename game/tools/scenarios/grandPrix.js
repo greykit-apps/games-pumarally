@@ -1,11 +1,11 @@
-/* Grand Prix (1997), reprinted for the 2016 game as Turn & Burn: trap doors,
+/* Turn & Burn (Renegade), reprinting Grand Prix (1997): trap door pits,
  * repulsor fields and chop shops. The 30th Anniversary boards print them too.
  *
- * No publisher's rulebook for either box is in the archive. The rules are the
- * Ultimate RoboRally Collection's (Justin Alexander, a fan compilation of the
- * classic game and its expansions), manual1/roborally-ultimate-collection-
- * rulebook.pdf. Where a test holds the engine to the author's reading rather
- * than a book's, it says so.
+ * The rules are Turn & Burn's own Factory Floor Guide, photographed by the
+ * author (manual1/IMG_1464-1466). The classic book has no Grand Prix sheet in
+ * the archive; the author ruled the same rules hold under it (2026-09-27).
+ * Where a test holds the engine to a reading of ours rather than the sheet's,
+ * it says so.
  *
  * Same contract as classic.js: every name here is marked "ported" in
  * scenarios.js, and the runner holds the two lists to each other.

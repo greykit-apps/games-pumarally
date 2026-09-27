@@ -368,12 +368,11 @@ export function playCard(st, C, p, cd, plan) {
 }
 
 /**
- * A repulsor field throws back what its card drove into it. "A robot moving
- * into a repulsor field is pushed directly away from the field a number of
- * spaces equal to its movement card and loses any remaining movement from that
- * card. A robot pushed into a repulsor moves a number of spaces equal to the
- * pusher's movement card and the pusher loses any remaining movement" (Ultimate
- * RoboRally Collection p.12, a fan compilation).
+ * A repulsor field throws back what its card drove into it (Turn & Burn's
+ * Factory Floor Guide, manual1/IMG_1466): a robot moving into it is pushed
+ * straight away from it as many spaces as the Move card that caused the move,
+ * and loses the rest of that move; a robot pushed into it goes back as many
+ * as the pusher's Move card, and the pusher loses the rest of its move.
  *
  * `head` is the robot that met the field: the mover itself, or the far end of
  * the chain it was pushing. It goes back one square at a time, and each square

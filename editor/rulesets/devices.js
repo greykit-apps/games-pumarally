@@ -89,29 +89,36 @@ export const DEVICE_KINDS = {
     source: "Crash and Burn. The register list is the registers it stands OPEN in."
   },
 
-  /* A REPULSOR FIELD IS A SPRINGY WALL. The print draws a glass tube of
-   * lightning with a red cap at each end, lying along one edge of a square, and
-   * that edge is a wall to everything that only asks whether an edge is walled
-   * -- a beam stops there ("acts like a wall for weapons and laser fire"), and
-   * a laser may be mounted on it, which Back Stretch does at both ends of a
-   * double beam. What it adds is the bounce, and only for a robot's own card: a
-   * robot moving into it is pushed straight back as many squares as the card
-   * moves, and loses the rest of the move; a robot pushed into it by another's
-   * card goes back as far as the pusher's card, and the pusher's move ends.
-   * Anything else that carries a robot into it -- a belt, a pusher, a shove
-   * from the board -- meets a wall, as nothing we have says otherwise.
+  /* A REPULSOR FIELD IS A SPRINGY WALL, and Turn & Burn's own sheet says so
+   * (manual1/IMG_1466, 2026-09-27; the fan compilation's reading, built
+   * before the box was in hand, agrees on every point). The print draws a
+   * glass tube of lightning with a red cap at each end along one edge of a
+   * square, and that edge is a wall to everything that only asks whether an
+   * edge is walled: it stops weapons and laser fire like a wall, and a laser
+   * may be mounted on it, as Back Stretch mounts its double beam. What it adds
+   * is the bounce, and only for a robot's own card: a robot moving into it is
+   * pushed straight back as many squares as the Move card, and loses the rest
+   * of the move; a robot pushed into it by another's card goes back as far as
+   * the pusher's card, and the pusher's move ends. Entering the capsule's
+   * square is not moving into the field; running into the edge as into a wall
+   * is. Anything else that carries a robot into it -- a belt, a pusher, a
+   * shove from the board -- meets a wall: the sheet speaks of a register's
+   * Move card and nothing else.
    *
-   * ALWAYS ON, and from BOTH sides. No capsule prints register numbers, and the
-   * author ruled it on in every register (2026-09-23). `face` records which
-   * square the capsule is printed in, which is a fact about the print; it does
-   * not make the field one-sided. */
+   * ALWAYS ON, and from BOTH sides. No capsule prints register numbers, and
+   * the author ruled it bounces a robot running into it from either side
+   * (2026-09-27). `face` records which square the capsule is printed in, a
+   * fact about the print; it does not make the field one-sided. It is drawn
+   * on the edge, not set back into that square: nothing is ever printed
+   * behind one, so there is no wall for it to stand in front of. */
   repulsor: {
     layer: "wall", name: "Repulsor field", faced: true, needsWall: true,
     regs: REGS_NONE, fields: {},
     printedIn: BOTH,
-    source: "Grand Prix (1997) and its 2016 reprint Turn & Burn; also the 30th Anniversary boards. " +
-            "Ultimate RoboRally Collection p.12, a fan compilation; a review of Turn & Burn agrees " +
-            "that it pushes away as far as the card, whichever way the robot came."
+    source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
+            "Turn & Burn Factory Floor Guide (manual1/IMG_1466): a robot running into it on a Move " +
+            "card is pushed straight back that card's value and loses the rest of its move; one pushed " +
+            "into it goes back the pusher's card, and the pusher's move ends; a wall to lasers."
   },
 
   /* A ONE-WAY WALL IS A WALL THAT KNOWS WHICH SIDE IT IS ON. The lattice
