@@ -158,6 +158,9 @@ export function newGame(opts) {
       energy: modern ? START_ENERGY : 0,
       deck: [], pile: [],
       shelf: [], installed: [],
+      /* Turn & Burn: the register a Pit Trap Dance spares it in, and the
+       * checkpoint a Bad Scanner kept it from, each as "turn:register..." */
+      danced: null, scanned: null,
       rebooting: false, fellFrom: -1,                 // the stamp it fell from: its Reboot Token is that board's
       upgradeDone: false, bought: false, fitted: false,
       /* Crab Legs' second card per register, Memory Cards' parked cards,

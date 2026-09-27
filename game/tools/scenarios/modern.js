@@ -498,8 +498,8 @@ export const TESTS = [
 
   /* --- upgrades ---------------------------------------------------------------- */
   ["the upgrade deck is forty cards, all of them written down", () => {
-    eq(UPGRADE_IDS.length, 58, "the base forty and eighteen more: thirteen expansion cards and Master Builder's five");
-    eq([UPGRADE_ROSTER.printed, UPGRADE_ROSTER.transcribed, UPGRADE_ROSTER.built], [58, 58, 58], "the roster: all of them, since the Haywire faces were photographed");
+    eq(UPGRADE_IDS.length, 63, "the base forty and twenty-three more: thirteen expansion cards, Master Builder's five and Turn & Burn's five");
+    eq([UPGRADE_ROSTER.printed, UPGRADE_ROSTER.transcribed, UPGRADE_ROSTER.built], [63, 63, 63], "the roster: all of them, since the Haywire faces were photographed");
     let built = 0;
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
@@ -507,7 +507,7 @@ export const TESTS = [
       if (d.built) { built++; assert(Object.keys(d.hooks).length || d.use || d.ruled, id + " is built and binds a hook or a use, or the rules read it by name"); }
       else { eq(Object.keys(d.hooks), [], id + " is inert and binds nothing"); assert(d.inert, id + " says why"); }
     }
-    eq(built, 58, "all built");
+    eq(built, 63, "all built");
   }],
   ["three upgrades are dealt at setup, and the forty are conserved", () => {
     const co = plain();

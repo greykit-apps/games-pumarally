@@ -55,7 +55,8 @@ export function assertInvariants(st, library) {
     /* a virtual robot shares its square by the book; two real robots never do (the classic check below says which) */
     if (!p.virtual) { if (seen.has(key)) throw new Error("two robots on " + key + " at " + st.phase + "." + st.step + " turn " + st.turn); seen.add(key); }
     if (!inGrid(C, p.c, p.r)) throw new Error(p.name + " is off the course at " + key);
-    if (isHole(C, p.c, p.r)) throw new Error(p.name + " is standing in a hole at " + key);
+    /* over a pit only while a Pit Trap Dance lasts, which is to the end of its register */
+    if (isHole(C, p.c, p.r) && p.danced !== st.turn + ":" + st.register) throw new Error(p.name + " is standing in a hole at " + key);
     /* an integer, not merely in range: NaN passes every comparison */
     if (!Number.isInteger(p.damage) || p.damage < 0 || p.damage >= MAX_DAMAGE) throw new Error(p.name + " has " + p.damage + " damage and is alive");
     if (p.lives < 1) throw new Error(p.name + " is alive with no lives");

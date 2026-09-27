@@ -16,7 +16,7 @@ import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
 import { alive, log } from "./state.js";
 import { fire, OPTION_DEFS, discardOption, drawOption } from "./options.js";
-import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, uninstallUpgrade, UPGRADE_DEFS } from "./upgrades.js";
+import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, uninstallUpgrade, shed, UPGRADE_DEFS } from "./upgrades.js";
 import { receiveHaywire } from "./haywire.js";
 import { stampAt as stampOf, rebootTokenOn } from "./course.js";
 
@@ -194,7 +194,7 @@ export function stepRobot(st, C, p, dir, cause) {
     if (holeNow(st, C, m.c, m.r)) {
       /* a hovering robot passes over a pit, and falls in only where its move ends */
       if (i === 0 && m.hoverSteps > 0 && inGrid(C, m.c, m.r)) { log(st, m.name + " hovers over the pit"); }
-      else { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
+      else if (!dances(st, C, m)) { destroy(st, C, m, inGrid(C, m.c, m.r) ? "into a pit" : "over the edge"); continue; }
     }
     throughPortal(st, C, m);
     /* a jet burns what passes through it, not only what stops in it. The 2016
@@ -332,6 +332,8 @@ export function playCard(st, C, p, cd, plan) {
   if (plan.kind !== "move") { stayedInFlame(st, C, p, start); return; }
   const dir = plan.lateral ? rot(p.face, plan.lateral) : plan.dist > 0 ? p.face : opposite(p.face);
   let n = Math.abs(plan.dist);
+  /* Slow Processor, installed onto this robot: one square fewer on a Move 2 or a Move 3 */
+  if (has(p, "slowProcessor") && plan.dist >= 2 && (cd.kind === "move2" || cd.kind === "move3")) { n--; log(st, p.name + "'s slow processor holds it back a square"); }
   if (n > 0 && oilAt(C, p.c, p.r)) n--;               // wheels spin on oil: one square less
   if (n > 0 && waterAt(C, p.c, p.r)) n--;               // Wet and Wild: leaving water costs a space, once per Move card -- under either book (issue #14)
   let moved = 0;
@@ -351,7 +353,7 @@ export function playCard(st, C, p, cd, plan) {
   }
   p.hoverSteps = 0;
   /* Hover Unit: "falls in if it ends its move on one" -- including a move a wall cut short over a pit */
-  if (hover && p.alive && holeNow(st, C, p.c, p.r)) destroy(st, C, p, "into a pit");
+  if (hover && p.alive && fallsHere(st, C, p)) destroy(st, C, p, "into a pit");
   p.lastMove = moved > 0 ? { dir, n: moved } : null;
   /* "If a robot stops on this virtual ramp space, the robot slides back to the
    * lower level, which will push a robot occupying that space." The ramp space
@@ -383,6 +385,8 @@ export function playCard(st, C, p, cd, plan) {
  */
 function repulse(st, C, p, head, dir, n) {
   const back = opposite(dir);
+  /* Field Stabilizer: one square less, always (declared, upgrades.js) */
+  if (has(head, "fieldStabilizer") && n > 0) { n--; log(st, head.name + "'s field stabilizer takes a square off the throw"); }
   log(st, head.name + " is thrown back by the repulsor field");
   st.events.push({ type: "repulsed", player: head.id, dir: back, n });
   for (let k = 0; k < n && head.alive; k++) if (!stepRobot(st, C, head, back, "repulsor")) break;
@@ -465,7 +469,7 @@ export function beltPass(st, C, lo, hi, only, squares) {
     b.c = m.to[0]; b.r = m.to[1];
     tread(b);
     st.events.push({ type: "conveyed", player: b.id, from, to: m.to, dir: m.dir });
-    if (holeNow(st, C, b.c, b.r)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
+    if (fallsHere(st, C, b)) { destroy(st, C, b, inGrid(C, b.c, b.r) ? "into a pit" : "over the edge"); continue; }
     /* "When a robot crosses over a ledge from an upper level to a lower level,
      * draw 2 damage" -- a belt carrying it over is a crossing like any other */
     if (levelStepAt(C, from[0], from[1], m.dir) < 0 && !rampBetween(C, from[0], from[1], m.dir)) {
@@ -524,6 +528,28 @@ export function holeNow(st, C, c, r) {
 }
 
 /**
+ * Pit Trap Dance (Turn & Burn): a robot holding it that would fall into a pit
+ * or an active trap door pit during a register discards it there and then,
+ * and falls into none for the rest of that register. Not the board's edge,
+ * which is no pit. True when the robot is spared.
+ */
+export function dances(st, C, p) {
+  if (st.phase !== "exec" || !inGrid(C, p.c, p.r)) return false;
+  const mark = st.turn + ":" + st.register;
+  if (p.danced === mark) return true;
+  if (!(p.installed || []).some(u => u.id === "pitTrapDance")) return false;
+  uninstallUpgrade(st, p, "pitTrapDance", "uses up");
+  p.danced = mark;
+  log(st, p.name + " dances over the pit: no pit takes it this register");
+  return true;
+}
+
+/** Would a robot standing where it is fall now: a hole this moment, and no dance to save it. */
+export function fallsHere(st, C, p) {
+  return holeNow(st, C, p.c, p.r) && !dances(st, C, p);
+}
+
+/**
  * Turn & Burn's trap door pits, at the START of each register printed on them
  * (manual1/IMG_1465): a robot in the space when the door activates is lost,
  * and cannot escape it. The sheet's own example is a robot that ends
@@ -535,7 +561,7 @@ export function holeNow(st, C, c, r) {
 export function trapDoorsActivate(st, C) {
   const fell = [];
   for (const p of alive(st)) {
-    if (!trapDoorActive(C, p.c, p.r, st.register)) continue;
+    if (!trapDoorActive(C, p.c, p.r, st.register) || dances(st, C, p)) continue;
     log(st, p.name + " is standing on a trap door pit as it opens");
     destroy(st, C, p, "through a trap door");
     fell.push(p.id);
@@ -999,6 +1025,7 @@ export function destroy(st, C, p, how) {
 export function reboot(st, C, p, how) {
   p.alive = false;
   p.rebooting = true;
+  shed(st, p, "slowProcessor", "reboots");
   /* "the Reboot Token that is on the same board where your robot fell into a pit or fell off the board" */
   const last = lastOnCourse(C, p);
   p.fellFrom = last ? stampOf(C, last[0], last[1]) : -1;
@@ -1245,6 +1272,12 @@ export function checkpointPass(st, C) {
        * when the course places Reboot Tokens, and follows the checkpoints only under the substitute */
       if (!isModern(st) || !(C.reboots && C.reboots.length)) p.archive = { c: F.c, r: F.r, face: p.face };
       if (F.n === p.flags + 1) {
+        /* Bad Scanner, installed onto this robot: it does not reach this one,
+         * this register, and the card comes off */
+        const scanned = st.turn + ":" + st.register + ":" + F.n;
+        if (p.scanned === scanned) continue;
+        if (shed(st, p, "badScanner", "would reach a checkpoint, and does not")) { p.scanned = scanned; continue; }
+        shed(st, p, "slowProcessor", "reaches a checkpoint");
         p.flags++;
         st.events.push({ type: "flag", player: p.id, flag: F.n, at: [F.c, F.r] });
         log(st, p.name + " touches flag " + F.n);
@@ -1271,6 +1304,34 @@ export function checkpointPass(st, C) {
     }
     p.newCheckpoint = false;
   }
+  /* Fireworks (Turn & Burn): the first time in a round a robot holding it
+   * ends a register on a checkpoint or a chop shop, it may pay 1 Energy for
+   * any robot to draw a damage card. The first time is the only time, paid
+   * or not. */
+  if (isModern(st)) {
+    for (const p of alive(st)) {
+      if (p.poweredDown || !has(p, "fireworks")) continue;
+      if (!flagAt(C, p.c, p.r) && !chopShopAt(C, p.c, p.r)) continue;
+      const key = st.turn + ":fireworks:" + p.id;
+      if (st.answers[key + ":done"]) continue;
+      const targets = alive(st);
+      if (p.energy < 1) { st.answers[key + ":done"] = true; continue; }
+      const a = st.answers[key];
+      if (a === undefined) {
+        return { player: p.id, kind: "cardChoice", key, card: "fireworks", targets: targets.map(t => t.id),
+          labels: ["No fireworks"].concat(targets.map(t => "1 Energy: " + t.name + " draws a damage card")),
+          options: [0].concat(targets.map((_, i) => i + 1)),
+          prompt: p.name + " ends the register on a " + (flagAt(C, p.c, p.r) ? "checkpoint" : "chop shop") + ". Set off the fireworks?" };
+      }
+      st.answers[key + ":done"] = true;
+      const t = a > 0 ? targets[a - 1] : null;
+      if (!t || !t.alive) continue;
+      p.energy -= 1;
+      st.events.push({ type: "energy", player: p.id, amount: -1, energy: p.energy, why: "fireworks" });
+      log(st, p.name + " sets off fireworks at " + t.name);
+      damage(st, C, t, 1, "fireworks");
+    }
+  }
   return null;
 }
 
@@ -1284,7 +1345,7 @@ export function win(st, C, p) {
 /** A robot that arrived somewhere without stepping (Boink, a switch of places): the square it landed on still counts. */
 export function arrived(st, C, p) {
   if (!p.alive) return;
-  if (holeNow(st, C, p.c, p.r)) { destroy(st, C, p, inGrid(C, p.c, p.r) ? "into a pit" : "over the edge"); return; }
+  if (fallsHere(st, C, p)) { destroy(st, C, p, inGrid(C, p.c, p.r) ? "into a pit" : "over the edge"); return; }
   throughPortal(st, C, p);
 }
 

@@ -54,12 +54,12 @@ const useOffer = (w, id, match) => { const o = w.options.find(o => o && o.id ===
 
 export const TESTS = [
   ["every transcribed upgrade is bound: built, or inert and saying why", () => {
-    eq(UPGRADE_IDS.length, 58, "fifty-eight");
+    eq(UPGRADE_IDS.length, 63, "sixty-three");
     const inert = UPGRADE_IDS.filter(id => !UPGRADE_DEFS[id].built);
     eq(inert, [], "none inert: Lucky Booster and Rewire came alive with the Haywire faces (manual1/IMG_1345-1348)");
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
-      if (d.temp && d.built) assert(d.use || Object.keys(d.hooks).length, id + " is a temporary with a use or a hook");
+      if (d.temp && d.built) assert(d.use || Object.keys(d.hooks).length || d.ruled, id + " is a temporary with a use or a hook, or the rules read it by name");
     }
   }],
   /* --- permanent -------------------------------------------------------------- */

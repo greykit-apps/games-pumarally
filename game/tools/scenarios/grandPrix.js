@@ -10,9 +10,10 @@
  * Same contract as classic.js: every name here is marked "ported" in
  * scenarios.js, and the runner holds the two lists to each other.
  */
-import { board, courseOn, game, give, runRegister, E, W, N } from "./harness.js";
+import { board, courseOn, game, give, runRegister, E, W, N, S } from "./harness.js";
 import { trapDoorsActivate, chopShopPass, firstRobotAlong, beltPass, stepRobot } from "../../engine/rules.js";
-import { UPGRADE_DEFS, newInstalled } from "../../engine/upgrades.js";
+import { UPGRADE_DEFS, newInstalled, installUpgrade, installedOfType, removable } from "../../engine/upgrades.js";
+import { shutdown } from "../../engine/machine.js";
 import { rulesetFor } from "../../../editor/rulesets/index.js";
 import { CLASSIC_ORDER, MODERN_ORDER } from "../../engine/machine.js";
 import { card } from "../../engine/cards.js";
@@ -29,6 +30,20 @@ function trapDoor(b, c, r, regs) {
   if (regs) dev.regs = regs;
   b.floorDevices.push(dev);
 }
+/* a card another robot installed onto `to`, as installUpgrade leaves it */
+function onto(st, id, from, to) {
+  const held = newInstalled(take(st, id)[0]);
+  held.st.from = from;
+  st.players[to].installed.push(held);
+}
+/* a card out of the upgrade deck, so the count of cards holds */
+function take(st, id) {
+  const i = st.upgradeDeck.indexOf(id);
+  if (i >= 0) return st.upgradeDeck.splice(i, 1);
+  for (const q of st.players) { const k = q.shelf.indexOf(id); if (k >= 0) return q.shelf.splice(k, 1); }
+  throw new Error(id + " is nowhere to take from");
+}
+const carries = (p, id) => p.installed.some(u => u.id === id);
 /* a 2016 robot on a chop shop at (3,3) with its answer already given */
 function chop(answer, setup) {
   const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
@@ -255,6 +270,117 @@ export const TESTS = [
     const e = p.energy;
     st.phase = "exec"; chopShopPass(st, co.C);
     eq(p.energy, e, "down, it collects nothing");
+  }],
+
+  /* --- Turn & Burn's upgrades (manual1/IMG_1467-1471) ------------------------ */
+  ["Slow Processor: a robot carrying it moves one square fewer on a Move 2 or a Move 3", () => {
+    for (const [kind, want] of [["move1", 3], ["move2", 3], ["move3", 4]]) {
+      const co = plain();
+      const st = game(co, [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+      const p = st.players[0];
+      onto(st, "slowProcessor", 1, 0);
+      put(st, p, 0, kind);
+      runRegister(st, co.library);
+      eq(p.c, want, kind + ": to column " + want);
+    }
+  }],
+  ["Slow Processor comes off when its robot reboots, reaches a checkpoint or shuts down", () => {
+    /* a reboot, into a pit */
+    let co = plain((b, t) => t.setCell(3, 3, "o.."));
+    let st = game(co, [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    onto(st, "slowProcessor", 1, 0);
+    put(st, st.players[0], 0, "move1");
+    runRegister(st, co.library);
+    assert(!carries(st.players[0], "slowProcessor") && st.upgradeDiscard.includes("slowProcessor"), "gone at the reboot");
+    /* a checkpoint */
+    co = courseOn(board(8, 8), [[4, 3], [7, 7]]);
+    st = game(co, [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    onto(st, "slowProcessor", 1, 0);
+    put(st, st.players[0], 0, "move3");
+    runRegister(st, co.library);
+    eq([st.players[0].c, st.players[0].flags], [4, 1], "slowed to the checkpoint, and it counts");
+    assert(!carries(st.players[0], "slowProcessor"), "gone at the checkpoint");
+    /* a shutdown */
+    st = game(plain(), [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    onto(st, "slowProcessor", 1, 0);
+    shutdown(st, st.players[0]);
+    assert(!carries(st.players[0], "slowProcessor"), "gone at the shutdown");
+  }],
+  ["a card installed onto another robot takes no slot there, and that robot cannot take it off", () => {
+    const st = game(plain(), [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    const [p, q] = st.players;
+    const before = installedOfType(q, "permanent");
+    p.shelf.push(...take(st, "slowProcessor")); p.energy = 5;
+    assert(installUpgrade(st, p, "slowProcessor", q.id), "installed");
+    assert(carries(q, "slowProcessor") && !carries(p, "slowProcessor"), "on the other robot's mat");
+    eq([installedOfType(q, "permanent"), p.energy], [before, 2], "no slot taken, and the installer paid");
+    assert(!removable(q).includes("slowProcessor"), "not the carrier's to take off");
+  }],
+  ["Bad Scanner: the next checkpoint its robot would reach, it does not, and the card comes off", () => {
+    const co = courseOn(board(8, 8), [[3, 3], [7, 7]]);
+    const st = game(co, [{ c: 2, r: 3, face: E }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    const p = st.players[0];
+    onto(st, "badScanner", 1, 0);
+    put(st, p, 0, "move1"); put(st, p, 1, "left");
+    runRegister(st, co.library);
+    eq([p.c, p.flags], [3, 0], "on the checkpoint, and not reached");
+    assert(!carries(p, "badScanner"), "the card is off");
+    st.register = 1;
+    runRegister(st, co.library);
+    eq(p.flags, 1, "reached at the next register's end");
+  }],
+  ["Field Stabilizer: a repulsor field throws its robot one square less", () => {
+    const co = plain((b, t) => repulsor(b, t, 4, 3));
+    const st = game(co, [{ c: 3, r: 3, face: E }], { ruleset: "modern" });
+    const p = st.players[0];
+    p.installed.push(newInstalled(take(st, "fieldStabilizer")[0]));
+    put(st, p, 0, "move3");
+    runRegister(st, co.library);
+    eq(p.c, 2, "to the field, then two back rather than three");
+  }],
+  ["Pit Trap Dance: a robot holding it crosses a pit in the register it would fall, and spends the card", () => {
+    const co = plain((b, t) => t.setCell(3, 3, "o.."));
+    const st = game(co, [{ c: 2, r: 3, face: E }], { ruleset: "modern" });
+    const p = st.players[0];
+    p.installed.push(newInstalled(take(st, "pitTrapDance")[0]));
+    put(st, p, 0, "move2");
+    runRegister(st, co.library);
+    eq([p.c, p.alive], [4, true], "over the pit and beyond");
+    assert(!carries(p, "pitTrapDance"), "and the card is spent");
+  }],
+  ["Pit Trap Dance lasts the register: a robot it leaves standing over a pit falls as the register ends", () => {
+    const co = plain((b, t) => t.setCell(3, 3, "o.."));
+    const st = game(co, [{ c: 2, r: 3, face: E }], { ruleset: "modern" });
+    const p = st.players[0];
+    p.installed.push(newInstalled(take(st, "pitTrapDance")[0]));
+    put(st, p, 0, "move1");
+    runRegister(st, co.library);
+    assert(!p.alive && p.rebooting, "the dance over, it falls");
+  }],
+  ["Pit Trap Dance spares a robot on a trap door pit that activates", () => {
+    const co = plain(b => trapDoor(b, 3, 3, [1]));
+    const st = game(co, [{ c: 3, r: 3, face: E }], { ruleset: "modern" });
+    const p = st.players[0];
+    p.installed.push(newInstalled(take(st, "pitTrapDance")[0]));
+    put(st, p, 0, "move1");
+    runRegister(st, co.library);
+    eq([p.c, p.alive], [4, true], "it danced off the open door");
+  }],
+  ["Fireworks: the first time in a round, 1 Energy makes any robot draw a damage card", () => {
+    const co = courseOn(plain().library.values().next().value, [[3, 3], [7, 7]]);
+    const st = game(co, [{ c: 3, r: 3, face: N }, { c: 0, r: 0, face: S }], { ruleset: "modern" });
+    const [p, q] = st.players;
+    p.installed.push(newInstalled(take(st, "fireworks")[0]));
+    p.flags = 1;                                        // an old checkpoint still counts for the fireworks
+    put(st, p, 0, "left"); put(st, p, 1, "left");
+    const e = p.energy, hurt = q.pile.length;
+    st.answers[st.turn + ":fireworks:" + p.id] = 2;     // the second robot on the list: q
+    runRegister(st, co.library);
+    eq([p.energy, q.pile.length], [e - 1, hurt + 1], "one Energy, one damage card for the other robot");
+    st.register = 1;
+    runRegister(st, co.library);
+    eq(q.pile.length, hurt + 1, "once a round: register 2 on the same checkpoint sets off nothing");
   }]
 ];
+
 

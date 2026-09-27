@@ -550,6 +550,38 @@ const BEHAVIOUR = {
   /* Master Builder. "Spend 1 Energy when your robot would be pushed: Your robot
    * is not pushed." Spent whenever it can be -- declared. */
   anchor: { ruled: true, hooks: {} },
+  /* --- Turn & Burn (manual1/IMG_1467-1471) ----------------------------------- */
+
+  /* Installed onto any robot and taking no slot: that robot moves one square
+   * fewer on a Move 2 or a Move 3, and the card comes off when it reboots,
+   * reaches a checkpoint or shuts down. Read by the card's move (rules.js)
+   * and shed by those three (`shed` below). The robot carrying it cannot
+   * uninstall it at will -- ours: the card names the three ways it comes
+   * off, and a victim who could simply discard it would make it nothing. */
+  slowProcessor: { ruled: true, asks: false, hooks: {} },
+  /* The card: you MAY add or subtract 1 from the distance a repulsor field
+   * moves your robot. The throw happens inside a move, where no question can
+   * be asked, so it always takes the shorter throw -- declared, as for
+   * Anchor. A thrown robot is losing ground; one square less is the choice
+   * that loses least. Read by `repulse` (rules.js). */
+  fieldStabilizer: { ruled: true, asks: false, hooks: {} },
+  /* The first time each round the robot ends a register on a checkpoint or
+   * a chop shop, it may pay 1 Energy to make any robot draw a damage card.
+   * Asked at the checkpoint step (rules.js), where a question can wait. */
+  fireworks: { ruled: true, asks: true, hooks: {} },
+  /* Installed onto any robot and taking no slot: the next checkpoint that
+   * robot would reach, it does not reach that register, and the card comes
+   * off. Read by the checkpoint step. Never the holder's to use: it has no
+   * offer. */
+  badScanner: { temp: true, ruled: true, asks: false, hooks: {} },
+  /* "Discard this upgrade at any time during a register": used the moment it
+   * matters -- when the robot would fall into a pit or an active trap door
+   * pit during a register -- and from then on it falls into none for the rest
+   * of that register (`dances`, rules.js). Declared: a fall is never the
+   * better outcome, and the fall comes where no question can be asked. The
+   * board's edge is not a pit, as Hover Unit's card says of it. */
+  pitTrapDance: { temp: true, ruled: true, asks: false, hooks: {} },
+
   zoop: {
     temp: true, movement: true,
     offers: (st, C, p, moment) => (moment === "before" || moment === "after") ? [0, 1, 2, 3].filter(d => d !== p.face).map(d => ({ face: d })) : [],
@@ -683,7 +715,7 @@ for (const c of UPGRADES_DATA.cards) {
   if ((c.type === "temporary") !== !!b.temp) throw new Error("upgrade " + c.id + " is " + c.type + " in the data and " + (b.temp ? "temporary" : "permanent") + " here");
   /* `asks`: the card puts a question to its holder (a hook that picks, or a
    * temporary's offer), which is what the screen gives a toggle to */
-  const asks = !!b.temp || c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer" || Object.values(b.hooks || {}).some(fn => /\.pick\(/.test(String(fn)));
+  const asks = b.asks !== undefined ? b.asks : !!b.temp || c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer" || Object.values(b.hooks || {}).some(fn => /\.pick\(/.test(String(fn)));
   /* and where: a temporary offered before or after the robot's card is
    * planned under the register; one offered after the deal is a switch */
   const asksIn = asksWhere(b.hooks);
@@ -692,8 +724,8 @@ for (const c of UPGRADES_DATA.cards) {
     if (/"before"|"after"/.test(src) || !/"dealt"/.test(src)) asksIn.plan = true;
     if (/"dealt"/.test(src)) asksIn.switch = true;
   }
-  if (c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer") asksIn.switch = true;
-  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, costX: !!c.costX, set: c.set || "base", type: c.type, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null, ruled: !!b.ruled,
+  if (c.id === "memoryCards" || c.id === "controlledChaos" || c.id === "memoryTransfer" || (b.asks && !b.temp)) asksIn.switch = true;
+  UPGRADE_DEFS[c.id] = { id: c.id, name: c.name, text: c.text, cost: c.cost, costX: !!c.costX, set: c.set || "base", type: c.type, onto: c.onto || null, noSlot: !!c.noSlot, built: !b.inert, inert: b.inert || null, asks, asksIn, single: !!b.temp, on: b.on || null, ruled: !!b.ruled,
     temp: !!b.temp, movement: !!b.movement, hooks: b.hooks || {}, init: b.init, botPrefers: b.botPrefers, offers: b.offers, use: b.use };
 }
 export const UPGRADE_IDS = Object.keys(UPGRADE_DEFS);
@@ -762,8 +794,22 @@ export function buyUpgrade(st, p) {
   return true;
 }
 
+/** How many of a type fill the robot's slots: a card installed onto it that takes no slot fills none. */
 export function installedOfType(p, type) {
-  return p.installed.filter(u => UPGRADE_DEFS[u.id].type === type).length;
+  return p.installed.filter(u => UPGRADE_DEFS[u.id].type === type && !UPGRADE_DEFS[u.id].noSlot).length;
+}
+
+/** The installed cards a robot may take off at will: not one another robot put on it. */
+export function removable(p) {
+  return p.installed.filter(u => !(u.st && u.st.from !== undefined && u.st.from !== p.id)).map(u => u.id);
+}
+
+/** Take a card off because it says so (Slow Processor on a reboot, a checkpoint, a shutdown). */
+export function shed(st, p, id, why) {
+  if (!p.installed.some(u => u.id === id)) return false;
+  uninstallUpgrade(st, p, id, "sheds");
+  log(st, UPGRADE_DEFS[id].name + " comes off " + p.name + " as it " + why);
+  return true;
 }
 
 /** What a card costs at this table: its printed cost, or X, the number of foes, at most 4 (Splash Damage). */
@@ -776,20 +822,24 @@ export function canInstall(p, id, players) {
   const def = UPGRADE_DEFS[id];
   if (!def || p.shelf.indexOf(id) < 0) return false;
   if (p.energy < costOf(def, players)) return false;
-  return installedOfType(p, def.type) < INSTALL_LIMIT[def.type];
+  return def.noSlot || installedOfType(p, def.type) < INSTALL_LIMIT[def.type];
 }
 
-/** Pay the printed cost and put the card on the mat. */
-export function installUpgrade(st, p, id) {
+/** Pay the printed cost and put the card on the mat -- or, for a card installed onto any robot, on `onto`'s. */
+export function installUpgrade(st, p, id, onto) {
   if (!canInstall(p, id, st.players.length)) return false;
   const def = UPGRADE_DEFS[id];
+  const to = def.onto && Number.isInteger(onto) && st.players[onto] ? st.players[onto] : p;
+  if (def.onto && to.installed.some(u => u.id === id)) return false;
   const cost = costOf(def, st.players.length);
   p.shelf.splice(p.shelf.indexOf(id), 1);
   p.energy -= cost;
-  p.installed.push(newInstalled(id));
+  const held = newInstalled(id);
+  if (def.onto) held.st.from = p.id;
+  to.installed.push(held);
   st.events.push({ type: "energy", player: p.id, amount: -cost, energy: p.energy, why: "install" });
-  st.events.push({ type: "upgrade", player: p.id, card: id, how: "installed" });
-  log(st, p.name + " installs " + def.name + (def.built ? "" : " (its effect is not built)"));
+  st.events.push({ type: "upgrade", player: to.id, card: id, how: "installed", by: to === p ? undefined : p.id });
+  log(st, p.name + " installs " + def.name + (to === p ? "" : " onto " + to.name) + (def.built ? "" : " (its effect is not built)"));
   return true;
 }
 

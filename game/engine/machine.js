@@ -24,11 +24,11 @@ import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
-  wastePass, radiationPass, trapDoorsActivate, chopShopPass } from "./rules.js";
+  wastePass, radiationPass, trapDoorsActivate, chopShopPass, destroy } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
-import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy } from "./upgrades.js";
+import { buyUpgrade, installUpgrade, uninstallUpgrade, canInstall, temporaryOffers, useTemporary, UPGRADE_DEFS, gainEnergy, removable, shed } from "./upgrades.js";
 import { step as stepCell, rot } from "../../editor/lib/dir.js";
 
 /* The board's turn, in the classic printed order. Each name is a pass in
@@ -251,6 +251,10 @@ const REQUESTS = {
       const o = req.options;
       if (a.buy !== undefined && (typeof a.buy !== "boolean" || !o.buy.includes(a.buy))) return false;
       if (a.install !== undefined && a.install !== null && !o.install.includes(a.install)) return false;
+      /* a card installed onto any robot names the robot; no other card does */
+      const onto = a.install ? UPGRADE_DEFS[a.install].onto : null;
+      if (onto && !(Number.isInteger(a.onto) && a.onto >= 0 && a.onto < st.players.length && !st.players[a.onto].installed.some(u => u.id === a.install))) return false;
+      if (!onto && a.onto !== undefined) return false;
       if (a.uninstall !== undefined && !(Array.isArray(a.uninstall) && a.uninstall.every(id => o.uninstall.includes(id)) && new Set(a.uninstall).size === a.uninstall.length)) return false;
       return true;
     },
@@ -258,7 +262,7 @@ const REQUESTS = {
       const p = st.players[req.player];
       for (const id of a.uninstall || []) uninstallUpgrade(st, p, id);
       if (a.buy) { if (buyUpgrade(st, p)) p.bought = true; }
-      if (a.install) { if (installUpgrade(st, p, a.install)) p.fitted = true; }
+      if (a.install) { if (installUpgrade(st, p, a.install, a.onto)) p.fitted = true; }
       /* an install, or an empty answer, is Done; a draw or an uninstall on
        * its own is asked again so the phase can go on */
       const acted = a.buy || (a.uninstall && a.uninstall.length);
@@ -345,6 +349,7 @@ function takeBay(st, p, dock, C) {
  */
 export function shutdown(st, p) {
   p.poweredDown = true;
+  shed(st, p, "slowProcessor", "shuts down");
   let scrapped = 0;
   for (let i = 0; i < REGISTERS; i++) {
     const ci = p.registers[i];
@@ -670,7 +675,8 @@ const STEPS = {
         if (p.parked.length) { p.hand = p.hand.concat(p.parked); log(st, p.name + " takes " + p.parked.length + " cards back from its Memory Cards"); p.parked = []; }
         const buy = !p.bought && p.energy >= UPGRADE_DRAW_COST && (st.upgradeDeck.length + st.upgradeDiscard.length) > 0 ? [false, true] : [false];
         const install = [null].concat(p.fitted ? [] : p.shelf.filter(id => canInstall(p, id, st.players.length)));
-        const uninstall = p.installed.map(u => u.id);
+        /* not a card another robot installed onto this one: it comes off only as it says */
+        const uninstall = removable(p);
         if (buy.length === 1 && install.length === 1 && !uninstall.length) { p.upgradeDone = true; continue; }
         ask(st, p, "upgrade", { buy, install, uninstall }, { energy: p.energy });
         return;
@@ -1011,8 +1017,17 @@ const STEPS = {
       }
       go(st, "exec", "endReg");
     },
-    endReg(st) {
+    endReg(st, C) {
       if (st.over) return;
+      /* a Pit Trap Dance lasts the register: a robot it left standing over a
+       * pit falls as the register ends. A trap door is the next register's
+       * business, at its start. */
+      const mark = st.turn + ":" + st.register;
+      for (const p of alive(st)) {
+        if (p.danced !== mark) continue;
+        p.danced = null;
+        if (isHole(C, p.c, p.r)) { log(st, p.name + "'s dance is over"); destroy(st, C, p, "into a pit"); }
+      }
       /* what a card granted for this register alone */
       for (const p of st.players) { p.phasing = 0; p.opposite = null; p.substitute = null; }
       st.register++;
