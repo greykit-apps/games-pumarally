@@ -13,13 +13,13 @@
 
 import { ELEMENTS, CHAR_OF_KEY, ARG_DIR, ARG_DIGIT, ARG_PAIR, ARG_NONE } from "../rulesets/elements.js";
 import { SITES, SITE_ORDER, EXCLUSIVE, restsOn } from "../rulesets/sites.js";
-import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS } from "../rulesets/devices.js";
+import { DEVICE_KINDS, WALL_KINDS, CEILING_KINDS, FLOOR_KINDS } from "../rulesets/devices.js";
 import { writeToken, ARM_CHARS, ARM_CODES, ARM_NAMES, tokenBeltSpeed, readToken, bayCharOf } from "../lib/token.js";
 import { describeRegs } from "../lib/registers.js";
 import { dirChar, dirLetter, dirOfChar, opposite, rot, DC, DR, N, E, S, W } from "../lib/dir.js";
 import {
   idx, inBoard, cellAt, setCell, isVoid, elementAt, propAt, levelAt, setLevel,
-  deviceCell, wallDevicesAt, ceilingAt, doorOn, sitesAt, setSites, toggleSite, doorsAt, deviceOnEdge } from "../lib/board.js";
+  deviceCell, wallDevicesAt, ceilingAt, floorAt, doorOn, sitesAt, setSites, toggleSite, doorsAt, deviceOnEdge } from "../lib/board.js";
 import {
   edgeOf, edgeId, setWall, wallAt, edgeCodeAt, setEdgeCode, rampOn, setRamp,
   EDGE_NONE, EDGE_WALL, EDGE_DOOR, isNormalOf
@@ -38,6 +38,12 @@ export const TOOLS = [
   ...Object.entries(ELEMENTS).map(([ch, def]) => ({
     key: "el:" + def.key, label: def.name, kind: "ground", element: ch,
     group: "Floor", arg: def.arg, printedIn: def.printedIn
+  })),
+  /* a trap door IS a square of floor, so it sits with the floor, though it is
+   * a device on the board: it carries the registers it is a pit in */
+  ...FLOOR_KINDS.map(k => ({
+    key: "dev:" + k, label: DEVICE_KINDS[k].name, kind: "floor", device: k,
+    group: "Floor", printedIn: DEVICE_KINDS[k].printedIn
   })),
   { key: "level", label: "Level", kind: "level", group: "Floor" },
   /* an edge tool, like the wall: it marks the edge under the pointer, and the
@@ -163,6 +169,7 @@ export function apply(board, st, c, r, opts = {}) {
     case "wall": return applyWall(board, st, c, r, opts);
     case "device": return applyDevice(board, st, tool, c, r, opts);
     case "ceiling": return applyCeiling(board, st, tool, c, r);
+    case "floor": return applyFloor(board, st, tool, c, r);
     default: return { ok: false, why: "That tool does not lay anything." };
   }
 }
@@ -175,6 +182,13 @@ function applyGround(board, st, tool, c, r) {
   else if (def.arg === ARG_DIGIT) arg = bayCharOf(st.digit);
   else if (def.arg === ARG_PAIR) arg = String(st.pair);
 
+  /* A trap door is the square's floor; painting over it would leave a door
+   * under a belt, which is two floors at once. Take it off first. */
+  const under = floorAt(board, c, r);
+  if (under.length) {
+    return { ok: false, why: at(c, r) + " is a " + DEVICE_KINDS[under[0].kind].name.toLowerCase() +
+      ". Take it off first." };
+  }
   /* A ceiling device has to have something to come down ON. */
   if (def.props.pit && ceilingAt(board, c, r).length) {
     return { ok: false, why: "Something hangs over " + at(c, r) + "; a pit has nothing under it to come down on." };
@@ -403,6 +417,31 @@ function applyCeiling(board, st, tool, c, r) {
   return { ok: true, changed: true, note: def.name + " over " + at(c, r) };
 }
 
+/* A trap door is laid as the square's floor: whatever element was printed
+ * there goes, and the markings and the level stay, as they would for plain
+ * floor. */
+function applyFloor(board, st, tool, c, r) {
+  const kind = tool.device;
+  const def = DEVICE_KINDS[kind];
+  if (isVoid(board, c, r)) return { ok: false, why: "There is no square at " + at(c, r) + "." };
+  if (floorAt(board, c, r, kind).length) {
+    return { ok: false, why: at(c, r) + " is already a " + def.name.toLowerCase() + "." };
+  }
+  if (floorAt(board, c, r).length) {
+    return { ok: false, why: at(c, r) + " already has a floor device. Take it off first." };
+  }
+  const regs = st.regs[kind];
+  if (def.regs === "required" && (!regs || !regs.length || regs.length >= 5)) {
+    return { ok: false, why: "A " + def.name.toLowerCase() + " acts in some registers and not others: " +
+      (def.regsWhy || "pick the registers.") };
+  }
+  setCell(board, c, r, "...");
+  const dev = { kind, c, r };
+  if (regs && regs.length) dev.regs = [...regs];
+  board.floorDevices.push(dev);
+  return { ok: true, changed: true, note: def.name + " at " + at(c, r) };
+}
+
 /** Right-click: take whatever is topmost off this square. */
 export function erase(board, st, c, r, opts = {}) {
   if (!inBoard(board, c, r)) return { ok: false, why: "Off the board." };
@@ -430,6 +469,11 @@ export function erase(board, st, c, r, opts = {}) {
      * wrong in either direction loses data the photograph has */
     return { ok: true, changed: true, note: "Took the " + DEVICE_KINDS[dev.kind].name.toLowerCase() +
       " off " + at(c, r) + ". Its wall is still there." };
+  }
+  const floor = floorAt(board, c, r);
+  if (floor.length) {
+    board.floorDevices.splice(board.floorDevices.indexOf(floor[0]), 1);
+    return { ok: true, changed: true, note: "Took the " + DEVICE_KINDS[floor[0].kind].name.toLowerCase() + " off " + at(c, r) + ". It is plain floor now." };
   }
   const marks = sitesAt(board, c, r);
   if (marks.length) {
@@ -556,10 +600,11 @@ export function setDeviceRegs(dev, regs) {
   if (!def || def.regs === "none") return { ok: false, why: def.name + " fires every register." };
   const next = regs && regs.length && regs.length < 5 ? [...regs].sort((a, b) => a - b) : null;
   if (def.regs === "required" && !next) {
-    return { ok: false, why: "A swing door must stand open in some registers and not others." };
+    return { ok: false, why: "A " + def.name.toLowerCase() + " acts in some registers and not others: " +
+      (def.regsWhy || "pick the registers.") };
   }
   if (next) dev.regs = next; else delete dev.regs;
-  return { ok: true, changed: true, note: def.name + " fires in " + describeRegs(next) + "." };
+  return { ok: true, changed: true, note: def.name + " acts in " + describeRegs(next) + "." };
 }
 
 /** Set a placed device's numeric field (a laser's damage, a jet's reach). */
@@ -597,6 +642,7 @@ export function describe(board, c, r) {
     /* the doors on this square's edges, each with the side it is on; a door
      * belongs to both squares beside it and is listed by both */
     doorDevices: doorsAt(board, c, r),
+    floor: floorAt(board, c, r),
     ceiling: ceilingAt(board, c, r)
   };
   return out;

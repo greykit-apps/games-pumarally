@@ -117,8 +117,8 @@ eq(describeRegs([1, 3, 5]), "registers 1, 3 and 5", "regs: prose");
 
 /* --- devices and sets ----------------------------------------------------- */
 for (const [k, d] of Object.entries(DEVICE_KINDS)) {
-  ok(d.layer === "wall" || d.layer === "ceiling", "devices: " + k + " names a layer");
-  ok(!(d.layer === "ceiling" && d.faced), "devices: " + k + " -- no ceiling device has a face");
+  ok(d.layer === "wall" || d.layer === "floor" || d.layer === "ceiling", "devices: " + k + " names a layer");
+  ok(!(d.layer !== "wall" && d.faced), "devices: " + k + " -- no floor or ceiling device has a face");
   ok(Array.isArray(d.printedIn) && !d.editions, "devices: " + k + " records its printing as provenance");
   /* `playsIn` may be WIDER than `printedIn` and may never be narrower: a book
    * always resolves what it prints. Widening it is a substitute of ours, and
@@ -282,6 +282,7 @@ function fixture() {
   b.wallDevices.push({ kind: "door", edge: { kind: "v", c: 1, r: 2 }, regs: [1, 3, 5] });
   b.wallDevices.push({ kind: "door", edge: { kind: "h", c: 4, r: 1 }, regs: [2, 4] });
   b.ceilingDevices.push({ kind: "crusher", c: 1, r: 3, regs: [2, 4] });
+  b.floorDevices.push({ kind: "trapDoor", c: 4, r: 3, regs: [1, 3] });
   return b;
 }
 
@@ -368,6 +369,11 @@ for (let q = 1; q <= 3; q++) {
     const moved = rr.ceilingDevices[i];
     if (JSON.stringify([moved.c, moved.r]) !== JSON.stringify(mapCell(dev.c, dev.r))) bad.push(dev.kind + " cell");
   });
+  b.floorDevices.forEach((dev, i) => {
+    const moved = rr.floorDevices[i];
+    if (JSON.stringify([moved.c, moved.r]) !== JSON.stringify(mapCell(dev.c, dev.r))) bad.push(dev.kind + " cell");
+  });
+  if (!b.floorDevices.length) bad.push("the fixture carries no floor device, so its rotation is not checked");
   eq(bad, [], "rotate q" + q + ": every device keeps its square and turns with the board");
 
   // and the beam itself: same squares, mapped

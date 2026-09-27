@@ -7,7 +7,7 @@
  * hashing the position.
  */
 import { step as stepCell, rot, opposite } from "../../editor/lib/dir.js";
-import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorOpens, repulsorAt } from "./course.js";
+import { courseOf, isHole, inGrid, beltAt, beltExit, beltTurnFor, gearAt, pusherAt, wallBlocks, oilAt, portalTwin, waterAt, currentAt, teleporterAt, levelStepAt, rampBetween, trapDoorActive, repulsorAt } from "./course.js";
 import { card, planOf, isDamage, isModern, UPGRADE_DRAW_COST, INSTALL_LIMIT } from "./cards.js";
 import { hash32 } from "./rng.js";
 import { botTrimPick, botCardPick, OPTION_DEFS } from "./options.js";
@@ -65,7 +65,7 @@ function ghostMove(st, C, g, dir) {
   if (levelStepAt(C, g.c, g.r, dir) > 0 && !rampBetween(C, g.c, g.r, dir)) return;
   const [nc, nr] = stepCell(g.c, g.r, dir);
   g.c = nc; g.r = nr;
-  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
+  if (!inGrid(C, nc, nr) || isHole(C, nc, nr, g.reg)) { g.dead = true; return; }
   /* the ghost ignores other robots, so a portal always fires for it */
   const twin = portalTwin(C, nc, nr);
   if (twin) { g.c = twin[0]; g.r = twin[1]; }
@@ -95,7 +95,7 @@ function ghostCard(st, C, g, cd) {
   if (teleporterAt(C, g.c, g.r) && plan.dist !== 0) {
     const jump = plan.dist > 0 ? plan.dist + 2 : 2;
     const [tc, tr] = [g.c + [0, 1, 0, -1][g.face] * jump, g.r + [-1, 0, 1, 0][g.face] * jump];
-    if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr)) g.dead = true; return; }
+    if (inGrid(C, tc, tr)) { g.c = tc; g.r = tr; if (isHole(C, tc, tr, g.reg)) g.dead = true; return; }
   }
   let moved = 0;
   for (let i = 0; i < n && !g.dead; i++) {
@@ -114,7 +114,7 @@ function ghostBelt(st, C, g, lo, hi) {
   if (wallBlocks(C, g.c, g.r, d, g.reg) || railed(st, C, g.c, g.r, d)) return;
   const [nc, nr] = stepCell(g.c, g.r, d);
   g.c = nc; g.r = nr;
-  if (!inGrid(C, nc, nr) || isHole(C, nc, nr)) { g.dead = true; return; }
+  if (!inGrid(C, nc, nr) || isHole(C, nc, nr, g.reg)) { g.dead = true; return; }
   if (beltAt(C, nc, nr)) {
     const t = beltTurnFor(C, nc, nr, d);
     if (t === 1 || t === -1) g.face = rot(g.face, t);
@@ -131,8 +131,6 @@ function ghostBoard(st, C, g) {
   if (g.dead) return;
   const t = gearAt(C, g.c, g.r);
   if (t) g.face = rot(g.face, t);
-  /* the board's last act: a trap door opening under the ghost is a pit */
-  if (trapDoorOpens(C, g.c, g.r, g.reg)) g.dead = true;
 }
 
 /* flags touched along the way count, so a program that clips flag N on
@@ -173,6 +171,8 @@ export function botProgram(st, C, p, count) {
       for (let h = 0; h < p.hand.length; h++) {
         if (node.used & (1 << h)) continue;
         const g = { ...node.g, reg };
+        /* a trap door active this register takes the ghost before it moves */
+        if (!g.dead && trapDoorActive(C, g.c, g.r, reg)) g.dead = true;
         const cd = card(st, p.hand[h]);
         /* programming a SPAM is how you get rid of one: a small credit, and
          * the ghost stands still for the blind draw */

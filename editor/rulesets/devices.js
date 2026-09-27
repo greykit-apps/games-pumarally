@@ -1,5 +1,5 @@
-/* Wall and ceiling devices: the things that stand ON a square rather than
- * being the square.
+/* Wall, floor and ceiling devices: the things a square's one ground character
+ * cannot carry.
  *
  * `printedIn` is provenance, the same as on an element: it says which printing
  * prints the thing, not which board may carry it. A board is just a board.
@@ -13,6 +13,8 @@
  *     reaches two squares
  *   - a crusher comes down from above and FACES NOWHERE, which is why no ceiling
  *     device has a `face` field for a transcriber to fill in wrongly
+ *   - a trap door IS its square, but prints the registers it is a pit in, and a
+ *     ground token has room for none of them: a floor device, on plain floor
  */
 
 const BOTH = ["classic", "modern"];
@@ -130,6 +132,34 @@ export const DEVICE_KINDS = {
             "collection-rulebook.pdf p.12; a review of Contamination says the same."
   },
 
+  /* --- floor layer ------------------------------------------------------ */
+
+  /* A TRAP DOOR IS THE FLOOR OF ITS SQUARE, and was a ceiling device until
+   * Turn & Burn's own reference sheet was in hand (manual1/IMG_1464-1465,
+   * 2026-09-27). It is the square: open floor when it is not active and a pit
+   * when it is, so nothing else can be printed there. It is still a device
+   * rather than a ground character because it carries a register list, and
+   * a ground token has one character for its argument. The validator holds
+   * the square under it to plain floor.
+   *
+   * WHEN IT IS A PIT is the sheet's, not ours: it activates only during the
+   * registers printed on the doors, and it activates at the START of the
+   * register. A robot still on it then is lost before it can move, and a
+   * robot that enters it while it is active falls, as into any pit. Only
+   * while active is it a pit to an upgrade. (The author's reading of
+   * 2026-09-23 -- opening at the END of the register -- is gone; the sheet
+   * contradicts it with a worked example.) The same timing under the classic
+   * book: the author's ruling, 2026-09-27, as no Grand Prix sheet is in hand. */
+  trapDoor: {
+    layer: "floor", name: "Trap door pit", faced: false,
+    regs: REGS_REQUIRED, fields: {},
+    printedIn: BOTH,
+    regsWhy: "active in every register is a pit, and active in none is floor.",
+    source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
+            "Turn & Burn Factory Floor Guide (manual1/IMG_1464-1465): a pit during the registers " +
+            "printed on it, from the start of each, and open floor otherwise."
+  },
+
   /* --- ceiling layer ---------------------------------------------------- */
 
   /* THE PRESS AND THE CRUSHER ARE ONE DEVICE, and were two here until the
@@ -157,29 +187,6 @@ export const DEVICE_KINDS = {
             "register number). Acts after gears and before board lasers in both."
   },
 
-  /* A TRAP DOOR IS UNDER THE ROBOT, NOT OVER IT, and still lives in this
-   * layer, because what the layer holds is the crusher's shape: a thing
-   * anchored to one square, facing nowhere, acting in the registers printed on
-   * it. The printed tile is a striped square with two notched plates meeting in
-   * the middle and its register numbers on it.
-   *
-   * WHEN IT OPENS is the author's reading, decided 2026-09-23: it changes state
-   * at the END of each register it lists, like the other traps. A robot may
-   * cross it, or stand on it, during that register and step off at the start of
-   * the next; one still on it when the register ends falls, as into a pit. The
-   * fan compilation says only "during those register phases, treat them as
-   * pits", and a review of the 2016 reprint says robots standing on or moving
-   * through an active one fall. */
-  trapDoor: {
-    layer: "ceiling", name: "Trap door", faced: false,
-    regs: REGS_REQUIRED, fields: {},
-    printedIn: BOTH,
-    regsWhy: "open in every register is a pit, and open in none is floor.",
-    source: "Grand Prix (1997) and its 2016 reprint Turn & Burn; also the 30th Anniversary boards. " +
-            "A pit in the registers printed on it, floor otherwise (Ultimate RoboRally Collection p.12, " +
-            "a fan compilation); it opens at the end of the register, the author's reading."
-  },
-
   flamer: {
     layer: "ceiling", name: "Flamer", faced: false,
     regs: REGS_OPTIONAL, fields: {},
@@ -192,6 +199,7 @@ export const DEVICE_KINDS = {
 
 export const WALL_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "wall");
 export const CEILING_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "ceiling");
+export const FLOOR_KINDS = Object.keys(DEVICE_KINDS).filter(k => DEVICE_KINDS[k].layer === "floor");
 
 export function kindOf(kind) {
   return DEVICE_KINDS[kind];

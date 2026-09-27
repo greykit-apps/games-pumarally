@@ -600,7 +600,8 @@ const fresh = (w = 8, h = 8) =>
     ok(bare.every(t => t === "..."), "overlay: every covered square is the small board's plain floor, whatever the big one printed there");
     ok(![...a.grid.sites.keys()].some(k => { const [c, r] = k.split(",").map(Number); return c >= 3 && c < 9 && r >= 3 && r < 9; }), "overlay: the big board's markings under it are gone");
     ok(!a.grid.wallDevices.some(dv => { const cell = deviceCell(dv); return cell && cell[0] >= 3 && cell[0] < 9 && cell[1] >= 3 && cell[1] < 9; }) &&
-       !a.grid.ceilingDevices.some(dv => dv.c >= 3 && dv.c < 9 && dv.r >= 3 && dv.r < 9), "overlay: and so are the devices standing in the covered squares");
+       !a.grid.ceilingDevices.some(dv => dv.c >= 3 && dv.c < 9 && dv.r >= 3 && dv.r < 9) &&
+       !a.grid.floorDevices.some(dv => dv.c >= 3 && dv.c < 9 && dv.r >= 3 && dv.r < 9), "overlay: and so are the devices standing in the covered squares");
     let interior = 0;
     for (let r = 4; r < 9; r++) for (let c = 3; c < 9; c++) interior += a.grid.wallH[r * a.grid.w + c];
     for (let r = 3; r < 9; r++) for (let c = 4; c < 9; c++) interior += a.grid.wallV[r * (a.grid.w + 1) + c];

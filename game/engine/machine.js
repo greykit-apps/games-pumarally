@@ -24,7 +24,7 @@ import { isHuman, alive, racing, priorityOrder, log, livesFor, LIVERIES } from "
 import {
   playCard, planCard, beltPass, gearPass, pusherPass, crusherPass, jetPass, laserPass,
   checkpointPass, batteryPass, flamerPass, freeSpotNear, robotAt, drawOwn, putAway, stepRobot, arrived, rebootPoint,
-  wastePass, radiationPass, trapDoorPass } from "./rules.js";
+  wastePass, radiationPass, trapDoorsActivate } from "./rules.js";
 import { currentAt, randomizerAt, teleporterAt, inGrid as inCourse } from "./course.js";
 import { resolveHaywire, isHaywire } from "./haywire.js";
 import { fire, drawOption, dropOptionAt, OPTION_LIMIT, OPTION_DEFS } from "./options.js";
@@ -48,9 +48,7 @@ export const CLASSIC_ORDER = [
   /* Radioactive's waste hurts with the laser fire and pays out at the
    * checkpoints; after the burners and before the flags is both at once */
   ["waste", wastePass],
-  /* Grand Prix's trap doors open at the end of the register (the author's
-   * reading), so they are the board's last act before the flags */
-  ["trapDoors", trapDoorPass],
+  /* no trap doors here: they act at the START of a register, in `reveal` */
   ["touch", checkpointPass]
 ];
 
@@ -73,9 +71,8 @@ export const MODERN_ORDER = [
   /* Contamination's waste, on the classic timing (ours): with the end-of-
    * register damage, before the batteries and the checkpoints */
   ["waste", wastePass],
-  /* Turn & Burn's trap doors, at the end of the register: before the
-   * batteries and the checkpoints, so a robot falling through gets neither */
-  ["trapDoors", trapDoorPass],
+  /* Turn & Burn's trap doors are not a step here: they activate at the START
+   * of a register printed on them, which `reveal` runs (manual1/IMG_1465) */
   ["batteries", batteryPass],
   ["touch", checkpointPass]
 ];
@@ -89,7 +86,7 @@ export const PASS_LABELS = {
   express: "Express conveyors", belts: "Conveyors", pushers: "Pushers", gears: "Gears", presses: "Presses",
   lasers: "Lasers", burners: "Flame jets", touch: "Flags",
   blue1: "Blue belts", blue2: "Blue belts", green: "Green belts", currents: "Currents", crushers: "Crushers",
-  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste", trapDoors: "Trap doors"
+  flamers: "Flamers", batteries: "Energy", waste: "Radioactive waste"
 };
 
 function go(st, phase, step) { st.phase = phase; st.step = step; }
@@ -735,10 +732,25 @@ const STEPS = {
      * priority first, unique across the deck; 2016, the Priority Token's seat
      * and then round the table, the same for all five registers, with a
      * rebooting robot in its place in register 1 so it has a moment to land */
-    reveal(st) {
+    reveal(st, C) {
+      /* THE START OF THE REGISTER, once: its header, then any trap door
+       * printed with this register activates under whoever is standing on
+       * it, who is lost before it can move (Turn & Burn, manual1/IMG_1465).
+       * Before the options' reveal hooks and before the order is drawn up,
+       * so a robot that fell has no card to play this register. */
+      const mark = st.turn + ":" + st.register;
+      let fell = [];
+      if (st.opened !== mark) {
+        st.opened = mark;
+        st.events.push({ type: "register", register: st.register, turn: st.turn });
+        log(st, "-- register " + (st.register + 1) + " --");
+        fell = trapDoorsActivate(st, C);
+      }
       let q;
       if (isModern(st)) {
-        q = priorityOrder(st).filter(p => (p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0)).map(p => p.id);
+        /* a robot the doors took this moment is rebooting, and must not be
+         * mistaken for one landing from last round's reboot */
+        q = priorityOrder(st).filter(p => !fell.includes(p.id) && ((p.alive && !p.poweredDown && (p.registers[st.register] !== null || p.haywire[st.register] !== null)) || (p.rebooting && st.register === 0))).map(p => p.id);
       } else {
         /* the cards that change what is in the register before it is turned
          * over -- an Emergency Switch, a Command in Reserve -- act now, so
@@ -780,8 +792,6 @@ const STEPS = {
       st.queue = q;
       for (const p of st.players) p.trail = p.alive ? [[p.c, p.r]] : [];
       st.elem = 0;
-      st.events.push({ type: "register", register: st.register, turn: st.turn });
-      log(st, "-- register " + (st.register + 1) + " --");
       go(st, "exec", "move");
     },
     /* peek rather than shift: a card can ask a question before its robot

@@ -145,6 +145,10 @@ const CASES = [
   /* ceiling */
   ["ceiling.offBoard", FIXTURE, d => { d.ceiling.devices[0].at = [99, 0]; }],
   ["ceiling.duplicate", FIXTURE, d => { d.ceiling.devices.push({ ...d.ceiling.devices[0] }); }],
+  /* floor */
+  ["floor.offBoard", FIXTURE, d => { d.ground.devices[0].at = [99, 0]; }],
+  ["floor.notFloor", FIXTURE, d => { const [c, r] = d.ground.devices[0].at; d.ground.rows[r] = d.ground.rows[r].slice(0, c * 4) + "b>." + d.ground.rows[r].slice(c * 4 + 3); }],
+  ["floor.duplicate", FIXTURE, d => { d.ground.devices.push({ ...d.ground.devices[0] }); }],
 
   /* elevation. The fixture's ramps: h:5,8 climbs from (5,8) at 0 up to (5,7)
    * at 1, and v:3,8 climbs from (2,8) in the channel at -1 up to (3,8) at 0. */

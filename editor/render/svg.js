@@ -439,6 +439,23 @@ function beamLayer(board, mode) {
   return out;
 }
 
+/* A trap door is the floor of its square, so it is drawn with the floor --
+ * under the markings, the walls and everything standing on it -- with its
+ * register stamp, as a crusher's is. */
+function floorDeviceLayer(board, mode) {
+  let out = "";
+  for (const dev of board.floorDevices) {
+    const glyph = DEVICE_GLYPHS[dev.kind];
+    if (!inBoard(board, dev.c, dev.r)) continue;
+    if (!glyph || typeof glyph[mode] !== "function") {
+      throw new Error("no " + mode + " glyph for floor device " + dev.kind);
+    }
+    out += g(at(dev.c, dev.r), glyph[mode]({ regs: dev.regs }));
+    if (mode === "art") out += g(at(dev.c, dev.r), stampArt(dev.regs));
+  }
+  return out;
+}
+
 function deviceLayer(board, mode) {
   let out = "";
   for (const dev of board.wallDevices) {
@@ -528,6 +545,7 @@ export function boardSVG(board, opts = {}) {
       ? '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="' + TOKENS.floor + '"/>' : "") +
     groundLayer(board, o.mode) +
     (o.mode === "art" ? pitLayer(board) + oilLayer(board) : "") +
+    floorDeviceLayer(board, o.mode) +
     siteLayer(board, o.mode, o) +
     wallLayer(board, o.mode) +
     beamLayer(board, o.mode) +

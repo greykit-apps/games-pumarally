@@ -79,7 +79,7 @@ export function give(st, p, reg, kind, pri) {
 
 /** Run the machine through exactly one register (reveal, move, board, endReg). */
 export function runRegister(st, library) {
-  st.phase = "exec"; st.step = "reveal";
+  st.phase = "exec"; st.step = "reveal"; st.opened = null;
   st.events = [];
   const want = st.register;
   let guard = 0;

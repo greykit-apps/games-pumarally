@@ -101,7 +101,7 @@ for (const file of files) {
   for (const tok of board.cells) usedElements.add(tok.charAt(0));
   for (const has of board.sites.values()) for (const k of has) usedSites.add(k);
   flagSpotTotal += flagSpots(board).length;
-  for (const dev of [...board.wallDevices, ...board.ceilingDevices]) usedDevices.add(dev.kind);
+  for (const dev of [...board.wallDevices, ...board.floorDevices, ...board.ceilingDevices]) usedDevices.add(dev.kind);
 }
 
 /* --- courses ---------------------------------------------------------------
