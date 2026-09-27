@@ -27,7 +27,7 @@ import { toPicture, fromPicture } from "../lib/picture.js";
 import { sink } from "../validate/diagnostic.js";
 import { ELEMENTS, checkArg, elemOf } from "../rulesets/elements.js";
 import { DEVICE_KINDS } from "../rulesets/devices.js";
-import { SETS, EDITIONS } from "../rulesets/sets.js";
+import { SETS, EDITIONS, setsByYear, setTitle } from "../rulesets/sets.js";
 import { rulesetFor, rulesetIds, printingsOn } from "../rulesets/index.js";
 import { SITES, SITE_ORDER, canonSites, checkSites, siteProps } from "../rulesets/sites.js";
 
@@ -140,6 +140,23 @@ for (const [k, d] of Object.entries(DEVICE_KINDS)) {
 
 for (const [id, s] of Object.entries(SETS)) {
   ok(s.edition === "both" || EDITIONS[s.edition], "sets: " + id + " names a real printing");
+}
+/* the setup screen shelves the boxes by release year under their titles: every
+ * box has a year, the order never goes back in time, and no two shelves share
+ * a heading (two "Modern base game" shelves were the reason for the year) */
+for (const [id, s] of Object.entries(SETS)) {
+  if (id === "authored" || id === "modernUnfiled") ok(s.year === undefined, "sets: " + id + " is no box and has no year");
+  else ok(Number.isInteger(s.year) && s.year >= 1994, "sets: " + id + " records the year its box came out");
+}
+{
+  const order = setsByYear();
+  eq(order.length, Object.keys(SETS).length, "sets: the year order lists every set once");
+  const ys = order.map(id => SETS[id].year === undefined ? Infinity : SETS[id].year);
+  ok(ys.every((y, i) => i === 0 || y >= ys[i - 1]), "sets: oldest box first, and a set with no year last");
+  const titles = order.map(setTitle);
+  eq(titles.length, new Set(titles).size, "sets: every shelf heading is different");
+  eq([setTitle("modern2016"), setTitle("modernBase"), setTitle("classic2005")], ["Modern base game (2016)", "Modern base game (2023)", "2005"],
+    "sets: the two modern base games are told apart by year, and a name that is a year is not repeated");
 }
 
 /* Facts about a flame jet, off the Crash and Burn sheet and board G. Each is a

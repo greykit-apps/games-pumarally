@@ -15,7 +15,7 @@ import { bayNumberOf } from "../lib/token.js";
 import { dirLetter, N, E, S, W } from "../lib/dir.js";
 import { describeRegs, REGISTERS } from "../lib/registers.js";
 import { rulesetFor, rulesetIds, printingsOn, firstPrintedOnlyIn } from "../rulesets/index.js";
-import { SETS, EDITIONS, ORIGINS } from "../rulesets/sets.js";
+import { SETS, EDITIONS, ORIGINS, setsByYear } from "../rulesets/sets.js";
 import { SITES, SITE_ORDER } from "../rulesets/sites.js";
 import { esc } from "../render/theme.js";
 import { ART_DEFS } from "../render/palette.js";
@@ -184,7 +184,7 @@ export function renderInspector(el, st, hover, isCourse) {
   html += '<div class="row"><label>Size</label><span class="pill">' + st.board.w + " x " + st.board.h +
     "</span></div>";
   html += '<div class="row"><label>Box</label><select data-meta="set">' +
-    Object.keys(SETS).map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
+    setsByYear().map(id => '<option value="' + esc(id) + '"' + (id === st.board.set ? " selected" : "") + ">" +
       esc(SETS[id].name + " \u2014 " + SETS[id].box) + "</option>").join("") + "</select></div>";
   html += '<div class="row"><label>Origin</label><select data-meta="origin">' +
     ORIGINS.map(o => '<option value="' + o + '"' + (o === st.board.origin ? " selected" : "") + ">" + o + "</option>").join("") +
