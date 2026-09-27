@@ -15,7 +15,7 @@ import {
 import { rulesetFor } from "../../editor/rulesets/index.js";
 import { card, planOf, isDamage, isModern, MAX_DAMAGE, REGISTERS, INSTALL_LIMIT } from "./cards.js";
 import { alive, log } from "./state.js";
-import { fire, OPTION_DEFS, discardOption, drawOption } from "./options.js";
+import { fire, OPTION_DEFS, discardOption, drawOption, dropOptionAt, payloadOf } from "./options.js";
 import { gainEnergy, bindRuleHooks, drawUpgrade, newInstalled, installedOfType, uninstallUpgrade, shed, UPGRADE_DEFS } from "./upgrades.js";
 import { receiveHaywire } from "./haywire.js";
 import { stampAt as stampOf, rebootTokenOn } from "./course.js";
@@ -1091,7 +1091,7 @@ export const CHOP_CHOICES = ["Gain 1 Energy", "Draw 1 upgrade", "Scrap a permane
  * is shut down or rebooting, as for a battery.
  */
 export function chopShopPass(st, C) {
-  if (!isModern(st)) return null;
+  if (!isModern(st)) return classicChopShopPass(st, C);
   for (const p of alive(st)) {
     if (p.poweredDown || p.rebooting || !chopShopAt(C, p.c, p.r)) continue;
     const key = st.turn + ":" + st.register + ":chop:" + p.id;
@@ -1139,6 +1139,65 @@ export function chopShopPass(st, C) {
       continue;
     }
     if (gainEnergy(st, p, 1, "chopShop")) log(st, p.name + " takes an Energy at the chop shop");
+  }
+  return null;
+}
+
+export const CLASSIC_CHOP_CHOICES = ["Leave it", "Scrap an option card and draw another", "Refill an option card's payload"];
+
+/**
+ * The classic chop shop (Ultimate RoboRally Collection p.6, a fan
+ * compilation; no Grand Prix sheet is in the archive). A robot that ends a
+ * register on one may scrap an option card it holds and draw a replacement,
+ * or replenish the payload of one it holds -- or, holding none, draw one at
+ * no cost. With the flags, at the end of the register, as that book puts it.
+ *
+ * Payload is a card's ammunition, charges or fuel: of the cards built,
+ * Ablative Coat (3) and Turbo Blaster (5). A spent card stays on the robot,
+ * empty, until something like this refills it. The choice is the robot's;
+ * a robot with no card is simply given one, since that is never worse.
+ * Not while powered down, and not for a wreck.
+ */
+function classicChopShopPass(st, C) {
+  for (const p of alive(st)) {
+    if (p.poweredDown || !chopShopAt(C, p.c, p.r)) continue;
+    const key = st.turn + ":" + st.register + ":chop:" + p.id;
+    if (st.answers[key + ":paid"]) continue;
+    if (!p.options.length) {
+      st.answers[key + ":paid"] = true;
+      log(st, p.name + " draws an option card at the chop shop");
+      drawOption(st, p);
+      continue;
+    }
+    const low = p.options.map((o, i) => ({ o, i })).filter(({ o }) => payloadOf(o.id) > 0 && (o.st.charges | 0) < payloadOf(o.id));
+    const a = st.answers[key];
+    if (a === undefined) {
+      const options = low.length ? [0, 1, 2] : [0, 1];
+      return { player: p.id, kind: "cardChoice", key, card: "chopShop", tag: "classic", labels: CLASSIC_CHOP_CHOICES.slice(0, options.length), options,
+        prompt: p.name + " ends the register on a chop shop. Scrap a card for another" + (low.length ? ", refill one's payload," : "") + " or leave it?" };
+    }
+    /* which card, when there is more than one to choose from */
+    const list = a === 1 ? p.options.map((o, i) => ({ o, i })) : a === 2 ? low : [];
+    let pick = 0;
+    if (list.length > 1) {
+      const which = st.answers[key + ":which"];
+      if (which === undefined) {
+        return { player: p.id, kind: "cardChoice", key: key + ":which", card: "chopShop", tag: a === 1 ? "scrap" : "refill",
+          labels: list.map(({ o }) => OPTION_DEFS[o.id].name + (payloadOf(o.id) ? " (" + (o.st.charges | 0) + " of " + payloadOf(o.id) + ")" : "")),
+          options: list.map((_, k) => k), prompt: p.name + (a === 1 ? " scraps which option card?" : " refills which option card?") };
+      }
+      pick = which;
+    }
+    st.answers[key + ":paid"] = true;
+    if (a === 1) {
+      dropOptionAt(st, p, list[pick].i, "scraps");
+      drawOption(st, p);
+    } else if (a === 2) {
+      const o = list[pick].o;
+      o.st.charges = payloadOf(o.id);
+      st.events.push({ type: "option", player: p.id, card: o.id, how: "refilled" });
+      log(st, p.name + " refills " + OPTION_DEFS[o.id].name + " at the chop shop");
+    }
   }
   return null;
 }

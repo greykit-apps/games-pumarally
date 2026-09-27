@@ -314,9 +314,9 @@ export const TESTS = [
     const printed = rulesetFor("classic").order.map(s => s.step);
     /* the currents are Wet and Wild's, taken into the classic order under issue #14; the rest is the classic book's */
     /* and Radioactive's waste, from the fan compilation, after the fire */
-    eq(printed, ["expressConveyor", "conveyor", "current", "pusher", "gear", "crusher", "boardLaser", "robotLaser", "jet", "waste", "checkpoint"], "the printed order");
+    eq(printed, ["expressConveyor", "conveyor", "current", "pusher", "gear", "crusher", "boardLaser", "robotLaser", "jet", "waste", "chopShop", "checkpoint"], "the printed order");
     const pass = { expressConveyor: "express", conveyor: "belts", current: "currents", pusher: "pushers", gear: "gears", crusher: "presses",
-      boardLaser: "lasers", robotLaser: "lasers", jet: "burners", waste: "waste", checkpoint: "touch" };
+      boardLaser: "lasers", robotLaser: "lasers", jet: "burners", waste: "waste", chopShop: "chopShops", checkpoint: "touch" };
     const want = []; for (const s of printed) if (want[want.length - 1] !== pass[s]) want.push(pass[s]);
     eq(CLASSIC_ORDER.map(x => x[0]), want, "the engine walks the printed order");
     /* the interaction the order exists for: a belt carries a robot onto a
@@ -343,7 +343,7 @@ export const TESTS = [
     assert(names.indexOf("burners") === names.indexOf("lasers") + 1, "directly after the lasers");
     /* after every other Crash and Burn element; only Radioactive's waste comes
      * later, as the laser fire's last part (lasers, fire, waste) */
-    eq(names.slice(names.indexOf("burners") + 1), ["waste", "touch"], "and after every other element, before the flags are touched");
+    eq(names.slice(names.indexOf("burners") + 1), ["waste", "chopShops", "touch"], "and after every other element, before the flags are touched");
     const co = plain(b => jet(b, 2, 3, [1]));
     const st = game(co, [{ c: 2, r: 3, face: E }]);
     give(st, st.players[0], 0, "move1");

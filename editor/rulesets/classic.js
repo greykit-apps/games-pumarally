@@ -86,6 +86,9 @@ export default {
       note: "Radioactive. With the laser fire, and its option card at the checkpoints -- so after the " +
             "burners and before the flags. From the Ultimate RoboRally Collection p.6, a fan compilation; " +
             "no publisher's rulebook for the box is in the archive." },
+    { step: "chopShop", name: "Chop shops trade, refill or give an option card", settled: true,
+      note: "Grand Prix. Scrap an option for another, refill one's payload, or draw one if the robot has " +
+            "none -- with the flags, from the Ultimate RoboRally Collection p.6, a fan compilation." },
     /* NO TRAP DOOR STEP: a trap door pit is a pit for the whole of each
      * register printed on it, from the start -- Turn & Burn's rule, which the
      * author ruled holds under this book too (2026-09-27). */

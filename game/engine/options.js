@@ -353,6 +353,13 @@ for (const c of OPTIONS_DATA.cards) {
 }
 for (const id of Object.keys(BEHAVIOUR)) if (!OPTION_DEFS[id]) throw new Error("option behaviour " + id + " has no card");
 export const OPTION_IDS = Object.keys(OPTION_DEFS);
+
+/** A card's full payload -- its ammunition, charges or fuel -- or 0 when it carries none. */
+export function payloadOf(id) {
+  const def = OPTION_DEFS[id];
+  const fresh = def && def.init ? def.init() : null;
+  return fresh && Number.isInteger(fresh.charges) ? fresh.charges : 0;
+}
 export const OPTION_ROSTER = { printed: OPTIONS_DATA.printed, transcribed: OPTIONS_DATA.transcribed };
 
 /** The key an answer is filed under: this turn, this register, this hook, this card, this player. */
