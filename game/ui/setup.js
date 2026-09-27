@@ -32,7 +32,7 @@ import { assemble } from "../../editor/lib/course.js";
 import { readCourse } from "../engine/library.js";
 import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
-import { setsByYear, setTitle } from "../../editor/rulesets/sets.js";
+import { SETS, setsByYear, setTitle } from "../../editor/rulesets/sets.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
 import { quickCourse, quickMulti, quickSpots, canQuick, isBlank, quickFlagRange, quickDefaultFlags, QUICK_FLAGS, QUICK_MAX_BOARDS, DOCK_BOARD } from "../engine/quick.js";
@@ -200,14 +200,17 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     const order = setsByYear();
     const by = new Map();
     for (const q of list) { const k = order.includes(q.set) ? q.set : "?"; if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
-    return order.concat(["?"]).filter(k => by.has(k)).map(k => [shelfName(k), by.get(k)]);
+    return order.concat(["?"]).filter(k => by.has(k)).map(k => [shelfName(k), by.get(k), k]);
   }
   /* each shelf is a box of its own -- heading and tiles -- and the boxes pack
    * side by side (style.js, .shelved): a box too wide for what is left of a
    * row starts the next one whole, and its tiles wrap only when it is wider
    * than a row on its own */
-  const shelfHTML = (list, tile) => shelves(list).map(([name, qs]) =>
-    "<section class='shelfbox'><h2 class='shelf'>" + esc(name) + "</h2><div class='shelftiles'>" + qs.map(tile).join("") + "</div></section>").join("");
+  /* a box whose art has a colour washes its card in it (SETS[...].tint) */
+  const shelfHTML = (list, tile) => shelves(list).map(([name, qs, id]) => {
+    const tint = SETS[id] && SETS[id].tint;
+    return "<section class='shelfbox" + (tint ? " tinted' style='--tint:" + tint : "") + "'><h2 class='shelf'>" + esc(name) + "</h2><div class='shelftiles'>" + qs.map(tile).join("") + "</div></section>";
+  }).join("");
 
   function boardTile(q, pressed, pool) {
     /* the shelf is 12x12 boards only, so the size is not worth a tile's one line of meta */

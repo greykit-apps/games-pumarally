@@ -145,6 +145,7 @@ for (const [id, s] of Object.entries(SETS)) {
  * box has a year, the order never goes back in time, and no two shelves share
  * a heading (two "Modern base game" shelves were the reason for the year) */
 for (const [id, s] of Object.entries(SETS)) {
+  if (s.tint !== undefined) ok(/^#[0-9a-f]{6}$/.test(s.tint), "sets: " + id + "'s tint is a colour");
   if (id === "authored" || id === "modernUnfiled") ok(s.year === undefined, "sets: " + id + " is no box and has no year");
   else ok(Number.isInteger(s.year) && s.year >= 1994, "sets: " + id + " records the year its box came out");
 }
