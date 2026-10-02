@@ -28,6 +28,7 @@ import { OPTION_DEFS, PLAN_HOOKS } from "../engine/options.js";
 import { UPGRADE_DEFS } from "../engine/upgrades.js";
 import { cardArt } from "./cardart.js";
 import { kitArt, categoryOf } from "./kitart.js";
+import { mountScene } from "./scene.js";
 
 const PREFS_KEY = "pumarally_prefs_v1";
 /* what a program card does, for the hover box; the deck's own notes cover SPAM and Haywire */
@@ -218,7 +219,7 @@ export function mountScreen(root, ctx) {
     }
   }
 
-  root.innerHTML = '<div class="pr"><div class="top"><h1>PumaRally</h1><span class="turn"></span><span class="grow"></span>' +
+  root.innerHTML = '<div class="pr"><div class="scene" aria-hidden="true"></div><div class="top"><h1>PumaRally</h1><span class="turn"></span><span class="grow"></span>' +
     '<button data-act="speed"></button><button data-act="debug" title="Save this race -- its course, every card dealt and played, and the state as it stands -- as a file, for when something goes wrong">Debug</button>' +
     '<button data-act="new" title="Back to the new-game screen. This race stays saved until another is started.">New game</button></div>' +
     '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg>' +
@@ -229,6 +230,7 @@ export function mountScreen(root, ctx) {
     caption: root.querySelector(".caption")
   };
   const pieces = new Map();
+  mountScene(root.querySelector(".scene"));
 
   /* --- the board ------------------------------------------------------------ */
 

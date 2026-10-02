@@ -2,6 +2,7 @@
  * palette is the renderer's, imported rather than retyped, so the panel and
  * the board are the same colours because they come from the same table. */
 import { TOKENS } from "../../editor/render/palette.js";
+import { SCENE_CSS } from "./scene.js";
 
 const T = TOKENS;
 
@@ -21,11 +22,19 @@ select,input[type=number]{font:inherit;color:var(--text);background:var(--panel2
 h1{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:0;font-weight:600}
 h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:14px 0 6px;font-weight:600}
 h2:first-child{margin-top:0}
-.pr{min-height:100dvh;display:flex;flex-direction:column}
-.top{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.pr{min-height:100dvh;display:flex;flex-direction:column;--rail:460px}
+/* the factory behind the board (scene.js): pinned to the window, as tall as
+ * it, and as wide as the board's column, so the right-hand landmarks stand
+ * at the rail's edge rather than under it. The bar and the rail are opaque
+ * over it; only the stage is clear. */
+.pr>.scene{position:fixed;top:0;bottom:0;left:0;right:var(--rail);z-index:0;pointer-events:none;overflow:hidden;
+  background:linear-gradient(#05070f 0%,#070b17 40%,#0c1020 68%,#181622 88%,#231a17 100%)}
+.pr>.scene svg{display:block;width:100%;height:100%}
+.pr>.top,.pr>.main{position:relative;z-index:1}
+.top{display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--bg)}
 .top .grow{flex:1}
 .top .turn{color:var(--dim)}
-.main{display:grid;grid-template-columns:minmax(0,1fr) 460px;gap:0;flex:1;min-height:0}
+.main{display:grid;grid-template-columns:minmax(0,1fr) var(--rail);gap:0;flex:1;min-height:0}
 .stage{position:relative;overflow:hidden;padding:12px;display:flex;align-items:flex-start;justify-content:center;touch-action:none}
 .stage .board{position:relative;max-width:100%;transform-origin:0 0}
 .stage .board svg{display:block;width:100%;height:auto}
@@ -63,7 +72,7 @@ h2:first-child{margin-top:0}
 .overlay .flag .pr-pole{fill:var(--steel)}
 .overlay .flag .pr-banner{fill:var(--warn);stroke:var(--bg);stroke-width:3}
 .overlay .flag .pr-num{fill:#120c00;font:700 44px ui-monospace,Menlo,Consolas,monospace;text-anchor:middle;dominant-baseline:middle}
-.side{border-left:1px solid var(--line);padding:12px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.side{border-left:1px solid var(--line);background:var(--bg);padding:12px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
 .regs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .slot{aspect-ratio:3/4;border:1px dashed var(--lit);border-radius:4px;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:2px;position:relative;background:var(--panel);cursor:pointer;min-width:0;padding:0}
@@ -254,6 +263,7 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .seats+.keys{margin:6px 0 0}
 .keys{font-size:11px;color:var(--dim)}
 @media (max-width:860px){
+  .pr>.scene{display:none}
   .main{grid-template-columns:1fr}
   .main .side{border-left:0;border-top:1px solid var(--line)}
   .setup{height:auto}
@@ -265,7 +275,7 @@ input[type=number][data-num]{width:7ch;text-align:center}
   .modes .build{position:static;transform:none;margin-left:auto}
   .setup .start{margin-top:0}
 }
-`;
+` + SCENE_CSS;
 
 export function injectCSS(doc) {
   if (doc.getElementById("pr-game-css")) return;
