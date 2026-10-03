@@ -1,146 +1,121 @@
 # PumaRally
 
 **Program five registers, hand control to the factory floor, and hope you
-guessed right.** A faithful port of the RoboRally rules, drawn in original
-vector art, with the boards transcribed from photographs of the printed ones.
-
-Inspired by *RoboRally* (Richard Garfield, Wizards of the Coast). Rules and
-board layouts are reimplemented as functional data; the name, artwork and
-printed boards remain theirs. Nothing here is scanned: the tiles are original
-drawings and the layouts are hand-transcribed tile data.
+guessed right.** A race of programmable robots across a factory floor full of
+conveyor belts, gears, lasers and pits, for one to eight players.
 
 ## Play
 
 <https://greykit.com/games/pumarally/>
 
-No install. Vanilla ES modules, no build step, no dependencies, and no network
-at play time beyond fetching the boards.
+Runs in the browser. Nothing to install, no account, and your race saves
+itself as you play.
 
-![Turn 4 of a six-robot race under the classic rules: a laser fires up the left edge and each robot's option cards sit in the panel](screenshots/classic-laser.png)
+![Turn 4 of a six-robot race: a laser fires up the left edge and each robot's option cards sit in the panel](screenshots/classic-laser.png)
 
 | | |
 |---|---|
-| ![Programming registers under the classic rules: four cards placed, three left in hand](screenshots/classic-program.png) | ![Programming under the 2016 rules: SPAM damage cards in the hand and upgrades bought with energy](screenshots/modern-program.png) |
-| *Programming, classic.* | *The same screen under the 2016 rules.* |
+| ![Programming registers under the Classic rules: four cards placed, three left in hand](screenshots/classic-program.png) | ![Programming under the Modern rules: damage cards in the hand and upgrades bought with energy](screenshots/modern-program.png) |
+| *Programming, Classic rules.* | *The same screen under the Modern rules.* |
 
-![The new-game screen: boards grouped by the box they came from on the left, rules, seats and house rules on the right](screenshots/setup.png)
+## How a turn works
 
-### What it plays
+1. **Program.** You are dealt a hand of movement cards: moves, back-ups,
+   turns and U-turns. Put five of them into your registers, in the order you
+   want them to happen, and press **Run**.
+2. **Watch it go.** Every robot plays register 1, then the factory floor
+   moves: belts carry, gears turn, pushers shove, lasers fire. Then register
+   2, and so on to 5. Robots shove each other out of the way, and anything
+   driven or carried off the edge or into a pit is out for the rest of the
+   turn.
+3. **Touch the flags in order.** The first robot to reach the last flag wins.
 
-- **Two rulebooks**, chosen at set-up: the classic game (option cards, lives,
-  power down) and the 2016 game (own decks, Priority Token, SPAM and Haywire,
-  Energy and the upgrade shop, shutdown and reboot).
-- **Every board plays under either book.** An element the other box printed
-  works as its own book says; only the markings the chosen book uses are
-  shown (wrenches under classic, batteries under 2016).
-- **The expansions' floors**: Crash and Burn, Grand Prix, Radioactive, and the
-  2016 Wet and Wild, Chaos and Carnage, and Thrills and Spills.
-- **One to eight seats**, any mix of humans and bots (three skill levels), hot
-  seat between humans, autosave and resume.
-- **Three ways to set up a race**: a quick game on one board, a quick course
-  drawn from several, or a saved course built in the workshop.
+You only ever see your own cards, so the plan you lock in is a guess about
+where everyone else will be.
 
-Where a rulebook is silent and the game has had to decide, the decision is
-declared in the code beside the rule and held by a named scenario test.
+![The new-game screen: boards on the left, rules, seats and house rules on the right](screenshots/setup.png)
 
-### Controls
+## Setting up a race
 
-Each turn you are dealt `9 − damage` cards; put five into your registers and
-press Run.
+- **Quick game** — one board, with flags placed for you.
+- **Quick course** — several boards laid together, with a route of flags
+  through them.
+- **Saved course** — a course you built yourself (see *Building your own
+  courses*, below).
+
+Then choose the rules, fill up to eight seats with any mix of humans and bots
+(easy, normal or hard), and press **Start the race**. Humans share one screen
+and take turns at the keyboard; a curtain hides each player's hand from the
+others until they're ready.
+
+### Two sets of rules
+
+- **Classic** — a limited number of lives, option cards picked up at
+  repair sites, and the choice to power down for a turn to repair. Taking out the
+  competition is a perfectly good strategy.
+- **Modern** — unlimited reboots, your own deck of cards, damage that clogs
+  your deck with junk cards, and energy to spend on upgrades. Longer games,
+  with more room for chaos.
+
+Every board plays under either set of rules.
+
+### House rules
+
+| | |
+|---|---|
+| **Bumpers** | A rail runs round the whole course: nothing can be driven, pushed or carried off the edge. Pits are still pits. |
+| **Crossing a flag counts** | A robot touches a flag on any square it passes through, not only the one it stops on. |
+| **Human privilege** | The people at the keyboard pick their starting bays before the bots do. |
+| **Starting options** | *Classic only.* Everyone starts with up to three option cards already fitted. |
+
+Hover the **(i)** beside each one in the game for the details.
+
+## On the floor
+
+Belts (green move one square, blue move two), gears, pushers, crushers, board
+lasers, pits, walls and doors are on almost every board. Further in you'll
+meet oil slicks, water and currents, portals and teleporters, flame jets, trap
+doors, radiation, ramps and raised floors, and more. Repair sites, upgrade
+sites and energy spaces are where you patch up and power up.
+
+## Controls
 
 | Key | |
 |---|---|
 | `1`–`9` | place that card in the next open register |
 | `Backspace` | take the last card back |
-| `Enter` | run the registers, or lift the hot-seat curtain |
-| `y` / `n` | answer a power-down question |
+| `Enter` | run your registers, or lift the hot-seat curtain |
+| `y` / `n` | answer a power-down or shutdown question |
+| `W` `A` `S` `D` | pan the board |
+| `Z` / `C` (or `+` / `-`) | zoom in / out |
+| `0` | reset the view |
 
 Cards can also be clicked or dragged onto a register. Questions a card or a
-repair site asks appear on the panel as buttons; held cards show under each
-robot, with the printed text on hover.
+site asks appear in the panel as buttons, and the cards each robot holds
+show under it, with the full text on hover.
 
-## The repository
+**Speed** in the top bar changes how fast the floor moves. **New game** goes
+back to the set-up screen; your race stays saved until you start another, and
+**Back to the race** picks it up again. The **⚙** on the set-up screen has
+**Forget everything**, which clears everything PumaRally has saved in your
+browser.
 
-```
-index.html            the game
-game/                 rules engine, bots, simulation and screen   → game/README.md
-editor/               board format, validator, renderer, workshop → editor/README.md
-  data/boards/        every board, as PRBoard JSON
-  data/courses/       every shipped course, as PRCourse JSON
-tools/                repo-level checks (photos, assets)
-screenshots/          the pictures in this file
-icon.svg              the icon; og.png, the favicons and apple-touch-icon.png are rendered from it
-docs/history/         the rebuild plan, the workshop review, and the design log
-```
+## Building your own courses
 
-The game and the workshop share one board library: the game assembles its
-courses from the same documents, through the same code, that the workshop
-draws and validates. A board fixed in the workshop is fixed in every course
-and every saved game that lays it.
+**Build a course →** on the set-up screen opens the workshop.
 
-## Running locally
+- Drag boards from the rail onto the floor and arrange them; `Q` and `E` turn
+  the selected board.
+- `F` picks the flag tool: click squares in race order, or ask for a
+  suggestion. Right-click a flag to take it off.
+- `B` places starting squares and `R` places reboot points (for the Modern
+  rules), if you want your own instead of the docking bay's.
+- The workshop saves as you go, and `Ctrl`-`Z` undoes. Anything wrong with
+  the course is listed under **Problems**.
+- **Save to library** puts it under **Saved course** on the set-up screen.
 
-ES modules and `fetch` need an HTTP server; opening the file directly will not
-work. From the repository root:
-
-```bash
-python3 -m http.server 8000
-```
-
-Then open <http://localhost:8000/> for the game and
-<http://localhost:8000/editor/> for the workshop.
-
-## Checks
-
-```bash
-node tools/check-no-photos.js          # no reference photograph is tracked or staged
-node tools/check-assets.js             # every file index.html points at exists
-node editor/tools/check-lib.js         # the workshop's checks; full list in editor/README.md
-node game/tools/check-all.js           # the tables, the rule tests, the scenario ledger
-node game/tools/sim.js 20              # twenty mixed games on every shipped course
-```
-
-All of them run in CI (`.gitlab-ci.yml`, stage `validate`) and gate the
-deploy. Node 20, no `npm install`.
-
-**Reference photographs never enter the repo.** `maps/`, `manual*/` and
-`rules/` hold photographs of printed boards and rulebook pages for
-transcription. They are gitignored, and `check-no-photos.js` runs first in CI
-against the fresh clone to refuse any route by which they could ship.
-
-## Extending
-
-- **A board or a course**: build it in the workshop, **Download** it, drop
-  the file into `editor/data/boards/` or `editor/data/courses/`, run
-  `node editor/tools/build-index.js`, and commit both. See
-  [editor/README.md](editor/README.md#shipping-a-board-or-a-course).
-- **A board element or device**: a row in the element or device table, a
-  glyph, and a pass in the engine. See
-  [editor/README.md](editor/README.md) for the format side and
-  [game/README.md](game/README.md#extending-the-rules) for the rules side.
-- **An option card or upgrade**: a data row and a hook. See
-  [game/README.md](game/README.md#extending-the-rules).
-
-## Deploying
-
-Merging to `main` deploys. The CI `deploy` job rsyncs the repository to
-DreamHost at `greykit.com/games/pumarally/` with `--delete-excluded`,
-leaving out `.git`, `.claude`, `tools`, and the photograph directories.
-Credentials are protected group variables, so only `main` can deploy.
-
-Work reaches `main` by merge request. `glab mr merge` does not work on this
-project; merge through the API with the full 40-character SHA:
-
-```bash
-glab api --method PUT "projects/86391698/merge_requests/<N>/merge?sha=<full 40-char sha>"
-```
-
-**Caching.** `.htaccess` makes every `.js`, `.json` and `.svg` revalidate
-after a minute, so a returning visitor never runs an old engine against new
-boards. A browser that cached the modules before that rule existed
-(2026-09-15) keeps them until mid-October 2026 without asking the server; a
-report that "the site shows old boards" from such a browser needs a hard
-reload, not a redeploy.
+Your courses are kept in your browser, so they stay on the device you built
+them on.
 
 ## Other Puma games
 
@@ -153,5 +128,4 @@ reload, not a redeploy.
 
 ## Credits
 
-Game design and code by shandower, with AI assistance from Claude.
-Original game by Richard Garfield. MIT licensed.
+By shandower, with AI assistance from Claude. MIT licensed.

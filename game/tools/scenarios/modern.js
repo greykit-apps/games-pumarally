@@ -485,7 +485,7 @@ export const TESTS = [
     assertInvariants(st, co.library);
   }],
   ["the 2016 reboot point is a declared substitute, not a silent one", () => {
-    eq(MODERN_REBOOT_POINT, "archive", "the reboot point is the archive: if reboot tokens have been transcribed, landReboot and the README both need to follow");
+    eq(MODERN_REBOOT_POINT, "archive", "the reboot point is the archive: if reboot tokens have been transcribed, landReboot needs to follow");
     const co = plain();
     const st = mgame(co, [{ c: 5, r: 5 }]);
     const p = st.players[0];
