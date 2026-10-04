@@ -32,6 +32,7 @@ import { assemble } from "../../editor/lib/course.js";
 import { readCourse } from "../engine/library.js";
 import { LIVERIES, assignLiveries } from "../engine/state.js";
 import { rulesetFor } from "../../editor/rulesets/index.js";
+import { confirmSheet, alertSheet } from "./title.js";
 import { SETS, setsByYear, setTitle } from "../../editor/rulesets/sets.js";
 import { boardFromDocument } from "../../editor/lib/board.js";
 import { sink } from "../../editor/validate/diagnostic.js";
@@ -57,6 +58,22 @@ const RULESET_BLURB = {
 
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* no storage */ } }
 function read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } }
+
+/* "Forget everything" (issue #6): every key PumaRally owns, found by its prefix
+   so a key added later is not one this misses -- and only those. Every game on
+   greykit.com shares one origin, and so one localStorage; clear() would wipe
+   the other games' saves too. */
+export function forgetEverything() {
+  for (const area of ["localStorage", "sessionStorage"]) {
+    try {
+      const s = window[area];
+      for (let i = s.length - 1; i >= 0; i--) {
+        const k = s.key(i);
+        if (k && k.startsWith("pumarally")) s.removeItem(k);
+      }
+    } catch (e) { /* no storage */ }
+  }
+}
 
 /** Courses saved from the workshop in this browser, as validated documents. */
 function workshopCourses(library) {
@@ -488,19 +505,23 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, o
     if (d.act === "back" && onBack) { onBack(); return; }
     if (d.forget !== undefined) {
       const c = shelf.find(x => x.id === d.forget && x.kind === "mine");
-      if (!c || !window.confirm("Delete " + c.doc.name + " from the library? This cannot be undone.")) return;
-      forgetCourse(d.forget);
-      shelf.splice(shelf.indexOf(c), 1);
-      settle();
-      store(SETUP_KEY, prefs);
-      renderMap(); syncStart();
+      if (!c) return;
+      confirmSheet("Delete " + c.doc.name + " from the library? This cannot be undone.", "Delete").then(ok => {
+        if (!ok || !shelf.includes(c)) return;
+        forgetCourse(d.forget);
+        shelf.splice(shelf.indexOf(c), 1);
+        settle();
+        store(SETUP_KEY, prefs);
+        renderMap(); syncStart();
+      });
       return;
     }
     if (d.act === "reset") {
-      if (!window.confirm("Forget everything PumaRally has saved in this browser -- the race in progress, these settings, every course you saved, the workshop's autosave? This cannot be undone.")) return;
-      try { localStorage.clear(); } catch (e) { /* no storage */ }
-      try { sessionStorage.clear(); } catch (e) { /* no storage */ }
-      location.reload();
+      confirmSheet("Forget everything PumaRally has saved in this browser -- the race in progress, these settings, every course you saved, the workshop's autosave? This cannot be undone.", "Forget everything").then(ok => {
+        if (!ok) return;
+        forgetEverything();
+        location.reload();
+      });
       return;
     }
     if (d.act === "start") {
@@ -509,7 +530,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, o
       /* a quick game is drawn now, and the draw is the course the save carries */
       let course;
       try { course = courseToStart(); } catch (e) {
-        window.alert("The quick game could not be drawn: " + e.message);
+        alertSheet("The quick game could not be drawn: " + e.message, "Quick game");
         return;
       }
       if (!course) return;

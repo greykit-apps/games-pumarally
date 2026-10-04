@@ -11,9 +11,9 @@ import { loadLibraryFromUrl, readCourse } from "../engine/library.js";
 import { newGame, isHuman, normaliseSave } from "../engine/state.js";
 import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
-import { mountSetup, quickStartOpts } from "./setup.js";
+import { mountSetup, quickStartOpts, forgetEverything } from "./setup.js";
 import { mountScreen } from "./screen.js";
-import { runBoot, mountTitle } from "./title.js";
+import { runBoot, mountTitle, bootReloadLine, alertSheet } from "./title.js";
 import { mountScene } from "./scene.js";
 import { HELP, ABOUT } from "./help.js";
 
@@ -88,7 +88,7 @@ function wantedCourse() {
 
 /* the boot plays while the boards load, and hands over to the title when
  * both are done; the workshop's Play button goes straight to the setup */
-const boot = wantedCourse() ? null : runBoot({ lines: ["reload <b>" + location.pathname.replace(/index\.html$/, "") + "</b>", "loading the factory floor"] });
+const boot = wantedCourse() ? null : runBoot({ lines: [bootReloadLine(), "loading the factory floor"] });
 
 let library, index, courses;
 try {
@@ -167,10 +167,8 @@ function toTitle() {
           return;
         }
         if (b.dataset.act === "reset") {
-          /* issue #6: everything, not a list of keys, so a key added later is not one this misses */
           if (!await sheet.confirm("Forget everything PumaRally has saved in this browser: the race in progress, your setup, every course you saved, the workshop's autosave? This cannot be undone.", "Forget everything")) return;
-          try { localStorage.clear(); } catch (e) { /* no storage */ }
-          try { sessionStorage.clear(); } catch (e) { /* no storage */ }
+          forgetEverything();
           location.reload();
         }
       }
@@ -183,7 +181,7 @@ function toTitle() {
         if (saved && !await ui.confirm("Start a new race? The race in progress will be replaced.", "Start a new race")) return;
         let opts;
         try { opts = quickStartOpts({ library, index, courses }); } catch (e) {
-          window.alert("The quick game could not be drawn: " + e.message);
+          await alertSheet("The quick game could not be drawn: " + e.message, "Quick game");
           return;
         }
         /* a remembered setup that cannot start -- nobody seated, a course since deleted -- is fixed on the setup screen */
