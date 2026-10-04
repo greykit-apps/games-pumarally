@@ -37,10 +37,10 @@ where everyone else will be.
 
 ## Setting up a race
 
-The title screen's **New game** starts a race straight away with the setup you
-used last: the first time, one human against three bots on a board drawn at
-random. **Custom game** opens the set-up screen, where a race comes about one
-of three ways:
+The title screen's **New quick game** starts a race straight away with the
+setup you used last: the first time, one human against three bots on a board
+drawn at random. **Custom game** opens the set-up screen, where a race comes
+about one of three ways:
 
 - **Quick game** — one board, with flags placed for you.
 - **Quick course** — several boards laid together, with a route of flags

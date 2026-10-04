@@ -20,7 +20,7 @@ export const HELP = [
 where everyone else will be.</p>`],
 
   ["Setting up", `
-<p><b>New game</b> starts a race straight away with the setup you used last:
+<p><b>New quick game</b> starts a race straight away with the setup you used last:
 the first time, one human against three bots on a board drawn at random.
 <b>Custom game</b> opens the setup screen, where a race comes about one of three ways:</p>
 <ul>

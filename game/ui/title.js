@@ -14,8 +14,8 @@
  * reduced motion skips it all.
  *
  * TITLE. The game's name at the top, its backdrop line art behind, then the
- * menu in a fixed order -- New game, Resume game (only with a save, and then
- * the default), the game's own ways to start, and Settings, Help, About --
+ * menu in a fixed order -- Resume game (only with a save, and then the
+ * default), New game, the game's own ways to start, and Settings, Help, About --
  * with the credit (games-meta STANDARD.md §1) at the foot.
  */
 

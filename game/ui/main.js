@@ -141,8 +141,8 @@ function toTitle() {
   title = mountTitle(host, {
     name: "PumaRally",
     items: [
-      { act: "new", label: "New game", key: "N" },
       saved && { act: "resume", label: "Resume game", key: "R", meta: saved.course.name + " \u00b7 turn " + saved.turn },
+      { act: "new", label: "New quick game", key: "N" },
       { act: "custom", label: "Custom game", key: "C", meta: "boards, seats, rules" },
       { act: "builder", label: "Course builder", key: "B" },
       "gap",
