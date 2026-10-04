@@ -221,7 +221,7 @@ export function mountScreen(root, ctx) {
 
   root.innerHTML = '<div class="pr"><div class="scene" aria-hidden="true"></div><div class="top"><h1>PumaRally</h1><span class="turn"></span><span class="grow"></span>' +
     '<button data-act="speed"></button><button data-act="debug" title="Save this race -- its course, every card dealt and played, and the state as it stands -- as a file, for when something goes wrong">Debug</button>' +
-    '<button data-act="new" title="Back to the new-game screen. This race stays saved until another is started.">New game</button></div>' +
+    '<button data-act="new" title="Back to the title screen. This race stays saved until another is started.">Menu</button></div>' +
     '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg>' +
     '<div class="caption" hidden><b></b><span></span></div></div></div><aside class="side"></aside></div></div>';
   const els = {

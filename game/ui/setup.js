@@ -122,11 +122,11 @@ function loadPrefs() {
   return prefs;
 }
 
-export function mountSetup(root, { library, index, courses, onStart, onResume, initialCourse }) {
-  const prefs = loadPrefs();
-  const clampFlags = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); prefs.quick.flags = Math.min(hi, Math.max(lo, prefs.quick.flags | 0)); };
-  clampFlags();
-  if (initialCourse) { prefs.mode = "saved"; prefs.course = initialCourse; }   // the workshop's Play button names a course
+/** What a race can be started from, under these settings: the shelf of
+ * courses, the boards a quick game may use, and the draw pools. Shared by the
+ * setup screen and the title screen's New game, which starts a race from the
+ * remembered setup without showing this screen. */
+function racePlan(library, index, courses, prefs) {
   const shelf = [];
   for (const row of index.courses) {
     const doc = courses.get(row.id);
@@ -165,6 +165,61 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     prefs.quick.off = prefs.quick.off.filter(id => quick.some(q => q.id === id && stackable(q)));
     if (!shelf.some(c => c.id === prefs.course)) prefs.course = shelf.length ? shelf[0].id : null;
   }
+  /** Can the Start button start something, under this tab? */
+  function startable() {
+    if (!filled().length) return false;
+    if (prefs.mode === "quick") return prefs.quick.board === ANY ? pool1().length > 0 : quick.some(q => q.id === prefs.quick.board);
+    if (prefs.mode === "multi") return poolN().length >= prefs.quick.boards;
+    if (prefs.mode === "saved") return shelf.some(c => c.id === prefs.course);
+    return false;
+  }
+
+  /** The course this tab starts: a saved document, or a fresh draw. Throws when the draw cannot be met. */
+  function courseToStart() {
+    if (prefs.mode === "saved") {
+      const c = shelf.find(x => x.id === prefs.course);
+      return c ? c.doc : null;
+    }
+    if (prefs.mode === "quick") {
+      const q = quick.find(x => x.id === prefs.quick.board);
+      const board = q ? q.board : pool1()[Math.floor(Math.random() * pool1().length)];
+      if (!board) return null;
+      return readCourse(quickCourse(board, library), library);
+    }
+    if (prefs.mode === "multi") return readCourse(quickMulti(poolN(), prefs.quick.boards, prefs.quick.flags, library), library);
+    return null;
+  }
+  const filled = () => prefs.seats.filter(s => s.seat !== "empty");
+  return { shelf, quick, pool1, poolAll, poolN, isOff, stackable, settle, startable, courseToStart, filled };
+}
+
+/** The options a race starts with, from the settings as they are saved. */
+function raceOpts(prefs, plan, course) {
+  return { course, seats: plan.filled().map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset };
+}
+
+/** New game on the title screen: a race from the remembered setup -- the
+ * same tab, board or course, seats and rules the Start button would use.
+ * Null when that setup cannot start (nobody seated, a course since deleted),
+ * so the caller opens the setup screen instead. Throws when a draw fails. */
+export function quickStartOpts({ library, index, courses }) {
+  const prefs = loadPrefs();
+  const [lo, hi] = quickFlagRange(prefs.quick.boards);
+  prefs.quick.flags = Math.min(hi, Math.max(lo, prefs.quick.flags | 0));
+  const plan = racePlan(library, index, courses, prefs);
+  plan.settle();
+  if (!plan.startable()) return null;
+  const course = plan.courseToStart();
+  return course ? raceOpts(prefs, plan, course) : null;
+}
+
+export function mountSetup(root, { library, index, courses, onStart, onResume, onBack, initialCourse }) {
+  const prefs = loadPrefs();
+  const clampFlags = () => { const [lo, hi] = quickFlagRange(prefs.quick.boards); prefs.quick.flags = Math.min(hi, Math.max(lo, prefs.quick.flags | 0)); };
+  clampFlags();
+  if (initialCourse) { prefs.mode = "saved"; prefs.course = initialCourse; }   // the workshop's Play button names a course
+  const plan = racePlan(library, index, courses, prefs);
+  const { shelf, quick, pool1, poolAll, poolN, isOff, stackable, settle, startable, courseToStart, filled } = plan;
   settle();
 
   /* thumbnails are drawn once per ruleset: the markings shown are the ones that edition reads.
@@ -187,7 +242,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
   const flagWord = () => prefs.ruleset === "modern" ? "checkpoints" : "flags";
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
-  const filled = () => prefs.seats.filter(s => s.seat !== "empty");
 
   /* --- the map window, one per mode ---------------------------------------- */
 
@@ -324,14 +378,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     return html;
   }
 
-  /** Can the Start button start something, under this tab? */
-  function startable() {
-    if (!filled().length) return false;
-    if (prefs.mode === "quick") return prefs.quick.board === ANY ? pool1().length > 0 : quick.some(q => q.id === prefs.quick.board);
-    if (prefs.mode === "multi") return poolN().length >= prefs.quick.boards;
-    if (prefs.mode === "saved") return shelf.some(c => c.id === prefs.course);
-    return false;
-  }
 
   /* --- drawing: the frame once, then each part on its own ------------------ */
 
@@ -343,7 +389,8 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     "<span class='keys'>Clears everything PumaRally keeps in this browser: the saved race, these settings, your courses, the workshop's autosave.</span></div>";
 
   function frame() {
-    let html = '<div class="setup"><div class="top"><h1>PumaRally</h1><span class="grow"></span>' +
+    let html = '<div class="setup"><div class="top">' + (onBack ? '<button data-act="back" aria-label="Back to the title screen">&larr;</button>' : "") +
+      '<h1>PumaRally</h1><span class="grow"></span>' +
       (onResume ? '<button data-act="resume">Back to the race</button>' : "") +
       '<span class="gearwrap"><button data-act="gear" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">&#9881;</button>' +
       '<div class="pop" role="dialog" aria-label="Settings" hidden>' + POP + "</div></span></div>";
@@ -424,21 +471,6 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     el("[data-act=gear]").setAttribute("aria-expanded", open);
   }
 
-  /** The course this tab starts: a saved document, or a fresh draw. Throws when the draw cannot be met. */
-  function courseToStart() {
-    if (prefs.mode === "saved") {
-      const c = shelf.find(x => x.id === prefs.course);
-      return c ? c.doc : null;
-    }
-    if (prefs.mode === "quick") {
-      const q = quick.find(x => x.id === prefs.quick.board);
-      const board = q ? q.board : pool1()[Math.floor(Math.random() * pool1().length)];
-      if (!board) return null;
-      return readCourse(quickCourse(board, library), library);
-    }
-    if (prefs.mode === "multi") return readCourse(quickMulti(poolN(), prefs.quick.boards, prefs.quick.flags, library), library);
-    return null;
-  }
 
   root.onclick = ev => {
     /* the settings pop-over closes on any click outside it */
@@ -453,6 +485,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     if (d.pool !== undefined) { togglePool(d.pool, b); return; }
     if (d.act === "gear") { openPop(el(".pop").hidden); return; }
     if (d.act === "resume" && onResume) { onResume(); return; }
+    if (d.act === "back" && onBack) { onBack(); return; }
     if (d.forget !== undefined) {
       const c = shelf.find(x => x.id === d.forget && x.kind === "mine");
       if (!c || !window.confirm("Delete " + c.doc.name + " from the library? This cannot be undone.")) return;
@@ -480,7 +513,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
         return;
       }
       if (!course) return;
-      onStart({ course, seats: filled().map(s => ({ seat: s.seat, skill: +s.skill })), house: { ...prefs.house }, ruleset: prefs.ruleset });
+      onStart(raceOpts(prefs, plan, course));
     }
   };
   /* the tabs take the arrow keys, as a tablist does; Escape closes the settings */
