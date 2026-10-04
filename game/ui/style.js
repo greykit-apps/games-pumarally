@@ -262,6 +262,9 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .seat.empty .sw{border:1px dashed var(--lit)}
 .seats+.keys{margin:6px 0 0}
 .keys{font-size:11px;color:var(--dim)}
+/* greykit.games canon §1 — the credit, under Start the race */
+.gk-credit{margin:10px 0 0;text-align:center}
+.gk-credit a{color:var(--steel)}
 @media (max-width:860px){
   .pr>.scene{display:none}
   .main{grid-template-columns:1fr}

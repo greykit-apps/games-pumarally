@@ -321,6 +321,7 @@ export function mountSetup(root, { library, index, courses, onStart, onResume, i
     html += "</div></div>";
 
     html += "<div class='start'><button class='primary' data-act='start'" + (startable() ? "" : " disabled") + ">Start the race</button></div>";
+    html += '<p class="keys gk-credit">Built by <a href="https://greykit.com/" target="_blank" rel="noopener">greykit.com</a></p>';
     return html;
   }
 
