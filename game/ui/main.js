@@ -1,5 +1,5 @@
-/* Boot: the library, a saved game if there is one, and the loop between the
- * screen and the engine.
+/* Boot: the boot sequence and the library together, then the title screen,
+ * and the loop between the screen and the engine.
  *
  * The loop is three lines long on purpose. The screen collects an answer to
  * the pending request and calls submit(); submit() steps the engine, saves,
@@ -11,8 +11,11 @@ import { loadLibraryFromUrl, readCourse } from "../engine/library.js";
 import { newGame, isHuman, normaliseSave } from "../engine/state.js";
 import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
-import { mountSetup } from "./setup.js";
+import { mountSetup, quickStartOpts } from "./setup.js";
 import { mountScreen } from "./screen.js";
+import { runBoot, mountTitle } from "./title.js";
+import { mountScene } from "./scene.js";
+import { HELP, ABOUT } from "./help.js";
 
 /* the data lives beside the editor whichever page mounted the game: the
  * repo root's index.html and game/index.html both load this module */
@@ -77,6 +80,16 @@ function clearGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { /*
 const host = document.querySelector("[data-pumarally-game]");
 injectCSS(document);
 
+/* the workshop's Play button arrives as #course=<id>: that course, preselected on the setup screen */
+function wantedCourse() {
+  const m = /^#course=([A-Za-z0-9_]+)$/.exec(location.hash || "");
+  return m ? m[1] : null;
+}
+
+/* the boot plays while the boards load, and hands over to the title when
+ * both are done; the workshop's Play button goes straight to the setup */
+const boot = wantedCourse() ? null : runBoot({ lines: ["reload <b>" + location.pathname.replace(/index\.html$/, "") + "</b>", "loading the factory floor"] });
+
 let library, index, courses;
 try {
   const loaded = await loadLibraryFromUrl(DATA_BASE);
@@ -86,6 +99,7 @@ try {
     try { courses.set(row.id, await (await fetch(DATA_BASE + "courses/" + row.id + ".json")).json()); } catch (e) { /* skipped */ }
   }));
 } catch (e) {
+  if (boot) boot.cancel();
   host.innerHTML = '<p class="boot">Could not load the boards: ' + e.message + "</p>";
   throw e;
 }
@@ -98,27 +112,102 @@ let busy = false;
  * race stops at its next beat and never touches the new one */
 let generation = 0;
 
-/* the workshop's Play button arrives as #course=<id>: that course, preselected on the setup screen */
-function wantedCourse() {
-  const m = /^#course=([A-Za-z0-9_]+)$/.exec(location.hash || "");
-  return m ? m[1] : null;
+/* the course workshop sits beside the game whichever page mounted it */
+const workshopHref = new URL("../../editor/index.html#course", import.meta.url).href;
+const SPEED_NAMES = [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]];
+
+/** The saved race, if it can be picked up again; one that no longer reads is dropped. */
+function resumable() {
+  const s = loadGame();
+  if (!s || s.over || s.v !== 1) return null;
+  try { readCourse(s.course, library); return s; } catch (e) { clearGame(); return null; }
 }
 
-function toSetup() {
+let title = null;
+function leave() {
   generation++;
   if (screen) screen.stop();
   screen = null;
   busy = false;
+  if (title) title.unmount();
+  title = null;
+  /* the setup screen hangs its handlers on the host itself: they go with it */
+  host.onclick = host.onkeydown = host.oninput = host.onchange = null;
+}
+
+function toTitle() {
+  leave();
+  const saved = resumable();
+  title = mountTitle(host, {
+    name: "PumaRally",
+    items: [
+      saved && { act: "resume", label: "Resume game", key: "R", meta: saved.course.name + " \u00b7 turn " + saved.turn },
+      { act: "new", label: "New quick game", key: "N" },
+      { act: "custom", label: "Custom game", key: "C", meta: "boards, seats, rules" },
+      { act: "builder", label: "Course builder", key: "B" },
+      "gap",
+      { act: "settings", label: "Settings", key: "S" },
+      { act: "help", label: "Help", key: "?" },
+      { act: "about", label: "About", key: "A" }
+    ],
+    primary: saved ? "resume" : "new",
+    scene: el => mountScene(el),
+    help: HELP,
+    about: ABOUT,
+    settings: {
+      html: () => "<h3>Speed</h3><div class='gk-row'>" + SPEED_NAMES.map(([v, l]) => "<button data-speed='" + v + "' aria-pressed='" + (speed === v) + "'>" + l + "</button>").join("") +
+        "</div><p class='gk-note'>How fast the factory floor moves. Speed in the race's top bar changes it too.</p>" +
+        "<h3>This browser</h3><div class='gk-row'><button data-act='reset'>Forget everything</button></div>" +
+        "<p class='gk-note'>Clears everything PumaRally keeps in this browser: the saved race, your setup, your courses, the workshop's autosave.</p>",
+      onClick: async (b, sheet) => {
+        if (b.dataset.speed) {
+          speed = b.dataset.speed;
+          try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* no storage */ }
+          sheet.refresh();
+          return;
+        }
+        if (b.dataset.act === "reset") {
+          /* issue #6: everything, not a list of keys, so a key added later is not one this misses */
+          if (!await sheet.confirm("Forget everything PumaRally has saved in this browser: the race in progress, your setup, every course you saved, the workshop's autosave? This cannot be undone.", "Forget everything")) return;
+          try { localStorage.clear(); } catch (e) { /* no storage */ }
+          try { sessionStorage.clear(); } catch (e) { /* no storage */ }
+          location.reload();
+        }
+      }
+    },
+    onAct: async (act, ui) => {
+      if (act === "resume" && saved) { leave(); st = saved; openScreen(); advance(); return; }
+      if (act === "custom") { toSetup(); return; }
+      if (act === "builder") { location.href = workshopHref; return; }
+      if (act === "new") {
+        if (saved && !await ui.confirm("Start a new race? The race in progress will be replaced.", "Start a new race")) return;
+        let opts;
+        try { opts = quickStartOpts({ library, index, courses }); } catch (e) {
+          window.alert("The quick game could not be drawn: " + e.message);
+          return;
+        }
+        /* a remembered setup that cannot start -- nobody seated, a course since deleted -- is fixed on the setup screen */
+        if (opts) start(opts); else toSetup();
+      }
+    }
+  });
+  return title;
+}
+
+function toSetup() {
+  leave();
   const saved = loadGame();
   mountSetup(host, {
     library, index, courses,
     onStart: opts => start(opts),
-    onResume: saved && !saved.over && saved.v === 1 ? () => { st = saved; openScreen(); advance(); } : null,
+    onResume: saved && !saved.over && saved.v === 1 ? () => { leave(); st = saved; openScreen(); advance(); } : null,
+    onBack: () => toTitle().reveal(),
     initialCourse: wantedCourse()
   });
 }
 
 function start(opts) {
+  leave();
   const seed = (Date.now() ^ (Math.random() * 0x7fffffff)) | 0;
   st = newGame({ seed, course: opts.course, seats: opts.seats, house: opts.house, ruleset: opts.ruleset, library });
   saveGame(st);
@@ -136,9 +225,9 @@ function openScreen() {
     cycleSpeed: () => { speed = speed === "slow" ? "normal" : speed === "normal" ? "fast" : "slow"; try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* */ } },
     debugDump: () => downloadDump(),
     /* issue #10: one way out of the race, and it does not throw the race
-     * away. The setup screen offers "Back to the race" while a save stands,
-     * and starting another is what replaces it. */
-    newGame: () => toSetup()
+     * away. The title screen offers Resume game while a save stands, and
+     * starting another is what replaces it. */
+    newGame: () => toTitle().reveal()
   });
   screen.show(st);
 }
@@ -186,19 +275,17 @@ async function advance(answer) {
 
 function submit(answer) { advance(answer); }
 
-const saved = loadGame();
 trace = loadTrace();
 if (wantedCourse()) toSetup();
-else if (saved && !saved.over && saved.v === 1) {
-  try {
-    readCourse(saved.course, library);
-    st = saved;
-    openScreen();
-    advance();
-  } catch (e) {
-    clearGame();
-    toSetup();
-  }
-} else toSetup();
+else {
+  /* the title goes in under the boot, so the boot's fade reveals it */
+  const t = toTitle();
+  const saved = resumable();
+  await boot.finish([
+    index.boards.length + " boards &middot; " + courses.size + " courses",
+    saved ? "race in progress: " + saved.course.name.replace(/[&<>]/g, "") + ", turn " + saved.turn : "no race in progress"
+  ]);
+  t.reveal();
+}
 
 window.__PR = { get state() { return st; }, library, step: a => advance(a), dump: () => debugDump() };

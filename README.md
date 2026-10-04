@@ -37,6 +37,11 @@ where everyone else will be.
 
 ## Setting up a race
 
+The title screen's **New quick game** starts a race straight away with the
+setup you used last: the first time, one human against three bots on a board
+drawn at random. **Custom game** opens the set-up screen, where a race comes
+about one of three ways:
+
 - **Quick game** — one board, with flags placed for you.
 - **Quick course** — several boards laid together, with a route of flags
   through them.
@@ -94,15 +99,16 @@ Cards can also be clicked or dragged onto a register. Questions a card or a
 site asks appear in the panel as buttons, and the cards each robot holds
 show under it, with the full text on hover.
 
-**Speed** in the top bar changes how fast the floor moves. **New game** goes
-back to the set-up screen; your race stays saved until you start another, and
-**Back to the race** picks it up again. The **⚙** on the set-up screen has
-**Forget everything**, which clears everything PumaRally has saved in your
-browser.
+**Speed** in the top bar changes how fast the floor moves. **Menu** goes back
+to the title screen; your race stays saved until you start another, and
+**Resume game** picks it up again. **Settings** on the title screen has the
+speed too, and **Forget everything**, which clears everything PumaRally has
+saved in your browser.
 
 ## Building your own courses
 
-**Build a course →** on the set-up screen opens the workshop.
+**Course builder** on the title screen (or **Build a course →** on the set-up
+screen) opens the workshop.
 
 - Drag boards from the rail onto the floor and arrange them; `Q` and `E` turn
   the selected board.
@@ -112,7 +118,7 @@ browser.
   rules), if you want your own instead of the docking bay's.
 - The workshop saves as you go, and `Ctrl`-`Z` undoes. Anything wrong with
   the course is listed under **Problems**.
-- **Save to library** puts it under **Saved course** on the set-up screen.
+- **Save to library** puts it under **Saved course** in **Custom game**.
 
 Your courses are kept in your browser, so they stay on the device you built
 them on.

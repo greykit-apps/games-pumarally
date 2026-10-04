@@ -3,6 +3,7 @@
  * the board are the same colours because they come from the same table. */
 import { TOKENS } from "../../editor/render/palette.js";
 import { SCENE_CSS } from "./scene.js";
+import { TITLE_CSS } from "./title.js";
 
 const T = TOKENS;
 
@@ -275,7 +276,7 @@ input[type=number][data-num]{width:7ch;text-align:center}
   .modes .build{position:static;transform:none;margin-left:auto}
   .setup .start{margin-top:0}
 }
-` + SCENE_CSS;
+` + SCENE_CSS + TITLE_CSS;
 
 export function injectCSS(doc) {
   if (doc.getElementById("pr-game-css")) return;
