@@ -159,7 +159,7 @@ function toTitle() {
         "</div><p class='gk-note'>How fast the factory floor moves. Speed in the race's top bar changes it too.</p>" +
         "<h3>This browser</h3><div class='gk-row'><button data-act='reset'>Forget everything</button></div>" +
         "<p class='gk-note'>Clears everything PumaRally keeps in this browser: the saved race, your setup, your courses, the workshop's autosave.</p>",
-      onClick: (b, sheet) => {
+      onClick: async (b, sheet) => {
         if (b.dataset.speed) {
           speed = b.dataset.speed;
           try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* no storage */ }
@@ -168,19 +168,19 @@ function toTitle() {
         }
         if (b.dataset.act === "reset") {
           /* issue #6: everything, not a list of keys, so a key added later is not one this misses */
-          if (!window.confirm("Forget everything PumaRally has saved in this browser -- the race in progress, your setup, every course you saved, the workshop's autosave? This cannot be undone.")) return;
+          if (!await sheet.confirm("Forget everything PumaRally has saved in this browser: the race in progress, your setup, every course you saved, the workshop's autosave? This cannot be undone.", "Forget everything")) return;
           try { localStorage.clear(); } catch (e) { /* no storage */ }
           try { sessionStorage.clear(); } catch (e) { /* no storage */ }
           location.reload();
         }
       }
     },
-    onAct: act => {
+    onAct: async (act, ui) => {
       if (act === "resume" && saved) { leave(); st = saved; openScreen(); advance(); return; }
       if (act === "custom") { toSetup(); return; }
       if (act === "builder") { location.href = workshopHref; return; }
       if (act === "new") {
-        if (saved && !window.confirm("Start a new race? The race in progress will be replaced.")) return;
+        if (saved && !await ui.confirm("Start a new race? The race in progress will be replaced.", "Start a new race")) return;
         let opts;
         try { opts = quickStartOpts({ library, index, courses }); } catch (e) {
           window.alert("The quick game could not be drawn: " + e.message);

@@ -190,8 +190,11 @@ export function runBoot({ lines = [] } = {}) {
  *   primary   the act that is the default (lit, and focused)
  *   scene(el) draws the game's backdrop into el
  *   help      [[tab, html], ...]   about: html
- *   settings  { html(), onClick(button, sheet) }
- *   onAct(act) every other item
+ *   settings  { html(), onClick(button, sheet) }; sheet.confirm() as below
+ *   onAct(act, ui) every other item; ui.confirm(question, yes) resolves true
+ *             or false, asked in a sheet of this screen's own: window.confirm
+ *             is silently answered "no" where a page is embedded, and a
+ *             button that does nothing reads as broken
  * Returns { reveal(), unmount() }. reveal() runs the title's entrance; call it
  * as the boot fades (or at once, coming back from a game).
  */
@@ -226,7 +229,7 @@ export function mountTitle(host, cfg) {
         '<div class="gk-body">' + (tabs ? tabs[tab][1] : html()) + "</div></div>";
     };
     draw();
-    const api = { refresh: () => { draw(); }, close: () => closeSheet() };
+    const api = { refresh: () => { draw(); }, close: () => closeSheet(), confirm: (q, yes) => ask(q, yes) };
     el.addEventListener("click", ev => {
       if (ev.target === el) return closeSheet();
       const b = ev.target.closest("button");
@@ -242,14 +245,31 @@ export function mountTitle(host, cfg) {
   function closeSheet() {
     if (!sheet) return;
     sheet.remove(); sheet = null;
+    const f = onSheetClose; onSheetClose = null;
+    if (f) f();
     focusPrimary();
   }
+
+  /** A yes-or-no question in a sheet; resolves true only on the yes button. */
+  function ask(question, yes) {
+    return new Promise(resolve => {
+      let answered = false;
+      const done = v => { if (answered) return; answered = true; resolve(v); };
+      openSheet("Are you sure?", {
+        html: () => "<p>" + escHTML(question) + "</p><div class='gk-row'><button data-yes>" + escHTML(yes) + "</button><button data-no>Cancel</button></div>",
+        onClick: (b, s) => { if (b.hasAttribute("data-yes")) { done(true); s.close(); } else if (b.hasAttribute("data-no")) s.close(); }
+      });
+      sheet.querySelector("[data-yes]").focus();
+      onSheetClose = () => done(false);
+    });
+  }
+  let onSheetClose = null;
 
   function act(a) {
     if (a === "help" && cfg.help) return openSheet("Help", { tabs: cfg.help });
     if (a === "about" && cfg.about) return openSheet("About", { html: () => cfg.about });
     if (a === "settings" && cfg.settings) return openSheet("Settings", cfg.settings);
-    cfg.onAct(a);
+    cfg.onAct(a, { confirm: ask });
   }
   menu.addEventListener("click", ev => { const b = ev.target.closest("button"); if (b) act(b.dataset.act); }, sig);
   document.addEventListener("keydown", ev => {
