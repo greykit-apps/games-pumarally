@@ -19,7 +19,7 @@
  * with the credit (games-meta STANDARD.md §1) at the foot.
  */
 
-/* @gk-title-begin v0.2 -- greykit.games canon (games-meta STANDARD.md §3),
+/* @gk-title-begin v0.3 -- greykit.games canon (games-meta STANDARD.md §3),
  * byte-identical in every Tactical game. The copy of record is games-meta's
  * canon/gk-title.js: change it there, bump the version, copy it to all, and
  * tools/diff-standard.sh says where it differs. Plain script, no imports or
@@ -277,6 +277,54 @@ function titleArrow(menu, ev) {
   return true;
 }
 
+/* A question or a notice in the title's sheet, from any screen of the game,
+ * in place of window.confirm and window.alert (STANDARD.md §11): those are
+ * silently answered "no", or never shown, where a page is embedded, and a
+ * button that does nothing reads as broken. confirmSheet resolves true only
+ * on the yes button; Cancel, Escape and the backdrop resolve false.
+ * alertSheet resolves when it is dismissed. While one is up it has the keys:
+ * Tab stays inside it and nothing reaches the game behind. Focus goes back
+ * to whatever had it. */
+function confirmSheet(question, yes, title = "Are you sure?") { return dialogSheet(title, question, yes, "Cancel"); }
+function alertSheet(message, title = "Notice") { return dialogSheet(title, message, "OK", null); }
+function dialogSheet(title, text, yes, no) {
+  return new Promise(resolve => {
+    const back = document.activeElement;
+    const el = document.createElement("div");
+    el.className = "gk-sheet";
+    el.setAttribute("role", "alertdialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", title);
+    el.innerHTML = '<div class="gk-box"><div class="gk-head"><h2>' + escHTML(title) + '</h2></div><div class="gk-body"><p>' + escHTML(text) +
+      "</p><div class='gk-row'><button data-yes>" + escHTML(yes) + "</button>" + (no ? "<button data-no>" + escHTML(no) + "</button>" : "") + "</div></div></div>";
+    const done = v => {
+      document.removeEventListener("keydown", onKey, true);
+      el.remove();
+      if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+      resolve(v);
+    };
+    const onKey = ev => {
+      if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); done(false); return; }
+      if (ev.key === "Tab") {
+        const bs = [...el.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+        ev.preventDefault();
+        bs[(i + (ev.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
+      }
+      /* nothing reaches the game behind; Enter and Space still press the
+         focused button, which is their default, not a listener's */
+      ev.stopPropagation();
+    };
+    el.addEventListener("click", ev => {
+      if (ev.target === el) return done(false);
+      const b = ev.target.closest("button");
+      if (b) done(b.hasAttribute("data-yes"));
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(el);
+    el.querySelector("[data-yes]").focus();
+  });
+}
+
 /**
  * The title screen, into host.
  *   name      the game's name
@@ -376,4 +424,4 @@ function mountTitle(host, cfg) {
 }
 /* @gk-title-end */
 
-export { TITLE_CSS, runBoot, titleHTML, decodeTitle, mountTitle, bootReloadLine };
+export { TITLE_CSS, runBoot, titleHTML, decodeTitle, mountTitle, bootReloadLine, confirmSheet, alertSheet };

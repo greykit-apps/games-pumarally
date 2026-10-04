@@ -13,7 +13,7 @@ import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
 import { mountSetup, quickStartOpts, forgetEverything } from "./setup.js";
 import { mountScreen } from "./screen.js";
-import { runBoot, mountTitle, bootReloadLine } from "./title.js";
+import { runBoot, mountTitle, bootReloadLine, alertSheet } from "./title.js";
 import { mountScene } from "./scene.js";
 import { HELP, ABOUT } from "./help.js";
 
@@ -181,7 +181,7 @@ function toTitle() {
         if (saved && !await ui.confirm("Start a new race? The race in progress will be replaced.", "Start a new race")) return;
         let opts;
         try { opts = quickStartOpts({ library, index, courses }); } catch (e) {
-          window.alert("The quick game could not be drawn: " + e.message);
+          await alertSheet("The quick game could not be drawn: " + e.message, "Quick game");
           return;
         }
         /* a remembered setup that cannot start -- nobody seated, a course since deleted -- is fixed on the setup screen */
