@@ -30,7 +30,8 @@ const MARK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwCAYAAAA+VemS
 
 const TITLE_CSS = `
 /* ---- boot ---- */
-.gk-boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--bg);
+/* above anything a game layers its own screens with */
+.gk-boot{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:var(--bg);
   --S:120px;--d:calc(var(--S) * .275);transition:opacity .35s ease}
 .gk-boot.gk-out{opacity:0;pointer-events:none}
 .gk-boot .gk-bar{position:absolute;top:0;left:0;height:2px;width:100%;background:var(--accent);
@@ -94,14 +95,14 @@ const TITLE_CSS = `
    rows, the outer two sharing what is left over */
 .gk-title main{flex:1;width:100%;display:grid;grid-template-rows:1fr auto 1fr;justify-items:center}
 .gk-title .gk-name{align-self:end;display:flex;flex-direction:column;align-items:center;width:100%}
-.gk-title h1{margin:6px 0 0;font-size:clamp(26px,6vw,42px);font-weight:600;letter-spacing:.24em;padding-left:.24em;
+.gk-title h1{margin:6px 0 0;font-size:clamp(26px,6vw,42px);font-weight:600;letter-spacing:.24em;padding-left:.24em;text-transform:uppercase;
   text-align:center;color:var(--accent);text-shadow:0 0 22px rgba(84,242,255,.35);min-height:1.2em}
 .gk-title .gk-rule{width:min(320px,80vw);height:1px;margin:26px 0 22px;
   background:linear-gradient(90deg,transparent,var(--lit),transparent)}
 .gk-menu{display:flex;flex-direction:column;gap:8px;width:min(340px,100%)}
 .gk-menu .gk-gap{height:6px}
 .gk-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:42px;padding:0 14px;
-  font-size:14px;letter-spacing:.08em;text-transform:uppercase;text-align:left;
+  font-family:inherit;font-size:14px;letter-spacing:.08em;text-transform:uppercase;text-align:left;
   color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:2px;
   transition:border-color .15s,background .15s,color .15s}
 .gk-menu button:hover:not(:disabled){border-color:var(--lit);background:var(--panel2)}
