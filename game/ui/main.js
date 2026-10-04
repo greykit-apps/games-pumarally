@@ -13,7 +13,7 @@ import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
 import { mountSetup, quickStartOpts, forgetEverything } from "./setup.js";
 import { mountScreen } from "./screen.js";
-import { runBoot, mountTitle } from "./title.js";
+import { runBoot, mountTitle, bootReloadLine } from "./title.js";
 import { mountScene } from "./scene.js";
 import { HELP, ABOUT } from "./help.js";
 
@@ -88,7 +88,7 @@ function wantedCourse() {
 
 /* the boot plays while the boards load, and hands over to the title when
  * both are done; the workshop's Play button goes straight to the setup */
-const boot = wantedCourse() ? null : runBoot({ lines: ["reload <b>" + location.pathname.replace(/index\.html$/, "") + "</b>", "loading the factory floor"] });
+const boot = wantedCourse() ? null : runBoot({ lines: [bootReloadLine(), "loading the factory floor"] });
 
 let library, index, courses;
 try {

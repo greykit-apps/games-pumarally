@@ -19,10 +19,11 @@
  * with the credit (games-meta STANDARD.md §1) at the foot.
  */
 
-/* @gk-title-begin v0.1 -- greykit.games canon, byte-identical in every
- * Tactical game that has it: change it in one, copy it to all. Plain script,
- * no imports or exports, so a single-file game can paste it into a classic
- * <script> as it stands. */
+/* @gk-title-begin v0.2 -- greykit.games canon (games-meta STANDARD.md §3),
+ * byte-identical in every Tactical game. The copy of record is games-meta's
+ * canon/gk-title.js: change it there, bump the version, copy it to all, and
+ * tools/diff-standard.sh says where it differs. Plain script, no imports or
+ * exports, so a single-file game can paste it into a classic <script>. */
 
 /* greykit.com's mark: the right half of the face, flat cut on the left
  * (greykitweb/assets/greykit-mark.png at 240px). */
@@ -55,8 +56,11 @@ const TITLE_CSS = `
 .gk-boot .gk-slide{position:absolute;inset:0;transform:translateX(calc(var(--d) * -1));
   animation:gk-slide .6s cubic-bezier(.65,0,.35,1) .5s forwards}
 .gk-boot .gk-lh,.gk-boot .gk-rh{position:absolute;top:0;width:var(--S);height:var(--S)}
-.gk-boot .gk-lh{left:0}
-.gk-boot .gk-rh{left:var(--S)}
+/* the halves overlap by 2px, the left on top: two images laid edge to edge
+   are anti-aliased edge by edge, and some browsers (Brave) leave a hairline
+   of background between them */
+.gk-boot .gk-lh{left:0;z-index:1}
+.gk-boot .gk-rh{left:calc(var(--S) - 2px)}
 .gk-boot .gk-pulse{width:100%;height:100%;position:relative;transform-origin:100% 50%;animation:gk-pulse .7s ease-in-out 1.15s}
 .gk-boot .gk-face img{display:block;width:100%;height:100%;filter:invert(1) brightness(.72)}
 .gk-boot .gk-pulse img{animation:gk-glow .7s ease-in-out 1.15s}
@@ -233,6 +237,46 @@ function decodeTitle(h1, text) {
   }, 28);
 }
 
+/* The title's stylesheet, once, for a game that does not build its own CSS
+ * around TITLE_CSS. */
+function injectTitleCSS() {
+  if (!document.getElementById("gk-title-css")) document.head.insertAdjacentHTML("beforeend", '<style id="gk-title-css">' + TITLE_CSS + "</style>");
+}
+
+/* The boot log's first line: the page being reloaded, escaped. */
+function bootReloadLine() {
+  return "reload <b>" + escHTML(location.pathname.replace(/index\.html$/, "")) + "</b>";
+}
+
+/* The entrance: the menu rises, the name decodes, the default is focused.
+ * t is the .gk-title (the page's, if left out); the name is read off the h1. */
+function revealTitle(t = document.querySelector(".gk-title")) {
+  if (!t) return;
+  t.classList.add("gk-rise");
+  const h1 = t.querySelector("h1");
+  decodeTitle(h1, h1.getAttribute("aria-label"));
+  const b = t.querySelector(".gk-primary") || t.querySelector(".gk-menu button");
+  if (b) b.focus({ preventScroll: true });
+}
+
+/* The menu button a key presses: the one whose <kbd> shows that key, and the
+ * ? item for h and / as well. Read off the menu itself, so a key and its
+ * label cannot disagree. null when the key is not the menu's. */
+function titleKeyButton(menu, key) {
+  const k = key.length === 1 ? key.toLowerCase() : key;
+  const bs = [...menu.querySelectorAll("button")], kbd = b => (b.querySelector("kbd") || {}).textContent || "";
+  return bs.find(b => kbd(b).toLowerCase() === k) || ((k === "h" || k === "/") && bs.find(b => kbd(b) === "?")) || null;
+}
+
+/* ArrowDown / ArrowUp through the menu, wrapping. true when the key was one. */
+function titleArrow(menu, ev) {
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return false;
+  const bs = [...menu.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+  ev.preventDefault();
+  bs[(i + (ev.key === "ArrowDown" ? 1 : -1) + bs.length) % bs.length].focus();
+  return true;
+}
+
 /**
  * The title screen, into host.
  *   name      the game's name
@@ -253,8 +297,7 @@ function mountTitle(host, cfg) {
   const ctl = new AbortController();
   const sig = { signal: ctl.signal };
   host.innerHTML = titleHTML(cfg);
-  const root = host.firstChild, h1 = root.querySelector("h1"), menu = root.querySelector(".gk-menu");
-  const items = cfg.items.filter(Boolean);
+  const root = host.firstChild, menu = root.querySelector(".gk-menu");
   if (cfg.scene) cfg.scene(root.querySelector(".scene"));
   const focusPrimary = () => { const b = menu.querySelector(".gk-primary") || menu.querySelector("button"); if (b) b.focus({ preventScroll: true }); };
 
@@ -321,21 +364,16 @@ function mountTitle(host, cfg) {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (sheet) { if (ev.key === "Escape") { ev.preventDefault(); closeSheet(); } return; }
     if (ev.target.closest && ev.target.closest("input,select,textarea")) return;
-    const k = ev.key.toLowerCase();
-    const hit = items.find(it => it.key && it.key.toLowerCase() === k) || ((k === "h" || k === "/") && items.find(it => it.act === "help"));
-    if (hit) { ev.preventDefault(); act(hit.act); return; }
-    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
-      const bs = [...menu.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
-      bs[(i + (ev.key === "ArrowDown" ? 1 : -1) + bs.length) % bs.length].focus();
-      ev.preventDefault();
-    }
+    const hit = titleKeyButton(menu, ev.key);
+    if (hit) { ev.preventDefault(); act(hit.dataset.act); return; }
+    titleArrow(menu, ev);
   }, sig);
 
   return {
-    reveal() { root.classList.add("gk-rise"); decodeTitle(h1, cfg.name); focusPrimary(); },
+    reveal() { revealTitle(root); },
     unmount() { ctl.abort(); closeSheet(); }
   };
 }
 /* @gk-title-end */
 
-export { TITLE_CSS, runBoot, titleHTML, decodeTitle, mountTitle };
+export { TITLE_CSS, runBoot, titleHTML, decodeTitle, mountTitle, bootReloadLine };
