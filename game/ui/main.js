@@ -11,7 +11,7 @@ import { loadLibraryFromUrl, readCourse } from "../engine/library.js";
 import { newGame, isHuman, normaliseSave } from "../engine/state.js";
 import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
-import { mountSetup, quickStartOpts } from "./setup.js";
+import { mountSetup, quickStartOpts, forgetEverything } from "./setup.js";
 import { mountScreen } from "./screen.js";
 import { runBoot, mountTitle } from "./title.js";
 import { mountScene } from "./scene.js";
@@ -167,10 +167,8 @@ function toTitle() {
           return;
         }
         if (b.dataset.act === "reset") {
-          /* issue #6: everything, not a list of keys, so a key added later is not one this misses */
           if (!await sheet.confirm("Forget everything PumaRally has saved in this browser: the race in progress, your setup, every course you saved, the workshop's autosave? This cannot be undone.", "Forget everything")) return;
-          try { localStorage.clear(); } catch (e) { /* no storage */ }
-          try { sessionStorage.clear(); } catch (e) { /* no storage */ }
+          forgetEverything();
           location.reload();
         }
       }
