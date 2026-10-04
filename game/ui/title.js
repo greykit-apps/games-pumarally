@@ -88,7 +88,7 @@ const TITLE_CSS = `
 .gk-title>.gk-shade{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(rgba(5,7,15,.82) 0%,rgba(5,7,15,.55) 38%,rgba(5,7,15,0) 72%),
     linear-gradient(transparent calc(100% - 90px),rgba(5,7,15,.85))}
-.gk-title>:not(.scene):not(.gk-shade){position:relative;z-index:1}
+.gk-title>main{position:relative;z-index:1}
 .gk-title.gk-rise>main{animation:gk-rise .5s cubic-bezier(.22,1,.36,1) both}
 @keyframes gk-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* the menu sits in the middle of the screen, and the name above it: three
@@ -118,7 +118,7 @@ const TITLE_CSS = `
 .gk-menu button.gk-primary .gk-meta{color:rgba(5,7,15,.7)}
 /* pinned to the foot, with the same room kept top and bottom, so the menu's
    middle is the screen's */
-.gk-title footer{position:absolute;left:16px;right:16px;bottom:20px;font-size:12px;color:var(--dim);text-align:center}
+.gk-title>footer{position:absolute;z-index:1;left:16px;right:16px;bottom:20px;font-size:12px;color:var(--dim);text-align:center}
 .gk-credit a{color:var(--steel)}
 
 /* ---- settings, help and about, over the title ---- */

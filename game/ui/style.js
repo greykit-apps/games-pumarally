@@ -12,6 +12,18 @@ export const CSS = `
   --text:${T.text};--ink:${T.ink};--dim:${T.dim};--accent:${T.accent};--warn:${T.warn};--danger:${T.danger};
   --good:${T.good};--violet:${T.violet};--steel:${T.steel};--blue:#4c8dff}
 *{box-sizing:border-box}
+/* scrollbars in the tribe's colours, as PumaTycoon has them: a thin steel
+ * thumb on the ground; scrollbar-color is inherited, and the -webkit- rules
+ * are for Safari, which ignores the standard properties */
+html{scrollbar-color:#2a3a5e var(--bg)}
+*{scrollbar-width:thin}
+.gk-sheet .gk-body{scrollbar-color:#2a3a5e var(--panel)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+.gk-sheet .gk-body::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:#2a3a5e;border:2px solid transparent;background-clip:padding-box;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--lit);background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
 button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:3px;
   padding:5px 10px;cursor:pointer;min-height:32px}
