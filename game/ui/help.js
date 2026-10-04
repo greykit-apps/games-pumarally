@@ -1,7 +1,8 @@
-/* What the title screen's Help and About say. Taken from the player README
- * (How a turn works, Setting up a race, On the floor, Controls, Building your
- * own courses, Credits), so the two say the same thing: change one, change
- * the other. */
+/* What the title screen's Help and About say. Help is taken from the player
+ * README (How a turn works, Setting up a race, On the floor, Controls,
+ * Building your own courses), so the two say the same thing: change one,
+ * change the other. About is the author's words, in the voice every game's
+ * About shares: change it only with replacement wording from the author. */
 
 export const HELP = [
   ["How to play", `
@@ -70,16 +71,5 @@ and <b>Resume game</b> picks it up again.</p>`],
 ];
 
 export const ABOUT = `
-<p><b>PumaRally.</b> Program five registers, hand control to the factory
-floor, and hope you guessed right. A port of RoboRally (Richard Garfield,
-1994) under both the classic and the 2016 rules, in original vector art, for
-one to eight players.</p>
-<p>By shandower, with AI assistance from Claude. MIT licensed.</p>
-<p>Other Puma games:
-<a href="https://greykit.com/games/pumatriage/" target="_blank" rel="noopener">PumaTriage</a> &middot;
-<a href="https://greykit.com/games/pumasoc/" target="_blank" rel="noopener">PumaSOC</a> &middot;
-<a href="https://greykit.com/games/pumasecure/" target="_blank" rel="noopener">PumaSecure</a> &middot;
-<a href="https://greykit.com/games/pumatower/" target="_blank" rel="noopener">PumaTower</a> &middot;
-<a href="https://greykit.com/games/retrosurfer96/" target="_blank" rel="noopener">Retro Surfer '96</a> &middot;
-<a href="https://greykit.com/games/" target="_blank" rel="noopener">more</a></p>
+<p>PumaRally: Based on the board game RoboRally by Richard Garfield (1996). Developed entirely with Claude Code.</p>
 <p class="gk-credit">Built by <a href="https://greykit.com/" target="_blank" rel="noopener">greykit.com</a></p>`;
