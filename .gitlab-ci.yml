@@ -116,4 +116,8 @@ deploy:
     # place, and a deploy that looked like a cleanup changed nothing.
     # With --delete-excluded, anything excluded here is also removed from
     # the live site, which is what "do not publish this" has to mean.
-    - puma_rsync -avz --delete --delete-excluded --exclude='.git' --exclude='.claude' --exclude='.gitlab-ci.yml' --exclude='tools' --exclude='maps' --exclude='manual*' --exclude='rules' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
+    #
+    # PRODUCT.md, DESIGN.md, .impeccable/ and .impeccable.md are design notes
+    # the impeccable skill writes into the repo root (games-meta STANDARD.md
+    # §12). They stay in the repo and off the live site.
+    - puma_rsync -avz --delete --delete-excluded --exclude='.git' --exclude='.claude' --exclude='PRODUCT.md' --exclude='DESIGN.md' --exclude='.impeccable' --exclude='.impeccable.md' --exclude='.gitlab-ci.yml' --exclude='tools' --exclude='maps' --exclude='manual*' --exclude='rules' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
