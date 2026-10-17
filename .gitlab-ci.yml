@@ -121,3 +121,12 @@ deploy:
     # the impeccable skill writes into the repo root (games-meta STANDARD.md
     # §12). They stay in the repo and off the live site.
     - puma_rsync -avz --delete --delete-excluded --exclude='.git' --exclude='.claude' --exclude='PRODUCT.md' --exclude='DESIGN.md' --exclude='.impeccable' --exclude='.impeccable.md' --exclude='.gitlab-ci.yml' --exclude='tools' --exclude='maps' --exclude='manual*' --exclude='rules' ./ ${DREAMHOST_USERNAME}@${DREAMHOST_HOST}:/home/${DREAMHOST_USERNAME}/greykit.com/games/pumarally/
+  # environment: lets GitLab's "Prevent outdated deployment jobs" act on this
+  # job, so a deploy from an older pipeline that starts after a newer one has
+  # deployed fails instead of republishing stale files. resource_group: runs
+  # deploys one at a time, so an older one still running when a newer one
+  # starts cannot finish last. Together, the last merge is the one left live.
+  environment:
+    name: production
+    url: https://greykit.com/games/pumarally/
+  resource_group: production
