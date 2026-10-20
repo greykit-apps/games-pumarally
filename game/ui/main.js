@@ -16,6 +16,7 @@ import { mountScreen } from "./screen.js";
 import { runBoot, mountTitle, bootReloadLine, alertSheet } from "./title.js";
 import { mountScene } from "./scene.js";
 import { HELP, ABOUT } from "./help.js";
+import * as sfx from "./sfx.js";
 
 /* the data lives beside the editor whichever page mounted the game: the
  * repo root's index.html and game/index.html both load this module */
@@ -123,6 +124,37 @@ function resumable() {
   try { readCourse(s.course, library); return s; } catch (e) { clearGame(); return null; }
 }
 
+/* SOUND (STANDARD.md §8). The browser lets sound start only inside a press
+ * or a click, so every one wakes the context; M switches sound on and off on
+ * any screen of the game, and whatever shows the switch is told. */
+for (const t of ["pointerdown", "keydown"]) document.addEventListener(t, () => sfx.unlock(), true);
+function syncSound() {
+  const on = !sfx.isMuted();
+  for (const b of document.querySelectorAll("[data-sound]")) b.setAttribute("aria-pressed", String(b.dataset.sound === (on ? "on" : "off")));
+  if (screen) screen.soundChanged();
+}
+document.addEventListener("keydown", ev => {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.repeat) return;
+  if (ev.target.closest && ev.target.closest("input,select,textarea,[contenteditable]")) return;
+  const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+  if (k === "m") { ev.preventDefault(); sfx.toggleMute(); syncSound(); }
+});
+
+/* The title menu's ticks (STANDARD.md §14): a click as a row comes under the
+ * pointer or the arrow keys move to it, never when the game focuses the
+ * default itself, and once a row. Hung on the title's own root, so they go
+ * when it does. */
+function tickMenu(root) {
+  let row = null, arrowAt = -1e9;
+  const tick = b => { if (b && b !== row) { row = b; sfx.play("tick"); } };
+  root.addEventListener("pointerover", ev => tick(ev.target.closest(".gk-menu button")));
+  root.addEventListener("keydown", ev => { if (ev.key === "ArrowUp" || ev.key === "ArrowDown") arrowAt = performance.now(); }, true);
+  root.addEventListener("focusin", ev => {
+    const b = ev.target.closest(".gk-menu button");
+    if (performance.now() - arrowAt < 100) tick(b); else if (b) row = b;
+  });
+}
+
 let title = null;
 function leave() {
   generation++;
@@ -155,11 +187,19 @@ function toTitle() {
     help: HELP,
     about: ABOUT,
     settings: {
-      html: () => "<h3>Speed</h3><div class='gk-row'>" + SPEED_NAMES.map(([v, l]) => "<button data-speed='" + v + "' aria-pressed='" + (speed === v) + "'>" + l + "</button>").join("") +
+      html: () => "<h3>Sound</h3><div class='gk-row'>" + [["on", "On"], ["off", "Off"]].map(([v, l]) => "<button data-sound='" + v + "' aria-pressed='" + (sfx.isMuted() === (v === "off")) + "'>" + l + "</button>").join("") +
+        "</div><p class='gk-note'>The factory floor and the game's signals. M switches it on and off from anywhere.</p>" +
+        "<h3>Speed</h3><div class='gk-row'>" + SPEED_NAMES.map(([v, l]) => "<button data-speed='" + v + "' aria-pressed='" + (speed === v) + "'>" + l + "</button>").join("") +
         "</div><p class='gk-note'>How fast the factory floor moves. Speed in the race's top bar changes it too.</p>" +
         "<h3>This browser</h3><div class='gk-row'><button data-act='reset'>Forget everything</button></div>" +
         "<p class='gk-note'>Clears everything PumaRally keeps in this browser: the saved race, your setup, your courses, the workshop's autosave.</p>",
       onClick: async (b, sheet) => {
+        if (b.dataset.sound) {
+          sfx.setMuted(b.dataset.sound === "off");
+          sheet.refresh();
+          if (!sfx.isMuted()) sfx.play("tick");
+          return;
+        }
         if (b.dataset.speed) {
           speed = b.dataset.speed;
           try { localStorage.setItem(SPEED_KEY, speed); } catch (e) { /* no storage */ }
@@ -189,6 +229,7 @@ function toTitle() {
       }
     }
   });
+  tickMenu(host.firstChild);
   return title;
 }
 
