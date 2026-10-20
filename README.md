@@ -23,6 +23,7 @@ A race is one board, several boards laid together, or a course made in the **Cou
 | `Enter` | run your registers, or lift the hot-seat curtain |
 | `W` `A` `S` `D` | pan the board |
 | `Z` / `C` | zoom in / out |
+| `M` | sound on / off |
 
 Cards can also be clicked or dragged onto a register.
 

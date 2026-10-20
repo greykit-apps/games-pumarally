@@ -50,11 +50,13 @@ upgrade sites and energy spaces are where you patch up and power up.</p>`],
   <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>pan the board</td></tr>
   <tr><td><kbd>Z</kbd> / <kbd>C</kbd> (or <kbd>+</kbd> / <kbd>-</kbd>)</td><td>zoom in / out</td></tr>
   <tr><td><kbd>0</kbd></td><td>reset the view</td></tr>
+  <tr><td><kbd>M</kbd></td><td>sound on / off, on any screen</td></tr>
 </table>
 <p>Cards can also be clicked or dragged onto a register. Questions a card or a
 site asks appear in the panel as buttons, and the cards each robot holds show
 under it, with the full text on hover.</p>
-<p><b>Speed</b> in the top bar changes how fast the floor moves. <b>Menu</b>
+<p><b>Speed</b> in the top bar changes how fast the floor moves, and <b>Sound</b>
+switches the sound on and off. <b>Menu</b>
 goes back to the title screen; your race stays saved until you start another,
 and <b>Resume game</b> picks it up again.</p>`],
 

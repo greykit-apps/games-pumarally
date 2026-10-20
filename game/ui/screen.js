@@ -29,6 +29,7 @@ import { UPGRADE_DEFS } from "../engine/upgrades.js";
 import { cardArt } from "./cardart.js";
 import { kitArt, categoryOf } from "./kitart.js";
 import { mountScene } from "./scene.js";
+import * as sfx from "./sfx.js";
 
 const PREFS_KEY = "pumarally_prefs_v1";
 /* what a program card does, for the hover box; the deck's own notes cover SPAM and Haywire */
@@ -220,13 +221,14 @@ export function mountScreen(root, ctx) {
   }
 
   root.innerHTML = '<div class="pr"><div class="scene" aria-hidden="true"></div><div class="top"><h1>PumaRally</h1><span class="turn"></span><span class="grow"></span>' +
-    '<button data-act="speed"></button><button data-act="debug" title="Save this race -- its course, every card dealt and played, and the state as it stands -- as a file, for when something goes wrong">Debug</button>' +
+    '<button data-act="speed"></button><button data-act="sound" aria-label="Sound" aria-pressed="true"></button><button data-act="debug" title="Save this race -- its course, every card dealt and played, and the state as it stands -- as a file, for when something goes wrong">Debug</button>' +
     '<button data-act="new" title="Back to the title screen. This race stays saved until another is started.">Menu</button></div>' +
     '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg>' +
     '<div class="caption" hidden><b></b><span></span></div></div></div><aside class="side"></aside></div></div>';
   const els = {
     turn: root.querySelector(".turn"), art: root.querySelector(".art"), overlay: root.querySelector(".overlay"),
     side: root.querySelector(".side"), board: root.querySelector(".board"), speed: root.querySelector('[data-act="speed"]'),
+    sound: root.querySelector('[data-act="sound"]'),
     caption: root.querySelector(".caption")
   };
   const pieces = new Map();
@@ -444,6 +446,42 @@ export function mountScreen(root, ctx) {
   const T = { mark: 420, reveal: 220, slide: 300, turn: 240, beam: 260, vanish: 120, appear: 160, land: 200, flag: 320, stagger: 500 };
   const CARD_SLOT = T.stagger + T.reveal + 3 * T.slide;
 
+  /* THE SOUNDS RIDE THE SAME ACTIONS AS THE PIECES (sfx.js): each is played
+   * from the timed action that moves its robot, so it is heard as the robot
+   * moves, at any speed. A damage moves nothing and makes its sound in an
+   * action of its own, which lands after whatever the robot was doing,
+   * because a group waits for the robots it touches. The pass under way is
+   * remembered from its mark, which plays first, so a belt knows whether it
+   * is an express.
+   *
+   * FOUR THINGS SOUND DURING A TURN, AND NOTHING ELSE: robots moving, the
+   * register marks, damage, and a flag touched. A player cannot watch every
+   * robot at once, and a sound whose cause you did not see is only noise --
+   * the first cut played a reveal, a beam, a respawn, energy and upgrades
+   * too, and on the table it was busy and confusing. Each of those is still
+   * on screen and in the log. The flag came back on the owner's word: it is
+   * the race's score, whoever touches it. The winner's fanfare, after the
+   * last turn, is the one other signal kept. */
+  let pass = null;
+  const voice = p => ({ pitch: p ? sfx.voiceOf(p.id) : 1 });
+  const FALLS = /pit|edge|trap door/;
+  function moveSound(e, p) {
+    if (e.type === "conveyed") return sfx.play(pass === "express" ? "express" : "belt");
+    if (e.type === "pushed" || e.type === "shoved" || e.cause === "pusher" || e.cause === "displace") return sfx.play("bump");
+    sfx.play("step", voice(p));
+  }
+  function turnSound(e, p) {
+    if (e.cause === "gear") return sfx.play("gear", { arg: e.turn < 0 ? -1 : 1 });
+    if (e.cause === "belt") return sfx.play("beltTurn");
+    sfx.play("turn", voice(p));
+  }
+  function damageSound(e) {
+    const src = String(e.source || "");
+    sfx.play(/flame|flamer|burn/.test(src) ? "burn" : /waste|radiation/.test(src) ? "geiger" : "clank");
+  }
+  /* the events that make a sound and move nothing, by type */
+  const QUIET = { damaged: damageSound, won: () => sfx.play("win") };
+
   /* the robots an event touches, so groups sharing one are kept in order */
   const who = e => [e.player, e.target, e.shooter, e.by].filter(x => x !== undefined && x !== null);
 
@@ -473,26 +511,27 @@ export function mountScreen(root, ctx) {
     switch (e.type) {
       case "register":
         return { dur: T.mark, acts: [[0, () => {
+          sfx.play("register", { arg: e.register });
           caption((isModern(st) ? "Round " : "Turn ") + e.turn + " · Register " + (e.register + 1), "");
           els.turn.textContent = turnText(e.register, e.turn);
           for (const id of pieces.keys()) tagPiece(id, "");
           renderLog(e.turn, e.register);
         }]] };
       case "element":
-        return { dur: 0, acts: [[0, () => caption(null, PASS_LABELS[e.name] || e.name)]] };
+        return { dur: 0, acts: [[0, () => { pass = e.name; caption(null, PASS_LABELS[e.name] || e.name); }]] };
       case "revealed":
         return { dur: T.reveal, acts: [[0, () => tagPiece(p.id, KINDS[e.card.kind] ? KINDS[e.card.kind].label : "")]] };
       case "moved": case "pushed": case "conveyed": case "shoved":
-        return { dur: T.slide, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, d.show, true); }]] };
+        return { dur: T.slide, acts: [[0, () => { moveSound(e, p); const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, d.show, true); }]] };
       case "turned":
-        return { dur: T.turn, acts: [[0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, e.face, d.show, true); }]] };
+        return { dur: T.turn, acts: [[0, () => { turnSound(e, p); const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, e.face, d.show, true); }]] };
       /* the bounce is ordinary moves and pushes; this only says why */
       case "repulsed":
         return { dur: 0, acts: [[0, () => tagPiece(p.id, "Repulsed")]] };
       case "portal": case "teleported":
         /* in one end and out of the other: no glide across the floor between */
         return { dur: T.vanish + T.appear, acts: [
-          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); }],
+          [0, () => { sfx.play("teleport"); const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); }],
           [T.vanish, () => { const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, "on", false); }]] };
       case "shot": {
         const g = pieces.get(e.target);
@@ -505,17 +544,17 @@ export function mountScreen(root, ctx) {
         return { dur: T.slide + T.appear, acts: [
           /* the panel is told at once: a wreck is the moment a player starts
              wondering whether the game has forgotten them */
-          [0, () => { const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); tagPiece(p.id, ""); if (isHuman(p)) safely(renderPanel); }],
+          [0, () => { sfx.play(FALLS.test(e.how || "") ? "fall" : "boom"); const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, d.face, "gone", false); tagPiece(p.id, ""); if (isHuman(p)) safely(renderPanel); }],
           /* then the ghost, where it will come back */
           [T.slide, () => { const back = returnPoint(p); if (back) drawPiece(p.id, back.c, back.r, back.face, "ghost", false); }]] };
       case "respawned": case "placed": case "rebooted":
         return { dur: T.land, acts: [[0, () => { drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false); if (isHuman(p)) safely(renderPanel); }]] };
       case "flag": {
         const f = els.overlay.querySelector('.flag[data-n="' + e.flag + '"]');
-        return { dur: T.flag, acts: [[0, () => { if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
+        return { dur: T.flag, acts: [[0, () => { sfx.play("flag"); if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
       }
       default:
-        return { dur: 0, acts: [] };
+        return { dur: 0, acts: QUIET[e.type] ? [[0, () => QUIET[e.type](e)]] : [] };
     }
   }
 
@@ -948,6 +987,7 @@ export function mountScreen(root, ctx) {
 
   function answer(a) {
     if (animating || !st.waiting) return;
+    if (st.waiting.kind === "program" && Array.isArray(a)) sfx.play("lock");
     pick = [];
     ctx.submit(a);
   }
@@ -956,6 +996,7 @@ export function mountScreen(root, ctx) {
     const w = st.waiting;
     if (!w || w.kind !== "program" || pick.length >= w.count || pickHas(handIndex)) return;
     pick.push(handIndex);
+    sfx.play("card");
     renderPanel();
   }
   /* Crab Legs: the Move 1 joins the rotate just placed */
@@ -965,6 +1006,7 @@ export function mountScreen(root, ctx) {
     const last = pick[pick.length - 1];
     if (Array.isArray(last)) return;
     pick[pick.length - 1] = [last, handIndex];
+    sfx.play("card");
     renderPanel();
   }
   function stackToggle(i) {
@@ -978,7 +1020,7 @@ export function mountScreen(root, ctx) {
   function unpick(slot) {
     const me = st.players[st.waiting.player];
     const k = slot - countHeld(me, slot);
-    if (k >= 0 && k < pick.length) { pick.splice(k, 1); renderPanel(); }
+    if (k >= 0 && k < pick.length) { pick.splice(k, 1); sfx.play("uncard"); renderPanel(); }
   }
 
   els.side.addEventListener("click", ev => {
@@ -1052,7 +1094,7 @@ export function mountScreen(root, ctx) {
     const k = +s.dataset.slot - countHeld(me, +s.dataset.slot);
     if (k < 0 || k > pick.length || s.classList.contains("locked")) return;
     if (k === pick.length) place(dragging);
-    else { pick.splice(k, 0, dragging); if (pick.length > st.waiting.count) pick.pop(); renderPanel(); }
+    else { pick.splice(k, 0, dragging); if (pick.length > st.waiting.count) pick.pop(); sfx.play("card"); renderPanel(); }
     dragging = null;
   });
 
@@ -1085,7 +1127,7 @@ export function mountScreen(root, ctx) {
         const i = left[+ev.key - 1];
         if (i !== undefined) place(i);
         ev.preventDefault();
-      } else if (ev.key === "Backspace" || ev.key === "Delete") { if (pick.length) { pick.pop(); renderPanel(); } ev.preventDefault(); }
+      } else if (ev.key === "Backspace" || ev.key === "Delete") { if (pick.length) { pick.pop(); sfx.play("uncard"); renderPanel(); } ev.preventDefault(); }
       else if (ev.key === "Enter" && pick.length === w.count) { answer(pick.slice()); ev.preventDefault(); }
     } else if (w.kind === "powerDown" || w.kind === "stayDown" || w.kind === "shutdown") {
       if (ev.key === "y") answer(true); else if (ev.key === "n") answer(false);
@@ -1125,6 +1167,7 @@ export function mountScreen(root, ctx) {
   root.querySelector(".top").addEventListener("click", ev => {
     const b = ev.target.closest("button");
     if (!b) return;
+    if (b.dataset.act === "sound") { sfx.toggleMute(); showSound(); }
     if (b.dataset.act === "speed") { ctx.cycleSpeed(); els.speed.textContent = "Speed: " + ctx.speedName(); els.overlay.style.setProperty("--anim", String(speedOf())); }
     if (b.dataset.act === "debug" && ctx.debugDump) { const name = ctx.debugDump(); b.textContent = "Saved " + name; setTimeout(() => { b.textContent = "Debug"; }, 2500); }
     if (b.dataset.act === "new") ctx.newGame();
@@ -1153,6 +1196,7 @@ export function mountScreen(root, ctx) {
     root.appendChild(el);
   }
   function liftCurtain() {
+    sfx.play("curtain");
     for (const el of root.querySelectorAll(".curtain")) el.remove();
     lastHuman = curtainFor;
     curtainFor = null;
@@ -1161,9 +1205,18 @@ export function mountScreen(root, ctx) {
 
   /* --- render ---------------------------------------------------------------------- */
 
+  /* named "Sound" whatever it shows, pressed while sound is on (STANDARD.md §8) */
+  function showSound() {
+    const on = !sfx.isMuted();
+    els.sound.textContent = "Sound: " + (on ? "on" : "off");
+    els.sound.setAttribute("aria-pressed", String(on));
+    els.sound.title = "Sound on or off (M)";
+  }
+
   function render() {
     els.turn.textContent = turnText(st.phase === "exec" ? st.register : undefined);
     els.speed.textContent = "Speed: " + ctx.speedName();
+    showSound();
     if (!animating) syncPieces();                       // a state change with no events still moves a ghost
     if (needsCurtain(st.waiting)) { showCurtain(st.waiting.player); return; }
     if (st.waiting && isHuman(st.players[st.waiting.player])) lastHuman = st.waiting.player;
@@ -1180,6 +1233,8 @@ export function mountScreen(root, ctx) {
       fitBoard();
       render();
     },
+    /** M was pressed, or Settings changed: the top bar says so. */
+    soundChanged() { showSound(); },
     /** The screen is being torn down: a replay in progress ends at its next beat. */
     stop() { stopped = true; },
     /** The mat's answer to a human's pending request, or undefined to ask. */
