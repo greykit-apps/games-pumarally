@@ -1,11 +1,12 @@
 /* Sound, all of it synthesised: no audio files, nothing fetched at play time.
  *
- * During a turn, three things and nothing else (screen.js says why): robots
+ * During a turn, four things and nothing else (screen.js says why): robots
  * moving -- servos whining as a robot drives, a thud when one shoves
  * another, conveyors clattering, gears ratcheting round; a chime for each
- * register; and damage -- the clang of a hit, the whistle of a fall into a
- * pit, the boom of a robot shot to pieces. Outside the replay: the snap of a
- * card going into a register, the title menu's tick, the winner's fanfare.
+ * register; damage -- the clang of a hit, the whistle of a fall into a pit,
+ * the boom of a robot shot to pieces; and a brighter chime for a flag.
+ * Outside the replay: the snap of a card going into a register, the title
+ * menu's tick, the winner's fanfare.
  *
  * THE SOUNDS FOLLOW THE REPLAY, NOT THE ENGINE. The screen plays them from
  * the same timed actions that move the pieces (screen.js compile()), so a
@@ -129,6 +130,9 @@ const SOUNDS = {
     hiss(d, 800, 0.7, 1800, "lowpass", 0.7, 0, 70); tone(d, 95, 30, 700, "sine", 0.6);
     for (let i = 0; i < 4; i++) hiss(d, 60, 0.15, 3000, "bandpass", 1, 0.08 + i * 0.07 + Math.random() * 0.04);
   },
+
+  /* a flag touched: two notes up, brighter than a register's chime */
+  flag: d => { tone(d, 784, 784, 130, "triangle", 0.09); tone(d, 1174.7, 1174.7, 260, "triangle", 0.09, 0.12); tone(d, 2349, 2349, 200, "sine", 0.02, 0.12); },
 
   /* the race won, after the last turn */
   win: d => {

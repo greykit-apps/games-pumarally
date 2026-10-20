@@ -454,13 +454,14 @@ export function mountScreen(root, ctx) {
    * remembered from its mark, which plays first, so a belt knows whether it
    * is an express.
    *
-   * THREE THINGS SOUND DURING A TURN, AND NOTHING ELSE: robots moving, the
-   * register marks, and damage. A player cannot watch every robot at once,
-   * and a sound whose cause you did not see is only noise -- the first cut
-   * played a reveal, a beam, a respawn, a flag, energy and upgrades too, and
-   * on the table it was busy and confusing. Each of those is still on screen
-   * and in the log. The winner's fanfare, after the last turn, is the one
-   * signal kept. */
+   * FOUR THINGS SOUND DURING A TURN, AND NOTHING ELSE: robots moving, the
+   * register marks, damage, and a flag touched. A player cannot watch every
+   * robot at once, and a sound whose cause you did not see is only noise --
+   * the first cut played a reveal, a beam, a respawn, energy and upgrades
+   * too, and on the table it was busy and confusing. Each of those is still
+   * on screen and in the log. The flag came back on the owner's word: it is
+   * the race's score, whoever touches it. The winner's fanfare, after the
+   * last turn, is the one other signal kept. */
   let pass = null;
   const voice = p => ({ pitch: p ? sfx.voiceOf(p.id) : 1 });
   const FALLS = /pit|edge|trap door/;
@@ -550,7 +551,7 @@ export function mountScreen(root, ctx) {
         return { dur: T.land, acts: [[0, () => { drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false); if (isHuman(p)) safely(renderPanel); }]] };
       case "flag": {
         const f = els.overlay.querySelector('.flag[data-n="' + e.flag + '"]');
-        return { dur: T.flag, acts: [[0, () => { if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
+        return { dur: T.flag, acts: [[0, () => { sfx.play("flag"); if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
       }
       default:
         return { dur: 0, acts: QUIET[e.type] ? [[0, () => QUIET[e.type](e)]] : [] };
