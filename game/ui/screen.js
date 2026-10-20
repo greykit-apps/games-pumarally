@@ -448,11 +448,19 @@ export function mountScreen(root, ctx) {
 
   /* THE SOUNDS RIDE THE SAME ACTIONS AS THE PIECES (sfx.js): each is played
    * from the timed action that moves its robot, so it is heard as the robot
-   * moves, at any speed. Events that move nothing (a damage, an energy gain)
-   * make their sound in an action of their own, which lands after whatever
-   * the robot was doing, because a group waits for the robots it touches.
-   * The pass under way is remembered from its mark, which plays first, so a
-   * belt knows whether it is an express. */
+   * moves, at any speed. A damage moves nothing and makes its sound in an
+   * action of its own, which lands after whatever the robot was doing,
+   * because a group waits for the robots it touches. The pass under way is
+   * remembered from its mark, which plays first, so a belt knows whether it
+   * is an express.
+   *
+   * THREE THINGS SOUND DURING A TURN, AND NOTHING ELSE: robots moving, the
+   * register marks, and damage. A player cannot watch every robot at once,
+   * and a sound whose cause you did not see is only noise -- the first cut
+   * played a reveal, a beam, a respawn, a flag, energy and upgrades too, and
+   * on the table it was busy and confusing. Each of those is still on screen
+   * and in the log. The winner's fanfare, after the last turn, is the one
+   * signal kept. */
   let pass = null;
   const voice = p => ({ pitch: p ? sfx.voiceOf(p.id) : 1 });
   const FALLS = /pit|edge|trap door/;
@@ -470,19 +478,8 @@ export function mountScreen(root, ctx) {
     const src = String(e.source || "");
     sfx.play(/flame|flamer|burn/.test(src) ? "burn" : /waste|radiation/.test(src) ? "geiger" : "clank");
   }
-  /* the events that make a sound and move nothing, by type: each plays its own, or none for this event */
-  const QUIET = {
-    damaged: damageSound,
-    repaired: () => sfx.play("repair"),
-    energy: e => { if (e.amount > 0) sfx.play("energy"); },
-    upgrade: e => { if (e.how === "bought" || e.how === "installed" || e.how === "taken") sfx.play("upgrade"); },
-    option: e => { if (e.how === "gained" || e.how === "refilled") sfx.play("upgrade"); },
-    poweredDown: () => sfx.play("powerDown"),
-    spam: () => sfx.play("glitch"), haywire: () => sfx.play("glitch"), stunned: () => sfx.play("glitch"), scrambled: () => sfx.play("glitch"),
-    dealt: () => sfx.play("deal"),
-    cheat: () => sfx.play("cheat"),
-    won: () => sfx.play("win")
-  };
+  /* the events that make a sound and move nothing, by type */
+  const QUIET = { damaged: damageSound, won: () => sfx.play("win") };
 
   /* the robots an event touches, so groups sharing one are kept in order */
   const who = e => [e.player, e.target, e.shooter, e.by].filter(x => x !== undefined && x !== null);
@@ -522,14 +519,14 @@ export function mountScreen(root, ctx) {
       case "element":
         return { dur: 0, acts: [[0, () => { pass = e.name; caption(null, PASS_LABELS[e.name] || e.name); }]] };
       case "revealed":
-        return { dur: T.reveal, acts: [[0, () => sfx.play("reveal")], [0, () => tagPiece(p.id, KINDS[e.card.kind] ? KINDS[e.card.kind].label : "")]] };
+        return { dur: T.reveal, acts: [[0, () => tagPiece(p.id, KINDS[e.card.kind] ? KINDS[e.card.kind].label : "")]] };
       case "moved": case "pushed": case "conveyed": case "shoved":
         return { dur: T.slide, acts: [[0, () => { moveSound(e, p); const d = drawnAt(p.id); drawPiece(p.id, e.to[0], e.to[1], d.face, d.show, true); }]] };
       case "turned":
         return { dur: T.turn, acts: [[0, () => { turnSound(e, p); const d = drawnAt(p.id); drawPiece(p.id, d.c, d.r, e.face, d.show, true); }]] };
       /* the bounce is ordinary moves and pushes; this only says why */
       case "repulsed":
-        return { dur: 0, acts: [[0, () => { sfx.play("repulse"); tagPiece(p.id, "Repulsed"); }]] };
+        return { dur: 0, acts: [[0, () => tagPiece(p.id, "Repulsed")]] };
       case "portal": case "teleported":
         /* in one end and out of the other: no glide across the floor between */
         return { dur: T.vanish + T.appear, acts: [
@@ -539,7 +536,7 @@ export function mountScreen(root, ctx) {
         const g = pieces.get(e.target);
         let l = null;
         return { dur: T.beam, acts: [
-          [0, () => { sfx.play(e.shooter === null || e.shooter === undefined ? "laser" : "zap"); const d = drawnAt(e.target); l = beam(e.from, [d.c, d.r]); if (g) g.classList.add("hit"); }],
+          [0, () => { const d = drawnAt(e.target); l = beam(e.from, [d.c, d.r]); if (g) g.classList.add("hit"); }],
           [T.beam, () => { if (l) l.remove(); if (g) g.classList.remove("hit"); }]] };
       }
       case "destroyed":
@@ -550,10 +547,10 @@ export function mountScreen(root, ctx) {
           /* then the ghost, where it will come back */
           [T.slide, () => { const back = returnPoint(p); if (back) drawPiece(p.id, back.c, back.r, back.face, "ghost", false); }]] };
       case "respawned": case "placed": case "rebooted":
-        return { dur: T.land, acts: [[0, () => { sfx.play("spawn"); drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false); if (isHuman(p)) safely(renderPanel); }]] };
+        return { dur: T.land, acts: [[0, () => { drawPiece(p.id, e.at[0], e.at[1], e.face === undefined ? drawnAt(p.id).face : e.face, "on", false); if (isHuman(p)) safely(renderPanel); }]] };
       case "flag": {
         const f = els.overlay.querySelector('.flag[data-n="' + e.flag + '"]');
-        return { dur: T.flag, acts: [[0, () => { sfx.play("flag"); if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
+        return { dur: T.flag, acts: [[0, () => { if (f) f.classList.add("hit"); }], [T.flag, () => { if (f) f.classList.remove("hit"); }]] };
       }
       default:
         return { dur: 0, acts: QUIET[e.type] ? [[0, () => QUIET[e.type](e)]] : [] };

@@ -1,12 +1,11 @@
 /* Sound, all of it synthesised: no audio files, nothing fetched at play time.
  *
- * The factory floor as you would hear it standing on it: servos whining as a
- * robot drives, a thud when one shoves another, conveyors clattering, gears
- * ratcheting round, lasers buzzing across the deck and the clang of a hit,
- * the whistle of a fall into a pit and the boom of a robot shot to pieces.
- * Over it, the game's own signals: a chime for each register, a brighter one
- * for a flag, a fanfare for the winner, and the snap of a card going into a
- * register.
+ * During a turn, three things and nothing else (screen.js says why): robots
+ * moving -- servos whining as a robot drives, a thud when one shoves
+ * another, conveyors clattering, gears ratcheting round; a chime for each
+ * register; and damage -- the clang of a hit, the whistle of a fall into a
+ * pit, the boom of a robot shot to pieces. Outside the replay: the snap of a
+ * card going into a register, the title menu's tick, the winner's fanfare.
  *
  * THE SOUNDS FOLLOW THE REPLAY, NOT THE ENGINE. The screen plays them from
  * the same timed actions that move the pieces (screen.js compile()), so a
@@ -88,29 +87,25 @@ const SOUNDS = {
   /* the title menu's tick (STANDARD.md §14): a click of noise, falling fast */
   tick: d => hiss(d, 14, 0.12, 2400, "bandpass", 1.2),
 
-  /* the hand and the registers */
+  /* the hand and the registers: the player's own actions, never the replay's */
   card: d => { hiss(d, 28, 0.16, 3600, "highpass", 0.8); tone(d, 900, 620, 40, "triangle", 0.06); },
   uncard: d => { hiss(d, 24, 0.1, 2200, "bandpass", 1); tone(d, 520, 380, 45, "triangle", 0.05); },
   lock: d => {
     tone(d, 190, 120, 70, "square", 0.05); hiss(d, 60, 0.18, 900, "lowpass", 1);
     tone(d, 260, 170, 90, "square", 0.05, 0.09); hiss(d, 80, 0.2, 900, "lowpass", 1, 0.09);
   },
-  deal: d => { for (let i = 0; i < 6; i++) hiss(d, 22, 0.09, 4200 - i * 250, "highpass", 0.7, i * 0.028); },
   curtain: d => tone(d, 330, 495, 120, "triangle", 0.05),
 
-  /* the replay: the turn's beats */
+  /* the replay's beats: one chime per register */
   register: (d, p, n = 0) => {
     const f = 523.25 * semi(REGISTER_STEPS[n % REGISTER_STEPS.length]);
     tone(d, f, f, 220, "triangle", 0.09); tone(d, f * 2, f * 2, 140, "sine", 0.025, 0.01);
   },
-  reveal: d => hiss(d, 30, 0.06, 2800, "bandpass", 1.4),
 
-  /* robots driving: a servo's whine over the treads */
+  /* movement: a robot's servo whine over its treads, a shove, the floor carrying it */
   step: (d, p) => { tone(d, 150 * p, 230 * p, 200, "sawtooth", 0.025); hiss(d, 200, 0.07, 380 * p, "lowpass", 1.2); },
   turn: (d, p) => { tone(d, 240 * p, 170 * p, 190, "sawtooth", 0.022); hiss(d, 160, 0.05, 520 * p, "lowpass", 1.4); },
   bump: d => { tone(d, 130, 48, 140, "sine", 0.45); hiss(d, 90, 0.25, 700, "lowpass", 1); tone(d, 95, 70, 40, "square", 0.04); },
-
-  /* the floor */
   belt: d => { for (let i = 0; i < 6; i++) hiss(d, 20, 0.12, 1500 + (i % 2) * 300, "bandpass", 3, i * 0.048); tone(d, 72, 72, 290, "sawtooth", 0.02); },
   express: d => { for (let i = 0; i < 10; i++) hiss(d, 16, 0.12, 1800 + (i % 2) * 400, "bandpass", 3, i * 0.028); tone(d, 96, 96, 290, "sawtooth", 0.022); },
   /* a gear ratchets round: clicks climbing for a turn right, falling for a left */
@@ -119,8 +114,9 @@ const SOUNDS = {
     tone(d, 110, 80, 70, "sine", 0.25, 0.2);
   },
   beltTurn: d => { tone(d, 1400, 1200, 14, "square", 0.022); tone(d, 1600, 1400, 14, "square", 0.022, 0.05); },
-  laser: d => { tone(d, 1500, 320, 260, "sawtooth", 0.035); tone(d, 1520, 330, 260, "sawtooth", 0.03); hiss(d, 240, 0.05, 3000, "bandpass", 2, 0, 900); },
-  zap: d => { tone(d, 2600, 700, 170, "square", 0.03); tone(d, 1300, 420, 170, "sine", 0.06); },
+  teleport: d => { tone(d, 300, 1900, 150, "sine", 0.06); tone(d, 1900, 500, 170, "sine", 0.05, 0.13); hiss(d, 300, 0.05, 4000, "highpass", 0.6); },
+
+  /* damage, and a robot lost */
   clank: d => {
     /* inharmonic partials ring like struck plate rather than a note */
     for (const [f, v] of [[440, 0.07], [1123, 0.05], [1871, 0.035], [2963, 0.02]]) tone(d, f, f * 0.97, 320, "sine", v);
@@ -133,25 +129,15 @@ const SOUNDS = {
     hiss(d, 800, 0.7, 1800, "lowpass", 0.7, 0, 70); tone(d, 95, 30, 700, "sine", 0.6);
     for (let i = 0; i < 4; i++) hiss(d, 60, 0.15, 3000, "bandpass", 1, 0.08 + i * 0.07 + Math.random() * 0.04);
   },
-  spawn: d => { tone(d, 330, 660, 200, "triangle", 0.06); tone(d, 990, 990, 140, "sine", 0.04, 0.17); },
-  teleport: d => { tone(d, 300, 1900, 150, "sine", 0.06); tone(d, 1900, 500, 170, "sine", 0.05, 0.13); hiss(d, 300, 0.05, 4000, "highpass", 0.6); },
-  repulse: d => tone(d, 600, 1300, 90, "square", 0.03),
-  glitch: d => { for (let i = 0; i < 6; i++) { const f = 200 + Math.random() * 1800; tone(d, f, f * 0.8, 28, "square", 0.025, i * 0.036); } },
-  powerDown: d => { tone(d, 620, 70, 520, "sawtooth", 0.025); tone(d, 310, 40, 520, "sine", 0.08); },
 
-  /* the race's own signals */
-  flag: d => { tone(d, 784, 784, 130, "triangle", 0.09); tone(d, 1174.7, 1174.7, 260, "triangle", 0.09, 0.12); tone(d, 2349, 2349, 200, "sine", 0.02, 0.12); },
-  repair: d => { for (let i = 0; i < 3; i++) tone(d, 1100, 900, 16, "square", 0.025, i * 0.06); tone(d, 440, 880, 220, "triangle", 0.05, 0.18); },
-  energy: d => { tone(d, 988, 988, 60, "square", 0.025); tone(d, 1318.5, 1318.5, 130, "square", 0.025, 0.06); },
-  upgrade: d => { tone(d, 160, 110, 60, "square", 0.04); tone(d, 660, 660, 100, "triangle", 0.06, 0.07); tone(d, 880, 880, 160, "triangle", 0.06, 0.15); },
+  /* the race won, after the last turn */
   win: d => {
     [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.5].forEach((f, i) => {
       const long = i === 6, at = i * 0.13;
       tone(d, f, f, long ? 700 : 150, "triangle", 0.09, at);
       tone(d, f, f, long ? 600 : 120, "square", 0.018, at);
     });
-  },
-  cheat: d => { [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568].forEach((f, i) => tone(d, f, f, 70, "square", 0.025, i * 0.045)); }
+  }
 };
 
 /**
