@@ -224,7 +224,11 @@ export function mountScreen(root, ctx) {
     '<button data-act="speed"></button><button data-act="sound" aria-label="Sound" aria-pressed="true"></button><button data-act="debug" title="Save this race -- its course, every card dealt and played, and the state as it stands -- as a file, for when something goes wrong">Debug</button>' +
     '<button data-act="new" title="Back to the title screen. This race stays saved until another is started.">Menu</button></div>' +
     '<div class="main"><div class="stage"><div class="board"><div class="art"></div><svg class="overlay"></svg>' +
-    '<div class="caption" hidden><b></b><span></span></div></div></div><aside class="side"></aside></div></div>';
+    '<div class="caption" hidden><b></b><span></span></div></div>' +
+    /* the view buttons a touchscreen has no keys for; shown only when a coarse pointer is present */
+    '<div class="viewbtns"><button data-view="out" aria-label="Zoom out" title="Zoom out">&minus;</button>' +
+    '<button data-view="reset" aria-label="Reset the view" title="Reset the view">Fit</button>' +
+    '<button data-view="in" aria-label="Zoom in" title="Zoom in">+</button></div></div><aside class="side"></aside></div></div>';
   const els = {
     turn: root.querySelector(".turn"), art: root.querySelector(".art"), overlay: root.querySelector(".overlay"),
     side: root.querySelector(".side"), board: root.querySelector(".board"), speed: root.querySelector('[data-act="speed"]'),
@@ -334,20 +338,29 @@ export function mountScreen(root, ctx) {
     const availW = stage.clientWidth - 24, availH = window.innerHeight - 70;
     const w = Math.max(200, Math.min(availW, availH * C.w / C.h));
     els.board.style.width = w + "px";
-    look.zoom = 1; look.offX = 0; look.offY = 0; applyLook();
+    resetLook();
   }
 
   /* ZOOM AND PAN, the same three ways the workshops have them: the wheel
    * zooms about the pointer, Z and C zoom about the middle, W A S D pan, and
-   * the right or middle button drags. The board is laid out at its fitted
-   * size and then CSS-transformed, so nothing else on the screen moves; 0
-   * puts it back. */
+   * the right or middle button drags. A touch has its own: one finger drags
+   * the board, two pinch it about their midpoint (and pan with it), and the
+   * buttons at the corner do what Z, C and 0 do. The board is laid out at its
+   * fitted size and then CSS-transformed, so nothing else on the screen moves;
+   * 0 puts it back. Mouse and touch share the one view and neither replaces
+   * the other: it is the pointer's type that is asked, never the window's
+   * width, so a touchscreen laptop keeps its mouse. */
   const look = { zoom: 1, offX: 0, offY: 0 };
-  const LOOK_MIN = 0.5, LOOK_MAX = 6, LOOK_STEP = 1.2, LOOK_PAN = 120;
+  const LOOK_MIN = 0.5, LOOK_MAX = 6, LOOK_STEP = 1.2, LOOK_PAN = 120, TAP_SLOP = 8;
   function applyLook() {
     els.board.style.transformOrigin = "0 0";
     els.board.style.transform = "translate(" + look.offX + "px," + look.offY + "px) scale(" + look.zoom + ")";
+    /* A board shown whole has nothing to drag, so a finger on it scrolls the
+     * page (below a stacked layout the panel is a scroll away); once it is
+     * zoomed in the finger belongs to the board. Pinching is ours either way. */
+    els.board.parentElement.style.touchAction = look.zoom > 1.001 ? "none" : "pan-y";
   }
+  function resetLook() { look.zoom = 1; look.offX = 0; look.offY = 0; applyLook(); }
   function zoomLook(factor, clientX, clientY) {
     const next = Math.max(LOOK_MIN, Math.min(LOOK_MAX, look.zoom * factor));
     if (next === look.zoom) return;
@@ -362,33 +375,96 @@ export function mountScreen(root, ctx) {
   {
     const stage = els.board.parentElement;
     let drag = null;
+    const fingers = new Map();     // the touch or pen pointers down on the stage: id -> { x, y }
+    let hand = null;               // what the fingers are doing: { pan | pinch, ... }
+    let swallow = 0;               // until when a click is the end of a drag, not a tap
+    const capture = id => { try { stage.setPointerCapture(id); } catch (e) { /* a synthetic pointer has no capture */ } };
+    /* the board's top-left with no view applied, so a gesture can say where in the board a finger is */
+    const origin = () => { const r = els.board.getBoundingClientRect(); return { x: r.left - look.offX, y: r.top - look.offY }; };
+    const pair = () => { const [a, b] = [...fingers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
+    function pinchFrom() {
+      const o = origin(), m = pair();
+      hand = { kind: "pinch", d0: m.d, z0: look.zoom, bx: (m.x - o.x - look.offX) / look.zoom, by: (m.y - o.y - look.offY) / look.zoom, o };
+    }
+    function panFrom(id) {
+      const f = fingers.get(id);
+      hand = { kind: "pan", id, x: f.x, y: f.y, ox: look.offX, oy: look.offY, moved: true };
+    }
+
     stage.addEventListener("wheel", ev => {
       ev.preventDefault();
       zoomLook(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX, ev.clientY);
     }, { passive: false });
     stage.addEventListener("contextmenu", ev => ev.preventDefault());
     stage.addEventListener("pointerdown", ev => {
+      if (ev.target.closest(".viewbtns")) return;
+      if (ev.pointerType !== "mouse") {
+        fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (fingers.size === 1) hand = { kind: "pan", id: ev.pointerId, x: ev.clientX, y: ev.clientY, ox: look.offX, oy: look.offY, moved: false };
+        else if (fingers.size === 2) { for (const id of fingers.keys()) capture(id); pinchFrom(); }
+        return;
+      }
       if (ev.button !== 1 && ev.button !== 2) return;
-      try { stage.setPointerCapture(ev.pointerId); } catch (e) { /* a synthetic pointer has no capture */ }
+      capture(ev.pointerId);
       drag = { x: ev.clientX, y: ev.clientY, ox: look.offX, oy: look.offY };
       stage.style.cursor = "grabbing";
     });
     stage.addEventListener("pointermove", ev => {
+      if (fingers.has(ev.pointerId)) {
+        fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (!hand) return;
+        if (hand.kind === "pinch" && fingers.size >= 2) {
+          const m = pair();
+          const z = Math.max(LOOK_MIN, Math.min(LOOK_MAX, hand.z0 * m.d / hand.d0));
+          look.zoom = z;
+          look.offX = m.x - hand.o.x - z * hand.bx;
+          look.offY = m.y - hand.o.y - z * hand.by;
+          applyLook();
+        } else if (hand.kind === "pan" && hand.id === ev.pointerId) {
+          const dx = ev.clientX - hand.x, dy = ev.clientY - hand.y;
+          /* a tap wobbles; only a finger that has travelled is a drag, and only then does the stage take it (a tap on a bay must still reach the bay) */
+          if (!hand.moved) {
+            /* a board shown whole is not dragged: that finger is the page's, to scroll with (see applyLook) */
+            if (Math.hypot(dx, dy) < TAP_SLOP || look.zoom <= 1.001) return;
+            hand.moved = true; capture(ev.pointerId);
+          }
+          look.offX = hand.ox + dx;
+          look.offY = hand.oy + dy;
+          applyLook();
+        }
+        return;
+      }
       if (!drag) return;
       look.offX = drag.ox + (ev.clientX - drag.x);
       look.offY = drag.oy + (ev.clientY - drag.y);
       applyLook();
     });
-    const endDrag = () => { drag = null; stage.style.cursor = ""; };
+    const endFinger = ev => {
+      if (!fingers.delete(ev.pointerId)) return;
+      if (hand && (hand.moved || hand.kind === "pinch")) swallow = Date.now() + 350;
+      if (!fingers.size) hand = null;
+      else if (fingers.size === 1) panFrom(fingers.keys().next().value);      // a pinch let go of with one finger carries on as a drag
+      else pinchFrom();
+    };
+    const endDrag = ev => { endFinger(ev); drag = null; stage.style.cursor = ""; };
     stage.addEventListener("pointerup", endDrag);
     stage.addEventListener("pointercancel", endDrag);
+    /* the click that ends a drag or a pinch is not a tap on whatever was under the finger */
+    stage.addEventListener("click", ev => { if (Date.now() < swallow && !ev.target.closest(".viewbtns")) { ev.stopPropagation(); ev.preventDefault(); } }, true);
+    root.querySelector(".viewbtns").addEventListener("click", ev => {
+      const b = ev.target.closest("button");
+      if (!b) return;
+      if (b.dataset.view === "in") zoomLook(LOOK_STEP);
+      else if (b.dataset.view === "out") zoomLook(1 / LOOK_STEP);
+      else resetLook();
+    });
   }
   /** The view keys; true when one was taken. Consulted before the game's own keys. */
   function lookKey(ev) {
     const k = ev.key.toLowerCase();
     if (k === "z" || k === "+" || k === "=") { zoomLook(LOOK_STEP); return true; }
     if (k === "c" || k === "-") { zoomLook(1 / LOOK_STEP); return true; }
-    if (k === "0") { look.zoom = 1; look.offX = 0; look.offY = 0; applyLook(); return true; }
+    if (k === "0") { resetLook(); return true; }
     const pan = { w: [0, 1], s: [0, -1], a: [1, 0], d: [-1, 0] }[k];
     if (pan) { look.offX += pan[0] * LOOK_PAN; look.offY += pan[1] * LOOK_PAN; applyLook(); return true; }
     return false;
@@ -882,7 +958,7 @@ export function mountScreen(root, ctx) {
         const lastPick = pick.length ? pick[pick.length - 1] : null;
         const lastKind = lastPick === null ? null : Array.isArray(lastPick) ? null : card(st, me.hand[lastPick]).kind;
         const canPair = w.crab && (lastKind === "left" || lastKind === "right");
-        html += "</div>" + planHtml(me, true) + "<h2>Your hand</h2><div class='hand'>";
+        html += "</div>" + planHtml(me, true) + "<h2>Your hand</h2><p class='touchhint'>Tap a card to place it. Hold, then drag, to choose its register; hold to read it.</p><div class='hand'>";
         me.hand.forEach((ci, i) => {
           if (pickHas(i)) return;
           const pairable = canPair && card(st, ci).kind === "move1";
@@ -1052,8 +1128,25 @@ export function mountScreen(root, ctx) {
     if (d.act === "done") return answer({ buy: false, install: null, uninstall: [] });
   });
 
-  /* drag a card onto a register: the same move as a click, a different gesture */
+  /* drag a card onto a register: the same move as a click, a different gesture.
+   * The drops are functions of their own because a touch drag (below) lands
+   * the same two things by another road. */
+  function dropCardOn(s, from) {
+    const me = st.players[st.waiting.player];
+    const k = +s.dataset.slot - countHeld(me, +s.dataset.slot);
+    if (k < 0 || k > pick.length || s.classList.contains("locked")) return;
+    if (k === pick.length) place(from);
+    else { pick.splice(k, 0, from); if (pick.length > st.waiting.count) pick.pop(); sfx.play("card"); renderPanel(); }
+  }
+  /* a kit card put before another, or at the end of its own mat; false when it is not that robot's */
+  function kitTarget(k, mat, pid) { return (k && +k.dataset.player === pid) || (mat && +mat.dataset.kitof === pid); }
+  function dropKitOn(k, kit) {
+    if (k && k.dataset.kit === kit.id) return;          // let go where it was picked up: nothing moves
+    reorderKit(kit.pid, kit.id, k ? k.dataset.kit : null);
+  }
   els.side.addEventListener("dragstart", ev => {
+    /* a finger on a card is the touch drag's (below); the browser's own drag is unreliable there */
+    if (touch.live()) { ev.preventDefault(); return; }
     const k = ev.target.closest("[data-kit]");
     if (k && k.getAttribute("draggable") === "true") {
       draggingKit = { pid: +k.dataset.player, id: k.dataset.kit };
@@ -1069,7 +1162,7 @@ export function mountScreen(root, ctx) {
   els.side.addEventListener("dragover", ev => {
     if (draggingKit) {
       const k = ev.target.closest("[data-kit]"), mat = ev.target.closest("[data-kitof]");
-      if ((k && +k.dataset.player === draggingKit.pid) || (mat && +mat.dataset.kitof === draggingKit.pid)) { ev.preventDefault(); if (k) k.classList.add("over"); }
+      if (kitTarget(k, mat, draggingKit.pid)) { ev.preventDefault(); if (k) k.classList.add("over"); }
       return;
     }
     const s = ev.target.closest(".slot");
@@ -1079,22 +1172,14 @@ export function mountScreen(root, ctx) {
   els.side.addEventListener("drop", ev => {
     if (draggingKit) {
       const k = ev.target.closest("[data-kit]"), mat = ev.target.closest("[data-kitof]");
-      const pid = draggingKit.pid;
-      if ((k && +k.dataset.player === pid) || (mat && +mat.dataset.kitof === pid)) {
-        ev.preventDefault();
-        reorderKit(pid, draggingKit.id, k && k.dataset.kit !== draggingKit.id ? k.dataset.kit : null);
-      }
+      if (kitTarget(k, mat, draggingKit.pid)) { ev.preventDefault(); dropKitOn(k, draggingKit); }
       draggingKit = null;
       return;
     }
     const s = ev.target.closest(".slot");
     if (!s || dragging === null) return;
     ev.preventDefault();
-    const me = st.players[st.waiting.player];
-    const k = +s.dataset.slot - countHeld(me, +s.dataset.slot);
-    if (k < 0 || k > pick.length || s.classList.contains("locked")) return;
-    if (k === pick.length) place(dragging);
-    else { pick.splice(k, 0, dragging); if (pick.length > st.waiting.count) pick.pop(); sfx.play("card"); renderPanel(); }
+    dropCardOn(s, dragging);
     dragging = null;
   });
 
@@ -1143,26 +1228,143 @@ export function mountScreen(root, ctx) {
   tip.className = "tip";
   tip.hidden = true;
   root.appendChild(tip);
-  function placeTip(ev) {
+  function placeTipAt(x, y) {
     const W = 280, H = tip.offsetHeight;
-    let x = ev.clientX + 16, y = ev.clientY + 16;
-    if (x + W > window.innerWidth - 8) x = ev.clientX - W - 16;
+    if (x + W > window.innerWidth - 8) x = x - W - 32;
     if (y + H > window.innerHeight - 8) y = Math.max(8, window.innerHeight - H - 8);
-    tip.style.left = x + "px"; tip.style.top = y + "px";
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = y + "px";
   }
+  function placeTip(ev) { placeTipAt(ev.clientX + 16, ev.clientY + 16); }
+  /* a touch has no hover: the box is shown beside the thing touched, and stays until the next touch */
+  let tipTimer = null;
+  function pinTip(t) {
+    tip.innerHTML = tipHtml(t.dataset.tip);
+    tip.hidden = false;
+    const r = t.getBoundingClientRect();
+    const H = tip.offsetHeight;
+    placeTipAt(r.left, r.bottom + H + 8 > window.innerHeight ? Math.max(8, r.top - H - 8) : r.bottom + 8);
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => { tip.hidden = true; }, 8000);
+  }
+  function unpinTip() { clearTimeout(tipTimer); tip.hidden = true; }
   els.side.addEventListener("mouseover", ev => {
+    if (touch.recent()) return;                    // the mouse events a touch makes up are not a hover
     const t = ev.target.closest("[data-tip]");
     if (!t) return;
     tip.innerHTML = tipHtml(t.dataset.tip);
     tip.hidden = false;
     placeTip(ev);
   });
-  els.side.addEventListener("mousemove", ev => { if (!tip.hidden) placeTip(ev); });
+  els.side.addEventListener("mousemove", ev => { if (!tip.hidden && !touch.recent()) placeTip(ev); });
   els.side.addEventListener("mouseout", ev => {
+    if (touch.recent()) return;
     const t = ev.target.closest("[data-tip]");
     if (t && !(ev.relatedTarget && t.contains(ev.relatedTarget))) tip.hidden = true;
   });
   els.side.addEventListener("dragstart", () => { tip.hidden = true; });
+
+  /* TOUCH IN THE PANEL. Three things a mouse does that a finger cannot, and
+   * what the finger does instead:
+   *   read a hover box   -- touch and hold (or, on anything that is not a
+   *                         button, just tap); the box stays until the next touch
+   *   drag a card        -- keep holding and move: the card comes up under the
+   *                         finger and lands on the register, or the mat slot,
+   *                         it is let go over
+   *   place a card       -- tap, which is the click and has always worked
+   * Holding to read and holding to drag are one gesture, so reading a card
+   * never places it and a drag never has to start with a jump. A finger that
+   * moves before the hold is up is a scroll, and is left alone. Only touch and
+   * pen pointers come through here; the mouse keeps the browser's own drag. */
+  const HOLD_MS = 350, HOLD_SLOP = 10, LIFT = 56;
+  const touch = {
+    down: false, at: 0, mute: 0, hold: null,
+    recent() { return Date.now() - this.at < 800; },
+    live() { return this.down && Date.now() - this.at < 3000; }       // a lost pointerup must not leave the mouse without its drag
+  };
+  const holdKit = el => el.closest(".ucard[draggable=true]");
+  function endHold() {
+    const h = touch.hold;
+    if (!h) return;
+    clearTimeout(h.timer);
+    if (h.float) h.float.remove();
+    for (const el of els.side.querySelectorAll(".over")) el.classList.remove("over");
+    touch.hold = null;
+  }
+  /* what the lifted card is over: a register for a program card, a mat slot (or the mat's end) for a kit card */
+  function dropAt(h, x, y) {
+    const under = document.elementFromPoint(x, y);
+    if (!under || !els.side.contains(under)) return null;
+    if (h.kit) {
+      const k = under.closest("[data-kit]"), mat = under.closest("[data-kitof]");
+      return kitTarget(k, mat, h.kit.pid) ? { k, mat } : null;
+    }
+    const s = under.closest(".slot");
+    return s && !s.classList.contains("locked") ? { s } : null;
+  }
+  function liftHold(h, ev) {
+    unpinTip();
+    h.dragging = true;
+    h.float = h.src.cloneNode(true);
+    h.float.classList.add("floater");
+    h.float.style.width = h.src.offsetWidth + "px"; h.float.style.height = h.src.offsetHeight + "px";
+    root.appendChild(h.float);
+    moveHold(h, ev);
+  }
+  function moveHold(h, ev) {
+    h.float.style.left = (ev.clientX - h.float.offsetWidth / 2) + "px";
+    h.float.style.top = (ev.clientY - LIFT - h.float.offsetHeight / 2) + "px";
+    for (const el of els.side.querySelectorAll(".over")) el.classList.remove("over");
+    const to = dropAt(h, ev.clientX, ev.clientY - LIFT);
+    if (to) (to.s || to.k || to.mat).classList.add("over");
+  }
+  els.side.addEventListener("pointerdown", ev => {
+    if (ev.pointerType === "mouse") return;
+    touch.down = true; touch.at = Date.now();
+    endHold();
+    unpinTip();
+    const t = ev.target.closest("[data-tip]");
+    const card = ev.target.closest("[data-card]:not(:disabled)");
+    const kit = holdKit(ev.target);
+    const src = card || kit;
+    if (!t && !src) return;
+    const h = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, t, src, dragging: false, held: false,
+      kit: kit && !card ? { pid: +kit.dataset.player, id: kit.dataset.kit } : null };
+    h.timer = setTimeout(() => {
+      h.held = true;
+      if (h.t) pinTip(h.t);
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e) { /* no haptics */ } }
+    }, HOLD_MS);
+    touch.hold = h;
+  });
+  els.side.addEventListener("pointermove", ev => {
+    const h = touch.hold;
+    if (!h || h.id !== ev.pointerId) return;
+    touch.at = Date.now();
+    if (h.dragging) return moveHold(h, ev);
+    if (Math.hypot(ev.clientX - h.x, ev.clientY - h.y) < HOLD_SLOP) return;
+    if (h.held && h.src) liftHold(h, ev);
+    else endHold();                                // moved before the hold was up: a scroll
+  });
+  /* once a card is lifted the page must not scroll under it */
+  document.addEventListener("touchmove", ev => { if (touch.hold && touch.hold.dragging) ev.preventDefault(); }, { passive: false });
+  const letGo = ev => {
+    if (ev.pointerType === "mouse") return;
+    touch.down = false; touch.at = Date.now();
+    const h = touch.hold;
+    if (!h || h.id !== ev.pointerId) return;
+    if (h.dragging && ev.type === "pointerup") {
+      const to = dropAt(h, ev.clientX, ev.clientY - LIFT);
+      if (to) { if (h.kit) dropKitOn(to.k, h.kit); else dropCardOn(to.s, +h.src.dataset.card); }
+    }
+    /* a hold or a drag is not a click: the one that follows is dropped */
+    if (h.held || h.dragging) touch.mute = Date.now() + 400;
+    else if (h.t && ev.type === "pointerup" && !ev.target.closest("button")) pinTip(h.t);       // a tap on something that is only information
+    endHold();
+  };
+  els.side.addEventListener("pointerup", letGo);
+  els.side.addEventListener("pointercancel", letGo);
+  els.side.addEventListener("click", ev => { if (Date.now() < touch.mute) { ev.stopPropagation(); ev.preventDefault(); } }, true);
+  els.side.addEventListener("contextmenu", ev => { if (touch.recent() || touch.live()) ev.preventDefault(); });
 
   root.querySelector(".top").addEventListener("click", ev => {
     const b = ev.target.closest("button");

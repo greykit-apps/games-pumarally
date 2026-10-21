@@ -89,6 +89,73 @@ export function zoomAbout(view, st, factor, px, py) {
 }
 
 /**
+ * TWO FINGERS ON THE FLOOR: they pinch the view about their midpoint, and the
+ * midpoint carries it along, which is how a touchscreen zooms and pans without
+ * a wheel, a right button or a key. One finger is left to the tools, as before.
+ *
+ * It listens first (capture, and registered before the editor's own handlers)
+ * and keeps every touch event from the editor's handlers for as long as two
+ * fingers have been down, so a pinch never paints a square or drops a board.
+ * The first finger of a pinch has already gone down by the time the second
+ * lands, and the editor may have acted on it; `begin` is where it takes that
+ * back. `changed` is told after every move so it can redraw what hangs off the
+ * view. Mouse events pass straight through, so a touchscreen laptop keeps its
+ * mouse.
+ */
+export function bindPinch(view, st, { begin, changed }) {
+  const vp = view.viewport;
+  const fingers = new Map();     // touch and pen pointers down: id -> { x, y }
+  let hand = null;               // { z0, d0, wx, wy } while two or more are down; { pan } after
+  let live = false;              // a gesture is in progress: the editor hears nothing until every finger is up
+  const rel = ev => { const r = vp.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+  const mid = () => {
+    const [a, b] = [...fingers.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 };
+  };
+  const start = () => {
+    const m = mid();
+    hand = { z0: st.zoom, d0: m.d, wx: (m.x - st.offX) / st.zoom, wy: (m.y - st.offY) / st.zoom };
+  };
+  const take = ev => { ev.stopImmediatePropagation(); ev.preventDefault(); };
+  vp.addEventListener("pointerdown", ev => {
+    if (ev.pointerType === "mouse") return;
+    fingers.set(ev.pointerId, rel(ev));
+    if (fingers.size < 2) return;
+    if (!live) { live = true; begin(); }
+    for (const id of fingers.keys()) { try { vp.setPointerCapture(id); } catch (e) { /* a synthetic pointer has no capture */ } }
+    start();
+    take(ev);
+  }, true);
+  vp.addEventListener("pointermove", ev => {
+    if (ev.pointerType === "mouse" || !fingers.has(ev.pointerId)) return;
+    const was = fingers.get(ev.pointerId);
+    fingers.set(ev.pointerId, rel(ev));
+    if (!live) return;
+    take(ev);
+    if (fingers.size >= 2 && hand.d0) {
+      const m = mid();
+      st.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, hand.z0 * m.d / hand.d0));
+      st.offX = m.x - st.zoom * hand.wx;
+      st.offY = m.y - st.zoom * hand.wy;
+    } else if (fingers.size === 1) {       // one finger left after a pinch: it drags the view
+      const now = fingers.get(ev.pointerId);
+      st.offX += now.x - was.x;
+      st.offY += now.y - was.y;
+    }
+    layout(view, st);
+    changed();
+  }, true);
+  const lift = ev => {
+    if (ev.pointerType === "mouse" || !fingers.delete(ev.pointerId)) return;
+    if (live) take(ev);
+    if (fingers.size >= 2) start();
+    if (!fingers.size) live = false;
+  };
+  vp.addEventListener("pointerup", lift, true);
+  vp.addEventListener("pointercancel", lift, true);
+}
+
+/**
  * Which square, and which of its edges, the pointer is over.
  * Returns {c, r, face, onEdge, inside} -- `face` is the nearest edge when the
  * pointer is in the band around one, so a run of walls can be laid by tracing

@@ -7,7 +7,7 @@
  */
 
 import { injectCSS } from "./style.js";
-import { makeView, draw, layout, fit, zoomAbout, hit, cellRect } from "./view.js";
+import { makeView, draw, layout, fit, zoomAbout, bindPinch, hit, cellRect } from "./view.js";
 import {
   assemble, stampFootprint, stampDims, dockStamp, dockBox, courseBounds,
   suggestFlags, usableFlagSpots, startRefusal, STARTS_WANTED
@@ -622,8 +622,22 @@ export async function mountCourse(root, wanted) {
   railEl.addEventListener("pointerup", railUp);
   railEl.addEventListener("pointercancel", () => { cancelDrag(); });
 
+  /* two fingers pinch and pan the view (view.js); what the first of them did is taken back */
+  let touchDepth = 0, touchSel = -1;
+  bindPinch(view, st, {
+    begin() {
+      cancelDrag(); panning = null;
+      if (history.length > touchDepth) { while (history.length > touchDepth + 1) history.pop(); undo(); }
+      st.sel = touchSel;
+      refresh();
+      say("", "");
+    },
+    changed() { zoomEl.textContent = Math.round(st.zoom * 100) + "%"; }
+  });
+
   view.viewport.addEventListener("pointerdown", ev => {
     if (ev.target.closest(".stamptools")) return;       // the selected board's own buttons
+    touchDepth = history.length; touchSel = st.sel;
     view.viewport.setPointerCapture(ev.pointerId);
     if (ev.button === 1 || ev.button === 2 || ev.shiftKey) {
       panning = { x: ev.clientX, y: ev.clientY, ox: st.offX, oy: st.offY };

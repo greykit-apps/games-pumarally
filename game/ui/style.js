@@ -14,7 +14,7 @@ export const CSS = `
   --good:#4ade6a;--violet:#b47dff;--steel:#94a0c4;--blue:#4c8dff}
 /* @gk-tokens-end */
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;touch-action:manipulation}
 button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:3px;
   padding:5px 10px;cursor:pointer;min-height:32px}
 button:hover:not(:disabled){border-color:var(--lit)}
@@ -38,10 +38,12 @@ h2:first-child{margin-top:0}
 .top .grow{flex:1}
 .top .turn{color:var(--dim)}
 .main{display:grid;grid-template-columns:minmax(0,1fr) var(--rail);gap:0;flex:1;min-height:0}
-.stage{position:relative;overflow:hidden;padding:12px;display:flex;align-items:flex-start;justify-content:center;touch-action:none}
+.stage{position:relative;overflow:hidden;padding:12px;display:flex;align-items:flex-start;justify-content:center;touch-action:pan-y}
 .stage .board{position:relative;max-width:100%;transform-origin:0 0}
 .stage .board svg{display:block;width:100%;height:auto}
 .stage .board .overlay{position:absolute;inset:0;overflow:visible}
+.viewbtns{display:none;position:absolute;top:8px;right:8px;z-index:2;gap:6px}
+.viewbtns button{background:rgba(6,10,16,.82)}
 .stage .caption{position:absolute;top:8px;left:8px;padding:5px 10px;background:rgba(6,10,16,.82);border:1px solid var(--line);border-radius:4px;pointer-events:none;line-height:1.3}
 .stage .caption b{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
 .stage .caption span{display:block;font-size:11px;color:var(--dim)}
@@ -162,6 +164,9 @@ button[data-ruleset]{padding:8px 14px}
 .shop{margin-left:0}
 .shopcard{display:flex;flex-direction:column;align-items:center;gap:4px}
 .shopcard button{font-size:10px;min-height:24px;padding:2px 8px}
+.card,.ucard{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.floater{position:fixed;z-index:30;margin:0;pointer-events:none;opacity:.92;box-shadow:0 10px 26px rgba(0,0,0,.75);transform:scale(1.08)}
+.ask .touchhint{display:none;font-size:11px;color:var(--dim);margin:6px 0 0}
 .tip{position:fixed;z-index:20;width:280px;pointer-events:none;border:1px solid var(--accent);border-radius:5px;background:#0a1620;color:var(--text);
   padding:8px 10px;font-size:11px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.65)}
 .tip b{color:var(--accent);font-size:12px}
@@ -265,6 +270,29 @@ input[type=number][data-num]{width:7ch;text-align:center}
 .seat.empty .sw{border:1px dashed var(--lit)}
 .seats+.keys{margin:6px 0 0}
 .keys{font-size:11px;color:var(--dim)}
+/* A touch is present (a tablet, or a touchscreen laptop with its mouse still
+ * attached): everything pressable is at least 44px a side, and the view
+ * buttons show. Asked of the pointers, never of the window's width -- the
+ * widths here are for narrow windows, which a mouse can have too. */
+@media (any-pointer:coarse){
+  .viewbtns{display:flex}
+  .ask .touchhint{display:block}
+  button,select,input[type=number]{min-height:44px}
+  button{min-width:44px}
+  .ctl button,.shopcard button,.plan .arm,.hand .pair,.tabs button,.gearwrap>button,.tile .forget,.hr select,.seat select{min-height:44px}
+  .plan .arm{font-size:11px;line-height:1.15;padding:4px;white-space:normal}
+  .hand .pair{font-size:12px;padding:4px 12px}
+  .ucard{width:84px;height:122px}
+  .ucard .tog{position:static;width:100%;margin-top:3px;font-size:11px;line-height:1;border-radius:4px}
+  .modes .build{display:inline-flex;align-items:center;min-height:44px}
+  .course.any,.setup .start button{min-height:44px}
+  select{min-width:44px}
+  .hr,.hr label{min-height:44px}
+  .hr input[type=checkbox],.hr input[type=radio]{width:24px;height:24px}
+  .hr .i{position:relative;width:28px;height:28px;line-height:26px;font-size:13px}
+  .hr .i::before{content:"";position:absolute;inset:-9px}
+  input[type=range]{min-height:44px}
+}
 @media (max-width:860px){
   .pr>.scene{display:none}
   .main{grid-template-columns:1fr}

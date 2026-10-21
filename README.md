@@ -27,6 +27,8 @@ A race is one board, several boards laid together, or a course made in the **Cou
 
 Cards can also be clicked or dragged onto a register.
 
+On a touchscreen (a tablet, or a laptop that has one; the mouse and keys keep working) tap a card to place it and tap a placed card to take it back. Touch and hold a card to read it, and keep going to drag it onto the register you want. Pinch the board to zoom it and drag it with one finger once it is zoomed in; the **&minus;**, **Fit** and **+** buttons in its corner are `C`, `0` and `Z`. Hold anything else that shows a box on hover, or tap a card on a robot's mat, to read it. In the workshops two fingers pinch and pan.
+
 ## Saves
 
 Kept in the browser's `localStorage` under keys starting `pumarally_`, courses included. **Settings → Forget everything** clears them.

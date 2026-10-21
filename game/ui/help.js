@@ -55,6 +55,14 @@ upgrade sites and energy spaces are where you patch up and power up.</p>`],
 <p>Cards can also be clicked or dragged onto a register. Questions a card or a
 site asks appear in the panel as buttons, and the cards each robot holds show
 under it, with the full text on hover.</p>
+<p><b>On a touchscreen</b> (a tablet, or a laptop that has one; the mouse and
+keys keep working) tap a card to place it and tap a placed card to take it back.
+Touch and hold a card to read it, and keep going to drag it onto the register you
+want. Pinch the board to zoom it and drag it with one finger once it is zoomed
+in; the <b>&minus;</b>, <b>Fit</b> and <b>+</b> buttons in its corner are
+<kbd>C</kbd>, <kbd>0</kbd> and <kbd>Z</kbd>. Hold anything else that shows a
+box on hover, or tap a card on a robot's mat, to read it. In the workshops two
+fingers pinch and pan.</p>
 <p><b>Speed</b> in the top bar changes how fast the floor moves, and <b>Sound</b>
 switches the sound on and off. <b>Menu</b>
 goes back to the title screen; your race stays saved until you start another,
