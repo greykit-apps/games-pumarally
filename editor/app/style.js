@@ -88,6 +88,14 @@ input[type=text],input[type=number],select{background:#11141d;color:var(--ink);
 .bad{color:var(--bad)} .warn{color:var(--warn)} .ok{color:var(--ok)}
 .sep{width:1px;height:14px;background:var(--line)}
 .grow{flex:1}
+/* a touch is present: what is pressed is 44px a side. Asked of the pointers, not the width. */
+@media (any-pointer:coarse){
+  button,select,input[type=text],input[type=number]{min-height:44px}
+  button{min-width:44px}
+  .tool{min-height:44px}
+  .row a{display:inline-block;padding:12px 4px}
+  .diag li{min-height:44px;display:flex;flex-direction:column;justify-content:center}
+}
 @media (max-width:900px){
   .ed{grid-template-columns:150px minmax(0,1fr);
     grid-template-areas:"rail stage" "insp insp" "status status"}

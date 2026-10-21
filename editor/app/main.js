@@ -13,7 +13,7 @@ import {
   setArms, toggleArm, turnHere, setDeviceRegs, setDeviceField, describe, newStroke,
   takeOffDoor, cellsBetween
 } from "./tools.js";
-import { makeView, draw, layout, fit, zoomAbout, hit, showGhost, showMarks, cellRect } from "./view.js";
+import { makeView, draw, layout, fit, zoomAbout, bindPinch, hit, showGhost, showMarks, cellRect } from "./view.js";
 import { renderRail, renderInspector, renderDiagnostics, libraryHtml } from "./panels.js";
 import { blankBoard, cloneBoard, boardFromDocument, levelAt, setLevel, inBoard } from "../lib/board.js";
 import { boardJSON } from "../lib/canon.js";
@@ -208,6 +208,21 @@ export function mount(root) {
 
   /* --- pointer -------------------------------------------------------------- */
 
+  /* two fingers pinch and pan the view (view.js); the first of them has already
+   * painted, if the tool paints, and that is taken back so a pinch leaves no mark */
+  bindPinch(view, st, {
+    begin() {
+      if (painting) {
+        let undone = false;
+        while (st.undo.length > painting.depth) { undo(st); undone = true; }
+        st.redo.length = 0;
+        if (undone) refresh();
+      }
+      painting = null; panning = null;
+    },
+    changed() { zoomEl.textContent = Math.round(st.zoom * 100) + "%"; showMarks(view, st); }
+  });
+
   view.viewport.addEventListener("pointerdown", ev => {
     view.viewport.setPointerCapture(ev.pointerId);
     const tool = toolByKey(st.hand.tool);
@@ -222,7 +237,7 @@ export function mount(root) {
       return;
     }
     const h = hit(view, st, ev);
-    painting = { erase: false, stroke: newStroke(isEdgeTool()), last: h, wallSet: null };
+    painting = { erase: false, stroke: newStroke(isEdgeTool()), last: h, wallSet: null, depth: st.undo.length };
     if (painting.stroke.wants(h)) edit(h, painting.erase);
   });
 
@@ -809,7 +824,7 @@ export function mount(root) {
   drawLibrary();
   refresh();
   fit(view, st);
-  say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D or right-drag pan, Z C or the wheel zoom, ` swaps the drawing.", "");
+  say("Pick a tool, click the board. Arrows face it, Q E turn it, W A S D or right-drag pan, Z C or the wheel zoom, ` swaps the drawing, two fingers pinch.", "");
 
   /* a small handle for the browser console and for tests */
   window.__ED = { st, view, refresh, act, edit, say, replaceBoard, openCourse, fit: () => fit(view, st), hitAt: ev => hit(view, st, ev),
