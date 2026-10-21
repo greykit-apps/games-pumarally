@@ -45,6 +45,14 @@ export function unlock() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 
+/* The context and the effects bus, for the title's own sounds (games-meta
+ * STANDARD.md §14, §15): the intro's boot sound and continue press, and the
+ * table's deal, chits and flick, all under the same Sound switch. The context
+ * is made here if no press has made it yet; the browser holds it suspended
+ * until one does. */
+export function context() { if (!ac) unlock(); return ac; }
+export function effects() { if (!ac) unlock(); return comp; }
+
 export function isMuted() { return muted; }
 export function setMuted(m) {
   muted = !!m;

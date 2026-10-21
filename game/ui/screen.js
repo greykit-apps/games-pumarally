@@ -50,7 +50,7 @@ const SPEEDS = { slow: 1.8, normal: 1, fast: 0.35 };
  * the deck rather than being printed on it. The hull, nose and eye keep the
  * names the ghost, virtual and hit states style; the new parts are named so
  * as not to answer to anything the board art already draws. */
-const ROBOT = '<g class="spin" filter="url(#pr-wallshadow)">' +
+export const ROBOT = '<g class="spin" filter="url(#pr-wallshadow)">' +
   '<path class="pr-hull" d="M50 8L80 32q3 3 3 7v38q0 9-9 9H26q-9 0-9-9V39q0-4 3-7Z"/>' +
   '<path class="pr-bot-tread" d="M21 58h10v22H21zM69 58h10v22H69z"/>' +
   '<rect class="pr-bot-cab" x="36" y="54" width="28" height="20" rx="4"/>' +
@@ -66,7 +66,7 @@ function rebootSvg(t) {
     '<path class="pr-tok-arrow" transform="rotate(' + (t.face * 90) + ' 50 50)" d="M50 80V26M32 42L50 26L68 42"/></g>';
 }
 
-function flagSvg(n, c, r) {
+export function flagSvg(n, c, r) {
   return '<g class="flag" data-n="' + n + '" transform="translate(' + (c * CELL) + " " + (r * CELL) + ')"><rect class="pr-pole" x="17" y="10" width="8" height="82" rx="3"/>' +
     '<path class="pr-banner" d="M25 14H92L79 40L92 66H25Z"/><text x="56" y="41" class="pr-num">' + n + "</text></g>";
 }

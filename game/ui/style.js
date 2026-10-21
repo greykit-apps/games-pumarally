@@ -278,6 +278,38 @@ input[type=number][data-num]{width:7ch;text-align:center}
   .modes .build{position:static;transform:none;margin-left:auto}
   .setup .start{margin-top:0}
 }
+/* In step with the quicker entrance (main.js, finish()'s timing): each line
+ * of the name settles faster than canon's .9s, and the cards and counters
+ * come down closer together than canon's 130ms. A card's face and its back
+ * share one delay, so both change together; each card's own deal keeps
+ * canon's .62s, which gktDeal's snap is timed to. */
+[data-pumarally-game] .gk-title.gkt.gki-intro h1>span.gki-on{animation-duration:.45s}
+[data-pumarally-game] .gk-title.gkt.gk-rise .gk-menu>.gk-pr,
+[data-pumarally-game] .gk-title.gkt.gk-rise .gk-menu>.gk-pr::after{animation-delay:calc(var(--i) * 100ms)}
+[data-pumarally-game] .gk-title.gkt.gk-rise .gk-menu .gk-util .gk-pr{animation-delay:calc(var(--i) * 100ms + 100ms)}
+/* The title's hand as program cards (main.js, dressCards): the table's own
+ * rules place, fan, lift and deal each card; this dresses it as the race's
+ * hand does -- a band of the card's kind colour across the top, its move
+ * drawn in that colour, and the menu item's words under the drawing. No
+ * priority, and none of the table's key-and-pip corners: the keys still
+ * press their items. Sized as fractions of the card's width (--rc-k: the
+ * table's --k-w, or a phone's own) so every card fits whatever it says. */
+[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card{--rc-k:var(--k-w);justify-content:flex-start;
+  gap:calc(var(--rc-k) * .05);padding:calc(var(--rc-k) * .2) calc(var(--rc-k) * .1) calc(var(--rc-k) * .16);border-top:4px solid var(--kind)}
+[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card:focus,[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card:hover{border-top-color:var(--kind)}
+.rc-card.k-move1,.rc-card.k-move2,.rc-card.k-move3{--kind:var(--accent)}
+.rc-card.k-back{--kind:var(--warn)}
+.rc-card.k-left,.rc-card.k-right,.rc-card.k-uturn{--kind:var(--violet)}
+.rc-card .cart{flex:none;display:block;width:calc(var(--rc-k) * .44);height:calc(var(--rc-k) * .44);color:var(--kind)}
+.rc-card .cart .cshaft,.rc-card .cart .cmark{stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;fill:none}
+[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card>kbd,[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card>.gkt-ix{display:none}
+[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card .gk-lbl{font-size:calc(var(--rc-k) * .118);line-height:1.15}
+[data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card .gk-meta{font-size:calc(var(--rc-k) * .085);line-height:1.25}
+/* a phone: two columns of the table's own, the drawing smaller */
+@media (max-width:640px){
+  [data-pumarally-game] .gk-title.gkt .gk-menu>button.rc-card{--rc-k:128px;padding:22px 10px 14px}
+  .rc-card .cart{width:40px;height:40px}
+}
 ` + SCENE_CSS + TITLE_CSS;
 
 export function injectCSS(doc) {

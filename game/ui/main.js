@@ -13,8 +13,10 @@ import { step } from "../engine/machine.js";
 import { botAnswer } from "../engine/bots.js";
 import { mountSetup, quickStartOpts, forgetEverything } from "./setup.js";
 import { mountScreen } from "./screen.js";
-import { runBoot, mountTitle, bootReloadLine, alertSheet } from "./title.js";
-import { mountScene } from "./scene.js";
+import { startIntro, gkBootSound, mountTitle, bootReloadLine, alertSheet, gkIntegrate, gkTable, gktFlick, gktDeal, gktChit } from "./title.js";
+import { tableScene } from "./tablescene.js";
+import { cardArt } from "./cardart.js";
+import { LIVERIES } from "../engine/state.js";
 import { HELP, ABOUT } from "./help.js";
 import * as sfx from "./sfx.js";
 
@@ -88,8 +90,16 @@ function wantedCourse() {
 }
 
 /* the boot plays while the boards load, and hands over to the title when
- * both are done; the workshop's Play button goes straight to the setup */
-const boot = wantedCourse() ? null : runBoot({ lines: [bootReloadLine(), "loading the factory floor"] });
+ * both are done; the workshop's Play button goes straight to the setup.
+ * The integrated intro (games-meta STANDARD.md §14): canon's boot with the
+ * cat's meow on its pulse, in the game's own audio context -- none while
+ * the game is muted -- and the hold at its end where the browser wants a
+ * press before it will play sound. */
+const boot = wantedCourse() ? null : startIntro({
+  lines: [bootReloadLine(), "loading the factory floor"],
+  audio: () => sfx.context(),
+  bootSound: sfx.isMuted() ? false : gkBootSound
+});
 
 let library, index, courses;
 try {
@@ -132,6 +142,7 @@ function syncSound() {
   const on = !sfx.isMuted();
   for (const b of document.querySelectorAll("[data-sound]")) b.setAttribute("aria-pressed", String(b.dataset.sound === (on ? "on" : "off")));
   if (screen) screen.soundChanged();
+  if (switches) switches.refresh();
 }
 document.addEventListener("keydown", ev => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.repeat) return;
@@ -140,20 +151,20 @@ document.addEventListener("keydown", ev => {
   if (k === "m") { ev.preventDefault(); sfx.toggleMute(); syncSound(); }
 });
 
-/* The title menu's ticks (STANDARD.md §14): a click as a row comes under the
- * pointer or the arrow keys move to it, never when the game focuses the
- * default itself, and once a row. Hung on the title's own root, so they go
- * when it does. */
-function tickMenu(root) {
-  let row = null, arrowAt = -1e9;
-  const tick = b => { if (b && b !== row) { row = b; sfx.play("tick"); } };
-  root.addEventListener("pointerover", ev => tick(ev.target.closest(".gk-menu button")));
-  root.addEventListener("keydown", ev => { if (ev.key === "ArrowUp" || ev.key === "ArrowDown") arrowAt = performance.now(); }, true);
-  root.addEventListener("focusin", ev => {
-    const b = ev.target.closest(".gk-menu button");
-    if (performance.now() - arrowAt < 100) tick(b); else if (b) row = b;
-  });
+/* The table's sounds (games-meta STANDARD.md §15): a card dealt, a counter
+ * set down, and a card's edge under a thumb as the menu's tick, all into the
+ * game's effects, under the Sound switch. Only once the context is running:
+ * a sound scheduled on one the browser is still holding back would play late,
+ * all at once, at the first press. */
+function tableSound(fn, gain) {
+  const ac = sfx.context();
+  if (!ac || ac.state !== "running") return;
+  fn(ac, sfx.effects(), gain === undefined ? {} : { gain });
 }
+/* the Sound switch top right; M and Settings move it too (syncSound) */
+let switches = null;
+const SOUND = { get: () => !sfx.isMuted(), set: on => { sfx.setMuted(!on); syncSound(); } };
+let introDone = false;
 
 let title = null;
 function leave() {
@@ -172,6 +183,8 @@ function toTitle() {
   const saved = resumable();
   title = mountTitle(host, {
     name: "PumaRally",
+    lines: ["Puma", "Rally"],
+    sub: "Program \u00b7 Race \u00b7 Touch the flags",
     items: [
       saved && { act: "resume", label: "Resume game", key: "R", meta: saved.course.name + " \u00b7 turn " + saved.turn },
       { act: "new", label: "New quick game", key: "N" },
@@ -183,7 +196,7 @@ function toTitle() {
       { act: "about", label: "About", key: "A" }
     ],
     primary: saved ? "resume" : "new",
-    scene: el => mountScene(el),
+    scene: tableScene({ library, courses }),
     help: HELP,
     about: ABOUT,
     settings: {
@@ -196,6 +209,7 @@ function toTitle() {
       onClick: async (b, sheet) => {
         if (b.dataset.sound) {
           sfx.setMuted(b.dataset.sound === "off");
+          syncSound();
           sheet.refresh();
           if (!sfx.isMuted()) sfx.play("tick");
           return;
@@ -229,8 +243,39 @@ function toTitle() {
       }
     }
   });
-  tickMenu(host.firstChild);
+  /* The table (games-meta STANDARD.md §15): the name set down like a box's
+   * lid, the race behind it lying on the table, and the menu dealt as a hand
+   * of program cards. The first title's switches, credit and ticks are laid
+   * out by the intro's finish(); every title after it does that here. */
+  const t = host.querySelector(".gk-title");
+  if (introDone) switches = gkIntegrate(t, { toggles: { sound: SOUND }, tick: () => tableSound(gktFlick, 0.35) });
+  gkTable(t, {
+    box: ["1\u2013" + LIVERIES.length + " robots", "bots or hot seat", index.boards.length + " boards"],
+    tilt: true,
+    deal: () => tableSound(gktDeal),
+    chit: () => tableSound(gktChit)
+  });
+  dressCards(t);
   return title;
+}
+
+/* The hand is dealt from the game's own deck: each card in the title's hand
+ * is a program card from the classic 84, the one that says what its item
+ * does -- Resume game turns back to the race you left (a U-turn), a quick
+ * game is straight in (Move 3), a custom game one step at a time (Move 1),
+ * and the course builder goes off to one side (a right turn). Its move is
+ * drawn as the race's hand draws it, in its kind's colour. No priority, and
+ * no key in the corners: the card is its move and its item, nothing else.
+ * The keys still press their items. The drawing is a picture only: a card's
+ * name is its item. */
+const MENU_CARDS = { resume: "uturn", new: "move3", custom: "move1", builder: "right" };
+function dressCards(t) {
+  for (const b of t.querySelectorAll(".gk-menu > button")) {
+    const kind = MENU_CARDS[b.dataset.act];
+    if (!kind) continue;
+    b.classList.add("rc-card", "k-" + kind);
+    b.querySelector("kbd").insertAdjacentHTML("afterend", cardArt(kind));
+  }
 }
 
 function toSetup() {
@@ -317,14 +362,26 @@ function submit(answer) { advance(answer); }
 trace = loadTrace();
 if (wantedCourse()) toSetup();
 else {
-  /* the title goes in under the boot, so the boot's fade reveals it */
-  const t = toTitle();
+  /* the title goes in under the boot, so the boot's fade reveals it; the
+   * intro then sets the name down and deals the hand */
+  toTitle();
   const saved = resumable();
-  await boot.finish([
-    index.boards.length + " boards &middot; " + courses.size + " courses",
-    saved ? "race in progress: " + saved.course.name.replace(/[&<>]/g, "") + ", turn " + saved.turn : "no race in progress"
-  ]);
-  t.reveal();
+  const r = await boot.finish({
+    more: [
+      index.boards.length + " boards &middot; " + courses.size + " courses",
+      saved ? "race in progress: " + saved.course.name.replace(/[&<>]/g, "") + ", turn " + saved.turn : "no race in progress"
+    ],
+    title: host.querySelector(".gk-title"),
+    name: "lines",
+    /* much quicker than canon's (600, 700, 3000, 4200): the name is down
+     * within a second of the boot, and the hand starts landing as its last
+     * line does, with no pause between them (as PumaTriage's) */
+    timing: { name: 0, step: 220, menu: 380, done: 1400 },
+    toggles: { sound: SOUND },
+    tick: () => tableSound(gktFlick, 0.35)
+  });
+  switches = r && r.toggles;
+  introDone = true;
 }
 
 window.__PR = { get state() { return st; }, library, step: a => advance(a), dump: () => debugDump() };
