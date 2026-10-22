@@ -34,6 +34,7 @@ validate:
   script:
     - node tools/check-no-photos.js
     - node tools/check-assets.js
+    - node tools/check-ship.js
     - test -s index.html
     - grep -q 'data-pumarally-game' index.html
 
