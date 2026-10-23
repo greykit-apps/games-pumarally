@@ -1,6 +1,6 @@
 /* The 2016 rules, one scenario each, named as the old suite named them. Read
- * off the 2023-printing rulebook (manual1/IMG_1254 to IMG_1269) and its
- * reference card (IMG_1252, IMG_1253); the deck composition off IMG_1308.
+ * off the 2023-printing rulebook and its
+ * reference card; the deck composition off a robot's deck laid out.
  *
  * Same contract as classic.js: every name here is marked "ported" in
  * scenarios.js, and the runner holds the two lists to each other.
@@ -630,7 +630,7 @@ export const TESTS = [
 
   /* --- damage ------------------------------------------------------------------ */
   ["the damage deck is forty cards, and what is on them is a declared gap", () => {
-    /* the gap closed on 2026-09-15: the deck laid out (manual1/IMG_1343) is
+    /* the gap closed on 2026-09-15: the deck laid out is
      * twenty-three SPAM and seventeen Haywire, every face once */
     eq(MODERN_DAMAGE.length, MODERN_DAMAGE_SIZE, "forty");
     eq(MODERN_DAMAGE_SIZE, 40, "the printed forty");

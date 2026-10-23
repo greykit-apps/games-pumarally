@@ -29,8 +29,8 @@ export const EDITIONS = {
  * shade described, so the two
  * greens and the two reds stay apart. And, read by eye off the author's
  * photographs as a hue at one shared saturation and brightness, the boxes of
- * Wet and Wild (manual1/IMG_1235), Chaos and Carnage (IMG_1240), Thrills and
- * Spills (IMG_1247) and Turn & Burn (IMG_1463). A box with neither has no
+ * Wet and Wild, Chaos and Carnage, Thrills and
+ * Spills and Turn & Burn. A box with neither has no
  * tint and keeps the plain card. */
 export const SETS = {
   authored:          { name: "Authored",     edition: "both",    box: "Not from any box" },
@@ -61,7 +61,7 @@ export const SETS = {
   /* Renegade's Turn & Burn: three double-sided boards, the three Grand Prix
    * boards turned a quarter and reprinted with batteries for wrenches, and
    * three new ones (Bounce House, Open Circuit, Check In). Photographed by
-   * the author, manual1/IMG_1463-1477. */
+   * the author. */
   turnAndBurn:       { name: "Turn & Burn",        edition: "modern", box: "Turn & Burn", year: 2024, tint: "#e04d48" },
 
   /* Where a board came out of is taken from Gareth's list of the official

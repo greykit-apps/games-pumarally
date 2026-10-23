@@ -1105,7 +1105,7 @@ export const SCENARIOS = [
     "name": "a wrecked robot's damage goes back to the table, not into its deck",
     "layer": "rules",
     "status": "dropped",
-    "reason": "contradicts the 2016 rulebook p.19 (manual1/IMG_1263): 'SPAM cards in your registers are discarded to your discard pile' -- the robot's own; replaced by 'a rebooting robot's SPAM stays with it, in its own discard'"
+    "reason": "contradicts the 2016 rulebook p.19: 'SPAM cards in your registers are discarded to your discard pile' -- the robot's own; replaced by 'a rebooting robot's SPAM stays with it, in its own discard'"
   },
   {
     "name": "each robot draws from its own deck and discards to its own pile",
@@ -1406,7 +1406,7 @@ export const SCENARIOS = [
     "name": "an upgrade a robot has not built does nothing, and says so",
     "layer": "rules",
     "status": "dropped",
-    "reason": "every one of the forty is built since the Haywire faces were photographed (manual1/IMG_1345-1348); there is no inert upgrade left to test"
+    "reason": "every one of the forty is built since the Haywire faces were photographed; there is no inert upgrade left to test"
   },
   {
     "name": "every transcribed upgrade is bound: built, or inert and saying why",

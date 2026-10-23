@@ -374,7 +374,7 @@ function checkCeiling(board, d) {
 }
 
 /* A trap door IS its square: "When not active, it is treated as open floor"
- * (Turn & Burn, manual1/IMG_1465). So the square it is printed on is plain
+ * (Turn & Burn). So the square it is printed on is plain
  * floor, and anything else written there -- a belt, a gear, a pit -- is a
  * square that would be two things at once. */
 function checkFloor(board, d) {
@@ -458,10 +458,10 @@ function checkLevels(board, d) {
         ". A ramp is the way between levels; raise one side, or take the ramp off.", where, ptr);
       continue;
     }
-    /* HOW FAR A RAMP CLIMBS IS NOT CHECKED. `rules/MANIFEST.md` quotes Wet
-     * and Wild on ramps -- "the only way between levels", an extra space of
+    /* HOW FAR A RAMP CLIMBS IS NOT CHECKED. Wet and Wild's
+     * sheet on ramps -- "the only way between levels", an extra space of
      * floor going up, slide back if you stop on one, ignored entirely going
-     * down -- and says nothing about how far one climbs. `level.rampGradient`
+     * down -- says nothing about how far one climbs. `level.rampGradient`
      * warned when it was not exactly one level, admitting it was uncited, and
      * is gone (2026-09-23); `level.rampFoot` went before it (2026-09-22), and
      * `level.notContiguous` before that. An uncited rule enforced against the

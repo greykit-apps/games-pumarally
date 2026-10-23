@@ -7,7 +7,7 @@
   "h": 6,
   "set": "masterBuilder",
   "origin": "transcribed",
-  "notes": "Master Builder 6x6 board 'The X' (IMG_1439). Built by hand in the workshop against the photograph and verified. Diagonal green conveyors forming an X (with two legal head-on belts in the centre), red/green gears, two battery sites. HELD: cannot canonicalize/ship until the belt.headOn validator false-positive is removed.",
+  "notes": "Master Builder 6x6 board 'The X'. Built by hand in the workshop against the photograph and verified. Diagonal green conveyors forming an X (with two legal head-on belts in the centre), red/green gears, two battery sites. HELD: cannot canonicalize/ship until the belt.headOn validator false-positive is removed.",
   "ground": {
     "rows": [
       "b>. r.. ... ... l.. b<.",

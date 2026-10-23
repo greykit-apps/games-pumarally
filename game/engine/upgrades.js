@@ -7,7 +7,7 @@
  * An installed upgrade fires through the same hooks an option card does
  * (options.js: `fire` walks a robot's option cards and its installed
  * upgrades, each against its own table). Read off the 2016 rulebook, pp.4-5
- * and 20-23 (manual1/IMG_1256, IMG_1264, IMG_1265).
+ * and 20-23.
  */
 import { opposite, step as stepCell, rot } from "../../editor/lib/dir.js";
 import UPGRADES_DATA from "../data/upgrades.js";
@@ -363,7 +363,7 @@ const BEHAVIOUR = {
     }
   },
   /* "Movement Upgrade. Rotate to face any direction." */
-  /* --- the expansions' cards (manual1/IMG_1350-1353) and Master Builder's (IMG_1446-1447) ---
+  /* --- the expansions' cards and Master Builder's ---
    *
    * Three of them decide something the book leaves to the player at a moment
    * this engine cannot ask -- deep inside a move, where a question cannot
@@ -550,7 +550,7 @@ const BEHAVIOUR = {
   /* Master Builder. "Spend 1 Energy when your robot would be pushed: Your robot
    * is not pushed." Spent whenever it can be -- declared. */
   anchor: { ruled: true, hooks: {} },
-  /* --- Turn & Burn (manual1/IMG_1467-1471) ----------------------------------- */
+  /* --- Turn & Burn ----------------------------------- */
 
   /* Installed onto any robot and taking no slot: that robot moves one square
    * fewer on a Move 2 or a Move 3, and the card comes off when it reboots,

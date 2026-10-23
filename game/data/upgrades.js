@@ -3,12 +3,12 @@ export default {
   "format": "PRCards",
   "version": 1,
   "kind": "modern-upgrade",
-  "source": "Transcribed from the physical cards (manual1/IMG_1270-1286); all 40 named, priced and typed, and eighteen more from the expansions and Master Builder (see roster.note). `built` says whether the engine runs its effect, read off the rulebook pp.21-23 (manual1/IMG_1264, IMG_1265); all forty, the Haywire faces having been photographed (manual1/IMG_1345-1348).",
+  "source": "Transcribed from the physical cards; all 40 named, priced and typed, and eighteen more from the expansions and Master Builder (see roster.note). `built` says whether the engine runs its effect, read off the rulebook pp.21-23; all forty, the Haywire faces having been photographed.",
   "roster": {
     "printed": 63,
     "transcribed": 63,
     "built": 63,
-    "note": "Forty of the base box, then the expansion cards read off manual1/IMG_1350-1353 (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards off IMG_1446-1447 (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name. Then Turn & Burn's five, off manual1/IMG_1467-1471 (the checkered flag); two of them, Slow Processor and Bad Scanner, are installed onto any robot and take no slot (`onto`, `noSlot`). Texts here are summaries, not the printed words. `needs` names a board element a card is about; such a card is left out of the upgrade deck on a course that prints none (the author, 2026-09-27)."
+    "note": "Forty of the base box, then the expansion cards read off their photographs (Chaos and Carnage: the snowflake corner mark; Thrills and Spills: the flame; Wet and Wild: the drop) and the five Master Builder cards (the wrench). Chaos and Carnage's fifth card, Leaching, is not legible in any photograph and is not here. Splash Damage's cost is X, the number of foes, at most 4. The base box's Overclocked and Master Builder's are different cards under one name. Then Turn & Burn's five (the checkered flag); two of them, Slow Processor and Bad Scanner, are installed onto any robot and take no slot (`onto`, `noSlot`). Texts here are summaries, not the printed words. `needs` names a board element a card is about; such a card is left out of the upgrade deck on a course that prints none (the author, 2026-09-27)."
   },
   "cards": [
     {

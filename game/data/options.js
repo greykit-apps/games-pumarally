@@ -3,7 +3,7 @@ export default {
   "format": "PRCards",
   "version": 1,
   "kind": "classic-option",
-  "source": "Sixteen transcribed from the English cards; eleven more read off the AMIGO (German) printing, manual1/IMG_1333 to IMG_1342, all 26 of that box laid out. The AMIGO box does not have Crab Legs, so the two printings together are 27 cards, every one here. Each AMIGO card carries its printed German text and catalogue number; the English name is the English rulebook's where p.36 names it (Fire Control, Shield, Fourth Gear) and a plain translation otherwise.",
+  "source": "Sixteen transcribed from the English cards; eleven more read off the AMIGO (German) printing, all 26 of that box laid out. The AMIGO box does not have Crab Legs, so the two printings together are 27 cards, every one here. Each AMIGO card carries its printed German text and catalogue number; the English name is the English rulebook's where p.36 names it (Fire Control, Shield, Fourth Gear) and a plain translation otherwise.",
   "printed": 27,
   "transcribed": 27,
   "cards": [

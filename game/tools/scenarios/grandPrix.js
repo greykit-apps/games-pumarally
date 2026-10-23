@@ -2,7 +2,7 @@
  * repulsor fields and chop shops. The 30th Anniversary boards print them too.
  *
  * The rules are Turn & Burn's own Factory Floor Guide, photographed by the
- * author (manual1/IMG_1464-1466). The classic book has no Grand Prix sheet in
+ * author. The classic book has no Grand Prix sheet in
  * the archive; the author ruled the same rules hold under it (2026-09-27).
  * Where a test holds the engine to a reading of ours rather than the sheet's,
  * it says so.
@@ -80,7 +80,7 @@ function repulsor(b, t, c, r) {
 
 export const TESTS = [
   /* --- trap door pits ------------------------------------------------------
-   * Turn & Burn's Factory Floor Guide (manual1/IMG_1464-1465): a pit during
+   * Turn & Burn's Factory Floor Guide: a pit during
    * the registers printed on it, from the START of each, and open floor
    * otherwise. The same under the classic book, by the author's ruling. */
   ["a trap door pit activates at the start of a register it lists, and a robot on it is lost before it can move", () => {
@@ -250,7 +250,7 @@ export const TESTS = [
   }],
 
   /* --- chop shops -----------------------------------------------------------
-   * Turn & Burn (manual1/IMG_1464) under the 2016 book; nothing yet under the
+   * Turn & Burn under the 2016 book; nothing yet under the
    * classic one, whose chop shop needs ammunition cards that are not built. */
   ["a classic robot with no option card is given one at a chop shop", () => {
     const co = plain((b, t) => t.sites(3, 3, ["chopShop"]));
@@ -325,7 +325,7 @@ export const TESTS = [
     eq(p.energy, e, "down, it collects nothing");
   }],
 
-  /* --- Turn & Burn's upgrades (manual1/IMG_1467-1471) ------------------------ */
+  /* --- Turn & Burn's upgrades ------------------------ */
   ["Slow Processor: a robot carrying it moves one square fewer on a Move 2 or a Move 3", () => {
     for (const [kind, want] of [["move1", 3], ["move2", 3], ["move3", 4]]) {
       const co = plain();

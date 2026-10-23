@@ -73,14 +73,14 @@ export const SITES = {
    *
    * No publisher's rulebook for Radioactive or for its 2016 reprint,
    * Contamination, is in the archive. The classic rules are the Ultimate
-   * RoboRally Collection's (Justin Alexander, a fan compilation):
-   * manual1/roborally-ultimate-collection-rulebook.pdf, pp.4 and 6. The 2016
+   * RoboRally Collection's (Justin Alexander, a fan compilation),
+   * pp.4 and 6. The 2016
    * reading is OURS, decided 2026-09-23: the classic timing, paid in the 2016
    * game's currency -- a point of damage is a damage card, and waste's option
    * card is an Energy or the top upgrade card installed free, which is what a
    * review of Contamination says that box gives. */
   /* A CHOP SHOP PAYS OUT DIFFERENTLY UNDER EACH BOOK.
-   * Turn & Burn's own sheet (manual1/IMG_1464): a robot that ends a register
+   * Turn & Burn's own sheet: a robot that ends a register
    * on one may gain 1 Energy, draw 1 upgrade, or scrap 1 permanent upgrade to
    * install the top card of the upgrade deck at no cost. The classic rule
    * (Ultimate RoboRally Collection p.6, a fan compilation): scrap an option
@@ -92,8 +92,8 @@ export const SITES = {
     name: "Chop shop", short: "a chop shop", printedIn: BOTH,
     place: "rest", props: { chopShop: true },
     source: "Grand Prix; Turn & Burn; the 30th Anniversary boards. 2016: at the end of a register, " +
-            "1 Energy, an upgrade, or a permanent upgrade swapped for the top card free (Turn & Burn, " +
-            "manual1/IMG_1464). Classic: scrap an option for another, refill one's payload, or draw one if the " +
+            "1 Energy, an upgrade, or a permanent upgrade swapped for the top card free (Turn & Burn). " +
+            "Classic: scrap an option for another, refill one's payload, or draw one if the " +
             "robot has none (Ultimate RoboRally Collection p.6, a fan compilation)."
   },
   radiation: {

@@ -1,7 +1,6 @@
-/* The expansion upgrade cards (manual1/IMG_1350-1353: Chaos and Carnage,
- * Thrills and Spills, Wet and Wild) and Master Builder's five (IMG_1446,
- * IMG_1447), one scenario each. Same contract: every name is "ported" in
- * scenarios.js. The four that decide something where no question can be
+/* The expansion upgrade cards (Chaos and Carnage, Thrills and Spills, Wet
+ * and Wild) and Master Builder's five, one scenario each. Same contract:
+ * every name is "ported" in scenarios.js. The four that decide something where no question can be
  * asked (Repulsion Field, Anchor, Bunny Hop, Calculated Odds) are tested to
  * the reading declared on their rows.
  */

@@ -14,7 +14,7 @@
  *
  * Two tables of steps, one per ruleset, sharing what the two games share
  * (the draft, programming, the register loop). The 2016 round is the
- * reference card's (manual1/IMG_1253): upgrade phase, programming phase,
+ * reference card's: upgrade phase, programming phase,
  * activation register by register in Priority Token order, end of round.
  */
 import { courseOf, isHole, inGrid, repairAt, optionSiteAt } from "./course.js";
@@ -54,7 +54,7 @@ export const CLASSIC_ORDER = [
   ["touch", checkpointPass]
 ];
 
-/* The 2016 reference card's order (IMG_1252): blue belts, which convey twice,
+/* The 2016 reference card's order: blue belts, which convey twice,
  * then green belts once, push panels, gears, board lasers and robot weapons
  * (one pass, resolved against one frozen board), then the end of register:
  * batteries, then checkpoints. Crushers sit where the expansion sheets put
@@ -74,7 +74,7 @@ export const MODERN_ORDER = [
    * register damage, before the batteries and the checkpoints */
   ["waste", wastePass],
   /* Turn & Burn's trap doors are not a step here: they activate at the START
-   * of a register printed on them, which `reveal` runs (manual1/IMG_1465) */
+   * of a register printed on them, which `reveal` runs */
   /* Turn & Burn's chop shops pay a robot that ends the register on one; the
    * classic chop shop is inert, and its pass does nothing under that book */
   ["chopShops", chopShopPass],
@@ -746,7 +746,7 @@ const STEPS = {
     reveal(st, C) {
       /* THE START OF THE REGISTER, once: its header, then any trap door
        * printed with this register activates under whoever is standing on
-       * it, who is lost before it can move (Turn & Burn, manual1/IMG_1465).
+       * it, who is lost before it can move (Turn & Burn).
        * Before the options' reveal hooks and before the order is drawn up,
        * so a robot that fell has no card to play this register. */
       const mark = st.turn + ":" + st.register;

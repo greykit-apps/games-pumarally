@@ -1,5 +1,5 @@
 /* The upgrade cards' effects, one scenario each, read off the 2016 rulebook
- * pp.21-23 (manual1/IMG_1264, IMG_1265). The first eleven are in modern.js
+ * pp.21-23. The first eleven are in modern.js
  * where they were built; these are the twenty-seven that followed, and the
  * two declared inert. Same contract: every name is "ported" in scenarios.js.
  */
@@ -56,7 +56,7 @@ export const TESTS = [
   ["every transcribed upgrade is bound: built, or inert and saying why", () => {
     eq(UPGRADE_IDS.length, 63, "sixty-three");
     const inert = UPGRADE_IDS.filter(id => !UPGRADE_DEFS[id].built);
-    eq(inert, [], "none inert: Lucky Booster and Rewire came alive with the Haywire faces (manual1/IMG_1345-1348)");
+    eq(inert, [], "none inert: Lucky Booster and Rewire came alive with the Haywire faces");
     for (const id of UPGRADE_IDS) {
       const d = UPGRADE_DEFS[id];
       if (d.temp && d.built) assert(d.use || Object.keys(d.hooks).length || d.ruled, id + " is a temporary with a use or a hook, or the rules read it by name");

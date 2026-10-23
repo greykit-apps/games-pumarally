@@ -34,7 +34,7 @@ export default {
    * them: see the note in classic.js. Oil and portals are one printed tile each
    * and the editions differ only here.
    *
-   * What makes a robot slide. Thrills and Spills (manual1/IMG_1247-1251): a
+   * What makes a robot slide. Thrills and Spills: a
    * slide is triggered by register movement, by dropping off a belt, and by
    * being pushed -- three triggers where the classic book states one. The
    * slide itself is the same in both books: on until off the oil, a wall, or a
@@ -60,7 +60,7 @@ export default {
     { step: "boardLaser", name: "Board lasers fire", settled: true },
     { step: "robotLaser", name: "Robots fire", settled: true },
     { step: "flamer", name: "Flamers burn what stands in them", settled: true,
-      note: "Thrills and Spills (manual1/IMG_1250): active for the WHOLE register, so a robot takes one " +
+      note: "Thrills and Spills: active for the WHOLE register, so a robot takes one " +
             "each time it enters or is pushed through an active space during the register, and " +
             "'End of Register -- a robot in an active flamer space takes 1 damage'. That end-of-register " +
             "point is this step; the movement points land as the robot moves. A classic flame jet stands " +
@@ -70,11 +70,11 @@ export default {
       note: "Contamination, on the classic timing -- ours, decided 2026-09-23, as no rulebook for " +
             "the box is in hand. What it gives is what a review of Contamination says it gives." },
     { step: "chopShop", name: "Chop shops give an Energy, an upgrade, or a swapped permanent upgrade", settled: true,
-      note: "Turn & Burn (manual1/IMG_1464): a robot that ends a register on one chooses one of the three. " +
+      note: "Turn & Burn: a robot that ends a register on one chooses one of the three. " +
             "With the batteries, at the end of the register." },
     /* NO TRAP DOOR STEP. Turn & Burn's trap door pit is not something the
      * board does at the end of a register: it is a pit for the WHOLE of each
-     * register printed on it, from the start (manual1/IMG_1465). */
+     * register printed on it, from the start. */
     { step: "checkpoint", name: "Energy is taken and checkpoints are touched", settled: true }
   ],
 

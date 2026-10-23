@@ -159,7 +159,7 @@ const BEHAVIOUR = {
     }
   },
 
-  /* --- the AMIGO box's eleven (manual1/IMG_1334-1342) ------------------------ */
+  /* --- the AMIGO box's eleven ------------------------ */
 
   /* "Du kannst wählen, ob dein Roboter ein oder zwei Felder rückwärts geht,
    * wenn du den Befehl 'gehe ein Feld zurück' programmiert hast." */

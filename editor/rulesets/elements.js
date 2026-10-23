@@ -1,5 +1,5 @@
 /* The ground legend: every element either printing prints, as documented by the
- * rulebook and expansion sheets photographed in `rules/` and `manual1/`.
+ * rulebook and expansion sheets.
  *
  * `printedIn` IS PROVENANCE, NOT A CONSTRAINT. It records which printing puts
  * this element on a board, because that is worth knowing; it does not say a
