@@ -22,7 +22,7 @@ export const CLASSIC_DECK = (() => {
   return out;
 })();
 
-/* A robot's twenty, in the order the photograph lays them out (IMG_1308),
+/* A robot's twenty, in the order the photograph lays them out,
  * then the damage deck: forty, all SPAM, because the Haywire faces are not
  * photographed and the split between the two is not printed. */
 export const MODERN_DECK = (() => {

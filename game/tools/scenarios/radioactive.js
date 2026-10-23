@@ -3,8 +3,7 @@
  *
  * No publisher's rulebook for either box is in the archive. The rules are the
  * Ultimate RoboRally Collection's (Justin Alexander, a fan compilation of the
- * classic game and its expansions), manual1/roborally-ultimate-collection-
- * rulebook.pdf, whose own list of departures from the originals names none of
+ * classic game and its expansions), whose own list of departures from the originals names none of
  * these elements. Where the 2016 reading is ours rather than a book's, the
  * test says so.
  *

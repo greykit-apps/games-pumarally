@@ -160,7 +160,7 @@ export function chopShopAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C
 
 export function wasteAt(C, c, r) { return inBoard(C.grid, c, r) && !!propAt(C.grid, c, r, "waste"); }
 
-/* --- Wet and Wild's levels (manual1/IMG_1236): a ledge is any edge whose two
+/* --- Wet and Wild's levels: a ledge is any edge whose two
  * squares differ in level, and a ramp is the one square that spans one ------ */
 export function levelOf(C, c, r) { return inBoard(C.grid, c, r) ? levelAt(C.grid, c, r) : 0; }
 /** Levels climbed (positive) or dropped (negative) stepping from (c,r) in `dir`; 0 off the grid. */
@@ -225,7 +225,7 @@ export function crusherFires(C, c, r, register) {
 
 /**
  * A trap door pit at (c,r) that is active in this 0-based register: a pit for
- * the whole register, from its start (Turn & Burn, manual1/IMG_1465).
+ * the whole register, from its start (Turn & Burn).
  */
 export function trapDoorActive(C, c, r, register) {
   return inBoard(C.grid, c, r) && floorAt(C.grid, c, r, "trapDoor").some(d => firesIn(d.regs || null, (register | 0) + 1));

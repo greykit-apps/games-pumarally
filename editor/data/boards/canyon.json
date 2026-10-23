@@ -7,7 +7,6 @@
   "h": 12,
   "set": "turnAndBurn",
   "origin": "transcribed",
-  "notes": "First pass by classifier and eye from Gareth Taylor's render, 2026-09-23. The canyon (columns 1-10, rows 4-7) is read as one level BELOW the floor, from the shadow its rim casts inward; its six tabs are ramps down into it. The coloured hexes are read as portals: yellow (9,1)-(5,6), red (6,5)-(2,10). Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23. Filed under Turn & Burn, which reprints it a quarter-turn round with batteries for wrenches, by the author's decision of 2026-09-27; Gareth's list files it as Grand Prix. Checked against the Turn & Burn print (manual1/IMG_1472-1477) 2026-09-27: the layout, the trap door registers, the portal pairs and the repulsors all agree with the render it was transcribed from.",
   "ground": {
     "rows": [
       "... Bv. ... ... ... bv. b^. ... ... ... B^. ...",

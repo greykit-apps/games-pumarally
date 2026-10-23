@@ -1,6 +1,6 @@
 /* Crash and Burn: swing doors, portals, oil, presses and burners, and the
- * lives rule. Read off the AMIGO Spielanleitung photographed into manual1/
- * (IMG_1227 to IMG_1229, and the reference cards IMG_1231 and IMG_1232).
+ * lives rule. Read off the AMIGO Spielanleitung and its
+ * reference cards.
  *
  * Same contract as classic.js: every name here is marked "ported" in
  * scenarios.js, and the runner holds the two lists to each other.

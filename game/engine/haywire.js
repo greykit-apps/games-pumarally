@@ -1,5 +1,5 @@
-/* Haywire, the other damage card (2016 rulebook p.18, manual1/IMG_1263; the
- * seventeen faces off IMG_1343 to IMG_1348).
+/* Haywire, the other damage card (2016 rulebook p.18; the
+ * seventeen faces off the deck laid out).
  *
  * "When you receive a Haywire damage card, do not show it to your fellow
  * players or discard it. Instead, place it face down under the programming

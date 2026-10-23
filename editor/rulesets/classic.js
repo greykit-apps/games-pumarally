@@ -37,8 +37,8 @@ export default {
    * two element characters, and merging those must not become forgetting this.
    * check-lib.js asserts both rulesets define both keys and that they disagree.
    *
-   * What makes a robot slide. Crash and Burn (AMIGO Spielanleitung p.7,
-   * manual1/IMG_1227): a robot that ENDS ITS MOVEMENT on oil slides on in the
+   * What makes a robot slide. Crash and Burn (AMIGO Spielanleitung p.7):
+   * a robot that ENDS ITS MOVEMENT on oil slides on in the
    * direction it was going until it reaches a square without oil, or stops
    * before a wall or before a robot that is not itself on oil; a robot on the
    * same slick is shoved along and both slide. "Ein Roboter rutscht nicht,
@@ -52,7 +52,7 @@ export default {
    * and the editions agree on the shove.) */
   oilSlideAfter: ["card"],
 
-  /* When a portal will not fire. Crash and Burn p.8 (manual1/IMG_1228): "Steht
+  /* When a portal will not fire. Crash and Burn p.8: "Steht
    * ein Roboter auf einem Portalfeld, dann sind sofort beide Portale der
    * gleichen Farbe ausgeschaltet" -- a robot standing on EITHER end switches
    * the pair off, and a switched-off portal is ordinary floor. The 2016 sheet

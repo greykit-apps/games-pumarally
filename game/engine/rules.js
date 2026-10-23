@@ -223,8 +223,8 @@ function pushHooks(st, pusher, pushed, dir, cause, failed, hurt) {
 
 /* --- Crash and Burn: portals and oil ------------------------------------------
  *
- * Read off the AMIGO Spielanleitung, pp.7-8 (manual1/IMG_1227, IMG_1228), and
- * the reference card (IMG_1232). Both rulesets carry the edition's reading in
+ * Read off the AMIGO Spielanleitung, pp.7-8, and
+ * the reference card. Both rulesets carry the edition's reading in
  * `oilSlideAfter` and `portalBlockedBy`; see editor/rulesets/classic.js. */
 
 /**
@@ -372,7 +372,7 @@ export function playCard(st, C, p, cd, plan) {
 
 /**
  * A repulsor field throws back what its card drove into it (Turn & Burn's
- * Factory Floor Guide, manual1/IMG_1466): a robot moving into it is pushed
+ * Factory Floor Guide): a robot moving into it is pushed
  * straight away from it as many spaces as the Move card that caused the move,
  * and loses the rest of that move; a robot pushed into it goes back as many
  * as the pusher's Move card, and the pusher loses the rest of its move.
@@ -566,8 +566,8 @@ export function fallsHere(st, C, p) {
 }
 
 /**
- * Turn & Burn's trap door pits, at the START of each register printed on them
- * (manual1/IMG_1465): a robot in the space when the door activates is lost,
+ * Turn & Burn's trap door pits, at the START of each register printed on them:
+ * a robot in the space when the door activates is lost,
  * and cannot escape it. The sheet's own example is a robot that ends
  * register 3 on a door marked 4: it is lost at the start of register 4,
  * before it can move away. Through the rest of the register the door is a pit
@@ -1089,7 +1089,7 @@ export function batteryPass(st, C) {
 export const CHOP_CHOICES = ["Gain 1 Energy", "Draw 1 upgrade", "Scrap a permanent upgrade and install the top card free"];
 
 /**
- * Turn & Burn's chop shop (manual1/IMG_1464): a robot that ends a register on
+ * Turn & Burn's chop shop: a robot that ends a register on
  * one may gain 1 Energy, draw 1 upgrade, or scrap 1 permanent upgrade to
  * install the top card of the upgrade deck at no cost -- one of the three.
  * With the batteries, at the end of the register.
@@ -1221,8 +1221,8 @@ function classicChopShopPass(st, C) {
  *
  * No publisher's rulebook for Radioactive or its 2016 reprint, Contamination,
  * is in the archive. The classic rule is the Ultimate RoboRally Collection's
- * (Justin Alexander, a fan compilation; manual1/roborally-ultimate-collection-
- * rulebook.pdf pp.4 and 6); the 2016 reading is ours, decided 2026-09-23 --
+ * (Justin Alexander, a fan compilation,
+ * pp.4 and 6); the 2016 reading is ours, decided 2026-09-23 --
  * the classic timing, paid in the 2016 game's currency. */
 
 export const WASTE_CHOICES = ["Gain an Energy", "Install the top upgrade card free"];

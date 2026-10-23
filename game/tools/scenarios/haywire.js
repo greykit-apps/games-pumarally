@@ -1,6 +1,6 @@
 /* Haywire, the 2016 game's other damage card: the rule on p.18 of the
- * rulebook (manual1/IMG_1263) and the seventeen faces off the deck laid out
- * (IMG_1343 to IMG_1348). Same contract as the other files: every name is
+ * rulebook and the seventeen faces off the deck laid out.
+ * Same contract as the other files: every name is
  * "ported" in scenarios.js.
  */
 import { board, courseOn, game, N, E, S, W } from "./harness.js";

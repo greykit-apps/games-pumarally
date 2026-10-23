@@ -1,8 +1,6 @@
 /* The three 2016 expansions' floor, one scenario each, read off the Factory
- * Floor Guides photographed into manual1/: Wet and Wild (IMG_1236 to
- * IMG_1239), Chaos and Carnage (IMG_1243), Thrills and Spills (IMG_1248 to
- * IMG_1251). Portals and oil were built with Crash and Burn; the rest is
- * here, on authored boards, since no shipped board prints any of it yet.
+ * Floor Guides: Wet and Wild, Chaos and Carnage, Thrills and Spills. Portals
+ * and oil were built with Crash and Burn; the rest is here, on authored boards, since no shipped board prints any of it yet.
  */
 import { board, courseOn, game, give, runRegister, N, E, S, W } from "./harness.js";
 import { stepRobot, beltPass, laserPass, firstRobotAlong, flamerPass, ledgeUp } from "../../engine/rules.js";

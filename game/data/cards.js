@@ -111,7 +111,7 @@ export default {
     "startLives": 3
   },
   "modern": {
-    "source": "A robot's own deck of twenty, counted off a photograph of one laid out (manual1/IMG_1308); the damage deck of forty counted off IMG_1343 -- twenty-three SPAM and seventeen Haywire, every Haywire face once -- with the faces read off IMG_1345 to IMG_1348.",
+    "source": "A robot's own deck of twenty, counted off a photograph of one laid out; the damage deck of forty counted off the deck laid out -- twenty-three SPAM and seventeen Haywire, every Haywire face once -- with the faces read off the same photographs.",
     "deckCounts": {
       "move1": 4,
       "move2": 3,

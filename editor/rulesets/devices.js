@@ -103,15 +103,15 @@ export const DEVICE_KINDS = {
     printedIn: BOTH,
     source: "Radioactive (1998) and its 2016 reprint Contamination. A wall from the red side, " +
             "nothing from the green: robots and lasers both. Rule from the Ultimate RoboRally " +
-            "Collection (Justin Alexander, a fan compilation), manual1/roborally-ultimate-" +
-            "collection-rulebook.pdf p.12; a review of Contamination says the same."
+            "Collection (Justin Alexander, a fan compilation), " +
+            "its rulebook p.12; a review of Contamination says the same."
   },
 
   /* --- floor layer ------------------------------------------------------ */
 
   /* A TRAP DOOR IS THE FLOOR OF ITS SQUARE, and was a ceiling device until
-   * Turn & Burn's own reference sheet was in hand (manual1/IMG_1464-1465,
-   * 2026-09-27). It is the square: open floor when it is not active and a pit
+   * Turn & Burn's own reference sheet was in hand
+   * (2026-09-27). It is the square: open floor when it is not active and a pit
    * when it is, so nothing else can be printed there. It is still a device
    * rather than a ground character because it carries a register list, and
    * a ground token has one character for its argument. The validator holds
@@ -131,7 +131,7 @@ export const DEVICE_KINDS = {
     printedIn: BOTH,
     regsWhy: "active in every register is a pit, and active in none is floor.",
     source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
-            "Turn & Burn Factory Floor Guide (manual1/IMG_1464-1465): a pit during the registers " +
+            "Turn & Burn Factory Floor Guide: a pit during the registers " +
             "printed on it, from the start of each, and open floor otherwise."
   },
 
@@ -144,7 +144,7 @@ export const DEVICE_KINDS = {
    * is a different outcome from being thrown back, so the field belongs to
    * the square it is printed in and faces the edge it lies along.
    *
-   * The rule is Turn & Burn's own sheet (manual1/IMG_1466): a robot that runs
+   * The rule is Turn & Burn's own sheet: a robot that runs
    * into the field on a Move card is pushed straight away from it as many
    * spaces as the card, and loses the rest of its move; one pushed into it
    * goes back as far as the pusher's card, and the pusher's move ends. It
@@ -161,7 +161,7 @@ export const DEVICE_KINDS = {
     regs: REGS_NONE, fields: {},
     printedIn: BOTH,
     source: "Turn & Burn (2023), reprinting Grand Prix (1997); also the 30th Anniversary boards. " +
-            "Turn & Burn Factory Floor Guide (manual1/IMG_1466): a robot running into it on a Move " +
+            "Turn & Burn Factory Floor Guide: a robot running into it on a Move " +
             "card is pushed straight back that card's value and loses the rest of its move; one pushed " +
             "into it goes back the pusher's card, and the pusher's move ends; a wall to lasers."
   },

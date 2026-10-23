@@ -7,7 +7,6 @@
   "h": 12,
   "set": "origins99",
   "origin": "transcribed",
-  "notes": "First pass by eye from Gareth Taylor's render of the Origins '99 tournament final, 2026-09-23. Levels come from the ledges and their shadows: the outer floor is 0, each ring inward one higher, and the centre square (5,5) is 3, reached by four ramps printed 'steep'. The page passes on a tournament comment that a steep ramp needs a Move 3 to climb; the engine treats every ramp alike. Portal pairs by colour: yellow (0,2)-(8,9), red (9,0)-(1,9), dark red (2,3)-(11,6), green (6,1)-(5,11). The pusher at (6,7) prints only 3 and 5 legibly: read as 1 3 5. Checked against the render, with sites and flag locations added, by the author: verified 2026-09-23.",
   "ground": {
     "rows": [
       "... ... ... ... ... ... ... ... ... t9. ... ...",
