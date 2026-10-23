@@ -7,7 +7,6 @@
   "h": 6,
   "set": "masterBuilder",
   "origin": "transcribed",
-  "notes": "Master Builder 6x6 board 'The Wave'. Transcribed by eye (the boardscan/wallscan tools are hardcoded 12x12 and do not run on a 6x6). A clockwise green conveyor loop with left/right wave-bumps, 2 batteries, one westward laser at (5,1), a pit at (3,6), two flag spots at (3,3) and (5,6). Verified in the workshop against the photograph.",
   "ground": {
     "rows": [
       "... ... ... ... ... ...",

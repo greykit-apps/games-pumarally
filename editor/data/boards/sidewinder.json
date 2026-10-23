@@ -7,7 +7,6 @@
   "h": 12,
   "set": "modernBase",
   "origin": "transcribed",
-  "notes": "Squares and belt directions drafted by maps/boardscan.py and re-oriented by propagation from three hand-read straight arrows; walls and laser beams measured; batteries, pit and laser mounts/damage read at magnification. Belt arms (curves) are derived and to be checked in the workshop against the photograph.",
   "ground": {
     "rows": [
       "... Bv. ... ... ... ... ... ... ... ... ... ...",

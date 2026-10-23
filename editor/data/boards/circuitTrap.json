@@ -7,7 +7,6 @@
   "h": 12,
   "set": "armedAndDangerous",
   "origin": "transcribed",
-  "notes": "Belt squares and directions drafted by maps/boardscan.py + propagation, seeded from hand-read arrows; walls and laser beams measured; batteries, pits, crushers, push-panel and laser mounts read at magnification. Belt arms, the four ring conveyors' spin, the col-3 laser cluster and the push-panel faces are to be confirmed in the workshop against the photograph.",
   "ground": {
     "rows": [
       "... bv. o.. ... ... bv. b^. ... ... o.. b^. ...",

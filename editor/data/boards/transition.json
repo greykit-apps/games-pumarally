@@ -7,7 +7,6 @@
   "h": 12,
   "set": "wetAndWild",
   "origin": "transcribed",
-  "notes": "Belt squares/directions drafted by maps/boardscan.py + propagation from hand-read seeds; walls and laser beams measured; gears, crushers, push-panels, batteries and pits read at magnification. Push-panel faces (esp. the interior ones at (9,2),(2,4),(12,3)), laser damage, and belt arms are to be confirmed in the workshop against the photograph.",
   "ground": {
     "rows": [
       "o.. Bv. ... b^. ... Bv. b^. ... Bv. ... ... Bv.",
